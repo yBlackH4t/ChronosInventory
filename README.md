@@ -80,7 +80,7 @@ Local do banco:
 
 ```
 %APPDATA%\Chronos Inventory
-
+```
 ---
 
 # 🚀 Instalação (Usuário Final)
@@ -147,7 +147,7 @@ npm run build:app
 Saída:
 ```
 *.msi
-
+```
 ---
 
 # 📁 Estrutura do Projeto
