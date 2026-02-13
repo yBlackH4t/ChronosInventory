@@ -62,13 +62,27 @@ jobs:
           $outDir = "frontend/src-tauri/webview2"
           New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-          $query = Invoke-RestMethod "https://azuresearch-usnc.nuget.org/query?q=WebView2.Runtime.X64&prerelease=false&take=1"
-          if (-not $query.data -or $query.data.Count -eq 0) {
-            throw "Pacote WebView2.Runtime.X64 nao encontrado no NuGet."
+          $searches = @(
+            "Microsoft.WebView2.FixedVersionRuntime.x64",
+            "WebView2.FixedVersionRuntime.x64",
+            "WebView2.Runtime.X64"
+          )
+
+          $pkgId = $null
+          $version = $null
+          foreach ($term in $searches) {
+            $query = Invoke-RestMethod "https://azuresearch-usnc.nuget.org/query?q=$term&prerelease=false&take=1"
+            if ($query.data -and $query.data.Count -gt 0) {
+              $pkgId = $query.data[0].id
+              $version = $query.data[0].version
+              break
+            }
           }
 
-          $pkgId = $query.data[0].id
-          $version = $query.data[0].version
+          if (-not $pkgId) {
+            throw "Nenhum pacote de WebView2 fixed runtime foi encontrado no NuGet."
+          }
+
           Write-Host "Baixando fixed runtime: $pkgId $version"
 
           $tmpDir = Join-Path $env:RUNNER_TEMP "webview2-fixed-runtime"
@@ -81,14 +95,30 @@ jobs:
           $extractDir = Join-Path $tmpDir "extract"
           Expand-Archive -Path $nupkgPath -DestinationPath $extractDir -Force
 
+          # Tenta layout comum de pacote NuGet.
           $nativeDir = Join-Path $extractDir "runtimes/win-x64/native"
-          if (-not (Test-Path $nativeDir)) {
-            throw "Estrutura inesperada no pacote. Caminho ausente: $nativeDir"
+          if (Test-Path $nativeDir) {
+            Copy-Item (Join-Path $nativeDir "*") $outDir -Recurse -Force
+          } else {
+            # Alguns pacotes trazem um CAB da fixed runtime.
+            $cab = Get-ChildItem -Path $extractDir -Recurse -Filter "*.cab" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cab) {
+              Write-Host "Extraindo CAB encontrado: $($cab.FullName)"
+              expand.exe $cab.FullName -F:* $outDir | Out-Null
+            } else {
+              # Fallback: localiza pasta que contenha msedge.dll.
+              $dll = Get-ChildItem -Path $extractDir -Recurse -Filter "msedge.dll" -ErrorAction SilentlyContinue | Select-Object -First 1
+              if (-not $dll) {
+                Write-Host "Arquivos extraidos (diagnostico):"
+                Get-ChildItem -Path $extractDir -Recurse | Select-Object -First 50 FullName | ForEach-Object { Write-Host $_.FullName }
+                throw "Nao foi possivel localizar runtime WebView2 dentro do pacote baixado."
+              }
+              Copy-Item (Join-Path $dll.Directory.FullName "*") $outDir -Recurse -Force
+            }
           }
 
-          Copy-Item (Join-Path $nativeDir "*") $outDir -Recurse -Force
-          if (-not (Test-Path (Join-Path $outDir "msedge.dll"))) {
-            throw "WebView2 fixed runtime nao foi extraido corretamente (msedge.dll ausente)."
+          if (-not (Test-Path (Join-Path $outDir "msedge.dll")) -and -not (Test-Path (Join-Path $outDir "msedge.exe"))) {
+            throw "WebView2 fixed runtime nao foi extraido corretamente (msedge.dll/msedge.exe ausente)."
           }
 
       - name: Build and sign bundles
