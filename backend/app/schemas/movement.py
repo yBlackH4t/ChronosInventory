@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 Location = Literal["CANOAS", "PF"]
 MovementType = Literal["ENTRADA", "SAIDA", "TRANSFERENCIA"]
+MovementNature = Literal["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE"]
 
 
 class MovementCreate(BaseModel):
@@ -17,6 +18,10 @@ class MovementCreate(BaseModel):
     origem: Optional[Location] = None
     destino: Optional[Location] = None
     observacao: Optional[str] = Field(default=None, max_length=200)
+    natureza: Optional[MovementNature] = None
+    local_externo: Optional[str] = Field(default=None, max_length=120)
+    documento: Optional[str] = Field(default=None, max_length=120)
+    movimento_ref_id: Optional[int] = Field(default=None, ge=1)
     data: Optional[datetime] = None
 
 
@@ -29,4 +34,8 @@ class MovementOut(BaseModel):
     origem: Optional[Location] = None
     destino: Optional[Location] = None
     observacao: Optional[str] = None
+    natureza: MovementNature = "OPERACAO_NORMAL"
+    local_externo: Optional[str] = None
+    documento: Optional[str] = None
+    movimento_ref_id: Optional[int] = None
     data: datetime

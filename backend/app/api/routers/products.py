@@ -332,6 +332,7 @@ def get_product_history(
     records, total_items = movement_service.list_movements(
         produto_id=product_id,
         tipo=None,
+        natureza=None,
         origem=None,
         destino=None,
         date_from=None,
@@ -363,6 +364,10 @@ def get_product_history(
             origem=record.origem,
             destino=record.destino,
             observacao=record.observacao,
+            natureza=record.natureza,
+            local_externo=record.local_externo,
+            documento=record.documento,
+            movimento_ref_id=record.movimento_ref_id,
             data=record.data,
         )
         for record in records

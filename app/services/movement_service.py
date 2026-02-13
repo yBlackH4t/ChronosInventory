@@ -25,6 +25,24 @@ LOCATION_MAP = {
     "PF": "Passo Fundo",
 }
 
+NATUREZA_OPERACAO_NORMAL = "OPERACAO_NORMAL"
+NATUREZA_TRANSFERENCIA_EXTERNA = "TRANSFERENCIA_EXTERNA"
+NATUREZA_DEVOLUCAO = "DEVOLUCAO"
+NATUREZA_AJUSTE = "AJUSTE"
+NATUREZAS_VALIDAS = {
+    NATUREZA_OPERACAO_NORMAL,
+    NATUREZA_TRANSFERENCIA_EXTERNA,
+    NATUREZA_DEVOLUCAO,
+    NATUREZA_AJUSTE,
+}
+
+NATUREZA_LABEL_MAP = {
+    NATUREZA_OPERACAO_NORMAL: "Operacao normal",
+    NATUREZA_TRANSFERENCIA_EXTERNA: "Transferencia externa",
+    NATUREZA_DEVOLUCAO: "Devolucao",
+    NATUREZA_AJUSTE: "Ajuste",
+}
+
 
 @dataclass
 class MovementRecord:
@@ -36,6 +54,10 @@ class MovementRecord:
     origem: Optional[str]
     destino: Optional[str]
     observacao: Optional[str]
+    natureza: str
+    local_externo: Optional[str]
+    documento: Optional[str]
+    movimento_ref_id: Optional[int]
     data: datetime
 
 
@@ -54,11 +76,19 @@ class MovementService:
         origem: Optional[str],
         destino: Optional[str],
         observacao: Optional[str],
+        natureza: Optional[str],
+        local_externo: Optional[str],
+        documento: Optional[str],
+        movimento_ref_id: Optional[int],
         data: Optional[datetime],
     ) -> MovementRecord:
         tipo = tipo.upper()
         origem = self._normalize_location(origem)
         destino = self._normalize_location(destino)
+        natureza = self._normalize_natureza(natureza)
+        observacao = observacao.strip() if observacao else None
+        local_externo = local_externo.strip() if local_externo else None
+        documento = documento.strip() if documento else None
 
         if tipo == "ENTRADA":
             if not destino:
@@ -73,6 +103,12 @@ class MovementService:
                 raise InvalidTransferException("Origem e destino devem ser diferentes.")
         else:
             raise ValidationException("Tipo de movimentacao invalido.")
+
+        self._validate_business_rules(tipo, natureza, local_externo)
+        if natureza != NATUREZA_TRANSFERENCIA_EXTERNA:
+            local_externo = None
+        if natureza != NATUREZA_DEVOLUCAO:
+            movimento_ref_id = None
 
         StockMovementValidator.validate_movement_data(
             tipo,
@@ -91,6 +127,25 @@ class MovementService:
             if not product:
                 raise ProductNotFoundException(f"Produto com ID {produto_id} nao encontrado.")
 
+            if natureza == NATUREZA_DEVOLUCAO:
+                if not movimento_ref_id:
+                    raise ValidationException("Informe o movimento de referencia para DEVOLUCAO.")
+                ref_movement = self.repo.get_movement_by_id(conn, int(movimento_ref_id))
+                if not ref_movement:
+                    raise ValidationException("Movimento de referencia nao encontrado.")
+                if str(ref_movement.get("tipo", "")).upper() != "SAIDA":
+                    raise ValidationException("Movimento de referencia deve ser do tipo SAIDA.")
+                if int(ref_movement.get("produto_id") or 0) != int(produto_id):
+                    raise ValidationException("Movimento de referencia deve ser do mesmo produto.")
+
+                devolvido = self.repo.get_total_devolucao_by_ref(conn, int(movimento_ref_id))
+                original_saida = int(ref_movement.get("quantidade") or 0)
+                saldo_devolucao = max(original_saida - devolvido, 0)
+                if quantidade > saldo_devolucao:
+                    raise ValidationException(
+                        "Quantidade de devolucao excede saldo disponivel da saida referenciada."
+                    )
+
             delta_canoas, delta_pf = self._compute_deltas(tipo, quantidade, origem, destino)
 
             if delta_canoas < 0:
@@ -100,7 +155,16 @@ class MovementService:
 
             self.repo.update_stock(conn, produto_id, delta_canoas, delta_pf)
 
-            history_obs = self._build_history_observation(tipo, origem, destino, observacao)
+            history_obs = self._build_history_observation(
+                tipo=tipo,
+                origem=origem,
+                destino=destino,
+                observacao=observacao,
+                natureza=natureza,
+                local_externo=local_externo,
+                documento=documento,
+                movimento_ref_id=movimento_ref_id,
+            )
             self.repo.insert_history(conn, tipo, product["nome"], quantidade, history_obs, data_hora)
 
             movement_id = self.repo.insert_movement(
@@ -111,6 +175,10 @@ class MovementService:
                 origem,
                 destino,
                 observacao,
+                natureza,
+                local_externo,
+                documento,
+                movimento_ref_id,
                 data_hora,
             )
 
@@ -124,6 +192,10 @@ class MovementService:
                 origem=origem,
                 destino=destino,
                 observacao=observacao,
+                natureza=natureza,
+                local_externo=local_externo,
+                documento=documento,
+                movimento_ref_id=movimento_ref_id,
                 data=datetime.fromisoformat(data_hora),
             )
         except (ValidationException, InvalidTransferException, InsufficientStockException, ProductNotFoundException):
@@ -139,6 +211,7 @@ class MovementService:
         self,
         produto_id: Optional[int],
         tipo: Optional[str],
+        natureza: Optional[str],
         origem: Optional[str],
         destino: Optional[str],
         date_from: Optional[datetime],
@@ -154,6 +227,7 @@ class MovementService:
         rows = self.repo.list_movements(
             produto_id=produto_id,
             tipo=tipo,
+            natureza=natureza,
             origem=origem,
             destino=destino,
             date_from=df,
@@ -166,6 +240,7 @@ class MovementService:
         total = self.repo.count_movements(
             produto_id=produto_id,
             tipo=tipo,
+            natureza=natureza,
             origem=origem,
             destino=destino,
             date_from=df,
@@ -182,6 +257,10 @@ class MovementService:
                 origem=row["origem"],
                 destino=row["destino"],
                 observacao=row.get("observacao"),
+                natureza=row.get("natureza") or NATUREZA_OPERACAO_NORMAL,
+                local_externo=row.get("local_externo"),
+                documento=row.get("documento"),
+                movimento_ref_id=row.get("movimento_ref_id"),
                 data=datetime.fromisoformat(row["data_hora"]),
             )
             for row in rows
@@ -379,6 +458,10 @@ class MovementService:
         origem: Optional[str],
         destino: Optional[str],
         observacao: Optional[str],
+        natureza: str,
+        local_externo: Optional[str],
+        documento: Optional[str],
+        movimento_ref_id: Optional[int],
     ) -> str:
         if tipo == "TRANSFERENCIA":
             base = f"{self._to_human(origem)} -> {self._to_human(destino)}"
@@ -387,11 +470,46 @@ class MovementService:
         else:
             base = f"Saida em {self._to_human(origem)}"
 
+        details: List[str] = []
+        if natureza != NATUREZA_OPERACAO_NORMAL:
+            details.append(f"Natureza: {NATUREZA_LABEL_MAP.get(natureza, natureza)}")
+        if local_externo:
+            details.append(f"Local externo: {local_externo}")
+        if documento:
+            details.append(f"Documento: {documento}")
+        if movimento_ref_id:
+            details.append(f"Movimento ref: {movimento_ref_id}")
         if observacao:
-            return f"{base} | {observacao}"
+            details.append(observacao)
+
+        if details:
+            return f"{base} | {' | '.join(details)}"
         return base
 
     def _to_human(self, loc: Optional[str]) -> str:
         if not loc:
             return ""
         return LOCATION_MAP[loc]
+
+    def _normalize_natureza(self, natureza: Optional[str]) -> str:
+        if not natureza:
+            return NATUREZA_OPERACAO_NORMAL
+        natureza = natureza.upper()
+        if natureza not in NATUREZAS_VALIDAS:
+            raise ValidationException("Natureza invalida.")
+        return natureza
+
+    def _validate_business_rules(
+        self,
+        tipo: str,
+        natureza: str,
+        local_externo: Optional[str],
+    ) -> None:
+        if natureza == NATUREZA_DEVOLUCAO and tipo != "ENTRADA":
+            raise ValidationException("Natureza DEVOLUCAO exige movimentacao do tipo ENTRADA.")
+
+        if natureza == NATUREZA_TRANSFERENCIA_EXTERNA:
+            if tipo != "SAIDA":
+                raise ValidationException("Natureza TRANSFERENCIA_EXTERNA exige movimentacao do tipo SAIDA.")
+            if not local_externo:
+                raise ValidationException("Informe o local externo para TRANSFERENCIA_EXTERNA.")

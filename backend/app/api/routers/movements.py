@@ -39,6 +39,16 @@ def _validate_location(loc: str | None) -> str | None:
     return loc
 
 
+def _validate_natureza(natureza: str | None) -> str | None:
+    if natureza is None:
+        return None
+    natureza = natureza.upper()
+    allowed = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE"}
+    if natureza not in allowed:
+        raise ValidationException("Natureza invalida.")
+    return natureza
+
+
 @router.post("", response_model=SuccessResponse[MovementOut], status_code=201)
 def create_movement(
     payload: MovementCreate,
@@ -51,6 +61,10 @@ def create_movement(
         origem=payload.origem,
         destino=payload.destino,
         observacao=payload.observacao,
+        natureza=payload.natureza,
+        local_externo=payload.local_externo,
+        documento=payload.documento,
+        movimento_ref_id=payload.movimento_ref_id,
         data=payload.data,
     )
 
@@ -63,6 +77,10 @@ def create_movement(
         origem=record.origem,
         destino=record.destino,
         observacao=record.observacao,
+        natureza=record.natureza,
+        local_externo=record.local_externo,
+        documento=record.documento,
+        movimento_ref_id=record.movimento_ref_id,
         data=record.data,
     ), status_code=201)
 
@@ -71,6 +89,7 @@ def create_movement(
 def list_movements(
     produto_id: int | None = None,
     tipo: str | None = None,
+    natureza: str | None = None,
     origem: str | None = None,
     destino: str | None = None,
     date_from: datetime | None = None,
@@ -86,6 +105,7 @@ def list_movements(
     if tipo and tipo not in {"ENTRADA", "SAIDA", "TRANSFERENCIA"}:
         raise ValidationException("Tipo invalido.")
 
+    natureza = _validate_natureza(natureza)
     origem = _validate_location(origem)
     destino = _validate_location(destino)
 
@@ -93,6 +113,7 @@ def list_movements(
     records, total_items = movement_service.list_movements(
         produto_id=produto_id,
         tipo=tipo,
+        natureza=natureza,
         origem=origem,
         destino=destino,
         date_from=date_from,
@@ -124,6 +145,10 @@ def list_movements(
             origem=record.origem,
             destino=record.destino,
             observacao=record.observacao,
+            natureza=record.natureza,
+            local_externo=record.local_externo,
+            documento=record.documento,
+            movimento_ref_id=record.movimento_ref_id,
             data=record.data,
         )
         for record in records

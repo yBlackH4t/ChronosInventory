@@ -62,12 +62,38 @@ const LOCATIONS = [
 ];
 
 type MovementType = "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
+type MovementNature = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
 const MAX_IMAGES = 5;
+
+const MOVEMENT_NATURE_OPTIONS: { value: MovementNature; label: string }[] = [
+  { value: "OPERACAO_NORMAL", label: "Operacao normal" },
+  { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
+  { value: "DEVOLUCAO", label: "Devolucao" },
+  { value: "AJUSTE", label: "Ajuste" },
+];
 
 function movementColor(tipo: MovementType) {
   if (tipo === "ENTRADA") return "green";
   if (tipo === "SAIDA") return "red";
   return "yellow";
+}
+
+function movementNatureLabel(natureza: MovementNature) {
+  return MOVEMENT_NATURE_OPTIONS.find((item) => item.value === natureza)?.label ?? natureza;
+}
+
+function movementNatureOptionsByType(tipo: MovementType): { value: MovementNature; label: string }[] {
+  if (tipo === "ENTRADA") {
+    return MOVEMENT_NATURE_OPTIONS.filter((item) =>
+      item.value === "OPERACAO_NORMAL" || item.value === "DEVOLUCAO" || item.value === "AJUSTE"
+    );
+  }
+  if (tipo === "SAIDA") {
+    return MOVEMENT_NATURE_OPTIONS.filter((item) =>
+      item.value === "OPERACAO_NORMAL" || item.value === "TRANSFERENCIA_EXTERNA" || item.value === "AJUSTE"
+    );
+  }
+  return MOVEMENT_NATURE_OPTIONS.filter((item) => item.value !== "DEVOLUCAO" && item.value !== "TRANSFERENCIA_EXTERNA");
 }
 
 export default function ProductsPage() {
@@ -312,6 +338,10 @@ export default function ProductsPage() {
       origem: "CANOAS",
       destino: "CANOAS",
       observacao: "",
+      natureza: "OPERACAO_NORMAL",
+      local_externo: "",
+      documento: "",
+      movimento_ref_id: undefined,
     },
     validate: {
       quantidade: (value) => (value <= 0 ? "Quantidade invalida" : null),
@@ -319,6 +349,29 @@ export default function ProductsPage() {
         values.tipo !== "ENTRADA" && !value ? "Origem obrigatoria" : null,
       destino: (value, values) =>
         values.tipo !== "SAIDA" && !value ? "Destino obrigatorio" : null,
+      natureza: (value, values) => {
+        if (!value) return "Natureza obrigatoria";
+        if (value === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
+          return "Devolucao so pode ser ENTRADA";
+        }
+        if (value === "TRANSFERENCIA_EXTERNA" && values.tipo !== "SAIDA") {
+          return "Transferencia externa so pode ser SAIDA";
+        }
+        return null;
+      },
+      local_externo: (value, values) =>
+        values.natureza === "TRANSFERENCIA_EXTERNA" && !(value || "").trim()
+          ? "Informe o local externo"
+          : null,
+      movimento_ref_id: (value, values) => {
+        if (values.natureza === "DEVOLUCAO" && (!value || value < 1)) {
+          return "Informe o movimento de referencia";
+        }
+        if (value !== undefined && value !== null && value < 1) {
+          return "Movimento de referencia invalido";
+        }
+        return null;
+      },
     },
   });
 
@@ -346,6 +399,10 @@ export default function ProductsPage() {
       origem: next === "ENTRADA" ? undefined : "CANOAS",
       destino: next === "SAIDA" ? undefined : "CANOAS",
       observacao: "",
+      natureza: "OPERACAO_NORMAL",
+      local_externo: "",
+      documento: "",
+      movimento_ref_id: undefined,
     });
   };
 
@@ -355,12 +412,32 @@ export default function ProductsPage() {
       movementForm.setFieldError("destino", "Destino deve ser diferente da origem");
       return;
     }
+    if (values.natureza === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
+      movementForm.setFieldError("natureza", "Devolucao so pode ser ENTRADA");
+      return;
+    }
+    if (values.natureza === "TRANSFERENCIA_EXTERNA" && values.tipo !== "SAIDA") {
+      movementForm.setFieldError("natureza", "Transferencia externa so pode ser SAIDA");
+      return;
+    }
+    if (values.natureza === "TRANSFERENCIA_EXTERNA" && !(values.local_externo || "").trim()) {
+      movementForm.setFieldError("local_externo", "Informe o local externo");
+      return;
+    }
+    if (values.natureza === "DEVOLUCAO" && (!values.movimento_ref_id || values.movimento_ref_id < 1)) {
+      movementForm.setFieldError("movimento_ref_id", "Informe o movimento de referencia");
+      return;
+    }
 
     createMovementMutation.mutate({
       ...values,
       produto_id: selectedId,
       origem: values.tipo === "ENTRADA" ? undefined : values.origem,
       destino: values.tipo === "SAIDA" ? undefined : values.destino,
+      observacao: values.observacao?.trim() || undefined,
+      local_externo: values.local_externo?.trim() || undefined,
+      documento: values.documento?.trim() || undefined,
+      movimento_ref_id: values.movimento_ref_id || undefined,
     });
   });
 
@@ -702,6 +779,34 @@ export default function ProductsPage() {
                         {...movementForm.getInputProps("destino")}
                       />
                     )}
+                    <Select
+                      label="Natureza"
+                      data={movementNatureOptionsByType(movementForm.values.tipo)}
+                      w={220}
+                      {...movementForm.getInputProps("natureza")}
+                    />
+                    {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
+                      <TextInput
+                        label="Local externo"
+                        w={220}
+                        placeholder="Ex: Matriz, Maringa"
+                        {...movementForm.getInputProps("local_externo")}
+                      />
+                    )}
+                    <TextInput
+                      label="Documento (NF)"
+                      w={180}
+                      placeholder="Ex: NF 12345"
+                      {...movementForm.getInputProps("documento")}
+                    />
+                    {movementForm.values.natureza === "DEVOLUCAO" && (
+                      <NumberInput
+                        label="Mov. referencia"
+                        min={1}
+                        w={170}
+                        {...movementForm.getInputProps("movimento_ref_id")}
+                      />
+                    )}
                     <TextInput
                       label="Observacao"
                       w={240}
@@ -739,9 +844,13 @@ export default function ProductsPage() {
                       <Table.Tr>
                         <Table.Th>ID</Table.Th>
                         <Table.Th>Tipo</Table.Th>
+                        <Table.Th>Natureza</Table.Th>
                         <Table.Th>Qtd</Table.Th>
                         <Table.Th>Origem</Table.Th>
                         <Table.Th>Destino</Table.Th>
+                        <Table.Th>Documento</Table.Th>
+                        <Table.Th>Local externo</Table.Th>
+                        <Table.Th>Observacao</Table.Th>
                         <Table.Th>Data</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
@@ -754,15 +863,19 @@ export default function ProductsPage() {
                               {mov.tipo}
                             </Badge>
                           </Table.Td>
+                          <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
                           <Table.Td>{mov.quantidade}</Table.Td>
                           <Table.Td>{mov.origem || "-"}</Table.Td>
                           <Table.Td>{mov.destino || "-"}</Table.Td>
+                          <Table.Td>{mov.documento || "-"}</Table.Td>
+                          <Table.Td>{mov.local_externo || "-"}</Table.Td>
+                          <Table.Td>{mov.observacao || "-"}</Table.Td>
                           <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
                         </Table.Tr>
                       ))}
                       {historyQuery.data?.data?.length === 0 && (
                         <Table.Tr>
-                          <Table.Td colSpan={6}>
+                          <Table.Td colSpan={10}>
                             <Text c="dimmed" ta="center">
                               Sem historico
                             </Text>

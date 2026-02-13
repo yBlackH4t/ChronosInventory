@@ -29,6 +29,13 @@ const MOVEMENT_TYPES = [
   { value: "TRANSFERENCIA", label: "Transferencia" },
 ];
 
+const MOVEMENT_NATURES = [
+  { value: "OPERACAO_NORMAL", label: "Operacao normal" },
+  { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
+  { value: "DEVOLUCAO", label: "Devolucao" },
+  { value: "AJUSTE", label: "Ajuste" },
+];
+
 const LOCATIONS = [
   { value: "CANOAS", label: "Canoas" },
   { value: "PF", label: "Passo Fundo" },
@@ -37,6 +44,7 @@ const LOCATIONS = [
 type MovementFilters = {
   produto_id: string;
   tipo: "" | MovementCreate["tipo"];
+  natureza: "" | NonNullable<MovementCreate["natureza"]>;
   origem: "" | "CANOAS" | "PF";
   destino: "" | "CANOAS" | "PF";
   date_from: Date | null;
@@ -47,6 +55,10 @@ function movementColor(tipo: MovementOut["tipo"]) {
   if (tipo === "ENTRADA") return "green";
   if (tipo === "SAIDA") return "red";
   return "yellow";
+}
+
+function movementNatureLabel(natureza: MovementOut["natureza"]) {
+  return MOVEMENT_NATURES.find((item) => item.value === natureza)?.label ?? natureza;
 }
 
 export default function MovementsPage() {
@@ -65,6 +77,7 @@ export default function MovementsPage() {
     initialValues: {
       produto_id: "",
       tipo: "",
+      natureza: "",
       origem: "",
       destino: "",
       date_from: null,
@@ -102,6 +115,7 @@ export default function MovementsPage() {
             ? Number(filtersForm.values.produto_id)
             : undefined,
           tipo: filtersForm.values.tipo || undefined,
+          natureza: filtersForm.values.natureza || undefined,
           origem: filtersForm.values.origem || undefined,
           destino: filtersForm.values.destino || undefined,
           date_from: filtersForm.values.date_from
@@ -176,6 +190,7 @@ export default function MovementsPage() {
             rightSection={productLookupQuery.isFetching ? <Loader size="xs" /> : undefined}
           />
           <Select label="Tipo" data={MOVEMENT_TYPES} {...filtersForm.getInputProps("tipo")} w={180} />
+          <Select label="Natureza" data={MOVEMENT_NATURES} {...filtersForm.getInputProps("natureza")} w={220} />
           <Select label="Origem" data={LOCATIONS} {...filtersForm.getInputProps("origem")} w={140} />
           <Select label="Destino" data={LOCATIONS} {...filtersForm.getInputProps("destino")} w={140} />
           <DatePickerInput
@@ -209,9 +224,13 @@ export default function MovementsPage() {
               <Table.Th>ID</Table.Th>
               <Table.Th>Produto</Table.Th>
               <Table.Th>Tipo</Table.Th>
+              <Table.Th>Natureza</Table.Th>
               <Table.Th>Qtd</Table.Th>
               <Table.Th>Origem</Table.Th>
               <Table.Th>Destino</Table.Th>
+              <Table.Th>Documento</Table.Th>
+              <Table.Th>Local externo</Table.Th>
+              <Table.Th>Observacao</Table.Th>
               <Table.Th>Data</Table.Th>
               <Table.Th>Acoes</Table.Th>
             </Table.Tr>
@@ -226,9 +245,13 @@ export default function MovementsPage() {
                     {mov.tipo}
                   </Badge>
                 </Table.Td>
+                <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
                 <Table.Td>{mov.quantidade}</Table.Td>
                 <Table.Td>{mov.origem || "-"}</Table.Td>
                 <Table.Td>{mov.destino || "-"}</Table.Td>
+                <Table.Td>{mov.documento || "-"}</Table.Td>
+                <Table.Td>{mov.local_externo || "-"}</Table.Td>
+                <Table.Td>{mov.observacao || "-"}</Table.Td>
                 <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
                 <Table.Td>
                   <Button size="xs" variant="light" onClick={() => openHistory(mov.produto_id)}>
@@ -239,7 +262,7 @@ export default function MovementsPage() {
             ))}
             {listQuery.data?.data?.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={8}>
+                <Table.Td colSpan={12}>
                   <Text c="dimmed" ta="center">
                     Nenhuma movimentacao encontrada
                   </Text>
@@ -261,9 +284,13 @@ export default function MovementsPage() {
             <Table.Tr>
               <Table.Th>ID</Table.Th>
               <Table.Th>Tipo</Table.Th>
+              <Table.Th>Natureza</Table.Th>
               <Table.Th>Qtd</Table.Th>
               <Table.Th>Origem</Table.Th>
               <Table.Th>Destino</Table.Th>
+              <Table.Th>Documento</Table.Th>
+              <Table.Th>Local externo</Table.Th>
+              <Table.Th>Observacao</Table.Th>
               <Table.Th>Data</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -276,15 +303,19 @@ export default function MovementsPage() {
                     {mov.tipo}
                   </Badge>
                 </Table.Td>
+                <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
                 <Table.Td>{mov.quantidade}</Table.Td>
                 <Table.Td>{mov.origem || "-"}</Table.Td>
                 <Table.Td>{mov.destino || "-"}</Table.Td>
+                <Table.Td>{mov.documento || "-"}</Table.Td>
+                <Table.Td>{mov.local_externo || "-"}</Table.Td>
+                <Table.Td>{mov.observacao || "-"}</Table.Td>
                 <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
               </Table.Tr>
             ))}
             {historyQuery.data?.data?.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={6}>
+                <Table.Td colSpan={10}>
                   <Text c="dimmed" ta="center">Sem historico</Text>
                 </Table.Td>
               </Table.Tr>

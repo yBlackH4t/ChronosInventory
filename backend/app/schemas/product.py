@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
+PRODUCT_OBSERVACAO_MAX_LENGTH = 2000
+
 
 class ProductOut(BaseModel):
     id: int
@@ -19,7 +21,7 @@ class ProductCreate(BaseModel):
     nome: str = Field(min_length=1, max_length=255)
     qtd_canoas: int = Field(ge=0)
     qtd_pf: int = Field(ge=0)
-    observacao: Optional[str] = Field(default=None, max_length=500)
+    observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
 
 
 class ProductPut(BaseModel):
@@ -28,7 +30,7 @@ class ProductPut(BaseModel):
     nome: str = Field(min_length=1, max_length=255)
     qtd_canoas: int = Field(ge=0)
     qtd_pf: int = Field(ge=0)
-    observacao: Optional[str] = Field(default=None, max_length=500)
+    observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
 
 
 class ProductPatch(BaseModel):
@@ -37,7 +39,7 @@ class ProductPatch(BaseModel):
     nome: Optional[str] = Field(default=None, min_length=1, max_length=255)
     qtd_canoas: Optional[int] = Field(default=None, ge=0)
     qtd_pf: Optional[int] = Field(default=None, ge=0)
-    observacao: Optional[str] = Field(default=None, max_length=500)
+    observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
 
 
 class ProductImageOut(BaseModel):

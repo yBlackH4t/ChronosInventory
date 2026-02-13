@@ -94,6 +94,10 @@ export type MovementCreate = {
   origem?: "CANOAS" | "PF";
   destino?: "CANOAS" | "PF";
   observacao?: string;
+  natureza?: "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
+  local_externo?: string;
+  documento?: string;
+  movimento_ref_id?: number;
   data?: string;
 };
 
@@ -106,12 +110,17 @@ export type MovementOut = {
   origem?: "CANOAS" | "PF";
   destino?: "CANOAS" | "PF";
   observacao?: string;
+  natureza: "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
+  local_externo?: string;
+  documento?: string;
+  movimento_ref_id?: number;
   data: string;
 };
 
 export type ListMovementsParams = {
   produto_id?: number;
   tipo?: "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
+  natureza?: "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
   origem?: "CANOAS" | "PF";
   destino?: "CANOAS" | "PF";
   date_from?: string;

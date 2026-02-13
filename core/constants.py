@@ -4,7 +4,7 @@ Centraliza valores fixos utilizados em todo o projeto.
 """
 
 # Versão do Sistema
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.1.0"
 
 # URLs de Atualização
 UPDATE_MANIFEST_URL = "https://github.com/yBlackH4t/ChronosInventory/releases/latest/download/latest.json"

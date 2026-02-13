@@ -116,6 +116,148 @@ def test_movement_transfer_updates_both(client):
     assert product["qtd_pf"] == 2
 
 
+def test_movement_saida_transferencia_externa_registers_metadata(client):
+    product_id = _create_product(client, "Produto Externo", qtd_canoas=5, qtd_pf=0)
+
+    movement = {
+        "tipo": "SAIDA",
+        "produto_id": product_id,
+        "quantidade": 2,
+        "origem": "CANOAS",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "MATRIZ",
+        "documento": "NF 123",
+        "observacao": "Envio excepcional",
+    }
+    resp = client.post("/movimentacoes", json=movement)
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+    assert data["natureza"] == "TRANSFERENCIA_EXTERNA"
+    assert data["local_externo"] == "MATRIZ"
+    assert data["documento"] == "NF 123"
+
+    product = client.get(f"/produtos/{product_id}").json()["data"]
+    assert product["qtd_canoas"] == 3
+
+
+def test_movement_devolucao_reentrada_with_reference(client):
+    product_id = _create_product(client, "Produto Devolucao", qtd_canoas=1, qtd_pf=0)
+
+    saida = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+            "documento": "NF DEV-1",
+        },
+    )
+    assert saida.status_code == 201
+    saida_id = saida.json()["data"]["id"]
+
+    devolucao = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "ENTRADA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "destino": "CANOAS",
+            "natureza": "DEVOLUCAO",
+            "movimento_ref_id": saida_id,
+            "documento": "NF DEV-1",
+            "observacao": "Peca retornou",
+        },
+    )
+    assert devolucao.status_code == 201
+    devolucao_data = devolucao.json()["data"]
+    assert devolucao_data["natureza"] == "DEVOLUCAO"
+    assert devolucao_data["movimento_ref_id"] == saida_id
+
+    product = client.get(f"/produtos/{product_id}").json()["data"]
+    assert product["qtd_canoas"] == 1
+
+    history = client.get(f"/produtos/{product_id}/historico").json()["data"]
+    assert any(item["natureza"] == "DEVOLUCAO" for item in history)
+
+
+def test_movement_invalid_devolucao_for_saida(client):
+    product_id = _create_product(client, "Produto Regra", qtd_canoas=1, qtd_pf=0)
+    movement = {
+        "tipo": "SAIDA",
+        "produto_id": product_id,
+        "quantidade": 1,
+        "origem": "CANOAS",
+        "natureza": "DEVOLUCAO",
+    }
+    resp = client.post("/movimentacoes", json=movement)
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "validation_error"
+
+
+def test_movement_devolucao_requires_reference(client):
+    product_id = _create_product(client, "Produto Sem Ref", qtd_canoas=1, qtd_pf=0)
+    movement = {
+        "tipo": "ENTRADA",
+        "produto_id": product_id,
+        "quantidade": 1,
+        "destino": "CANOAS",
+        "natureza": "DEVOLUCAO",
+    }
+    resp = client.post("/movimentacoes", json=movement)
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "validation_error"
+
+
+def test_analytics_saida_net_of_linked_devolucao(client):
+    product_id = _create_product(client, "Produto Net", qtd_canoas=2, qtd_pf=0)
+    date_saida = "2026-02-10T10:00:00"
+    date_devolucao = "2026-02-10T12:00:00"
+
+    saida = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+            "data": date_saida,
+        },
+    )
+    assert saida.status_code == 201
+    saida_id = saida.json()["data"]["id"]
+
+    devolucao = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "ENTRADA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "destino": "CANOAS",
+            "natureza": "DEVOLUCAO",
+            "movimento_ref_id": saida_id,
+            "data": date_devolucao,
+        },
+    )
+    assert devolucao.status_code == 201
+
+    top = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS")
+    assert top.status_code == 200
+    top_data = top.json()["data"]
+    assert all(item["produto_id"] != product_id for item in top_data)
+
+    ts = client.get("/analytics/movements/timeseries?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS&bucket=day")
+    assert ts.status_code == 200
+    ts_data = ts.json()["data"]
+    assert sum(item["total_saida"] for item in ts_data) == 0
+
+    flow = client.get("/analytics/movements/flow?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS&bucket=day")
+    assert flow.status_code == 200
+    flow_data = flow.json()["data"]
+    assert len(flow_data) >= 1
+    assert sum(item["saidas"] for item in flow_data) == 0
+
+
 def test_list_movements_pagination(client):
     product_id = _create_product(client, "Produto List", qtd_canoas=1, qtd_pf=0)
     movement = {

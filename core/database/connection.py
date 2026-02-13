@@ -132,8 +132,33 @@ class DatabaseConnection:
                     origem TEXT,
                     destino TEXT,
                     observacao TEXT,
+                    natureza TEXT NOT NULL DEFAULT 'OPERACAO_NORMAL',
+                    local_externo TEXT,
+                    documento TEXT,
+                    movimento_ref_id INTEGER,
                     FOREIGN KEY(produto_id) REFERENCES produtos(id)
                 );
+                """
+            )
+
+            cursor.execute("PRAGMA table_info(movimentacoes);")
+            movement_columns = {row[1] for row in cursor.fetchall()}
+            if "natureza" not in movement_columns:
+                cursor.execute(
+                    "ALTER TABLE movimentacoes ADD COLUMN natureza TEXT NOT NULL DEFAULT 'OPERACAO_NORMAL';"
+                )
+            if "local_externo" not in movement_columns:
+                cursor.execute("ALTER TABLE movimentacoes ADD COLUMN local_externo TEXT;")
+            if "documento" not in movement_columns:
+                cursor.execute("ALTER TABLE movimentacoes ADD COLUMN documento TEXT;")
+            if "movimento_ref_id" not in movement_columns:
+                cursor.execute("ALTER TABLE movimentacoes ADD COLUMN movimento_ref_id INTEGER;")
+
+            cursor.execute(
+                """
+                UPDATE movimentacoes
+                SET natureza = 'OPERACAO_NORMAL'
+                WHERE natureza IS NULL OR natureza = ''
                 """
             )
 
