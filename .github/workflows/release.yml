@@ -54,6 +54,43 @@ jobs:
         run: npm ci
         working-directory: frontend
 
+      - name: Prepare WebView2 fixed runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $outDir = "frontend/src-tauri/webview2"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+
+          $query = Invoke-RestMethod "https://azuresearch-usnc.nuget.org/query?q=WebView2.Runtime.X64&prerelease=false&take=1"
+          if (-not $query.data -or $query.data.Count -eq 0) {
+            throw "Pacote WebView2.Runtime.X64 nao encontrado no NuGet."
+          }
+
+          $pkgId = $query.data[0].id
+          $version = $query.data[0].version
+          Write-Host "Baixando fixed runtime: $pkgId $version"
+
+          $tmpDir = Join-Path $env:RUNNER_TEMP "webview2-fixed-runtime"
+          Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
+
+          $nupkgPath = Join-Path $tmpDir "$pkgId.$version.nupkg"
+          Invoke-WebRequest "https://www.nuget.org/api/v2/package/$pkgId/$version" -OutFile $nupkgPath
+
+          $extractDir = Join-Path $tmpDir "extract"
+          Expand-Archive -Path $nupkgPath -DestinationPath $extractDir -Force
+
+          $nativeDir = Join-Path $extractDir "runtimes/win-x64/native"
+          if (-not (Test-Path $nativeDir)) {
+            throw "Estrutura inesperada no pacote. Caminho ausente: $nativeDir"
+          }
+
+          Copy-Item (Join-Path $nativeDir "*") $outDir -Recurse -Force
+          if (-not (Test-Path (Join-Path $outDir "msedge.dll"))) {
+            throw "WebView2 fixed runtime nao foi extraido corretamente (msedge.dll ausente)."
+          }
+
       - name: Build and sign bundles
         run: npm run release:build
         working-directory: frontend
@@ -73,4 +110,3 @@ jobs:
             frontend/release/*.msi
             frontend/release/*.msi.zip
             frontend/release/*.sig
-
