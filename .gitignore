@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Virtual environments
+.venv/
+.venv312/
+venv/
+
+# Local runtime data (must stay outside repo)
+*.dll
+*.db
+*.sqlite
+*.sqlite3
+*.bak
+*.log
+backups/
+exports/
+backend/logs/
+
+# Build artifacts (Python)
+build/
+dist/
+*.spec.bak
+
+# Frontend / Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-error.log*
+
+# Tauri build artifacts
+frontend/src-tauri/target/
+frontend/src-tauri/release/
+frontend/src-tauri/gen/
+frontend/src-tauri/bin/*.exe
+frontend/src-tauri/bin/*.dll
+frontend/src-tauri/bin/*.pdb
+frontend/src-tauri/bin/*.dll
+
+# Release artifacts
+release/
+frontend/release/
+frontend/src-tauri/target/release/bundle/
+frontend/src-tauri/target/release/*.exe
+frontend/src-tauri/target/release/*.pdb
+frontend/src-tauri/webview2/
+
+# Secrets
+frontend/src-tauri/*.key
+frontend/src-tauri/*.pem
+.env
+.env.*
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
