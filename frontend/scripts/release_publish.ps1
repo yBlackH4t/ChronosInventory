@@ -10,14 +10,14 @@ $frontendDir = Split-Path -Parent $scriptDir
 $bundleDir = Join-Path $frontendDir "src-tauri\\target\\release\\bundle"
 $releaseDir = Join-Path $frontendDir "release"
 
-& (Join-Path $scriptDir "release_sign.ps1") -Repo $Repo -Tag $Tag
-
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
 # Limpa artefatos antigos para evitar mistura de releases
 Get-ChildItem -Path $releaseDir -File -ErrorAction SilentlyContinue |
   Where-Object { $_.Name -match '\.msi$|\.msi\.zip$|\.msi\.zip\.sig$|\.nsis\.zip(\.sig)?$|\.exe$|^latest\.json$|^update\.json$' } |
   ForEach-Object { Remove-Item -Force $_.FullName }
+
+& (Join-Path $scriptDir "release_sign.ps1") -Repo $Repo -Tag $Tag
 
 $msiZip = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi.zip" -ErrorAction SilentlyContinue |
   Sort-Object LastWriteTime -Descending |
