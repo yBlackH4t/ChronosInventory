@@ -1,111 +1,183 @@
-# Estoque API (local)
+# ⏳ Chronos Inventory
 
-Backend FastAPI para o app de estoque desktop (React + Tauri sidecar).
+> Sistema desktop moderno de gestão de estoque local, rápido, offline-first e com atualização automática.
 
-## Setup
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688)
+![React](https://img.shields.io/badge/React-Frontend-61DAFB)
+![Tauri](https://img.shields.io/badge/Tauri-Desktop-FFC131)
+![Windows](https://img.shields.io/badge/Windows-10|11-0078D6)
+![Version](https://img.shields.io/badge/version-1.0.0-green)
+
+---
+
+## 🎯 Sobre o Projeto
+
+O **Chronos Inventory** é um aplicativo desktop para controle de estoque empresarial, desenvolvido para operar **100% offline**, com **alta performance local** e **distribuição simples via instalador Windows**.
+
+Ideal para empresas que precisam de:
+
+- ⚡ Velocidade (SQLite local)
+- 🔌 Funcionamento sem internet
+- 🔄 Atualizações automáticas
+- 🖥️ Experiência nativa desktop
+- 🧩 Arquitetura moderna e escalável
+
+---
+
+## ✨ Funcionalidades
+
+### 📦 Gestão de Produtos
+- Cadastro e edição
+- Múltiplas imagens por produto
+- Imagem principal
+- Controle por filial
+- Descrição dos produtos
+
+### 📊 Estoque & Movimentações
+- Entrada
+- Saída
+- Transferência entre filiais
+- Histórico completo
+
+### 📈 Analytics
+- Dashboard com indicadores
+- Relatórios rápidos
+- Visão geral do estoque
+
+### 🛠️ Operacional
+- Importação/Exportação
+- Backup local
+- Recuperação automática
+- Atualização automática (auto-update)
+
+---
+
+## 🧠 Stack Tecnológica
+
+| Camada | Tecnologia |
+|-----------|------------------------------|
+| Backend | Python + FastAPI + SQLite |
+| Frontend | React + TypeScript + Vite |
+| Desktop | Tauri v1 |
+| Empacotamento | PyInstaller (sidecar) |
+| Updater | GitHub Releases + Tauri Updater |
+
+---
+
+# 🏗️ Arquitetura
+
+## API
+- Local-only → `127.0.0.1`
+- Offline-first
+- Backend sidecar isolado
+
+---
+
+## 💾 Persistência
+
+Local do banco:
+
+```
+%APPDATA%\Chronos Inventory
+
+---
+
+# 🚀 Instalação (Usuário Final)
+
+Baixe o instalador na aba:
+
+👉 **Releases → .msi**
+
+Execute normalmente.  
+As próximas versões serão atualizadas automaticamente.
+
+---
+
+# 👨‍💻 Desenvolvimento
+
+## 🔧 Requisitos
+
+- Windows 10/11
+- Python 3.12
+- Node 20+
+- Rust (toolchain estável)
+- Visual Studio Build Tools (C++)
+- Git
+
+---
+
+## Backend
+
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+python -m venv .venv312
+.\.venv312\Scripts\Activate.ps1
 pip install -r backend\requirements.txt
 pip install -r backend\requirements-dev.txt
+pytest -q
 ```
 
-## Run (local only)
-```powershell
-uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
-```
+---
 
-Com porta por env:
-```powershell
-$env:PORT=8000
-uvicorn backend.app.main:app --host 127.0.0.1 --port $env:PORT --reload
-```
+## Frontend
 
-## Endpoints principais
-- `GET /health`
-- `GET /version`
-- `GET /produtos?query=&page=&page_size=&sort=`
-- `GET /produtos/{id}`
-- `POST /produtos`
-- `PUT /produtos/{id}` (replace)
-- `PATCH /produtos/{id}` (partial)
-- `DELETE /produtos/{id}`
-- `GET /produtos/{id}/historico`
-- `GET /produtos/{id}/imagem` (principal base64)
-- `POST /produtos/{id}/imagem` (compat, substitui principal)
-- `GET /produtos/{id}/imagens` (multiplas)
-- `POST /produtos/{id}/imagens` (multiplas)
-- `PATCH /produtos/{id}/imagens/{image_id}/principal`
-- `DELETE /produtos/{id}/imagens/{image_id}`
-- `POST /movimentacoes`
-- `GET /movimentacoes`
-- `GET /dashboard/resumo`
-- `GET /analytics/stock/summary`
-- `GET /analytics/stock/distribution`
-- `GET /analytics/movements/top-saidas`
-- `GET /analytics/movements/timeseries`
-- `GET /analytics/movements/flow`
-- `GET /analytics/stock/evolution`
-- `GET /analytics/products/inactive`
-- `POST /backup/criar`
-- `POST /import/excel`
-- `POST /export/produtos`
-- `POST /relatorios/estoque.pdf`
-
-Contrato detalhado: `docs/API_DOCS.md`.
-
-## Regras de dados
-- IDs de banco nao sao renumerados.
-- Coluna `#` da UI e apenas posicao na pagina.
-- Edicao parcial de campos usa `PATCH`.
-- Dados em producao ficam em `%APPDATA%\Chronos Inventory` (com migracao automatica de `%APPDATA%/%LOCALAPPDATA%` de `EstoqueRS` e `Estoque Local`).
-
-## Imagens de produto (2.x)
-- Suporte a ate **5 imagens por produto**.
-- Uma imagem principal por produto.
-- Migracao automatica de `produtos.imagem` para `product_images`.
-
-# Desktop (Tauri)
-
-## Build backend sidecar (PyInstaller)
-```powershell
-pip install pyinstaller
-.\build_backend.ps1
-```
-Gera e copia para:
-- `frontend\src-tauri\bin\estoque_backend.exe`
-- `frontend\src-tauri\bin\estoque_backend-x86_64-pc-windows-msvc.exe`
-
-## Build frontend (Vite)
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run build
 ```
 
-## Build app (Tauri)
+---
+
+# 🖥️ Build Desktop
+
+## Gerar sidecar do backend
+
+```powershell
+.\build_backend.ps1
+```
+
+## Gerar instalador MSI
+
 ```powershell
 cd frontend
-npm run build:backend
 npm run build:app
 ```
 
-Atalho:
-```powershell
-npm run build:all
+Saída:
+```
+*.msi
+
+---
+
+# 📁 Estrutura do Projeto
+
+```
+backend/
+app/
+core/
+frontend/
+frontend/src-tauri/
+docs/
 ```
 
-Saida:
-- `frontend\src-tauri\target\release\bundle\msi\`
-- `frontend\src-tauri\target\release\bundle\msi\*.msi.zip` (updater)
+---
 
-## Dev local
-```powershell
-cd frontend
-npm run dev
-```
-A UI espera `http://127.0.0.1:8000/health` antes de liberar uso.
+# 🔐 Segurança
 
-## Auto-update
-Fluxo completo de release, assinatura e `latest.json` em:
-- `README_RELEASE.md`
+- API apenas localhost
+- Sem exposição externa
+- Dados locais
+- Sem dependência de nuvem
+- Sem telemetria
+
+---
+
+# 📌 Roadmap
+
+- [ ] Relatórios PDF
+- [ ] Controle de usuários
+- [ ] Sincronização opcional
+- [ ] Integração fiscal
+
+---
