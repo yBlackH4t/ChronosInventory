@@ -12,11 +12,39 @@ if (!(Test-Path $entry)) {
 # Permite override por variavel de ambiente PYTHON_EXE (ex: caminho do Python 3.12)
 $venv312Root = Join-Path $PSScriptRoot ".venv312"
 $venvDefaultRoot = Join-Path $PSScriptRoot ".venv"
-$venvRoot = if ($env:PYTHON_EXE) { Split-Path -Parent $env:PYTHON_EXE } elseif (Test-Path (Join-Path $venv312Root "Scripts\\python.exe")) { $venv312Root } else { $venvDefaultRoot }
-$venvPy = if ($env:PYTHON_EXE) { $env:PYTHON_EXE } else { Join-Path $venvRoot "Scripts\\python.exe" }
-if (!(Test-Path $venvPy)) {
+$venvPy = $null
+
+if ($env:PYTHON_EXE) {
+  if (!(Test-Path $env:PYTHON_EXE)) {
+    throw "PYTHON_EXE invalido: '$($env:PYTHON_EXE)'"
+  }
+  $venvPy = $env:PYTHON_EXE
+} else {
+  $candidates = @(
+    (Join-Path $venv312Root "Scripts\\python.exe"),
+    (Join-Path $venvDefaultRoot "Scripts\\python.exe")
+  )
+
+  foreach ($candidate in $candidates) {
+    if (!(Test-Path $candidate)) { continue }
+    try {
+      & $candidate -c "import sys" *> $null
+      if ($LASTEXITCODE -ne 0) {
+        throw "invalid_python_exit_$LASTEXITCODE"
+      }
+      $venvPy = $candidate
+      break
+    } catch {
+      Write-Warning "Ignorando venv invalida: $candidate"
+    }
+  }
+}
+
+if (-not $venvPy) {
   throw "Python nao encontrado. Defina PYTHON_EXE ou crie venv: python -m venv .venv"
 }
+
+$venvRoot = Split-Path -Parent (Split-Path -Parent $venvPy)
 
 # Forca uso da venv
 $activate = Join-Path $venvRoot "Scripts\\Activate.ps1"
