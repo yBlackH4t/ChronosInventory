@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,6 +12,7 @@
     "build:app:msi": "npm run build:backend && npm run verify:sidecar && tauri build --bundles msi",
     "build:all": "npm run build:app",
     "release:build": "npm run build:backend && npm run verify:sidecar && tauri build",
+    "release:bump": "powershell -ExecutionPolicy Bypass -File .\\\\scripts\\\\bump_version.ps1",
     "release:sign": "powershell -ExecutionPolicy Bypass -File .\\\\scripts\\\\release_sign.ps1",
     "release:publish": "powershell -ExecutionPolicy Bypass -File .\\\\scripts\\\\release_publish.ps1",
     "lint": "eslint .",
