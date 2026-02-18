@@ -52,10 +52,15 @@ if (Test-Path $activate) {
   & $activate
 }
 
-# Alerta para versoes muito novas (PyInstaller/FastAPI podem falhar)
+# Bloqueia versoes muito novas por padrao (PyInstaller/FastAPI podem falhar)
+# Override consciente: ALLOW_UNSUPPORTED_PYTHON=1
 $pyVer = & $venvPy -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
 if ([version]$pyVer -ge [version]"3.13") {
-  Write-Warning "Python $pyVer detectado. Para evitar erros no PyInstaller, recomendo usar Python 3.12."
+  if ($env:ALLOW_UNSUPPORTED_PYTHON -eq "1") {
+    Write-Warning "Python $pyVer detectado com override ALLOW_UNSUPPORTED_PYTHON=1."
+  } else {
+    throw "Python $pyVer nao suportado para release local. Use Python 3.12 (ou defina ALLOW_UNSUPPORTED_PYTHON=1 por sua conta e risco)."
+  }
 }
 
 # Verifica se fastapi/uvicorn estao instalados no venv

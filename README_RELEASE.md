@@ -26,6 +26,12 @@ Esse comando atualiza automaticamente:
 - `frontend/src-tauri/tauri.conf.json`
 - `frontend/src-tauri/Cargo.lock` (pacote `chronos_inventory_desktop`)
 
+Valide consistencia antes de criar tag:
+```powershell
+cd D:\User\Desktop\projeto_estoque_test
+python scripts/check_versions.py
+```
+
 ## 1.2) Como testar antes de publicar
 Sempre rode este fluxo antes de criar tag no GitHub.
 
@@ -209,6 +215,11 @@ Segredos obrigatorios no repositorio:
 - Sidecar foi buildado com Python errado.
 - Rode novamente `build_backend.ps1` com venv correta.
 - Confira `npm run verify:sidecar`.
+
+### "Python X.Y nao suportado para release local"
+- O script de build bloqueia Python >= 3.13 por padrao.
+- Use Python 3.12 na venv (`.venv312` recomendado).
+- Override apenas em emergencia: `set ALLOW_UNSUPPORTED_PYTHON=1` (nao recomendado).
 
 ### App abre e fecha
 - Verifique logs do Tauri (`src-tauri/src/main.rs`) e `backend/logs/backend.log`.
