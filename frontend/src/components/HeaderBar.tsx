@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Group, Badge, Text, Title, Button } from "@mantine/core";
 import { IconCircleFilled } from "@tabler/icons-react";
 import type { HealthOut } from "../lib/api";
@@ -7,6 +7,36 @@ import { isTauri } from "../lib/tauri";
 
 export default function HeaderBar({ health }: { health: HealthOut }) {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [appVersion, setAppVersion] = useState(health.version);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAppVersion = async () => {
+      if (!isTauri()) {
+        setAppVersion(health.version);
+        return;
+      }
+
+      try {
+        const app = await import("@tauri-apps/api/app");
+        const version = await app.getVersion();
+        if (mounted) {
+          setAppVersion(version);
+        }
+      } catch {
+        if (mounted) {
+          setAppVersion(health.version);
+        }
+      }
+    };
+
+    loadAppVersion();
+
+    return () => {
+      mounted = false;
+    };
+  }, [health.version]);
 
   const handleCheckUpdate = async () => {
     if (!isTauri()) return;
@@ -48,7 +78,7 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
           API OK
         </Badge>
         <Text c="dimmed" size="sm">
-          v{health.version}
+          v{appVersion}
         </Text>
       </Group>
     </Group>
