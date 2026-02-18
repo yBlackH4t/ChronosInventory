@@ -32,8 +32,10 @@ if (-not (Test-Path $sigPath)) {
 
 $signature = (Get-Content -Path $sigPath -Raw).Trim()
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-$assetName = $bundle.Name
-$assetUrl = "https://github.com/$Repo/releases/download/$Tag/$assetName"
+# Em releases do GitHub, nomes com espaco costumam ser normalizados com ponto.
+# Gera URL compativel com o nome final publicado.
+$assetName = ($bundle.Name -replace " ", ".")
+$assetUrl = "https://github.com/$Repo/releases/download/$Tag/$([Uri]::EscapeDataString($assetName))"
 
 $latest = @{
   version = $version
@@ -49,6 +51,11 @@ $latest = @{
 
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 $latestPath = Join-Path $releaseDir "latest.json"
-$latest | ConvertTo-Json -Depth 5 | Set-Content -Path $latestPath -Encoding UTF8
+$latestJson = $latest | ConvertTo-Json -Depth 5
+[System.IO.File]::WriteAllText(
+  $latestPath,
+  $latestJson,
+  (New-Object System.Text.UTF8Encoding($false))
+)
 
 Write-Host "latest.json gerado em $latestPath"

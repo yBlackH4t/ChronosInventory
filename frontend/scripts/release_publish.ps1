@@ -37,11 +37,16 @@ $installerMsi = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi" -ErrorAc
   Sort-Object LastWriteTime -Descending |
   Select-Object -First 1
 
-Copy-Item -Path $bundle.FullName -Destination $releaseDir -Force
-Copy-Item -Path $sigPath -Destination $releaseDir -Force
+$bundleReleaseName = ($bundle.Name -replace " ", ".")
+$bundleReleasePath = Join-Path $releaseDir $bundleReleaseName
+$sigReleasePath = "$bundleReleasePath.sig"
+
+Copy-Item -Path $bundle.FullName -Destination $bundleReleasePath -Force
+Copy-Item -Path $sigPath -Destination $sigReleasePath -Force
 
 if ($installerMsi) {
-  Copy-Item -Path $installerMsi.FullName -Destination $releaseDir -Force
+  $installerReleaseName = ($installerMsi.Name -replace " ", ".")
+  Copy-Item -Path $installerMsi.FullName -Destination (Join-Path $releaseDir $installerReleaseName) -Force
 }
 
 Write-Host "Artefatos copiados para $releaseDir"
