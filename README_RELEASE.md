@@ -11,7 +11,7 @@ cd frontend
 npm install
 ```
 
-## 1.2) Bump de versao (automatico)
+## 1.1) Bump de versao (automatico)
 Antes de gerar release, atualize a versao em todos os arquivos com um comando:
 ```powershell
 cd frontend
@@ -26,7 +26,63 @@ Esse comando atualiza automaticamente:
 - `frontend/src-tauri/tauri.conf.json`
 - `frontend/src-tauri/Cargo.lock` (pacote `chronos_inventory_desktop`)
 
-## 1.1) Dados do cliente (nao entram no bundle)
+## 1.2) Como testar antes de publicar
+Sempre rode este fluxo antes de criar tag no GitHub.
+
+### 1.2.1) Testes automatizados do backend
+```powershell
+cd D:\User\Desktop\projeto_estoque_test
+.\.venv\Scripts\Activate.ps1
+python -m pytest -q
+```
+
+### 1.2.2) Subir API local e validar versao
+Suba a API em um terminal:
+```powershell
+cd D:\User\Desktop\projeto_estoque_test
+.\.venv\Scripts\Activate.ps1
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Em outro terminal, valide:
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+Invoke-RestMethod http://127.0.0.1:8000/version
+```
+
+Importante:
+- O campo `version` deve bater com a versao que voce vai publicar.
+- Se voltar versao antiga (ex: 1.0.0), nao publique ainda.
+
+### 1.2.3) Teste do frontend web
+```powershell
+cd D:\User\Desktop\projeto_estoque_test\frontend
+npm ci
+npm run build
+npm run dev
+```
+
+Teste no navegador:
+- entrada
+- saida
+- transferencia
+- devolucao com `Mov. referencia`
+
+### 1.2.4) Teste integrado desktop (Tauri + sidecar)
+```powershell
+cd D:\User\Desktop\projeto_estoque_test\frontend
+npm run build:backend
+npm run verify:sidecar
+npx tauri dev
+```
+
+Checklist manual no app:
+- topo direito mostra versao correta
+- movimentos registram historico e observacao
+- devolucao funciona sem `Invalid request`
+- transferencia externa salva `local_externo` e `documento`
+
+## 1.3) Dados do cliente (nao entram no bundle)
 - Banco: `%APPDATA%\Chronos Inventory\estoque.db`
 - Imagens: `%APPDATA%\Chronos Inventory\imagens\`
 - Backups: `%APPDATA%\Chronos Inventory\backups\`
