@@ -136,6 +136,30 @@ export type BackupOut = {
   created_at: string;
 };
 
+export type BackupListItemOut = {
+  name: string;
+  path: string;
+  size: number;
+  created_at: string;
+};
+
+export type BackupValidateOut = {
+  path: string;
+  ok: boolean;
+  result: string;
+};
+
+export type BackupRestoreIn = {
+  backup_name: string;
+};
+
+export type BackupRestoreOut = {
+  restored_from: string;
+  active_database: string;
+  pre_restore_backup: string;
+  validation_result: string;
+};
+
 export type DashboardSummary = {
   total_canoas: number;
   total_pf: number;
@@ -458,6 +482,31 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
 
     async backupCreate(options: RequestInit = {}) {
       return request<BackupOut>(`/backup/criar`, { method: "POST", ...options }, baseUrl);
+    },
+
+    async backupList(options: RequestInit = {}) {
+      return request<BackupListItemOut[]>(`/backup/listar`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async backupValidate(backupName?: string, options: RequestInit = {}) {
+      const query = buildQuery({ backup_name: backupName });
+      return request<BackupValidateOut>(`/backup/validar${query}`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async backupRestore(payload: BackupRestoreIn, options: RequestInit = {}) {
+      return request<BackupRestoreOut>(
+        `/backup/restaurar`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async backupDiagnostics(options: RequestInit = {}) {
+      return requestBlob(`/backup/diagnostico`, { method: "GET", ...options }, baseUrl);
     },
 
     async importExcel(file: File, options: RequestInit = {}) {

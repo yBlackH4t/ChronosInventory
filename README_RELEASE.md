@@ -25,6 +25,12 @@ Esse comando atualiza automaticamente:
 - `frontend/src-tauri/Cargo.toml`
 - `frontend/src-tauri/tauri.conf.json`
 - `frontend/src-tauri/Cargo.lock` (pacote `chronos_inventory_desktop`)
+- `CHANGELOG.md` (cria secao template da nova versao, se nao existir)
+
+Preencha os itens da versao em `CHANGELOG.md` antes de publicar:
+- `### Added`
+- `### Changed`
+- `### Fixed`
 
 Valide consistencia antes de criar tag:
 ```powershell
@@ -122,6 +128,11 @@ cd frontend
 npm run verify:sidecar
 ```
 
+O verificador agora confere:
+- arquivos obrigatorios em `src-tauri/bin`
+- coerencia de versao (`package.json` x sidecar)
+- sidecar mais novo que o codigo-fonte Python
+
 Arquivos esperados em `frontend\src-tauri\bin`:
 - `estoque_backend.exe`
 - `estoque_backend-x86_64-pc-windows-msvc.exe`
@@ -160,6 +171,12 @@ Gerar `latest.json`:
 ```powershell
 npm run release:sign
 ```
+
+Importante:
+- O campo `notes` do `latest.json` agora sai automaticamente do `CHANGELOG.md`.
+- Prioridade de leitura:
+  1. `## [X.Y.Z]` da versao atual
+  2. fallback para `## [Unreleased]`
 
 Preparar pasta `frontend\release` com assets:
 ```powershell

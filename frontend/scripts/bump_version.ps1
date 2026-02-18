@@ -25,6 +25,94 @@ function Write-File([string]$Path, [string]$Content) {
   [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+function Ensure-ChangelogEntry {
+  Param(
+    [string]$Path,
+    [string]$Version
+  )
+
+  $today = (Get-Date).ToString("yyyy-MM-dd")
+  $entryPattern = "(?m)^\s*##\s*\[?v?$([regex]::Escape($Version))\]?(?:\s+-\s+.*)?\s*$"
+
+  if (-not (Test-Path $Path)) {
+    $initial = @(
+      "# Changelog",
+      "",
+      "## [Unreleased]",
+      "",
+      "### Added",
+      "- TODO",
+      "",
+      "### Changed",
+      "- TODO",
+      "",
+      "### Fixed",
+      "- TODO",
+      "",
+      "## [$Version] - $today",
+      "",
+      "### Added",
+      "- TODO",
+      "",
+      "### Changed",
+      "- TODO",
+      "",
+      "### Fixed",
+      "- TODO",
+      ""
+    )
+    Write-File $Path (($initial -join "`r`n") + "`r`n")
+    Write-Host "CHANGELOG criado com template para $Version"
+    return
+  }
+
+  $content = Read-File $Path
+  if ([regex]::IsMatch($content, $entryPattern)) {
+    Write-Host "CHANGELOG ja possui secao para $Version"
+    return
+  }
+
+  $lines = Get-Content -Path $Path -Encoding UTF8
+  if (-not $lines) {
+    $lines = @("# Changelog", "")
+  }
+
+  $insertIndex = $lines.Count
+  for ($i = 0; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -match '^\s*##\s*\[\d+\.\d+\.\d+\]') {
+      $insertIndex = $i
+      break
+    }
+  }
+
+  $entryLines = @(
+    "## [$Version] - $today",
+    "",
+    "### Added",
+    "- TODO",
+    "",
+    "### Changed",
+    "- TODO",
+    "",
+    "### Fixed",
+    "- TODO",
+    ""
+  )
+
+  $before = @()
+  $after = @()
+  if ($insertIndex -gt 0) {
+    $before = $lines[0..($insertIndex - 1)]
+  }
+  if ($insertIndex -lt $lines.Count) {
+    $after = $lines[$insertIndex..($lines.Count - 1)]
+  }
+
+  $newLines = @($before + "" + $entryLines + $after)
+  Write-File $Path (($newLines -join "`r`n") + "`r`n")
+  Write-Host "Template de release notes adicionado no CHANGELOG para $Version"
+}
+
 function Replace-RegexOnce {
   Param(
     [string]$Path,
@@ -90,6 +178,10 @@ Replace-RegexOnce `
   -Path (Join-Path $frontendDir "src-tauri\Cargo.lock") `
   -Pattern '(name\s*=\s*"chronos_inventory_desktop"\s*[\r\n]+version\s*=\s*")([^"]+)(")' `
   -Label "frontend.src-tauri.Cargo.lock"
+
+Ensure-ChangelogEntry `
+  -Path (Join-Path $repoRoot "CHANGELOG.md") `
+  -Version $Version
 
 Write-Host ""
 Write-Host "Versao atualizada com sucesso para $Version"

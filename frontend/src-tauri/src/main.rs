@@ -17,7 +17,8 @@ struct BackendState(Mutex<Option<tauri::api::process::CommandChild>>);
 
 const SIDECAR_NAME: &str = "estoque_backend";
 const SIDECAR_ENV_PORT: &str = "8000";
-const SIDECAR_ENV_APP: &str = "prod";
+const SIDECAR_ENV_APP_PROD: &str = "prod";
+const SIDECAR_ENV_APP_DEV: &str = "dev";
 
 fn log_path() -> PathBuf {
     if let Ok(base) = std::env::var("LOCALAPPDATA") {
@@ -103,13 +104,18 @@ fn log_startup_paths(app: &tauri::App) {
 }
 
 fn spawn_backend() -> Result<(tauri::api::process::CommandChild, tauri::async_runtime::Receiver<CommandEvent>), Box<dyn Error>> {
+    let app_env = if cfg!(debug_assertions) {
+        SIDECAR_ENV_APP_DEV
+    } else {
+        SIDECAR_ENV_APP_PROD
+    };
     log_line(&format!(
         "spawn sidecar: name={} PORT={} APP_ENV={}",
-        SIDECAR_NAME, SIDECAR_ENV_PORT, SIDECAR_ENV_APP
+        SIDECAR_NAME, SIDECAR_ENV_PORT, app_env
     ));
     let mut cmd = Command::new_sidecar(SIDECAR_NAME)?.envs(HashMap::from([
         ("PORT".to_string(), SIDECAR_ENV_PORT.to_string()),
-        ("APP_ENV".to_string(), SIDECAR_ENV_APP.to_string()),
+        ("APP_ENV".to_string(), app_env.to_string()),
         // Evita logs em cp1252 que quebram parser UTF-8 do Tauri.
         ("PYTHONUTF8".to_string(), "1".to_string()),
         ("PYTHONIOENCODING".to_string(), "utf-8".to_string()),

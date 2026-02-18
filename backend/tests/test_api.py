@@ -1,5 +1,8 @@
-﻿from datetime import datetime
+from datetime import datetime
 import io
+import json
+import os
+import zipfile
 
 import pandas as pd
 
@@ -288,6 +291,72 @@ def test_backup_create(client):
     body = resp.json()["data"]
     assert body["path"]
     assert body["size"] >= 0
+
+
+def test_backup_list_and_validate(client):
+    created = client.post("/backup/criar")
+    assert created.status_code == 200
+    created_path = created.json()["data"]["path"]
+    created_name = os.path.basename(created_path)
+
+    listed = client.get("/backup/listar")
+    assert listed.status_code == 200
+    items = listed.json()["data"]
+    assert any(item["name"] == created_name for item in items)
+
+    current_validation = client.get("/backup/validar")
+    assert current_validation.status_code == 200
+    assert bool(current_validation.json()["data"]["ok"]) is True
+
+    selected_validation = client.get(f"/backup/validar?backup_name={created_name}")
+    assert selected_validation.status_code == 200
+    assert bool(selected_validation.json()["data"]["ok"]) is True
+
+
+def test_backup_restore_roundtrip(client):
+    product_id = _create_product(client, "Produto Restore", qtd_canoas=1, qtd_pf=0)
+
+    snap = client.post("/backup/criar")
+    assert snap.status_code == 200
+    backup_name = os.path.basename(snap.json()["data"]["path"])
+
+    movement = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+        },
+    )
+    assert movement.status_code == 201
+
+    changed = client.get(f"/produtos/{product_id}")
+    assert changed.status_code == 200
+    assert changed.json()["data"]["qtd_canoas"] == 0
+
+    restored = client.post("/backup/restaurar", json={"backup_name": backup_name})
+    assert restored.status_code == 200
+
+    after = client.get(f"/produtos/{product_id}")
+    assert after.status_code == 200
+    assert after.json()["data"]["qtd_canoas"] == 1
+
+
+def test_backup_diagnostics_download(client):
+    resp = client.get("/backup/diagnostico")
+    assert resp.status_code == 200
+    assert resp.headers.get("content-type", "").startswith("application/zip")
+    assert resp.content
+
+    with zipfile.ZipFile(io.BytesIO(resp.content), "r") as zf:
+        names = set(zf.namelist())
+        assert "summary.json" in names
+        assert "logs/backend.log.tail.txt" in names
+        assert "logs/tauri.log.tail.txt" in names
+        summary = json.loads(zf.read("summary.json").decode("utf-8"))
+        assert "database" in summary
+        assert "backups" in summary
 
 
 def test_export_products(client):

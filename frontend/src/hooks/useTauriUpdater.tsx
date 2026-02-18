@@ -1,7 +1,12 @@
 import { useEffect } from "react";
-import { Button, Group, Text } from "@mantine/core";
+import { Button, Group, Stack, Text } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
 import { isTauri } from "../lib/tauri";
+import {
+  getReleaseNotesFromManifest,
+  getReleaseNotesPreview,
+} from "../lib/updaterNotes";
 
 type UnlistenFn = () => void;
 
@@ -34,38 +39,60 @@ export function useTauriUpdater() {
         }
 
         const version = update.manifest?.version ?? "nova";
+        const notes = getReleaseNotesFromManifest(update.manifest as { body?: string; notes?: string });
+        const notesPreview = getReleaseNotesPreview(notes);
+
+        const installNow = async (notificationId: string) => {
+          try {
+            notifications.update({
+              id: notificationId,
+              title: "Atualizando...",
+              message: "Baixando e instalando a nova versao.",
+              loading: true,
+              autoClose: false,
+            });
+            await updater.installUpdate();
+            await process.relaunch();
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Erro inesperado";
+            notifications.update({
+              id: notificationId,
+              title: "Falha ao atualizar",
+              message,
+              color: "red",
+              loading: false,
+              autoClose: false,
+            });
+          }
+        };
 
         const id = notifications.show({
           title: "Nova versao disponivel",
           message: (
-            <Group gap="xs">
-              <Text size="sm">Atualizacao {version} disponivel.</Text>
+            <Group gap="xs" wrap="wrap">
+              <Text size="sm">Atualizacao {version} disponivel. {notesPreview}</Text>
               <Button
                 size="xs"
+                variant="default"
                 onClick={async () => {
-                  try {
-                    notifications.update({
-                      id,
-                      title: "Atualizando...",
-                      message: "Baixando e instalando a nova versao.",
-                      loading: true,
-                      autoClose: false,
-                    });
-                    await updater.installUpdate();
-                    await process.relaunch();
-                  } catch (err) {
-                    const message = err instanceof Error ? err.message : "Erro inesperado";
-                    notifications.update({
-                      id,
-                      title: "Falha ao atualizar",
-                      message,
-                      color: "red",
-                      loading: false,
-                      autoClose: false,
-                    });
-                  }
+                  modals.openConfirmModal({
+                    title: `Nova versao ${version}`,
+                    children: (
+                      <Stack gap="xs">
+                        <Text size="sm">Deseja instalar esta atualizacao agora?</Text>
+                        <Text size="xs" c="dimmed" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" }}>
+                          {notes}
+                        </Text>
+                      </Stack>
+                    ),
+                    labels: { confirm: "Atualizar agora", cancel: "Depois" },
+                    onConfirm: () => installNow(id),
+                  });
                 }}
               >
+                Ver detalhes
+              </Button>
+              <Button size="xs" onClick={() => installNow(id)}>
                 Atualizar agora
               </Button>
             </Group>

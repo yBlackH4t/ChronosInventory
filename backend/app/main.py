@@ -15,6 +15,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from core.constants import APP_VERSION
 from core.database.connection import DatabaseConnection
+from core.database.migration_manager import MigrationManager
 from core.exceptions import (
     DatabaseException,
     FileOperationException,
@@ -100,10 +101,13 @@ app.include_router(analytics.router)
 @app.on_event("startup")
 def startup_log_runtime_paths() -> None:
     db = DatabaseConnection()
+    updated, version = MigrationManager(db).check_and_run_migrations()
     LOG.info(
-        "startup app_dir=%s db_path=%s",
+        "startup app_dir=%s db_path=%s db_version=%s migrated=%s",
         FileUtils.get_app_directory(),
         db.get_database_path(),
+        version,
+        updated,
     )
 
 def _request_id(request: Request) -> str:
@@ -223,7 +227,16 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 if __name__ == "__main__":
+    import sys
     import uvicorn
+
+    if "--version" in sys.argv:
+        version_file = os.getenv("SIDECAR_VERSION_FILE")
+        if version_file:
+            Path(version_file).write_text(APP_VERSION, encoding="utf-8")
+        else:
+            print(APP_VERSION)
+        raise SystemExit(0)
 
     port = int(os.getenv("PORT", "8000"))
     # Evita configuracao de logging do uvicorn (quebra em exe sem console)

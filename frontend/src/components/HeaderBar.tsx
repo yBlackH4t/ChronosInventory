@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Group, Badge, Text, Title, Button } from "@mantine/core";
+import { Group, Badge, Text, Title, Button, Stack } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { IconCircleFilled } from "@tabler/icons-react";
 import type { HealthOut } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
 import { isTauri } from "../lib/tauri";
+import { getReleaseNotesFromManifest } from "../lib/updaterNotes";
 
 export default function HeaderBar({ health }: { health: HealthOut }) {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -53,11 +55,33 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
       }
 
       const version = update.manifest?.version ?? "nova";
-      const confirmInstall = window.confirm(`Nova versao ${version} disponivel. Atualizar agora?`);
-      if (!confirmInstall) return;
+      const notes = getReleaseNotesFromManifest(update.manifest as { body?: string; notes?: string });
 
-      await updater.installUpdate();
-      await process.relaunch();
+      modals.openConfirmModal({
+        title: `Nova versao ${version} disponivel`,
+        children: (
+          <Stack gap="xs">
+            <Text size="sm">Deseja instalar agora?</Text>
+            <Text
+              size="xs"
+              c="dimmed"
+              style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" }}
+            >
+              {notes}
+            </Text>
+          </Stack>
+        ),
+        labels: { confirm: "Atualizar agora", cancel: "Depois" },
+        onConfirm: async () => {
+          try {
+            notifySuccess("Instalando atualizacao...");
+            await updater.installUpdate();
+            await process.relaunch();
+          } catch (error) {
+            notifyError(error, "Falha ao instalar atualizacao.");
+          }
+        },
+      });
     } catch (error) {
       notifyError(error, "Falha ao verificar atualizacao.");
     } finally {
