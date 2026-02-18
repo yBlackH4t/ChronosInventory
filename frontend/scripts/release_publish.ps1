@@ -28,6 +28,12 @@ if (-not $bundle) {
   Write-Error "Nenhum bundle MSI de update encontrado (*.msi.zip). Rode 'npm run release:build' antes."
 }
 
+$pkg = Get-Content -Path (Join-Path $frontendDir "package.json") | ConvertFrom-Json
+$version = $pkg.version
+if ($bundle.Name -notmatch "_$([regex]::Escape($version))_") {
+  Write-Error "Bundle encontrado ('$($bundle.Name)') nao corresponde a versao $version. Rode 'npm run release:build' antes de publicar."
+}
+
 $sigPath = "$($bundle.FullName).sig"
 if (-not (Test-Path $sigPath)) {
   Write-Error "Assinatura nao encontrada ($sigPath). Garanta TAURI_PRIVATE_KEY no build."
