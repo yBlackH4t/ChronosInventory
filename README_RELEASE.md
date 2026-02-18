@@ -11,6 +11,21 @@ cd frontend
 npm install
 ```
 
+## 1.2) Bump de versao (automatico)
+Antes de gerar release, atualize a versao em todos os arquivos com um comando:
+```powershell
+cd frontend
+npm run release:bump -- 1.1.2
+```
+
+Esse comando atualiza automaticamente:
+- `core/constants.py` (`APP_VERSION`)
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `frontend/src-tauri/Cargo.toml`
+- `frontend/src-tauri/tauri.conf.json`
+- `frontend/src-tauri/Cargo.lock` (pacote `chronos_inventory_desktop`)
+
 ## 1.1) Dados do cliente (nao entram no bundle)
 - Banco: `%APPDATA%\Chronos Inventory\estoque.db`
 - Imagens: `%APPDATA%\Chronos Inventory\imagens\`
@@ -64,7 +79,7 @@ Saida em:
 Defina variaveis de release:
 ```powershell
 $env:GITHUB_REPO="yBlackH4t/ChronosInventory"
-$env:RELEASE_TAG="v1.0.0"
+$env:RELEASE_TAG="v1.1.2"
 $env:TAURI_PRIVATE_KEY = Get-Content "C:\Users\User\.tauri\estoque.key" -Raw
 $env:TAURI_KEY_PASSWORD=""
 ```
