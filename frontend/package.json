@@ -16,7 +16,7 @@
     "release:check": "python ..\\\\scripts\\\\check_release_artifacts.py --frontend-dir frontend",
     "release:sign": "powershell -ExecutionPolicy Bypass -File .\\\\scripts\\\\release_sign.ps1",
     "release:publish": "powershell -ExecutionPolicy Bypass -File .\\\\scripts\\\\release_publish.ps1",
-    "changelog:sync": "node .\\\\scripts\\\\sync_changelog.mjs",
+    "changelog:sync": "node ./scripts/sync_changelog.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
