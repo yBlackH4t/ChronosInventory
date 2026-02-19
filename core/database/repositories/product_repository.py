@@ -19,14 +19,18 @@ class ProductRepository(BaseRepository):
         "nome": "nome",
         "qtd_canoas": "qtd_canoas",
         "qtd_pf": "qtd_pf",
+        "ativo": "ativo",
     }
 
-    def get_all(self, search_term: str = "") -> List[Dict[str, Any]]:
+    def get_all(self, search_term: str = "", status: str = "ATIVO") -> List[Dict[str, Any]]:
+        where_clauses: List[str] = ["1=1"]
+        params: List[Any] = []
+        self._append_status_filter(status, where_clauses, params)
         if search_term:
-            query = "SELECT * FROM produtos WHERE nome LIKE ? ORDER BY nome"
-            return self._execute_query(query, (f"%{search_term}%",))
-        query = "SELECT * FROM produtos ORDER BY nome"
-        return self._execute_query(query)
+            where_clauses.append("nome LIKE ?")
+            params.append(f"%{search_term}%")
+        query = f"SELECT * FROM produtos WHERE {' AND '.join(where_clauses)} ORDER BY nome"
+        return self._execute_query(query, tuple(params))
 
     def get_all_paginated(
         self,
@@ -35,25 +39,35 @@ class ProductRepository(BaseRepository):
         sort_direction: str = "ASC",
         limit: int = 20,
         offset: int = 0,
+        status: str = "ATIVO",
     ) -> List[Dict[str, Any]]:
         sort_col = self._ALLOWED_SORT_COLUMNS.get(sort_column, "nome")
         sort_dir = "DESC" if str(sort_direction).upper() == "DESC" else "ASC"
 
+        where_clauses: List[str] = ["1=1"]
+        params: List[Any] = []
+        self._append_status_filter(status, where_clauses, params)
         if search_term:
-            query = f"SELECT * FROM produtos WHERE nome LIKE ? ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
-            return self._execute_query(query, (f"%{search_term}%", limit, offset))
+            where_clauses.append("nome LIKE ?")
+            params.append(f"%{search_term}%")
+        query = (
+            f"SELECT * FROM produtos WHERE {' AND '.join(where_clauses)} "
+            f"ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
+        )
+        params.extend([limit, offset])
+        return self._execute_query(query, tuple(params))
 
-        query = f"SELECT * FROM produtos ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
-        return self._execute_query(query, (limit, offset))
-
-    def count_filtered(self, search_term: str = "") -> int:
+    def count_filtered(self, search_term: str = "", status: str = "ATIVO") -> int:
+        where_clauses: List[str] = ["1=1"]
+        params: List[Any] = []
+        self._append_status_filter(status, where_clauses, params)
         if search_term:
-            result = self._execute_query(
-                "SELECT COUNT(*) as total FROM produtos WHERE nome LIKE ?",
-                (f"%{search_term}%",),
-            )
-        else:
-            result = self._execute_query("SELECT COUNT(*) as total FROM produtos")
+            where_clauses.append("nome LIKE ?")
+            params.append(f"%{search_term}%")
+        result = self._execute_query(
+            f"SELECT COUNT(*) as total FROM produtos WHERE {' AND '.join(where_clauses)}",
+            tuple(params),
+        )
         return result[0]["total"] if result else 0
 
     def get_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
@@ -62,8 +76,8 @@ class ProductRepository(BaseRepository):
 
     def add(self, nome: str, qtd_canoas: int, qtd_pf: int, observacao: str | None = None) -> int:
         command = """
-            INSERT INTO produtos (nome, qtd_canoas, qtd_pf, observacao)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO produtos (nome, qtd_canoas, qtd_pf, observacao, ativo)
+            VALUES (?, ?, ?, ?, 1)
         """
         conn = self.db.get_connection()
         cursor = conn.cursor()
@@ -128,16 +142,57 @@ class ProductRepository(BaseRepository):
     def exists(self, product_id: int) -> bool:
         return self._exists("produtos", "id = ?", (product_id,))
 
+    def bulk_set_active(
+        self,
+        ids: List[int],
+        ativo: bool,
+        motivo_inativacao: Optional[str] = None,
+    ) -> int:
+        if not ids:
+            return 0
+
+        placeholders = ",".join("?" for _ in ids)
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            if ativo:
+                query = f"""
+                    UPDATE produtos
+                    SET ativo = 1,
+                        inativado_em = NULL,
+                        motivo_inativacao = NULL
+                    WHERE id IN ({placeholders})
+                """
+                cursor.execute(query, tuple(ids))
+            else:
+                query = f"""
+                    UPDATE produtos
+                    SET ativo = 0,
+                        inativado_em = CURRENT_TIMESTAMP,
+                        motivo_inativacao = ?
+                    WHERE id IN ({placeholders})
+                """
+                cursor.execute(query, tuple([motivo_inativacao] + ids))
+            updated = int(cursor.rowcount or 0)
+            conn.commit()
+            return updated
+        except Exception as exc:
+            conn.rollback()
+            raise DatabaseException(f"Erro ao atualizar status dos produtos: {exc}")
+        finally:
+            conn.close()
+
     def get_total_stock_canoas(self) -> int:
-        result = self._execute_query("SELECT SUM(qtd_canoas) as total FROM produtos")
+        result = self._execute_query("SELECT SUM(qtd_canoas) as total FROM produtos WHERE ativo = 1")
         return result[0]["total"] if result and result[0]["total"] else 0
 
     def get_total_stock_pf(self) -> int:
-        result = self._execute_query("SELECT SUM(qtd_pf) as total FROM produtos")
+        result = self._execute_query("SELECT SUM(qtd_pf) as total FROM produtos WHERE ativo = 1")
         return result[0]["total"] if result and result[0]["total"] else 0
 
     def count_products(self) -> int:
-        return self._count("produtos")
+        return self._count("produtos", "ativo = 1")
 
     def bulk_insert(self, products: List[tuple]) -> int:
         command = """
@@ -377,5 +432,19 @@ class ProductRepository(BaseRepository):
         return int(result[0]["total"] if result else 0)
 
     def count_out_of_stock(self) -> int:
-        result = self._execute_query("SELECT COUNT(*) as total FROM produtos WHERE (qtd_canoas + qtd_pf) = 0")
+        result = self._execute_query(
+            "SELECT COUNT(*) as total FROM produtos WHERE ativo = 1 AND (qtd_canoas + qtd_pf) = 0"
+        )
         return int(result[0]["total"] if result else 0)
+
+    def _append_status_filter(self, status: str, where_clauses: List[str], params: List[Any]) -> None:
+        normalized = str(status or "ATIVO").upper()
+        if normalized == "ATIVO":
+            where_clauses.append("ativo = 1")
+            return
+        if normalized == "INATIVO":
+            where_clauses.append("ativo = 0")
+            return
+        if normalized == "TODOS":
+            return
+        raise DatabaseException("Filtro de status invalido. Use ATIVO, INATIVO ou TODOS.")

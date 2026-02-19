@@ -134,6 +134,9 @@ jobs:
         run: npm run release:publish
         working-directory: frontend
 
+      - name: Validate release manifest and assets
+        run: python scripts/check_release_artifacts.py --repo "${{ env.GITHUB_REPO }}" --tag "${{ env.RELEASE_TAG }}"
+
       - name: Publish GitHub Release assets
         uses: softprops/action-gh-release@v2
         with:

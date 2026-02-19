@@ -1,253 +1,174 @@
-# Release 1.x (Chronos Inventory)
+# Release Runbook (Chronos Inventory)
 
-## 1) Preparar ambiente
+Guia atualizado para testar e publicar novas versoes sem quebrar update.
+
+## 1) Pre-requisitos
+
+- Windows + PowerShell
+- Python 3.12 (recomendado para release local)
+- Node 20+
+- Rust toolchain
+- Venv criada na raiz do projeto (`.venv`)
+
+Se voce nao tiver Python 3.12 local, prefira publicar via GitHub Actions.
+
+## 2) Preparar ambiente (raiz do repo)
+
 ```powershell
-cd D:\User\Desktop\projeto_estoque_test
+cd "<pasta-do-repositorio>"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r backend\requirements.txt
 pip install -r backend\requirements-dev.txt
 cd frontend
 npm install
+cd ..
 ```
 
-## 1.1) Bump de versao (automatico)
-Antes de gerar release, atualize a versao em todos os arquivos com um comando:
+## 3) Teste antes de publicar
+
+### 3.1 Validar versoes
+
 ```powershell
-cd frontend
-npm run release:bump -- 1.1.2
-```
-
-Esse comando atualiza automaticamente:
-- `core/constants.py` (`APP_VERSION`)
-- `frontend/package.json`
-- `frontend/package-lock.json`
-- `frontend/src-tauri/Cargo.toml`
-- `frontend/src-tauri/tauri.conf.json`
-- `frontend/src-tauri/Cargo.lock` (pacote `chronos_inventory_desktop`)
-- `CHANGELOG.md` (cria secao template da nova versao, se nao existir)
-
-Preencha os itens da versao em `CHANGELOG.md` antes de publicar:
-- `### Added`
-- `### Changed`
-- `### Fixed`
-
-Valide consistencia antes de criar tag:
-```powershell
-cd D:\User\Desktop\projeto_estoque_test
+cd "<pasta-do-repositorio>"
 python scripts/check_versions.py
 ```
 
-## 1.2) Como testar antes de publicar
-Sempre rode este fluxo antes de criar tag no GitHub.
+### 3.2 Rodar testes backend
 
-### 1.2.1) Testes automatizados do backend
 ```powershell
-cd D:\User\Desktop\projeto_estoque_test
+cd "<pasta-do-repositorio>"
 .\.venv\Scripts\Activate.ps1
 python -m pytest -q
 ```
 
-### 1.2.2) Subir API local e validar versao
-Suba a API em um terminal:
-```powershell
-cd D:\User\Desktop\projeto_estoque_test
-.\.venv\Scripts\Activate.ps1
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
-```
+### 3.3 Build frontend
 
-Em outro terminal, valide:
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-Invoke-RestMethod http://127.0.0.1:8000/version
-```
-
-Importante:
-- O campo `version` deve bater com a versao que voce vai publicar.
-- Se voltar versao antiga (ex: 1.0.0), nao publique ainda.
-
-### 1.2.3) Teste do frontend web
-```powershell
-cd D:\User\Desktop\projeto_estoque_test\frontend
-npm ci
+cd "<pasta-do-repositorio>\frontend"
 npm run build
-npm run dev
 ```
 
-Teste no navegador:
-- entrada
-- saida
-- transferencia
-- devolucao com `Mov. referencia`
+### 3.4 (Opcional) Teste integrado desktop
 
-### 1.2.4) Teste integrado desktop (Tauri + sidecar)
 ```powershell
-cd D:\User\Desktop\projeto_estoque_test\frontend
+cd "<pasta-do-repositorio>\frontend"
 npm run build:backend
 npm run verify:sidecar
 npx tauri dev
 ```
 
-Checklist manual no app:
-- topo direito mostra versao correta
-- movimentos registram historico e observacao
-- devolucao funciona sem `Invalid request`
-- transferencia externa salva `local_externo` e `documento`
+Checklist manual:
+- versao no topo direito correta
+- entrada/saida/transferencia
+- devolucao com `Mov. referencia`
+- documento e observacao gravando no historico
+- ajuste com `Motivo do ajuste` + observacao obrigatorios
+- backup automatico (configurar horario/retenção e salvar)
+- botao `Testar restauracao` no modulo Backup
+- fluxo de inventario (criar sessao, contar, aplicar ajustes)
+- tela `Novidades` abrindo historico de changelog
 
-## 1.3) Dados do cliente (nao entram no bundle)
-- Banco: `%APPDATA%\Chronos Inventory\estoque.db`
-- Imagens: `%APPDATA%\Chronos Inventory\imagens\`
-- Backups: `%APPDATA%\Chronos Inventory\backups\`
-- Exports: `%APPDATA%\Chronos Inventory\exports\`
+## 4) Bump de versao
 
-O instalador nao deve carregar `*.db` no pacote. O backend cria/migra em runtime para `%APPDATA%\Chronos Inventory`.
-
-### Migracao automatica de dados legados
-Na inicializacao, o backend migra automaticamente (sem sobrescrever arquivos existentes) de:
-- `%APPDATA%\EstoqueRS`
-- `%LOCALAPPDATA%\EstoqueRS`
-- `%APPDATA%\Estoque Local`
-- `%LOCALAPPDATA%\Estoque Local`
-
-Itens migrados:
-- `estoque.db`
-- `imagens/`
-- `backups/`
-- `exports/`
-
-## 2) Build do backend (PyInstaller)
-Sempre usar o script para garantir venv correta e nome de sidecar esperado:
 ```powershell
-cd D:\User\Desktop\projeto_estoque_test
-.\build_backend.ps1
+cd "<pasta-do-repositorio>\frontend"
+npm run release:bump -- 1.2.0
+cd ..
+python scripts/check_versions.py
 ```
 
-Valide sidecar:
+Depois preencha a secao da versao em `CHANGELOG.md`:
+- `### Added`
+- `### Changed`
+- `### Fixed`
+
+Sincronize a tela interna de novidades com o changelog:
+
 ```powershell
-cd frontend
-npm run verify:sidecar
+cd "<pasta-do-repositorio>\frontend"
+npm run changelog:sync
 ```
 
-O verificador agora confere:
-- arquivos obrigatorios em `src-tauri/bin`
-- coerencia de versao (`package.json` x sidecar)
-- sidecar mais novo que o codigo-fonte Python
+## 5) Release local (manual)
 
-Arquivos esperados em `frontend\src-tauri\bin`:
-- `estoque_backend.exe`
-- `estoque_backend-x86_64-pc-windows-msvc.exe`
+Use esse fluxo quando voce tiver chave de assinatura local.
 
-## 3) Build do app desktop
+### 5.1 Definir variaveis
+
 ```powershell
-cd frontend
-npm run build:app
-```
-
-Saida em:
-- `frontend\src-tauri\target\release\bundle\msi\`
-- `frontend\src-tauri\target\release\bundle\msi\*.msi.zip` (updater)
-- `frontend\src-tauri\target\release\bundle\msi\*.msi.zip.sig`
-
-## 4) Assinatura e latest.json
-Defina variaveis de release:
-```powershell
+cd "<pasta-do-repositorio>\frontend"
 $env:GITHUB_REPO="yBlackH4t/ChronosInventory"
-$env:RELEASE_TAG="v1.1.2"
+$env:RELEASE_TAG="v1.2.0"
 $env:TAURI_PRIVATE_KEY = Get-Content "C:\Users\User\.tauri\estoque.key" -Raw
 $env:TAURI_KEY_PASSWORD=""
 ```
 
-Importante:
-- Nunca versionar chave privada no repositorio (`*.key`).
-- Mantenha a chave fora do projeto (exemplo: `C:\Users\User\.tauri\`).
+### 5.2 Gerar artefatos e manifest
 
-Build de release:
 ```powershell
-cd frontend
 npm run release:build
-```
-
-Gerar `latest.json`:
-```powershell
-npm run release:sign
-```
-
-Importante:
-- O campo `notes` do `latest.json` agora sai automaticamente do `CHANGELOG.md`.
-- Prioridade de leitura:
-  1. `## [X.Y.Z]` da versao atual
-  2. fallback para `## [Unreleased]`
-
-Preparar pasta `frontend\release` com assets:
-```powershell
 npm run release:publish
+npm run release:check
 ```
 
-## 4.1) Gerar novas chaves (rotacao)
+`release:check` valida:
+- versao do `latest.json` = versao do `package.json`
+- URL do updater apontando para a tag correta
+- existencia de `*.msi.zip`, `*.sig` e `*.msi` da versao atual
+- consistencia do asset referenciado no manifest
+
+Arquivos finais ficam em `frontend\release\`.
+
+## 6) Publicar no GitHub
+
+### 6.1 Recomendado (GitHub Actions)
+
 ```powershell
-cd frontend
-npx tauri signer generate -w "$env:USERPROFILE\.tauri\chronos_inventory.key"
+cd "<pasta-do-repositorio>"
+git add .
+git commit -m "chore(release): 1.2.0"
+git push origin main
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
-Depois:
-1. Copie a `public key` mostrada no terminal.
-2. Atualize `frontend/src-tauri/tauri.conf.json` em `tauri.updater.pubkey`.
-3. Use a chave privada nova em `TAURI_PRIVATE_KEY`.
+O workflow `.github/workflows/release.yml` faz build, valida artefatos e publica release.
 
-Importante para nao quebrar clientes:
-- Se ja existem clientes em producao com chave antiga, primeiro publique uma versao de transicao assinada com a chave antiga e com `pubkey` novo no app.
-- Na release seguinte, assine com a chave nova.
+### 6.2 Manual (se necessario)
 
-## 5) Publicar no GitHub Releases
-No release com tag (`vX.Y.Z`), subir:
-- `latest.json`
-- `*.msi.zip`
-- `*.sig` do pacote zip
-- instalador final `*.msi`
+No GitHub Release da tag, envie:
+- `frontend/release/latest.json`
+- `frontend/release/*.msi.zip`
+- `frontend/release/*.sig`
+- `frontend/release/*.msi`
 
-## 5.1) CI/CD (GitHub Actions)
-Workflows:
-- `.github/workflows/ci.yml`:
-  - roda `pytest`
-  - roda `npm run build` no frontend
-- `.github/workflows/release.yml`:
-  - dispara em tags `v*.*.*` (ou manual)
-  - builda backend sidecar + Tauri MSI/updater
-  - gera `latest.json`
-  - publica assets no GitHub Release
+## 7) Dados de cliente (nao entram no repo)
 
-Segredos obrigatorios no repositorio:
-- `TAURI_PRIVATE_KEY`
-- `TAURI_KEY_PASSWORD` (pode ser vazio)
+- `%APPDATA%\Chronos Inventory\estoque.db`
+- `%APPDATA%\Chronos Inventory\imagens\`
+- `%APPDATA%\Chronos Inventory\backups\`
+- `%APPDATA%\Chronos Inventory\exports\`
 
-## 6) Checklist de validacao
-- `python -m pytest -q` (backend)
-- `cd frontend && npm run build` (frontend)
-- instalar MSI e abrir app
-- validar `GET /health` no startup
-- testar botao "Verificar atualizacao" (apos publicar release)
+## 8) Troubleshooting rapido
 
-## 7) Troubleshooting rapido
-### "No module named fastapi"
-- Sidecar foi buildado com Python errado.
-- Rode novamente `build_backend.ps1` com venv correta.
-- Confira `npm run verify:sidecar`.
+### `.venv\Scripts\Activate.ps1` nao encontrado
+- Rode o comando na raiz do repo.
+- Se estiver em `frontend`, volte um nivel: `cd ..`.
 
-### "Python X.Y nao suportado para release local"
-- O script de build bloqueia Python >= 3.13 por padrao.
-- Use Python 3.12 na venv (`.venv312` recomendado).
-- Override apenas em emergencia: `set ALLOW_UNSUPPORTED_PYTHON=1` (nao recomendado).
+### `Python X.Y nao suportado para release local`
+- `build_backend.ps1` bloqueia Python >= 3.13 por padrao.
+- Use Python 3.12 para release local.
+- Override (`ALLOW_UNSUPPORTED_PYTHON=1`) so em emergencia.
 
-### App abre e fecha
-- Verifique logs do Tauri (`src-tauri/src/main.rs`) e `backend/logs/backend.log`.
-- Garanta que sidecar esta em `src-tauri/bin` e `externalBin` configurado.
+### `TAURI_PRIVATE_KEY` ausente
+- Sem chave privada, nao gera `*.sig`.
+- Sem `*.sig`, `release:publish` falha.
 
-### Falha ao verificar atualizacao
-- Sem release publicado, isso e esperado.
-- Confirme endpoint em `tauri.conf.json > tauri.updater.endpoints`.
-- Confirme `pubkey` e assinatura do bundle zip.
+### `release:check` falhou
+- Normalmente indica artefato antigo/misturado ou `latest.json` fora da versao.
+- Rode novamente: `release:build` -> `release:publish` -> `release:check`.
 
-### Erro no build MSI: "arquivo em uso"
-- Feche instaladores/atualizadores abertos.
-- Feche janelas do Explorer abertas em `src-tauri/target/release/bundle/msi`.
-- Rode novamente `npm run build:app`.
+### Push rejeitado por arquivo > 100MB
+- Nao comitar artefatos de build (`target`, `release`, `temp`).
+- Publique binarios no GitHub Release, nao no Git.

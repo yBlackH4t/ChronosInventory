@@ -26,6 +26,34 @@ Formato recomendado:
 - Endpoint `--version` no backend sidecar para validar sincronismo de versao no processo de release.
 
 
+
+## [1.2.0] - 2026-02-19
+
+### Added
+- Backup automatico agendado com configuracao de hora/minuto e retencao por dias (7/15/30).
+- Botao de "Testar restauracao" para validar backup em ambiente temporario sem tocar no banco ativo.
+- Acao de rollback de dados pre-update (criacao de snapshot antes do update e restauracao assistida em caso de falha).
+- Modulo de inventario com sessao de contagem, divergencia automatica e aplicacao de ajustes em lote.
+- Tela "Novidades" no app com historico de versoes e highlights da release.
+- Nova aba "Ativar/Inativar" para gestao rapida de status em lote (busca, filtro e selecao multipla).
+
+### Changed
+- Ajuste de estoque agora exige motivo padronizado e observacao obrigatoria.
+- Fluxo de update do app passou a criar backup pre-update antes de instalar.
+- Mensagens de validacao ficaram mais amigaveis para usuario final (menos erros genericos).
+- Historicos de movimentacao exibem motivo de ajuste.
+- Produtos inativos deixaram de aparecer na listagem principal e nos graficos/indicadores de estoque.
+
+### Fixed
+- Erro generico "Invalid request" substituido por mensagens mais acionaveis para casos comuns de validacao.
+- Cadastro de produto com estoque inicial zerado agora retorna mensagem explicita de orientacao.
+- Correcao de roteamento em `/produtos/status-lote` para evitar conflito com rota dinamica por `id`.
+- Sessao de inventario passou a incluir somente itens ativos no momento da abertura.
+- Tela de ativacao/inativacao agora mostra erro acionavel quando o backend estiver desatualizado.
+- Ajustes de tipagem no frontend para eliminar erros de compilacao TypeScript durante o build.
+- Correcoes de estado em telas (Backup e Produtos) para evitar atualizacoes sincronas dentro de `useEffect`.
+- ESLint configurado para ignorar artefatos gerados do Tauri (`src-tauri/target`, `src-tauri/gen` e `release`).
+
 ## [1.1.5] - 2026-02-18
 
 ### Added

@@ -33,3 +33,33 @@ class BackupRestoreOut(BaseModel):
     active_database: str
     pre_restore_backup: str
     validation_result: str
+
+
+class BackupAutoConfigOut(BaseModel):
+    enabled: bool
+    hour: int = Field(ge=0, le=23)
+    minute: int = Field(ge=0, le=59)
+    retention_days: int = Field(ge=1)
+    last_run_date: str | None = None
+    last_result: str | None = None
+    last_backup_name: str | None = None
+
+
+class BackupAutoConfigIn(BaseModel):
+    enabled: bool
+    hour: int = Field(ge=0, le=23)
+    minute: int = Field(ge=0, le=59)
+    retention_days: int = Field(ge=1)
+
+
+class BackupRestoreTestIn(BaseModel):
+    backup_name: str | None = Field(default=None, max_length=260)
+
+
+class BackupRestoreTestOut(BaseModel):
+    backup_name: str
+    backup_path: str
+    ok: bool
+    integrity_result: str
+    required_tables: list[str]
+    missing_tables: list[str]

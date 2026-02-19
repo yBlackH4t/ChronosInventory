@@ -1,8 +1,9 @@
-﻿import { useState } from "react";
-import { Button, Stack, Text, Title, FileInput, Card } from "@mantine/core";
+import { useState } from "react";
+import { Badge, Button, Card, Group, Stack, Text, Title, FileInput } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
+import PageHeader from "../components/ui/PageHeader";
 import type { ImportSummary, SuccessResponse } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
 
@@ -34,9 +35,19 @@ export default function ImportPage() {
 
   return (
     <Stack gap="lg">
-      <Title order={2}>Importar Excel</Title>
+      <PageHeader
+        title="Importar Excel"
+        subtitle="Atualize o estoque em lote com validacao automatica e resumo de processamento."
+      />
+
       <Card withBorder>
-        <Stack>
+        <Stack gap="md">
+          <Group justify="space-between">
+            <Text fw={600}>Arquivo de importacao</Text>
+            <Badge variant="outline" color="gray">
+              Limite: 50 MB
+            </Badge>
+          </Group>
           <FileInput
             label="Arquivo Excel"
             placeholder="Selecione .xlsx/.xls"
@@ -52,14 +63,16 @@ export default function ImportPage() {
 
       {result && (
         <Card withBorder>
-          <Title order={4}>Resultado</Title>
-          <Text>Importados: {result.imported}</Text>
-          <Text>Atualizados: {result.updated}</Text>
-          <Text>Ignorados: {result.skipped}</Text>
-          {result.errors?.length > 0 && (
-            <Text c="red">Erros: {result.errors.join(", ")}</Text>
-          )}
-          {result.message && <Text c="dimmed">{result.message}</Text>}
+          <Stack gap="xs">
+            <Title order={4}>Resultado</Title>
+            <Text>Importados: {result.imported}</Text>
+            <Text>Atualizados: {result.updated}</Text>
+            <Text>Ignorados: {result.skipped}</Text>
+            {result.errors?.length > 0 && (
+              <Text c="red">Erros: {result.errors.join(", ")}</Text>
+            )}
+            {result.message && <Text c="dimmed">{result.message}</Text>}
+          </Stack>
         </Card>
       )}
     </Stack>

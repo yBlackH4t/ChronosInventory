@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
 PRODUCT_OBSERVACAO_MAX_LENGTH = 2000
@@ -13,6 +13,9 @@ class ProductOut(BaseModel):
     qtd_pf: int
     total_stock: int
     observacao: str | None = None
+    ativo: bool = True
+    inativado_em: str | None = None
+    motivo_inativacao: str | None = None
 
 
 class ProductCreate(BaseModel):
@@ -83,3 +86,18 @@ class ProductDeleteOut(BaseModel):
     id: int
     nome: str
     message: str
+
+
+ProductStatusFilter = Literal["ATIVO", "INATIVO", "TODOS"]
+
+
+class ProductStatusBulkIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ids: list[int] = Field(min_length=1)
+    ativo: bool
+    motivo_inativacao: Optional[str] = Field(default=None, max_length=200)
+
+
+class ProductStatusBulkOut(BaseModel):
+    updated: int

@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $frontendDir = Split-Path -Parent $scriptDir
+$repoRoot = Resolve-Path (Join-Path $frontendDir "..")
 $bundleDir = Join-Path $frontendDir "src-tauri\\target\\release\\bundle"
 $releaseDir = Join-Path $frontendDir "release"
 
@@ -19,29 +20,37 @@ Get-ChildItem -Path $releaseDir -File -ErrorAction SilentlyContinue |
 
 & (Join-Path $scriptDir "release_sign.ps1") -Repo $Repo -Tag $Tag
 
-$msiZip = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi.zip" -ErrorAction SilentlyContinue |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -First 1
-$bundle = $msiZip
+$pkg = Get-Content -Path (Join-Path $frontendDir "package.json") | ConvertFrom-Json
+$version = $pkg.version
+if (-not $Tag) {
+  $Tag = "v$version"
+}
 
-if (-not $bundle) {
+$bundles = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi.zip" -ErrorAction SilentlyContinue
+if (-not $bundles -or $bundles.Count -eq 0) {
   Write-Error "Nenhum bundle MSI de update encontrado (*.msi.zip). Rode 'npm run release:build' antes."
 }
 
-$pkg = Get-Content -Path (Join-Path $frontendDir "package.json") | ConvertFrom-Json
-$version = $pkg.version
-if ($bundle.Name -notmatch "_$([regex]::Escape($version))_") {
-  Write-Error "Bundle encontrado ('$($bundle.Name)') nao corresponde a versao $version. Rode 'npm run release:build' antes de publicar."
+$versionToken = "_$($version)_"
+$versionBundles = $bundles | Where-Object { $_.Name -like "*$versionToken*" }
+if (-not $versionBundles -or $versionBundles.Count -eq 0) {
+  $available = ($bundles | Select-Object -ExpandProperty Name) -join ", "
+  Write-Error "Nenhum bundle .msi.zip da versao $version encontrado. Disponiveis: $available"
 }
 
+$bundle = $versionBundles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 $sigPath = "$($bundle.FullName).sig"
 if (-not (Test-Path $sigPath)) {
   Write-Error "Assinatura nao encontrada ($sigPath). Garanta TAURI_PRIVATE_KEY no build."
 }
 
 $installerMsi = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi" -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -like "*$versionToken*" } |
   Sort-Object LastWriteTime -Descending |
   Select-Object -First 1
+if (-not $installerMsi) {
+  Write-Error "Nenhum instalador .msi da versao $version encontrado. Rode 'npm run release:build' antes."
+}
 
 $bundleReleaseName = ($bundle.Name -replace " ", ".")
 $bundleReleasePath = Join-Path $releaseDir $bundleReleaseName
@@ -50,10 +59,15 @@ $sigReleasePath = "$bundleReleasePath.sig"
 Copy-Item -Path $bundle.FullName -Destination $bundleReleasePath -Force
 Copy-Item -Path $sigPath -Destination $sigReleasePath -Force
 
-if ($installerMsi) {
-  $installerReleaseName = ($installerMsi.Name -replace " ", ".")
-  Copy-Item -Path $installerMsi.FullName -Destination (Join-Path $releaseDir $installerReleaseName) -Force
+$installerReleaseName = ($installerMsi.Name -replace " ", ".")
+Copy-Item -Path $installerMsi.FullName -Destination (Join-Path $releaseDir $installerReleaseName) -Force
+
+$releaseCheckScript = Join-Path $repoRoot "scripts\\check_release_artifacts.py"
+if (-not (Test-Path $releaseCheckScript)) {
+  Write-Error "Script de validacao nao encontrado: $releaseCheckScript"
 }
+
+python $releaseCheckScript --repo $Repo --tag $Tag --frontend-dir $frontendDir
 
 Write-Host "Artefatos copiados para $releaseDir"
 Write-Host "Arquivos obrigatorios para publicar:"

@@ -94,6 +94,7 @@ class MovementRepository(BaseRepository):
         destino: Optional[str],
         observacao: Optional[str],
         natureza: str,
+        motivo_ajuste: Optional[str],
         local_externo: Optional[str],
         documento: Optional[str],
         movimento_ref_id: Optional[int],
@@ -104,9 +105,9 @@ class MovementRepository(BaseRepository):
             """
             INSERT INTO movimentacoes (
                 data_hora, tipo, produto_id, quantidade, origem, destino, observacao,
-                natureza, local_externo, documento, movimento_ref_id
+                natureza, motivo_ajuste, local_externo, documento, movimento_ref_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 data_hora,
@@ -117,6 +118,7 @@ class MovementRepository(BaseRepository):
                 destino,
                 observacao,
                 natureza,
+                motivo_ajuste,
                 local_externo,
                 documento,
                 movimento_ref_id,
@@ -179,6 +181,7 @@ class MovementRepository(BaseRepository):
                    m.destino,
                    m.observacao,
                    m.natureza,
+                   m.motivo_ajuste,
                    m.local_externo,
                    m.documento,
                    m.movimento_ref_id
@@ -276,6 +279,7 @@ class MovementRepository(BaseRepository):
             FROM movimentacoes m
             JOIN produtos p ON p.id = m.produto_id
             WHERE m.tipo = 'SAIDA'
+              AND p.ativo = 1
               AND m.data_hora >= ?
               AND m.data_hora <= ?
         """
@@ -303,6 +307,7 @@ class MovementRepository(BaseRepository):
               COALESCE(SUM(qtd_pf), 0) as total_pf,
               COALESCE(SUM(CASE WHEN (qtd_canoas + qtd_pf) = 0 THEN 1 ELSE 0 END), 0) as zerados
             FROM produtos
+            WHERE ativo = 1
             """
         )[0]
         total_canoas = int(row.get("total_canoas") or 0)
@@ -332,7 +337,9 @@ class MovementRepository(BaseRepository):
                    {saida_liquida}
                    ) as total_saida
             FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
             WHERE m.tipo = 'SAIDA'
+              AND p.ativo = 1
               AND m.data_hora >= ?
               AND m.data_hora <= ?
         """
@@ -369,7 +376,9 @@ class MovementRepository(BaseRepository):
                         THEN {saida_liquida} ELSE 0 END
                    ) as saidas
             FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
             WHERE tipo IN ('ENTRADA', 'SAIDA')
+              AND p.ativo = 1
               AND data_hora >= ?
               AND data_hora <= ?
             GROUP BY periodo
@@ -395,7 +404,7 @@ class MovementRepository(BaseRepository):
             raise DatabaseException("Bucket invalido para serie temporal.")
 
         current_total_row = self._execute_query(
-            "SELECT COALESCE(SUM(qtd_canoas + qtd_pf), 0) as total FROM produtos"
+            "SELECT COALESCE(SUM(qtd_canoas + qtd_pf), 0) as total FROM produtos WHERE ativo = 1"
         )[0]
         current_total = int(current_total_row.get("total") or 0)
 
@@ -403,13 +412,15 @@ class MovementRepository(BaseRepository):
             """
             SELECT COALESCE(SUM(
                 CASE
-                    WHEN tipo = 'ENTRADA' THEN quantidade
-                    WHEN tipo = 'SAIDA' THEN -quantidade
+                    WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                    WHEN m.tipo = 'SAIDA' THEN -m.quantidade
                     ELSE 0
                 END
             ), 0) as delta
-            FROM movimentacoes
-            WHERE data_hora >= ?
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND m.data_hora >= ?
             """,
             (date_from,),
         )[0]
@@ -420,13 +431,15 @@ class MovementRepository(BaseRepository):
             SELECT {expr} as periodo,
                    SUM(
                         CASE
-                            WHEN tipo = 'ENTRADA' THEN quantidade
-                            WHEN tipo = 'SAIDA' THEN -quantidade
+                            WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                            WHEN m.tipo = 'SAIDA' THEN -m.quantidade
                             ELSE 0
                         END
                    ) as delta
-            FROM movimentacoes
-            WHERE data_hora >= ? AND data_hora <= ?
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND m.data_hora >= ? AND m.data_hora <= ?
             GROUP BY periodo
             ORDER BY periodo ASC
             """,
@@ -449,6 +462,7 @@ class MovementRepository(BaseRepository):
                    MAX(m.data_hora) as last_movement
             FROM produtos p
             LEFT JOIN movimentacoes m ON m.produto_id = p.id
+            WHERE p.ativo = 1
             GROUP BY p.id, p.nome
             HAVING last_movement IS NULL OR last_movement < ?
             ORDER BY last_movement ASC
@@ -466,7 +480,9 @@ class MovementRepository(BaseRepository):
                    SUM(CASE WHEN tipo = 'ENTRADA' THEN quantidade ELSE 0 END) as entradas,
                    SUM(CASE WHEN tipo = 'SAIDA' THEN {saida_liquida} ELSE 0 END) as saidas
             FROM movimentacoes m
-            WHERE data_hora >= ? AND data_hora <= ?
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND data_hora >= ? AND data_hora <= ?
             GROUP BY date(data_hora)
             ORDER BY dia ASC
             """,
@@ -478,13 +494,15 @@ class MovementRepository(BaseRepository):
             """
             SELECT SUM(
                 CASE
-                    WHEN tipo = 'ENTRADA' THEN quantidade
-                    WHEN tipo = 'SAIDA' THEN -quantidade
+                    WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                    WHEN m.tipo = 'SAIDA' THEN -m.quantidade
                     ELSE 0
                 END
             ) as total
-            FROM movimentacoes
-            WHERE data_hora >= ? AND data_hora <= ?
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND data_hora >= ? AND data_hora <= ?
             """,
             (date_from, date_to),
         )
@@ -496,13 +514,15 @@ class MovementRepository(BaseRepository):
             SELECT date(data_hora) as dia,
                    SUM(
                        CASE
-                           WHEN tipo = 'ENTRADA' THEN quantidade
-                           WHEN tipo = 'SAIDA' THEN -quantidade
+                           WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                           WHEN m.tipo = 'SAIDA' THEN -m.quantidade
                            ELSE 0
                        END
                    ) as delta
-            FROM movimentacoes
-            WHERE data_hora >= ? AND data_hora <= ?
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND data_hora >= ? AND data_hora <= ?
             GROUP BY date(data_hora)
             ORDER BY dia ASC
             """,

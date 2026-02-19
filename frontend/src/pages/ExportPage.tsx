@@ -1,7 +1,8 @@
-﻿import { Button, Card, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
+import PageHeader from "../components/ui/PageHeader";
 import type { DownloadResponse } from "../lib/api";
 import { downloadBlob } from "../lib/download";
 import { notifyError, notifySuccess } from "../lib/notify";
@@ -19,10 +20,20 @@ export default function ExportPage() {
 
   return (
     <Stack gap="lg">
-      <Title order={2}>Exportar produtos</Title>
+      <PageHeader
+        title="Exportar produtos"
+        subtitle="Gere uma planilha consolidada para auditoria, analise e envio externo."
+      />
+
       <Card withBorder>
-        <Stack>
-          <Text>Gera um arquivo XLSX com todos os produtos.</Text>
+        <Stack gap="md">
+          <Group justify="space-between">
+            <Text fw={600}>Arquivo de saida</Text>
+            <Badge variant="outline" color="gray">
+              Formato XLSX
+            </Badge>
+          </Group>
+          <Text>Gera um arquivo XLSX com todos os produtos e seus estoques atuais.</Text>
           <Button onClick={() => exportMutation.mutate()} loading={exportMutation.isPending}>
             Exportar XLSX
           </Button>

@@ -1,5 +1,5 @@
-﻿import type { ReactNode } from "react";
-import { AppShell } from "@mantine/core";
+import type { ReactNode } from "react";
+import { AppShell, Card, Stack } from "@mantine/core";
 import type { HealthOut } from "../lib/api";
 import SidebarNav from "./SidebarNav";
 import HeaderBar from "./HeaderBar";
@@ -14,16 +14,23 @@ export default function AppLayout({
   return (
     <AppShell
       padding="md"
-      navbar={{ width: 260, breakpoint: "sm" }}
-      header={{ height: 60 }}
+      navbar={{ width: 276, breakpoint: "sm" }}
+      classNames={{
+        navbar: "app-shell-navbar",
+        main: "app-shell-main",
+      }}
     >
-      <AppShell.Navbar p="md">
+      <AppShell.Navbar p="sm">
         <SidebarNav />
       </AppShell.Navbar>
-      <AppShell.Header p="md">
-        <HeaderBar health={health} />
-      </AppShell.Header>
-      <AppShell.Main>{children}</AppShell.Main>
+      <AppShell.Main>
+        <Stack gap="md">
+          <Card className="app-main-header" p="sm">
+            <HeaderBar health={health} />
+          </Card>
+          {children}
+        </Stack>
+      </AppShell.Main>
     </AppShell>
   );
 }

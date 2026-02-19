@@ -11,6 +11,7 @@ import json
 import os
 import platform
 import sqlite3
+import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,13 +37,16 @@ class BackupService:
         self.product_repo = ProductRepository()
         self.db_connection = DatabaseConnection()
         self.backups_dir = FileUtils.get_backups_directory()
+        self._default_auto_hour = 18
+        self._default_auto_minute = 0
+        self._default_retention_days = 15
 
     def export_backup(self, excel_path: str) -> Tuple[bool, str]:
         """
         Exporta backup completo (Excel + DB).
         """
         try:
-            products = self.product_repo.get_all()
+            products = self.product_repo.get_all(status="TODOS")
             if not products:
                 return False, "Sem dados para exportar."
 
@@ -76,6 +80,22 @@ class BackupService:
         if not success:
             raise FileOperationException("Falha ao criar backup pre-update.")
         return path
+
+    def get_latest_pre_update_backup_name(self) -> Optional[str]:
+        items = [
+            item
+            for item in self.list_backups_metadata()
+            if str(item.get("name", "")).startswith("backup_pre_update_")
+        ]
+        if not items:
+            return None
+        return str(items[0]["name"])
+
+    def restore_latest_pre_update_backup(self) -> Dict[str, object]:
+        name = self.get_latest_pre_update_backup_name()
+        if not name:
+            raise ValidationException("Nenhum backup pre-update disponivel para restauracao.")
+        return self.restore_backup(name)
 
     def list_backups(self) -> List[str]:
         """
@@ -142,6 +162,36 @@ class BackupService:
             "ok": ok,
             "result": result,
         }
+
+    def test_restore_backup(self, backup_name: Optional[str] = None) -> Dict[str, object]:
+        """
+        Executa um teste real de restauracao em banco temporario sem alterar o banco ativo.
+        """
+        if backup_name:
+            source_path = self._resolve_backup_path(backup_name)
+        else:
+            metadata = self.list_backups_metadata()
+            if not metadata:
+                raise ValidationException("Nenhum backup disponivel para teste.")
+            source_path = str(metadata[0]["path"])
+            backup_name = str(metadata[0]["name"])
+
+        with tempfile.TemporaryDirectory(prefix="chronos_restore_test_") as tmp_dir:
+            target_path = os.path.join(tmp_dir, "restore_test.db")
+            self._restore_sqlite_snapshot(source_path, target_path)
+            integrity = self._run_integrity_check(target_path)
+            ok = integrity.lower() == "ok"
+            table_check = self._validate_required_tables(target_path)
+
+            return {
+                "backup_name": backup_name,
+                "backup_path": source_path,
+                "test_database": target_path,
+                "ok": bool(ok and table_check["ok"]),
+                "integrity_result": integrity,
+                "required_tables": table_check["required_tables"],
+                "missing_tables": table_check["missing_tables"],
+            }
 
     def restore_backup(self, backup_name: str) -> Dict[str, object]:
         """
@@ -211,6 +261,7 @@ class BackupService:
                 }
                 for item in backups
             ],
+            "auto_backup_config": self.get_auto_backup_config(),
         }
 
         buf = io.BytesIO()
@@ -223,6 +274,103 @@ class BackupService:
         filename = f"diagnostico_{timestamp}.zip"
         return filename, buf.getvalue()
 
+    def get_auto_backup_config(self) -> Dict[str, object]:
+        return {
+            "enabled": self._read_system_bool("backup_auto_enabled", True),
+            "hour": self._read_system_int("backup_auto_hour", self._default_auto_hour),
+            "minute": self._read_system_int("backup_auto_minute", self._default_auto_minute),
+            "retention_days": self._read_system_int("backup_retention_days", self._default_retention_days),
+            "last_run_date": self._read_system_text("backup_auto_last_run_date"),
+            "last_result": self._read_system_text("backup_auto_last_result"),
+            "last_backup_name": self._read_system_text("backup_auto_last_backup"),
+        }
+
+    def update_auto_backup_config(
+        self,
+        enabled: bool,
+        hour: int,
+        minute: int,
+        retention_days: int,
+    ) -> Dict[str, object]:
+        if hour < 0 or hour > 23:
+            raise ValidationException("Hora invalida para backup automatico. Use 0-23.")
+        if minute < 0 or minute > 59:
+            raise ValidationException("Minuto invalido para backup automatico. Use 0-59.")
+        if retention_days not in {7, 15, 30}:
+            raise ValidationException("Retencao invalida. Use 7, 15 ou 30 dias.")
+
+        self._set_system_value("backup_auto_enabled", "1" if enabled else "0")
+        self._set_system_value("backup_auto_hour", str(hour))
+        self._set_system_value("backup_auto_minute", str(minute))
+        self._set_system_value("backup_retention_days", str(retention_days))
+        return self.get_auto_backup_config()
+
+    def run_due_scheduled_backup(self, now: Optional[datetime] = None) -> Dict[str, object]:
+        now_dt = now or datetime.now()
+        cfg = self.get_auto_backup_config()
+        enabled = bool(cfg.get("enabled"))
+        if not enabled:
+            return {"executed": False, "reason": "disabled", "config": cfg}
+
+        scheduled_hour = int(cfg.get("hour") or self._default_auto_hour)
+        scheduled_minute = int(cfg.get("minute") or self._default_auto_minute)
+        scheduled_minutes = scheduled_hour * 60 + scheduled_minute
+        current_minutes = now_dt.hour * 60 + now_dt.minute
+        if current_minutes < scheduled_minutes:
+            return {"executed": False, "reason": "before_schedule", "config": cfg}
+
+        run_date = now_dt.strftime("%Y-%m-%d")
+        if str(cfg.get("last_run_date") or "") == run_date:
+            return {"executed": False, "reason": "already_ran_today", "config": cfg}
+
+        try:
+            ok, path = self.create_automatic_backup(prefix="backup_auto")
+            if not ok:
+                raise FileOperationException("Falha ao gerar backup automatico.")
+            deleted = self.cleanup_auto_backups_by_retention(int(cfg.get("retention_days") or self._default_retention_days))
+            self._set_system_value("backup_auto_last_run_date", run_date)
+            self._set_system_value("backup_auto_last_result", "ok")
+            self._set_system_value("backup_auto_last_backup", os.path.basename(path))
+            return {
+                "executed": True,
+                "backup_path": path,
+                "deleted_old_backups": deleted,
+                "config": self.get_auto_backup_config(),
+            }
+        except Exception as exc:
+            self._set_system_value("backup_auto_last_run_date", run_date)
+            self._set_system_value("backup_auto_last_result", f"erro: {exc}")
+            return {
+                "executed": False,
+                "reason": "error",
+                "error": str(exc),
+                "config": self.get_auto_backup_config(),
+            }
+
+    def cleanup_auto_backups_by_retention(self, retention_days: int) -> int:
+        if retention_days <= 0:
+            return 0
+
+        now_ts = datetime.now().timestamp()
+        threshold_seconds = retention_days * 24 * 60 * 60
+        deleted = 0
+        for item in self.list_backups_metadata():
+            name = str(item.get("name", ""))
+            if not name.startswith("backup_auto_"):
+                continue
+            created_at = item.get("created_at")
+            if not isinstance(created_at, datetime):
+                continue
+            age_seconds = now_ts - created_at.timestamp()
+            if age_seconds <= threshold_seconds:
+                continue
+            try:
+                FileUtils.delete_file(str(item["path"]))
+                deleted += 1
+            except Exception:
+                continue
+        return deleted
+
     def _resolve_backup_path(self, backup_name: str) -> str:
         sanitized = Validators.sanitize_filename(backup_name)
         if not sanitized.endswith(".db"):
@@ -231,6 +379,72 @@ class BackupService:
         if not os.path.isfile(path):
             raise ValidationException(f"Backup '{sanitized}' nao encontrado.")
         return path
+
+    def _read_system_text(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        conn = self.db_connection.get_connection()
+        try:
+            row = conn.execute("SELECT value FROM system_info WHERE key = ?", (key,)).fetchone()
+            if row and row[0] is not None:
+                return str(row[0])
+            return default
+        finally:
+            conn.close()
+
+    def _read_system_int(self, key: str, default: int) -> int:
+        value = self._read_system_text(key)
+        if value is None:
+            return default
+        try:
+            return int(value)
+        except Exception:
+            return default
+
+    def _read_system_bool(self, key: str, default: bool) -> bool:
+        value = self._read_system_text(key)
+        if value is None:
+            return default
+        return str(value).strip() in {"1", "true", "True", "TRUE", "yes", "on"}
+
+    def _set_system_value(self, key: str, value: str) -> None:
+        conn = self.db_connection.get_connection()
+        try:
+            conn.execute(
+                "INSERT OR REPLACE INTO system_info (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _validate_required_tables(self, db_path: str) -> Dict[str, object]:
+        required_tables = [
+            "produtos",
+            "movimentacoes",
+            "historico",
+            "system_info",
+        ]
+        conn = None
+        try:
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+            rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+            table_names = {str(row[0]) for row in rows}
+            missing_tables = [name for name in required_tables if name not in table_names]
+            return {
+                "ok": len(missing_tables) == 0,
+                "required_tables": required_tables,
+                "missing_tables": missing_tables,
+            }
+        except Exception:
+            return {
+                "ok": False,
+                "required_tables": required_tables,
+                "missing_tables": required_tables,
+            }
+        finally:
+            if conn is not None:
+                conn.close()
 
     def _run_integrity_check(self, db_path: str) -> str:
         if not os.path.exists(db_path):

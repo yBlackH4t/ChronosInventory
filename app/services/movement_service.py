@@ -43,6 +43,26 @@ NATUREZA_LABEL_MAP = {
     NATUREZA_AJUSTE: "Ajuste",
 }
 
+MOTIVO_AJUSTE_AVARIA = "AVARIA"
+MOTIVO_AJUSTE_PERDA = "PERDA"
+MOTIVO_AJUSTE_CORRECAO_INVENTARIO = "CORRECAO_INVENTARIO"
+MOTIVO_AJUSTE_ERRO_OPERACIONAL = "ERRO_OPERACIONAL"
+MOTIVO_AJUSTE_TRANSFERENCIA = "TRANSFERENCIA"
+MOTIVOS_AJUSTE_VALIDOS = {
+    MOTIVO_AJUSTE_AVARIA,
+    MOTIVO_AJUSTE_PERDA,
+    MOTIVO_AJUSTE_CORRECAO_INVENTARIO,
+    MOTIVO_AJUSTE_ERRO_OPERACIONAL,
+    MOTIVO_AJUSTE_TRANSFERENCIA,
+}
+MOTIVO_AJUSTE_LABEL_MAP = {
+    MOTIVO_AJUSTE_AVARIA: "Avaria",
+    MOTIVO_AJUSTE_PERDA: "Perda",
+    MOTIVO_AJUSTE_CORRECAO_INVENTARIO: "Correcao inventario",
+    MOTIVO_AJUSTE_ERRO_OPERACIONAL: "Erro operacional",
+    MOTIVO_AJUSTE_TRANSFERENCIA: "Transferencia",
+}
+
 
 @dataclass
 class MovementRecord:
@@ -55,6 +75,7 @@ class MovementRecord:
     destino: Optional[str]
     observacao: Optional[str]
     natureza: str
+    motivo_ajuste: Optional[str]
     local_externo: Optional[str]
     documento: Optional[str]
     movimento_ref_id: Optional[int]
@@ -77,6 +98,7 @@ class MovementService:
         destino: Optional[str],
         observacao: Optional[str],
         natureza: Optional[str],
+        motivo_ajuste: Optional[str],
         local_externo: Optional[str],
         documento: Optional[str],
         movimento_ref_id: Optional[int],
@@ -86,6 +108,7 @@ class MovementService:
         origem = self._normalize_location(origem)
         destino = self._normalize_location(destino)
         natureza = self._normalize_natureza(natureza)
+        motivo_ajuste = self._normalize_motivo_ajuste(motivo_ajuste)
         observacao = observacao.strip() if observacao else None
         local_externo = local_externo.strip() if local_externo else None
         documento = documento.strip() if documento else None
@@ -104,7 +127,9 @@ class MovementService:
         else:
             raise ValidationException("Tipo de movimentacao invalido.")
 
-        self._validate_business_rules(tipo, natureza, local_externo)
+        self._validate_business_rules(tipo, natureza, local_externo, motivo_ajuste, observacao)
+        if natureza != NATUREZA_AJUSTE:
+            motivo_ajuste = None
         if natureza != NATUREZA_TRANSFERENCIA_EXTERNA:
             local_externo = None
         if natureza != NATUREZA_DEVOLUCAO:
@@ -126,6 +151,8 @@ class MovementService:
             product = self.repo.get_product_by_id(conn, produto_id)
             if not product:
                 raise ProductNotFoundException(f"Produto com ID {produto_id} nao encontrado.")
+            if int(product.get("ativo") or 0) != 1:
+                raise ValidationException("Produto inativo. Reative o item para registrar movimentacoes.")
 
             if natureza == NATUREZA_DEVOLUCAO:
                 if not movimento_ref_id:
@@ -161,6 +188,7 @@ class MovementService:
                 destino=destino,
                 observacao=observacao,
                 natureza=natureza,
+                motivo_ajuste=motivo_ajuste,
                 local_externo=local_externo,
                 documento=documento,
                 movimento_ref_id=movimento_ref_id,
@@ -176,6 +204,7 @@ class MovementService:
                 destino,
                 observacao,
                 natureza,
+                motivo_ajuste,
                 local_externo,
                 documento,
                 movimento_ref_id,
@@ -193,6 +222,7 @@ class MovementService:
                 destino=destino,
                 observacao=observacao,
                 natureza=natureza,
+                motivo_ajuste=motivo_ajuste,
                 local_externo=local_externo,
                 documento=documento,
                 movimento_ref_id=movimento_ref_id,
@@ -258,6 +288,7 @@ class MovementService:
                 destino=row["destino"],
                 observacao=row.get("observacao"),
                 natureza=row.get("natureza") or NATUREZA_OPERACAO_NORMAL,
+                motivo_ajuste=row.get("motivo_ajuste"),
                 local_externo=row.get("local_externo"),
                 documento=row.get("documento"),
                 movimento_ref_id=row.get("movimento_ref_id"),
@@ -459,6 +490,7 @@ class MovementService:
         destino: Optional[str],
         observacao: Optional[str],
         natureza: str,
+        motivo_ajuste: Optional[str],
         local_externo: Optional[str],
         documento: Optional[str],
         movimento_ref_id: Optional[int],
@@ -473,6 +505,8 @@ class MovementService:
         details: List[str] = []
         if natureza != NATUREZA_OPERACAO_NORMAL:
             details.append(f"Natureza: {NATUREZA_LABEL_MAP.get(natureza, natureza)}")
+        if motivo_ajuste:
+            details.append(f"Motivo ajuste: {MOTIVO_AJUSTE_LABEL_MAP.get(motivo_ajuste, motivo_ajuste)}")
         if local_externo:
             details.append(f"Local externo: {local_externo}")
         if documento:
@@ -504,6 +538,8 @@ class MovementService:
         tipo: str,
         natureza: str,
         local_externo: Optional[str],
+        motivo_ajuste: Optional[str],
+        observacao: Optional[str],
     ) -> None:
         if natureza == NATUREZA_DEVOLUCAO and tipo != "ENTRADA":
             raise ValidationException("Natureza DEVOLUCAO exige movimentacao do tipo ENTRADA.")
@@ -513,3 +549,23 @@ class MovementService:
                 raise ValidationException("Natureza TRANSFERENCIA_EXTERNA exige movimentacao do tipo SAIDA.")
             if not local_externo:
                 raise ValidationException("Informe o local externo para TRANSFERENCIA_EXTERNA.")
+
+        if natureza == NATUREZA_AJUSTE:
+            if not motivo_ajuste:
+                raise ValidationException(
+                    "Motivo obrigatorio para AJUSTE. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
+                )
+            if not observacao:
+                raise ValidationException("Observacao obrigatoria para AJUSTE de estoque.")
+        elif motivo_ajuste:
+            raise ValidationException("Motivo de ajuste so pode ser informado com natureza AJUSTE.")
+
+    def _normalize_motivo_ajuste(self, motivo_ajuste: Optional[str]) -> Optional[str]:
+        if not motivo_ajuste:
+            return None
+        motivo_ajuste = motivo_ajuste.upper().strip()
+        if motivo_ajuste not in MOTIVOS_AJUSTE_VALIDOS:
+            raise ValidationException(
+                "Motivo de ajuste invalido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
+            )
+        return motivo_ajuste

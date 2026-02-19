@@ -23,6 +23,9 @@ from backend.app.schemas.product import (
     ProductImagesUploadOut,
     ProductOut,
     ProductPatch,
+    ProductStatusBulkIn,
+    ProductStatusBulkOut,
+    ProductStatusFilter,
     ProductPut,
 )
 from core.exceptions import ValidationException
@@ -42,6 +45,9 @@ def _to_product_out(product: Product) -> ProductOut:
         qtd_pf=product.qtd_pf,
         total_stock=product.total_stock,
         observacao=product.observacao,
+        ativo=bool(product.ativo),
+        inativado_em=product.inativado_em,
+        motivo_inativacao=product.motivo_inativacao,
     )
 
 
@@ -111,6 +117,52 @@ def list_products(
         has_next=has_next,
     )
     return ok([_to_product_out(p) for p in products], meta)
+
+
+@router.get("/gestao-status", response_model=SuccessResponse[list[ProductOut]])
+def list_products_status(
+    query: str = "",
+    status: ProductStatusFilter = "TODOS",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    sort: str | None = None,
+    stock_service: StockService = Depends(get_stock_service),
+) -> SuccessResponse[list[ProductOut]]:
+    sort_column, sort_direction = _parse_sort(sort)
+    start = (page - 1) * page_size
+    products, total_items = stock_service.get_products_status_paginated(
+        search_term=query,
+        status=status,
+        sort_column=sort_column,
+        sort_direction=sort_direction,
+        limit=page_size,
+        offset=start,
+    )
+
+    total_pages = ceil(total_items / page_size) if total_items else 0
+    has_next = page < total_pages
+
+    meta = PaginationMeta(
+        page=page,
+        page_size=page_size,
+        total_items=total_items,
+        total_pages=total_pages,
+        has_next=has_next,
+    )
+    return ok([_to_product_out(p) for p in products], meta)
+
+
+@router.put("/status-lote", response_model=SuccessResponse[ProductStatusBulkOut])
+def bulk_update_products_status(
+    payload: ProductStatusBulkIn,
+    stock_service: StockService = Depends(get_stock_service),
+) -> SuccessResponse[ProductStatusBulkOut]:
+    updated = stock_service.set_products_active(
+        ids=payload.ids,
+        ativo=payload.ativo,
+        motivo_inativacao=payload.motivo_inativacao,
+    )
+    return ok(ProductStatusBulkOut(updated=updated))
 
 
 @router.get("/{product_id}", response_model=SuccessResponse[ProductOut])
@@ -365,6 +417,7 @@ def get_product_history(
             destino=record.destino,
             observacao=record.observacao,
             natureza=record.natureza,
+            motivo_ajuste=record.motivo_ajuste,
             local_externo=record.local_externo,
             documento=record.documento,
             movimento_ref_id=record.movimento_ref_id,

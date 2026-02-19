@@ -83,6 +83,7 @@ class MigrationManager:
             MigrationStep("1.0.2", self._migration_add_movimento_metadata),
             MigrationStep("1.0.3", self._migration_create_product_images),
             MigrationStep("1.0.4", self._migration_create_indexes),
+            MigrationStep("1.2.0", self._migration_inventory_and_backup),
         ]
 
     def _migration_add_product_observacao(self, conn: sqlite3.Connection) -> None:
@@ -94,6 +95,8 @@ class MigrationManager:
             conn.execute(
                 "ALTER TABLE movimentacoes ADD COLUMN natureza TEXT NOT NULL DEFAULT 'OPERACAO_NORMAL';"
             )
+        if not self._column_exists(conn, "movimentacoes", "motivo_ajuste"):
+            conn.execute("ALTER TABLE movimentacoes ADD COLUMN motivo_ajuste TEXT;")
         if not self._column_exists(conn, "movimentacoes", "local_externo"):
             conn.execute("ALTER TABLE movimentacoes ADD COLUMN local_externo TEXT;")
         if not self._column_exists(conn, "movimentacoes", "documento"):
@@ -147,6 +150,58 @@ class MigrationManager:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_destino_data ON movimentacoes(tipo, destino, data_hora);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_product_images_primary ON product_images(product_id, is_primary);")
+
+    def _migration_inventory_and_backup(self, conn: sqlite3.Connection) -> None:
+        if not self._column_exists(conn, "produtos", "ativo"):
+            conn.execute("ALTER TABLE produtos ADD COLUMN ativo INTEGER NOT NULL DEFAULT 1;")
+        if not self._column_exists(conn, "produtos", "inativado_em"):
+            conn.execute("ALTER TABLE produtos ADD COLUMN inativado_em DATETIME;")
+        if not self._column_exists(conn, "produtos", "motivo_inativacao"):
+            conn.execute("ALTER TABLE produtos ADD COLUMN motivo_inativacao TEXT;")
+        conn.execute("UPDATE produtos SET ativo = 1 WHERE ativo IS NULL;")
+
+        if not self._column_exists(conn, "movimentacoes", "motivo_ajuste"):
+            conn.execute("ALTER TABLE movimentacoes ADD COLUMN motivo_ajuste TEXT;")
+
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS inventory_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nome TEXT NOT NULL,
+                local TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'ABERTO',
+                observacao TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                applied_at DATETIME
+            );
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS inventory_counts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL,
+                produto_id INTEGER NOT NULL,
+                qtd_sistema INTEGER NOT NULL,
+                qtd_fisico INTEGER,
+                divergencia INTEGER,
+                motivo_ajuste TEXT,
+                observacao TEXT,
+                applied_movement_id INTEGER,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(session_id) REFERENCES inventory_sessions(id) ON DELETE CASCADE,
+                FOREIGN KEY(produto_id) REFERENCES produtos(id),
+                FOREIGN KEY(applied_movement_id) REFERENCES movimentacoes(id),
+                UNIQUE(session_id, produto_id)
+            );
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_natureza_data ON movimentacoes(natureza, data_hora);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_ativo_nome ON produtos(ativo, nome);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_sessions_status ON inventory_sessions(status, created_at);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_session ON inventory_counts(session_id);")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_divergencia ON inventory_counts(session_id, divergencia);")
 
     def _create_backup(self, db_version: str) -> str:
         db_path = self.db_connection.get_database_path()

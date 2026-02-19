@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -27,11 +27,15 @@ import {
 import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { useForm } from "@mantine/form";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconEdit, IconPlus, IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
+import DataTable from "../components/ui/DataTable";
+import EmptyState from "../components/ui/EmptyState";
+import FilterToolbar from "../components/ui/FilterToolbar";
+import PageHeader from "../components/ui/PageHeader";
 import type {
   MovementCreate,
   MovementOut,
@@ -42,6 +46,7 @@ import type {
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { clearTabState, loadTabState, saveTabState } from "../state/tabStateCache";
 
 const PAGE_SIZES = [
   { value: "10", label: "10" },
@@ -63,6 +68,12 @@ const LOCATIONS = [
 
 type MovementType = "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
 type MovementNature = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
+type AdjustmentReason =
+  | "AVARIA"
+  | "PERDA"
+  | "CORRECAO_INVENTARIO"
+  | "ERRO_OPERACIONAL"
+  | "TRANSFERENCIA";
 const MAX_IMAGES = 5;
 
 const MOVEMENT_NATURE_OPTIONS: { value: MovementNature; label: string }[] = [
@@ -70,6 +81,14 @@ const MOVEMENT_NATURE_OPTIONS: { value: MovementNature; label: string }[] = [
   { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
   { value: "DEVOLUCAO", label: "Devolucao" },
   { value: "AJUSTE", label: "Ajuste" },
+];
+
+const ADJUSTMENT_REASON_OPTIONS: { value: AdjustmentReason; label: string }[] = [
+  { value: "AVARIA", label: "Avaria" },
+  { value: "PERDA", label: "Perda" },
+  { value: "CORRECAO_INVENTARIO", label: "Correcao inventario" },
+  { value: "ERRO_OPERACIONAL", label: "Erro operacional" },
+  { value: "TRANSFERENCIA", label: "Transferencia" },
 ];
 
 function movementColor(tipo: MovementType) {
@@ -80,6 +99,11 @@ function movementColor(tipo: MovementType) {
 
 function movementNatureLabel(natureza: MovementNature) {
   return MOVEMENT_NATURE_OPTIONS.find((item) => item.value === natureza)?.label ?? natureza;
+}
+
+function adjustmentReasonLabel(reason?: AdjustmentReason | null) {
+  if (!reason) return "-";
+  return ADJUSTMENT_REASON_OPTIONS.find((item) => item.value === reason)?.label ?? reason;
 }
 
 function movementNatureOptionsByType(tipo: MovementType): { value: MovementNature; label: string }[] {
@@ -96,18 +120,46 @@ function movementNatureOptionsByType(tipo: MovementType): { value: MovementNatur
   return MOVEMENT_NATURE_OPTIONS.filter((item) => item.value !== "DEVOLUCAO" && item.value !== "TRANSFERENCIA_EXTERNA");
 }
 
+const PRODUCTS_TAB_ID = "products";
+
+type ProductsTabState = {
+  query: string;
+  page: number;
+  pageSize: string;
+  sort: string;
+  selectedId: number | null;
+  drawerOpened: boolean;
+  historyPage: number;
+  historyPageSize: string;
+  scrollY: number;
+};
+
+const DEFAULT_PRODUCTS_TAB_STATE: ProductsTabState = {
+  query: "",
+  page: 1,
+  pageSize: "10",
+  sort: "nome",
+  selectedId: null,
+  drawerOpened: false,
+  historyPage: 1,
+  historyPageSize: "10",
+  scrollY: 0,
+};
+
 export default function ProductsPage() {
-  const [query, setQuery] = useState("");
+  const persistedState = useMemo(
+    () => loadTabState<ProductsTabState>(PRODUCTS_TAB_ID) ?? DEFAULT_PRODUCTS_TAB_STATE,
+    []
+  );
+  const [query, setQuery] = useState(persistedState.query);
   const [debounced] = useDebouncedValue(query, 350);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState("10");
-  const [sort, setSort] = useState("nome");
+  const [page, setPage] = useState(persistedState.page);
+  const [pageSize, setPageSize] = useState(persistedState.pageSize);
+  const [sort, setSort] = useState(persistedState.sort);
+  const [scrollY, setScrollY] = useState(persistedState.scrollY);
 
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    setPage(1);
-  }, [debounced, pageSize, sort]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const productsQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["produtos", debounced, page, pageSize, sort],
@@ -121,12 +173,20 @@ export default function ProductsPage() {
         },
         { signal }
       ),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 
   const createMutation = useMutation<SuccessResponse<Product>, Error, ProductCreate>({
     mutationFn: (payload: ProductCreate) => api.createProduct(payload),
-    onSuccess: () => {
+    onSuccess: (response) => {
       notifySuccess("Produto criado");
+      const createdId = response.data.id;
+      setSelectedId(createdId);
+      setSelectedSnapshot(response.data);
+      createForm.reset();
+      createForm.resetDirty();
+      formHandlers.close();
       queryClient.invalidateQueries({ queryKey: ["produtos"] });
     },
     onError: (error) => notifyError(error),
@@ -140,6 +200,11 @@ export default function ProductsPage() {
     mutationFn: (args) => api.patchProduct(args.id, args.payload),
     onSuccess: () => {
       notifySuccess("Produto atualizado");
+      if (editing?.id) {
+        setSelectedId(editing.id);
+      }
+      editForm.resetDirty();
+      formHandlers.close();
       queryClient.invalidateQueries({ queryKey: ["produtos"] });
       queryClient.invalidateQueries({ queryKey: ["produto", editing?.id] });
     },
@@ -188,6 +253,7 @@ export default function ProductsPage() {
   const openCreate = () => {
     setEditing(null);
     createForm.setValues({ nome: "", qtd_canoas: 0, qtd_pf: 0 });
+    createForm.resetDirty();
     formHandlers.open();
   };
 
@@ -197,12 +263,18 @@ export default function ProductsPage() {
       nome: product.nome,
       observacao: product.observacao ?? "",
     });
+    editForm.resetDirty();
     formHandlers.open();
   };
 
   const handleCreateSubmit = createForm.onSubmit((values) => {
+    if ((values.qtd_canoas ?? 0) + (values.qtd_pf ?? 0) <= 0) {
+      const msg = "Estoque inicial nao pode ser 0. Use entrada/devolucao para registrar depois.";
+      createForm.setFieldError("qtd_canoas", msg);
+      createForm.setFieldError("qtd_pf", msg);
+      return;
+    }
     createMutation.mutate(values);
-    formHandlers.close();
   });
 
   const handleEditSubmit = editForm.onSubmit((values) => {
@@ -211,7 +283,6 @@ export default function ProductsPage() {
       id: editing.id,
       payload: { nome: values.nome.trim(), observacao: values.observacao.trim() },
     });
-    formHandlers.close();
   });
 
   const confirmDelete = (product: Product) => {
@@ -224,26 +295,28 @@ export default function ProductsPage() {
     });
   };
 
-  const [drawerOpened, drawerHandlers] = useDisclosure(false);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [drawerOpened, setDrawerOpened] = useState<boolean>(persistedState.drawerOpened);
+  const [selectedId, setSelectedId] = useState<number | null>(persistedState.selectedId);
   const [selectedSnapshot, setSelectedSnapshot] = useState<Product | null>(null);
 
   const openDetails = (product: Product) => {
     setSelectedId(product.id);
     setSelectedSnapshot(product);
-    drawerHandlers.open();
+    setDrawerOpened(true);
+    setHistoryPage(1);
   };
 
   const closeDetails = () => {
-    drawerHandlers.close();
-    setSelectedId(null);
+    setDrawerOpened(false);
     setSelectedSnapshot(null);
   };
 
   const detailQuery = useQuery<SuccessResponse<Product>>({
     queryKey: ["produto", selectedId],
     queryFn: ({ signal }) => api.getProduct(selectedId!, { signal }),
-    enabled: !!selectedId,
+    enabled: !!selectedId && drawerOpened,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   const currentProduct = detailQuery.data?.data ?? selectedSnapshot;
@@ -306,13 +379,18 @@ export default function ProductsPage() {
     uploadImagesMutation.mutate(files);
   };
 
-  const [observacao, setObservacao] = useState("");
-
-  useEffect(() => {
-    if (currentProduct) {
-      setObservacao(currentProduct.observacao ?? "");
-    }
-  }, [currentProduct?.id, currentProduct?.observacao]);
+  const [observacaoDraft, setObservacaoDraft] = useState<{ productId: number | null; value: string }>({
+    productId: null,
+    value: "",
+  });
+  const currentProductId = currentProduct?.id ?? null;
+  const observacao =
+    observacaoDraft.productId === currentProductId
+      ? observacaoDraft.value
+      : (currentProduct?.observacao ?? "");
+  const setObservacao = (value: string) => {
+    setObservacaoDraft({ productId: currentProductId, value });
+  };
 
   const patchObservacaoMutation = useMutation<
     SuccessResponse<Product>,
@@ -342,6 +420,7 @@ export default function ProductsPage() {
       local_externo: "",
       documento: "",
       movimento_ref_id: undefined,
+      motivo_ajuste: undefined,
     },
     validate: {
       quantidade: (value) => (value <= 0 ? "Quantidade invalida" : null),
@@ -372,6 +451,16 @@ export default function ProductsPage() {
         }
         return null;
       },
+      motivo_ajuste: (value, values) => {
+        if (values.natureza === "AJUSTE" && !value) {
+          return "Informe o motivo do ajuste";
+        }
+        return null;
+      },
+      observacao: (value, values) =>
+        values.natureza === "AJUSTE" && !(value || "").trim()
+          ? "Observacao obrigatoria para ajuste"
+          : null,
     },
   });
 
@@ -403,6 +492,7 @@ export default function ProductsPage() {
       local_externo: "",
       documento: "",
       movimento_ref_id: undefined,
+      motivo_ajuste: undefined,
     });
   };
 
@@ -428,12 +518,21 @@ export default function ProductsPage() {
       movementForm.setFieldError("movimento_ref_id", "Informe o movimento de referencia");
       return;
     }
+    if (values.natureza === "AJUSTE" && !values.motivo_ajuste) {
+      movementForm.setFieldError("motivo_ajuste", "Informe o motivo do ajuste");
+      return;
+    }
+    if (values.natureza === "AJUSTE" && !(values.observacao || "").trim()) {
+      movementForm.setFieldError("observacao", "Observacao obrigatoria para ajuste");
+      return;
+    }
 
     createMovementMutation.mutate({
       ...values,
       produto_id: selectedId,
       origem: values.tipo === "ENTRADA" ? undefined : values.origem,
       destino: values.tipo === "SAIDA" ? undefined : values.destino,
+      motivo_ajuste: values.natureza === "AJUSTE" ? values.motivo_ajuste : undefined,
       observacao: values.observacao?.trim() || undefined,
       local_externo: values.local_externo?.trim() || undefined,
       documento: values.documento?.trim() || undefined,
@@ -441,12 +540,8 @@ export default function ProductsPage() {
     });
   });
 
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize, setHistoryPageSize] = useState("10");
-
-  useEffect(() => {
-    setHistoryPage(1);
-  }, [historyPageSize, selectedId]);
+  const [historyPage, setHistoryPage] = useState(persistedState.historyPage);
+  const [historyPageSize, setHistoryPageSize] = useState(persistedState.historyPageSize);
 
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
     queryKey: ["historico", selectedId, historyPage, historyPageSize],
@@ -457,6 +552,8 @@ export default function ProductsPage() {
         { signal }
       ),
     enabled: !!selectedId,
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 
   const [descOpened, descHandlers] = useDisclosure(false);
@@ -469,106 +566,257 @@ export default function ProductsPage() {
     return productsQuery.data?.data ?? [];
   }, [productsQuery.data?.data]);
 
+  const activeViewCount = useMemo(() => {
+    let count = 0;
+    if (query.trim()) count += 1;
+    if (sort !== DEFAULT_PRODUCTS_TAB_STATE.sort) count += 1;
+    if (pageSize !== DEFAULT_PRODUCTS_TAB_STATE.pageSize) count += 1;
+    return count;
+  }, [pageSize, query, sort]);
+
+  const persistState = useCallback((nextScrollY = scrollY) => {
+    saveTabState<ProductsTabState>(PRODUCTS_TAB_ID, {
+      query,
+      page,
+      pageSize,
+      sort,
+      selectedId,
+      drawerOpened,
+      historyPage,
+      historyPageSize,
+      scrollY: nextScrollY,
+    });
+  }, [drawerOpened, historyPage, historyPageSize, page, pageSize, query, scrollY, selectedId, sort]);
+
+  useEffect(() => {
+    persistState();
+  }, [persistState]);
+
+  useEffect(() => {
+    if (!persistedState.scrollY || persistedState.scrollY <= 0) return;
+    const timer = window.setTimeout(() => {
+      window.scrollTo({ top: persistedState.scrollY, behavior: "auto" });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [persistedState.scrollY]);
+
+  useEffect(() => {
+    let timeout: number | null = null;
+    const onScroll = () => {
+      if (timeout !== null) return;
+      timeout = window.setTimeout(() => {
+        setScrollY(window.scrollY);
+        timeout = null;
+      }, 180);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      if (timeout !== null) window.clearTimeout(timeout);
+      window.removeEventListener("scroll", onScroll);
+      persistState(window.scrollY);
+    };
+  }, [persistState]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const resetView = () => {
+    setQuery(DEFAULT_PRODUCTS_TAB_STATE.query);
+    setPage(DEFAULT_PRODUCTS_TAB_STATE.page);
+    setPageSize(DEFAULT_PRODUCTS_TAB_STATE.pageSize);
+    setSort(DEFAULT_PRODUCTS_TAB_STATE.sort);
+    setHistoryPage(DEFAULT_PRODUCTS_TAB_STATE.historyPage);
+    setHistoryPageSize(DEFAULT_PRODUCTS_TAB_STATE.historyPageSize);
+    setSelectedId(null);
+    setSelectedSnapshot(null);
+    setDrawerOpened(false);
+    clearTabState(PRODUCTS_TAB_ID);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
+
+  const handleFormClose = () => {
+    if (createMutation.isPending || patchMutation.isPending) return;
+    const dirty = editing ? editForm.isDirty() : createForm.isDirty();
+    if (!dirty) {
+      formHandlers.close();
+      return;
+    }
+
+    modals.openConfirmModal({
+      title: "Descartar alteracoes?",
+      children: (
+        <Text size="sm">
+          Existem alteracoes nao salvas. Deseja fechar e descartar o formulario?
+        </Text>
+      ),
+      labels: { confirm: "Descartar", cancel: "Continuar editando" },
+      confirmProps: { color: "red" },
+      onConfirm: () => {
+        if (editing) {
+          editForm.reset();
+          editForm.resetDirty();
+        } else {
+          createForm.reset();
+          createForm.resetDirty();
+        }
+        formHandlers.close();
+      },
+    });
+  };
+
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="center">
-        <Title order={2}>Produtos</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-          Novo produto
-        </Button>
-      </Group>
+      <PageHeader
+        title="Produtos"
+        subtitle="Catalogo com controle de estoque, imagens e historico de movimentacoes."
+        actions={(
+          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+            Novo produto
+          </Button>
+        )}
+      />
 
-      <Group align="end" wrap="wrap">
-        <TextInput
-          placeholder="Buscar por nome"
-          value={query}
-          onChange={(event) => setQuery(event.currentTarget.value)}
-          w={260}
-        />
-        <Select
-          data={PAGE_SIZES}
-          value={pageSize}
-          onChange={(value) => value && setPageSize(value)}
-          w={120}
-          label="Por pagina"
-        />
-        <Select
-          data={SORT_OPTIONS}
-          value={sort}
-          onChange={(value) => value && setSort(value)}
-          w={200}
-          label="Ordenacao"
-        />
-      </Group>
+      <FilterToolbar>
+        <Group align="end" wrap="wrap">
+          <TextInput
+            placeholder="Buscar por nome"
+            label="Busca"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.currentTarget.value);
+              setPage(1);
+            }}
+            w={260}
+            ref={searchInputRef}
+          />
+          <Select
+            data={PAGE_SIZES}
+            value={pageSize}
+            onChange={(value) => {
+              if (!value) return;
+              setPageSize(value);
+              setPage(1);
+            }}
+            w={120}
+            label="Por pagina"
+          />
+          <Select
+            data={SORT_OPTIONS}
+            value={sort}
+            onChange={(value) => {
+              if (!value) return;
+              setSort(value);
+              setPage(1);
+            }}
+            w={200}
+            label="Ordenacao"
+          />
+          <Badge variant="light">
+            Filtros ativos: {activeViewCount}
+          </Badge>
+          <Button
+            variant="subtle"
+            onClick={() => {
+              setQuery("");
+              setPage(1);
+            }}
+            disabled={!query.trim()}
+          >
+            Limpar busca
+          </Button>
+          <Button variant="subtle" onClick={resetView}>
+            Resetar visao
+          </Button>
+        </Group>
+      </FilterToolbar>
 
       {productsQuery.isLoading ? (
         <Group justify="center" mt="xl">
           <Loader />
         </Group>
       ) : (
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>#</Table.Th>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Nome</Table.Th>
-              <Table.Th>Canoas</Table.Th>
-              <Table.Th>PF</Table.Th>
-              <Table.Th>Total</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Acoes</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.map((product: Product, index: number) => {
-              const position = (page - 1) * Number(pageSize) + index + 1;
-              const inStock = product.total_stock > 0;
-              const rowClass = inStock ? "row-in-stock" : "row-out-stock";
+        <DataTable minWidth={860}>
+          <Table striped highlightOnHover withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>#</Table.Th>
+                <Table.Th>ID</Table.Th>
+                <Table.Th>Nome</Table.Th>
+                <Table.Th>Canoas</Table.Th>
+                <Table.Th>PF</Table.Th>
+                <Table.Th>Total</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Acoes</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.map((product: Product, index: number) => {
+                const position = (page - 1) * Number(pageSize) + index + 1;
+                const inStock = product.total_stock > 0;
+                const rowClass = `${inStock ? "row-in-stock" : "row-out-stock"} ${selectedId === product.id ? "row-selected" : ""}`;
 
-              return (
-                <Table.Tr
-                  key={product.id}
-                  className={rowClass}
-                  onClick={() => openDetails(product)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <Table.Td>{position}</Table.Td>
-                  <Table.Td>{product.id}</Table.Td>
-                  <Table.Td>{product.nome}</Table.Td>
-                  <Table.Td>{product.qtd_canoas}</Table.Td>
-                  <Table.Td>{product.qtd_pf}</Table.Td>
-                  <Table.Td>
-                    <Badge variant="light">{product.total_stock}</Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={inStock ? "green" : "red"} variant="light">
-                      {inStock ? "Em estoque" : "Sem estoque"}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Group gap="xs" onClick={(event) => event.stopPropagation()}>
-                      <ActionIcon variant="light" onClick={() => openEdit(product)}>
-                        <IconEdit size={16} />
-                      </ActionIcon>
-                      <ActionIcon color="red" variant="light" onClick={() => confirmDelete(product)}>
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Group>
+                return (
+                  <Table.Tr
+                    key={product.id}
+                    className={rowClass}
+                    onClick={() => openDetails(product)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <Table.Td>{position}</Table.Td>
+                    <Table.Td>{product.id}</Table.Td>
+                    <Table.Td>{product.nome}</Table.Td>
+                    <Table.Td>{product.qtd_canoas}</Table.Td>
+                    <Table.Td>{product.qtd_pf}</Table.Td>
+                    <Table.Td>
+                      <Badge variant="light">{product.total_stock}</Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Badge color={inStock ? "green" : "red"} variant="light">
+                        {inStock ? "Em estoque" : "Sem estoque"}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="xs" onClick={(event) => event.stopPropagation()}>
+                        <ActionIcon variant="light" onClick={() => openEdit(product)}>
+                          <IconEdit size={16} />
+                        </ActionIcon>
+                        <ActionIcon color="red" variant="light" onClick={() => confirmDelete(product)}>
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+              {rows.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={8}>
+                    <EmptyState
+                      message="Nenhum produto encontrado"
+                      actionLabel={query.trim() ? "Limpar busca" : undefined}
+                      onAction={
+                        query.trim()
+                          ? () => {
+                              setQuery("");
+                              setPage(1);
+                            }
+                          : undefined
+                      }
+                    />
                   </Table.Td>
                 </Table.Tr>
-              );
-            })}
-            {rows.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={8}>
-                  <Text c="dimmed" ta="center">
-                    Nenhum produto encontrado
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
+              )}
+            </Table.Tbody>
+          </Table>
+        </DataTable>
       )}
 
       <Group justify="space-between">
@@ -580,7 +828,7 @@ export default function ProductsPage() {
 
       <Modal
         opened={formOpened}
-        onClose={formHandlers.close}
+        onClose={handleFormClose}
         title={editing ? "Editar produto" : "Novo produto"}
       >
         {editing ? (
@@ -793,6 +1041,14 @@ export default function ProductsPage() {
                         {...movementForm.getInputProps("local_externo")}
                       />
                     )}
+                    {movementForm.values.natureza === "AJUSTE" && (
+                      <Select
+                        label="Motivo do ajuste"
+                        data={ADJUSTMENT_REASON_OPTIONS}
+                        w={220}
+                        {...movementForm.getInputProps("motivo_ajuste")}
+                      />
+                    )}
                     <TextInput
                       label="Documento (NF)"
                       w={180}
@@ -834,7 +1090,11 @@ export default function ProductsPage() {
                       label="Por pagina"
                       data={PAGE_SIZES}
                       value={historyPageSize}
-                      onChange={(value) => value && setHistoryPageSize(value)}
+                      onChange={(value) => {
+                        if (!value) return;
+                        setHistoryPageSize(value);
+                        setHistoryPage(1);
+                      }}
                       w={120}
                     />
                   </Group>
@@ -849,6 +1109,7 @@ export default function ProductsPage() {
                         <Table.Th>Origem</Table.Th>
                         <Table.Th>Destino</Table.Th>
                         <Table.Th>Documento</Table.Th>
+                        <Table.Th>Motivo ajuste</Table.Th>
                         <Table.Th>Local externo</Table.Th>
                         <Table.Th>Observacao</Table.Th>
                         <Table.Th>Data</Table.Th>
@@ -868,6 +1129,7 @@ export default function ProductsPage() {
                           <Table.Td>{mov.origem || "-"}</Table.Td>
                           <Table.Td>{mov.destino || "-"}</Table.Td>
                           <Table.Td>{mov.documento || "-"}</Table.Td>
+                          <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste as AdjustmentReason | undefined)}</Table.Td>
                           <Table.Td>{mov.local_externo || "-"}</Table.Td>
                           <Table.Td>{mov.observacao || "-"}</Table.Td>
                           <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
@@ -875,7 +1137,7 @@ export default function ProductsPage() {
                       ))}
                       {historyQuery.data?.data?.length === 0 && (
                         <Table.Tr>
-                          <Table.Td colSpan={10}>
+                          <Table.Td colSpan={11}>
                             <Text c="dimmed" ta="center">
                               Sem historico
                             </Text>

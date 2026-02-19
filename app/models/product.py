@@ -19,6 +19,9 @@ class Product:
     qtd_canoas: int
     qtd_pf: int
     observacao: Optional[str] = ""
+    ativo: bool = True
+    inativado_em: Optional[str] = None
+    motivo_inativacao: Optional[str] = None
     
     def __post_init__(self):
         """Validações após inicialização."""
@@ -92,7 +95,10 @@ class Product:
             'nome': self.nome,
             'qtd_canoas': self.qtd_canoas,
             'qtd_pf': self.qtd_pf,
-            'observacao': self.observacao
+            'observacao': self.observacao,
+            'ativo': self.ativo,
+            'inativado_em': self.inativado_em,
+            'motivo_inativacao': self.motivo_inativacao,
         }
     
     @classmethod
@@ -111,7 +117,10 @@ class Product:
             nome=data.get('nome', ''),
             qtd_canoas=data.get('qtd_canoas', 0),
             qtd_pf=data.get('qtd_pf', 0),
-            observacao=data.get('observacao', '')
+            observacao=data.get('observacao', ''),
+            ativo=bool(data.get('ativo', 1)),
+            inativado_em=data.get('inativado_em'),
+            motivo_inativacao=data.get('motivo_inativacao'),
         )
     
     def __str__(self) -> str:

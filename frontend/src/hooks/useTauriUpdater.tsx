@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Button, Group, Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { notifications } from "@mantine/notifications";
+import { api } from "../lib/apiClient";
 import { isTauri } from "../lib/tauri";
 import {
   getReleaseNotesFromManifest,
@@ -43,7 +44,10 @@ export function useTauriUpdater() {
         const notesPreview = getReleaseNotesPreview(notes);
 
         const installNow = async (notificationId: string) => {
+          let backupCreated = false;
           try {
+            await api.backupCreatePreUpdate();
+            backupCreated = true;
             notifications.update({
               id: notificationId,
               title: "Atualizando...",
@@ -63,6 +67,36 @@ export function useTauriUpdater() {
               loading: false,
               autoClose: false,
             });
+            if (backupCreated) {
+              modals.openConfirmModal({
+                title: "Restaurar dados pre-update?",
+                children: (
+                  <Text size="sm">
+                    A instalacao falhou. Deseja restaurar automaticamente o backup pre-update?
+                  </Text>
+                ),
+                labels: { confirm: "Restaurar", cancel: "Depois" },
+                confirmProps: { color: "orange" },
+                onConfirm: async () => {
+                  try {
+                    await api.backupRestorePreUpdate();
+                    notifications.show({
+                      title: "Dados restaurados",
+                      message: "Backup pre-update restaurado com sucesso.",
+                      color: "green",
+                    });
+                  } catch (restoreError) {
+                    const restoreMessage =
+                      restoreError instanceof Error ? restoreError.message : "Erro inesperado";
+                    notifications.show({
+                      title: "Falha ao restaurar",
+                      message: restoreMessage,
+                      color: "red",
+                    });
+                  }
+                },
+              });
+            }
           }
         };
 

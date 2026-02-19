@@ -113,18 +113,19 @@ if (-not $Tag) {
   $Tag = "v$version"
 }
 
-$msiZip = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi.zip" -ErrorAction SilentlyContinue |
-  Sort-Object LastWriteTime -Descending |
-  Select-Object -First 1
-$bundle = $msiZip
-
-if (-not $bundle) {
+$bundles = Get-ChildItem -Path $bundleDir -Recurse -Filter "*.msi.zip" -ErrorAction SilentlyContinue
+if (-not $bundles -or $bundles.Count -eq 0) {
   Write-Error "Nenhum bundle MSI de update encontrado (*.msi.zip). Rode 'npm run release:build' antes."
 }
 
-if ($bundle.Name -notmatch "_$([regex]::Escape($version))_") {
-  Write-Error "Bundle encontrado ('$($bundle.Name)') nao corresponde a versao $version. Rode 'npm run release:build' antes de assinar."
+$versionToken = "_$($version)_"
+$versionBundles = $bundles | Where-Object { $_.Name -like "*$versionToken*" }
+if (-not $versionBundles -or $versionBundles.Count -eq 0) {
+  $available = ($bundles | Select-Object -ExpandProperty Name) -join ", "
+  Write-Error "Nenhum bundle .msi.zip da versao $version encontrado. Disponiveis: $available"
 }
+
+$bundle = $versionBundles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 
 $sigPath = "$($bundle.FullName).sig"
 if (-not (Test-Path $sigPath)) {

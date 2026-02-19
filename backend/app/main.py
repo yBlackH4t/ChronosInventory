@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.services.backup_scheduler_service import BackupSchedulerService
 from core.constants import APP_VERSION
 from core.database.connection import DatabaseConnection
 from core.database.migration_manager import MigrationManager
@@ -28,13 +29,14 @@ from core.exceptions import (
 )
 from core.utils.file_utils import FileUtils
 
-from backend.app.api.routers import products, backup, reports, movements, export, imports, dashboard, analytics
+from backend.app.api.routers import products, backup, reports, movements, export, imports, dashboard, analytics, inventory
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.common import SuccessResponse
 from backend.app.schemas.system import HealthOut, VersionOut
 
 
 LOG = logging.getLogger("backend")
+BACKUP_SCHEDULER = BackupSchedulerService()
 
 
 def setup_logging() -> None:
@@ -96,6 +98,7 @@ app.include_router(export.router)
 app.include_router(imports.router)
 app.include_router(dashboard.router)
 app.include_router(analytics.router)
+app.include_router(inventory.router)
 
 
 @app.on_event("startup")
@@ -109,9 +112,61 @@ def startup_log_runtime_paths() -> None:
         version,
         updated,
     )
+    if os.getenv("APP_ENV", "").lower() != "test":
+        BACKUP_SCHEDULER.start()
+
+
+@app.on_event("shutdown")
+def shutdown_runtime_services() -> None:
+    if os.getenv("APP_ENV", "").lower() != "test":
+        BACKUP_SCHEDULER.stop()
 
 def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "")
+
+
+def _friendly_validation_message(errors: list[dict]) -> str:
+    if not errors:
+        return "Requisicao invalida. Confira os campos e tente novamente."
+
+    first = errors[0]
+    loc = first.get("loc") or []
+    field = str(loc[-1]) if loc else "campo"
+    err_type = str(first.get("type") or "")
+    msg = str(first.get("msg") or "").strip()
+
+    field_labels = {
+        "nome": "Nome",
+        "qtd_canoas": "Quantidade Canoas",
+        "qtd_pf": "Quantidade PF",
+        "produto_id": "Produto",
+        "quantidade": "Quantidade",
+        "origem": "Origem",
+        "destino": "Destino",
+        "natureza": "Natureza",
+        "motivo_ajuste": "Motivo de ajuste",
+        "movimento_ref_id": "Movimento de referencia",
+    }
+    label = field_labels.get(field, field)
+
+    if err_type == "missing":
+        return f"Campo obrigatorio ausente: {label}."
+    if err_type == "extra_forbidden":
+        return (
+            f"Campo '{label}' nao e aceito nesta versao do backend. "
+            "Atualize o aplicativo para continuar."
+        )
+    if err_type in {"string_too_long", "too_long"}:
+        return f"O campo {label} excede o tamanho maximo permitido."
+    if err_type in {"greater_than_equal", "greater_than"}:
+        return f"O valor informado em {label} e invalido."
+    if err_type == "literal_error":
+        return f"Valor invalido para {label}."
+    if msg:
+        if msg == "Field required":
+            return f"Campo obrigatorio ausente: {label}."
+        return msg
+    return "Requisicao invalida. Confira os campos e tente novamente."
 
 
 @app.middleware("http")
@@ -166,7 +221,8 @@ def version():
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    return fail(422, "validation_error", "Invalid request", exc.errors(), _request_id(request))
+    errors = exc.errors()
+    return fail(422, "validation_error", _friendly_validation_message(errors), errors, _request_id(request))
 
 
 @app.exception_handler(HTTPException)

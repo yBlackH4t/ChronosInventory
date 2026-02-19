@@ -61,6 +61,68 @@ def test_patch_product_observacao(client):
     assert body["observacao"] == "Observacao livre"
 
 
+def test_bulk_inactivate_hides_product_from_default_list(client):
+    active_id = _create_product(client, "Produto Ativo", qtd_canoas=2, qtd_pf=0)
+    inactive_id = _create_product(client, "Produto Inativo", qtd_canoas=3, qtd_pf=0)
+
+    updated = client.put(
+        "/produtos/status-lote",
+        json={"ids": [inactive_id], "ativo": False, "motivo_inativacao": "Item obsoleto"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["data"]["updated"] == 1
+
+    default_list = client.get("/produtos")
+    assert default_list.status_code == 200
+    default_ids = {item["id"] for item in default_list.json()["data"]}
+    assert active_id in default_ids
+    assert inactive_id not in default_ids
+
+    inactive_list = client.get("/produtos/gestao-status?status=INATIVO")
+    assert inactive_list.status_code == 200
+    inactive_ids = {item["id"] for item in inactive_list.json()["data"]}
+    assert inactive_id in inactive_ids
+
+    product = client.get(f"/produtos/{inactive_id}")
+    assert product.status_code == 200
+    assert product.json()["data"]["ativo"] is False
+
+
+def test_analytics_stock_summary_excludes_inactive_products(client):
+    hidden_id = _create_product(client, "Produto Hidden", qtd_canoas=10, qtd_pf=1)
+    _create_product(client, "Produto Visivel", qtd_canoas=2, qtd_pf=3)
+
+    status = client.put("/produtos/status-lote", json={"ids": [hidden_id], "ativo": False})
+    assert status.status_code == 200
+
+    summary = client.get("/analytics/stock/summary")
+    assert summary.status_code == 200
+    data = summary.json()["data"]
+    assert data["total_canoas"] == 2
+    assert data["total_pf"] == 3
+    assert data["total_geral"] == 5
+
+
+def test_cannot_create_movement_for_inactive_product(client):
+    product_id = _create_product(client, "Produto Bloqueado", qtd_canoas=2, qtd_pf=0)
+    status = client.put("/produtos/status-lote", json={"ids": [product_id], "ativo": False})
+    assert status.status_code == 200
+
+    movement = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+        },
+    )
+    assert movement.status_code == 400
+    body = movement.json()["error"]
+    assert body["code"] == "validation_error"
+    assert "Produto inativo" in body["message"]
+
+
 def test_create_invalid_payload(client):
     response = client.post("/produtos", json={"nome": ""})
     assert response.status_code == 422
@@ -198,6 +260,35 @@ def test_movement_invalid_devolucao_for_saida(client):
     assert resp.json()["error"]["code"] == "validation_error"
 
 
+def test_movement_ajuste_requires_reason_and_observation(client):
+    product_id = _create_product(client, "Produto Ajuste", qtd_canoas=3, qtd_pf=0)
+    movement = {
+        "tipo": "SAIDA",
+        "produto_id": product_id,
+        "quantidade": 1,
+        "origem": "CANOAS",
+        "natureza": "AJUSTE",
+    }
+    resp = client.post("/movimentacoes", json=movement)
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "validation_error"
+
+    ok = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+            "natureza": "AJUSTE",
+            "motivo_ajuste": "PERDA",
+            "observacao": "Ajuste por conferencia",
+        },
+    )
+    assert ok.status_code == 201
+    assert ok.json()["data"]["motivo_ajuste"] == "PERDA"
+
+
 def test_movement_devolucao_requires_reference(client):
     product_id = _create_product(client, "Produto Sem Ref", qtd_canoas=1, qtd_pf=0)
     movement = {
@@ -210,6 +301,14 @@ def test_movement_devolucao_requires_reference(client):
     resp = client.post("/movimentacoes", json=movement)
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "validation_error"
+
+
+def test_create_product_zero_stock_returns_friendly_message(client):
+    resp = client.post("/produtos", json={"nome": "Produto Zero", "qtd_canoas": 0, "qtd_pf": 0})
+    assert resp.status_code == 400
+    body = resp.json()["error"]
+    assert body["code"] == "validation_error"
+    assert "Estoque inicial nao pode ser 0" in body["message"]
 
 
 def test_analytics_saida_net_of_linked_devolucao(client):
@@ -313,6 +412,27 @@ def test_backup_list_and_validate(client):
     assert bool(selected_validation.json()["data"]["ok"]) is True
 
 
+def test_backup_auto_config_and_restore_test(client):
+    cfg = client.get("/backup/auto-config")
+    assert cfg.status_code == 200
+    assert "enabled" in cfg.json()["data"]
+
+    updated = client.put(
+        "/backup/auto-config",
+        json={"enabled": True, "hour": 18, "minute": 0, "retention_days": 15},
+    )
+    assert updated.status_code == 200
+    assert bool(updated.json()["data"]["enabled"]) is True
+
+    created = client.post("/backup/criar")
+    assert created.status_code == 200
+    backup_name = os.path.basename(created.json()["data"]["path"])
+
+    tested = client.post("/backup/testar-restauracao", json={"backup_name": backup_name})
+    assert tested.status_code == 200
+    assert bool(tested.json()["data"]["ok"]) is True
+
+
 def test_backup_restore_roundtrip(client):
     product_id = _create_product(client, "Produto Restore", qtd_canoas=1, qtd_pf=0)
 
@@ -341,6 +461,31 @@ def test_backup_restore_roundtrip(client):
     after = client.get(f"/produtos/{product_id}")
     assert after.status_code == 200
     assert after.json()["data"]["qtd_canoas"] == 1
+
+
+def test_backup_pre_update_restore(client):
+    product_id = _create_product(client, "Produto PreUpdate", qtd_canoas=2, qtd_pf=0)
+
+    pre = client.post("/backup/pre-update")
+    assert pre.status_code == 200
+
+    movement = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+        },
+    )
+    assert movement.status_code == 201
+
+    restored = client.post("/backup/restaurar-pre-update")
+    assert restored.status_code == 200
+
+    after = client.get(f"/produtos/{product_id}")
+    assert after.status_code == 200
+    assert after.json()["data"]["qtd_canoas"] == 2
 
 
 def test_backup_diagnostics_download(client):
@@ -631,3 +776,73 @@ def test_analytics_v2_endpoints(client):
     inactive = client.get("/analytics/products/inactive?days=30&date_to=2026-02-12&limit=5")
     assert inactive.status_code == 200
     assert isinstance(inactive.json()["data"], list)
+
+
+def test_inventory_session_flow(client):
+    product_id = _create_product(client, "Produto Inventario", qtd_canoas=5, qtd_pf=0)
+    _ = _create_product(client, "Produto Inventario PF", qtd_canoas=0, qtd_pf=2)
+
+    created = client.post(
+        "/inventario/sessoes",
+        json={"nome": "Inventario Mensal", "local": "CANOAS", "observacao": "Conferencia geral"},
+    )
+    assert created.status_code == 201
+    session = created.json()["data"]
+    session_id = session["id"]
+
+    listed = client.get("/inventario/sessoes")
+    assert listed.status_code == 200
+    assert any(item["id"] == session_id for item in listed.json()["data"])
+
+    items = client.get(f"/inventario/sessoes/{session_id}/itens?only_divergent=false&page=1&page_size=100")
+    assert items.status_code == 200
+    rows = items.json()["data"]
+    target = next((row for row in rows if row["produto_id"] == product_id), None)
+    assert target is not None
+
+    update = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={
+            "items": [
+                {
+                    "produto_id": product_id,
+                    "qtd_fisico": 3,
+                    "motivo_ajuste": "CORRECAO_INVENTARIO",
+                    "observacao": "Contagem fisica final",
+                }
+            ]
+        },
+    )
+    assert update.status_code == 200
+
+    applied = client.post(f"/inventario/sessoes/{session_id}/aplicar")
+    assert applied.status_code == 200
+    assert applied.json()["data"]["applied_items"] >= 1
+
+    product = client.get(f"/produtos/{product_id}")
+    assert product.status_code == 200
+    assert product.json()["data"]["qtd_canoas"] == 3
+
+
+def test_inventory_session_does_not_include_inactive_products(client):
+    active_id = _create_product(client, "Produto Inventario Ativo", qtd_canoas=4, qtd_pf=0)
+    inactive_id = _create_product(client, "Produto Inventario Inativo", qtd_canoas=7, qtd_pf=0)
+
+    toggle = client.put(
+        "/produtos/status-lote",
+        json={"ids": [inactive_id], "ativo": False, "motivo_inativacao": "Obsoleto"},
+    )
+    assert toggle.status_code == 200
+
+    created = client.post(
+        "/inventario/sessoes",
+        json={"nome": "Inventario Ativos", "local": "CANOAS", "observacao": "Somente ativos"},
+    )
+    assert created.status_code == 201
+    session_id = created.json()["data"]["id"]
+
+    items = client.get(f"/inventario/sessoes/{session_id}/itens?only_divergent=false&page=1&page_size=200")
+    assert items.status_code == 200
+    ids = {row["produto_id"] for row in items.json()["data"]}
+    assert active_id in ids
+    assert inactive_id not in ids

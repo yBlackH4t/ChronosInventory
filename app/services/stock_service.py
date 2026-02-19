@@ -33,7 +33,7 @@ class StockService:
         Returns:
             Lista de produtos
         """
-        products_data = self.product_repo.get_all(search_term)
+        products_data = self.product_repo.get_all(search_term, status="ATIVO")
         return [Product.from_dict(data) for data in products_data]
 
     def get_products_paginated(
@@ -42,7 +42,8 @@ class StockService:
         sort_column: str = "nome",
         sort_direction: str = "ASC",
         limit: int = 20,
-        offset: int = 0
+        offset: int = 0,
+        status: str = "ATIVO",
     ) -> Tuple[List[Product], int]:
         """
         Retorna produtos paginados e o total.
@@ -62,9 +63,30 @@ class StockService:
             sort_column=sort_column,
             sort_direction=sort_direction,
             limit=limit,
-            offset=offset
+            offset=offset,
+            status=status,
         )
-        total = self.product_repo.count_filtered(search_term)
+        total = self.product_repo.count_filtered(search_term, status=status)
+        return [Product.from_dict(data) for data in products_data], total
+
+    def get_products_status_paginated(
+        self,
+        search_term: str = "",
+        status: str = "TODOS",
+        sort_column: str = "nome",
+        sort_direction: str = "ASC",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> Tuple[List[Product], int]:
+        products_data = self.product_repo.get_all_paginated(
+            search_term=search_term,
+            status=status,
+            sort_column=sort_column,
+            sort_direction=sort_direction,
+            limit=limit,
+            offset=offset,
+        )
+        total = self.product_repo.count_filtered(search_term=search_term, status=status)
         return [Product.from_dict(data) for data in products_data], total
     
     def get_products_as_dataframe(self, search_term: str = "") -> pd.DataFrame:
@@ -152,7 +174,8 @@ class StockService:
             nome=nome_normalizado,
             qtd_canoas=qtd_canoas,
             qtd_pf=qtd_pf,
-            observacao=observacao or ""
+            observacao=observacao or "",
+            ativo=True,
         )
 
     def update_product(
@@ -212,8 +235,39 @@ class StockService:
             nome=nome_normalizado,
             qtd_canoas=qtd_canoas,
             qtd_pf=qtd_pf,
-            observacao=observacao or ""
+            observacao=observacao or "",
+            ativo=current.ativo,
+            inativado_em=current.inativado_em,
+            motivo_inativacao=current.motivo_inativacao,
         )
+
+    def set_products_active(
+        self,
+        ids: List[int],
+        ativo: bool,
+        motivo_inativacao: str | None = None,
+    ) -> int:
+        if not ids:
+            raise ValidationException("Informe ao menos um produto para atualizar status.")
+
+        valid_ids: List[int] = []
+        for raw_id in ids:
+            pid = int(raw_id)
+            if pid <= 0:
+                raise ValidationException("ID de produto invalido na operacao em lote.")
+            valid_ids.append(pid)
+
+        motivo = (motivo_inativacao or "").strip() or None
+        updated = self.product_repo.bulk_set_active(valid_ids, ativo=ativo, motivo_inativacao=motivo)
+
+        self.history_repo.add_log(
+            "ATIVACAO" if ativo else "INATIVACAO",
+            "LOTE",
+            updated,
+            f"Atualizacao em lote de status | ids={','.join(str(pid) for pid in valid_ids)}"
+            + (f" | motivo={motivo}" if motivo else ""),
+        )
+        return updated
     
     def delete_product(self, product_id: int) -> str:
         """

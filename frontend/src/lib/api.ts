@@ -1,22 +1,30 @@
+export type ApiMeta = {
+  page?: number;
+  page_size?: number;
+  total_items?: number;
+  total_pages?: number;
+  has_next?: boolean;
+} & Record<string, unknown>;
+
 export type SuccessResponse<T> = {
   data: T;
-  meta?: any;
+  meta?: ApiMeta;
 };
 
 export type ErrorResponse = {
   error: {
     code: string;
     message: string;
-    details?: any;
+    details?: unknown;
   };
 };
 
 export class ApiError extends Error {
   code: string;
-  details?: any;
+  details?: unknown;
   status: number;
 
-  constructor(code: string, message: string, details: any, status: number) {
+  constructor(code: string, message: string, details: unknown, status: number) {
     super(message);
     this.code = code;
     this.details = details;
@@ -31,6 +39,9 @@ export type Product = {
   qtd_pf: number;
   total_stock: number;
   observacao?: string | null;
+  ativo?: boolean;
+  inativado_em?: string | null;
+  motivo_inativacao?: string | null;
 };
 
 export type ProductCreate = {
@@ -42,6 +53,18 @@ export type ProductCreate = {
 
 export type ProductPut = ProductCreate;
 export type ProductPatch = Partial<ProductCreate>;
+
+export type ProductStatusFilter = "ATIVO" | "INATIVO" | "TODOS";
+
+export type ProductStatusBulkIn = {
+  ids: number[];
+  ativo: boolean;
+  motivo_inativacao?: string | null;
+};
+
+export type ProductStatusBulkOut = {
+  updated: number;
+};
 
 export type ProductImage = {
   image_base64: string;
@@ -87,6 +110,10 @@ export type ListProductsParams = {
   sort?: string;
 };
 
+export type ListProductsStatusParams = ListProductsParams & {
+  status?: ProductStatusFilter;
+};
+
 export type MovementCreate = {
   tipo: "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
   produto_id: number;
@@ -95,6 +122,7 @@ export type MovementCreate = {
   destino?: "CANOAS" | "PF";
   observacao?: string;
   natureza?: "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
+  motivo_ajuste?: "AVARIA" | "PERDA" | "CORRECAO_INVENTARIO" | "ERRO_OPERACIONAL" | "TRANSFERENCIA";
   local_externo?: string;
   documento?: string;
   movimento_ref_id?: number;
@@ -111,6 +139,7 @@ export type MovementOut = {
   destino?: "CANOAS" | "PF";
   observacao?: string;
   natureza: "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
+  motivo_ajuste?: "AVARIA" | "PERDA" | "CORRECAO_INVENTARIO" | "ERRO_OPERACIONAL" | "TRANSFERENCIA";
   local_externo?: string;
   documento?: string;
   movimento_ref_id?: number;
@@ -158,6 +187,95 @@ export type BackupRestoreOut = {
   active_database: string;
   pre_restore_backup: string;
   validation_result: string;
+};
+
+export type BackupAutoConfigOut = {
+  enabled: boolean;
+  hour: number;
+  minute: number;
+  retention_days: number;
+  last_run_date?: string | null;
+  last_result?: string | null;
+  last_backup_name?: string | null;
+};
+
+export type BackupAutoConfigIn = {
+  enabled: boolean;
+  hour: number;
+  minute: number;
+  retention_days: number;
+};
+
+export type BackupRestoreTestIn = {
+  backup_name?: string | null;
+};
+
+export type BackupRestoreTestOut = {
+  backup_name: string;
+  backup_path: string;
+  ok: boolean;
+  integrity_result: string;
+  required_tables: string[];
+  missing_tables: string[];
+};
+
+export type InventorySessionLocal = "CANOAS" | "PF";
+export type InventorySessionStatus = "ABERTO" | "APLICADO";
+export type InventoryAdjustmentReason =
+  | "AVARIA"
+  | "PERDA"
+  | "CORRECAO_INVENTARIO"
+  | "ERRO_OPERACIONAL"
+  | "TRANSFERENCIA";
+
+export type InventorySessionCreateIn = {
+  nome: string;
+  local: InventorySessionLocal;
+  observacao?: string | null;
+};
+
+export type InventorySessionOut = {
+  id: number;
+  nome: string;
+  local: InventorySessionLocal;
+  status: InventorySessionStatus;
+  observacao?: string | null;
+  created_at: string;
+  updated_at: string;
+  applied_at?: string | null;
+  total_items: number;
+  counted_items: number;
+  divergent_items: number;
+};
+
+export type InventoryCountOut = {
+  produto_id: number;
+  produto_nome: string;
+  qtd_sistema: number;
+  qtd_fisico?: number | null;
+  divergencia?: number | null;
+  motivo_ajuste?: InventoryAdjustmentReason | null;
+  observacao?: string | null;
+  applied_movement_id?: number | null;
+  updated_at?: string | null;
+};
+
+export type InventoryCountItemIn = {
+  produto_id: number;
+  qtd_fisico: number;
+  motivo_ajuste?: InventoryAdjustmentReason | null;
+  observacao?: string | null;
+};
+
+export type InventoryCountsUpdateIn = {
+  items: InventoryCountItemIn[];
+};
+
+export type InventoryApplyOut = {
+  session_id: number;
+  applied_items: number;
+  movement_ids: number[];
+  status: InventorySessionStatus;
 };
 
 export type DashboardSummary = {
@@ -245,10 +363,11 @@ export type DownloadResponse = {
   headers: Headers;
 };
 
-const DEFAULT_BASE_URL =
-  (import.meta as any).env?.VITE_API_URL || "http://127.0.0.1:8000";
+type QueryValue = string | number | boolean | null | undefined;
 
-function buildQuery(params: Record<string, any>): string {
+const DEFAULT_BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
+function buildQuery(params: Record<string, QueryValue>): string {
   const usp = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === "") return;
@@ -339,6 +458,11 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     async listProducts(params: ListProductsParams = {}, options: RequestInit = {}) {
       const query = buildQuery(params);
       return request<Product[]>(`/produtos${query}`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async listProductsStatus(params: ListProductsStatusParams = {}, options: RequestInit = {}) {
+      const query = buildQuery(params);
+      return request<Product[]>(`/produtos/gestao-status${query}`, { method: "GET", ...options }, baseUrl);
     },
 
     async getProduct(id: number, options: RequestInit = {}) {
@@ -484,6 +608,18 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<BackupOut>(`/backup/criar`, { method: "POST", ...options }, baseUrl);
     },
 
+    async bulkUpdateProductStatus(payload: ProductStatusBulkIn, options: RequestInit = {}) {
+      return request<ProductStatusBulkOut>(
+        `/produtos/status-lote`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
     async backupList(options: RequestInit = {}) {
       return request<BackupListItemOut[]>(`/backup/listar`, { method: "GET", ...options }, baseUrl);
     },
@@ -505,8 +641,105 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       );
     },
 
+    async backupCreatePreUpdate(options: RequestInit = {}) {
+      return request<BackupOut>(`/backup/pre-update`, { method: "POST", ...options }, baseUrl);
+    },
+
+    async backupRestorePreUpdate(options: RequestInit = {}) {
+      return request<BackupRestoreOut>(`/backup/restaurar-pre-update`, { method: "POST", ...options }, baseUrl);
+    },
+
+    async backupRestoreTest(payload: BackupRestoreTestIn, options: RequestInit = {}) {
+      return request<BackupRestoreTestOut>(
+        `/backup/testar-restauracao`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async backupAutoConfig(options: RequestInit = {}) {
+      return request<BackupAutoConfigOut>(`/backup/auto-config`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async backupUpdateAutoConfig(payload: BackupAutoConfigIn, options: RequestInit = {}) {
+      return request<BackupAutoConfigOut>(
+        `/backup/auto-config`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
     async backupDiagnostics(options: RequestInit = {}) {
       return requestBlob(`/backup/diagnostico`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async inventoryCreateSession(payload: InventorySessionCreateIn, options: RequestInit = {}) {
+      return request<InventorySessionOut>(
+        `/inventario/sessoes`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async inventoryListSessions(
+      params: { page?: number; page_size?: number } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<InventorySessionOut[]>(`/inventario/sessoes${query}`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async inventoryGetSession(sessionId: number, options: RequestInit = {}) {
+      return request<InventorySessionOut>(`/inventario/sessoes/${sessionId}`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async inventoryListSessionItems(
+      sessionId: number,
+      params: { only_divergent?: boolean; query?: string; page?: number; page_size?: number } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<InventoryCountOut[]>(
+        `/inventario/sessoes/${sessionId}/itens${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async inventoryUpdateSessionItems(
+      sessionId: number,
+      payload: InventoryCountsUpdateIn,
+      options: RequestInit = {}
+    ) {
+      return request<InventorySessionOut>(
+        `/inventario/sessoes/${sessionId}/itens`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async inventoryApplySession(sessionId: number, options: RequestInit = {}) {
+      return request<InventoryApplyOut>(
+        `/inventario/sessoes/${sessionId}/aplicar`,
+        { method: "POST", ...options },
+        baseUrl
+      );
     },
 
     async importExcel(file: File, options: RequestInit = {}) {

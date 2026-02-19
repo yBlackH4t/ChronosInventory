@@ -6,6 +6,9 @@ import ImportPage from "../pages/ImportPage";
 import ExportPage from "../pages/ExportPage";
 import ReportsPage from "../pages/ReportsPage";
 import BackupPage from "../pages/BackupPage";
+import InventoryPage from "../pages/InventoryPage";
+import ReleaseNotesPage from "../pages/ReleaseNotesPage";
+import ProductStatusPage from "../pages/ProductStatusPage";
 
 export function AppRouter() {
   return (
@@ -18,6 +21,9 @@ export function AppRouter() {
       <Route path="/exportar" element={<ExportPage />} />
       <Route path="/relatorios" element={<ReportsPage />} />
       <Route path="/backup" element={<BackupPage />} />
+      <Route path="/inventario" element={<InventoryPage />} />
+      <Route path="/itens-status" element={<ProductStatusPage />} />
+      <Route path="/novidades" element={<ReleaseNotesPage />} />
     </Routes>
   );
 }

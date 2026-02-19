@@ -14,7 +14,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
     ['D:\\User\\Desktop\\Versao Teste\\backend\\app\\main.py'],
-    pathex=['D:\\User\\Desktop\\Versao Teste\\.venv'],
+    pathex=['D:\\User\\Desktop\\Versao Teste\\.venv312'],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
