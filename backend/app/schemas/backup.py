@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -40,6 +41,8 @@ class BackupAutoConfigOut(BaseModel):
     hour: int = Field(ge=0, le=23)
     minute: int = Field(ge=0, le=59)
     retention_days: int = Field(ge=1)
+    schedule_mode: Literal["DAILY", "WEEKLY"] = "DAILY"
+    weekday: int = Field(default=0, ge=0, le=6)
     last_run_date: str | None = None
     last_result: str | None = None
     last_backup_name: str | None = None
@@ -50,6 +53,8 @@ class BackupAutoConfigIn(BaseModel):
     hour: int = Field(ge=0, le=23)
     minute: int = Field(ge=0, le=59)
     retention_days: int = Field(ge=1)
+    schedule_mode: Literal["DAILY", "WEEKLY"] = "DAILY"
+    weekday: int = Field(default=0, ge=0, le=6)
 
 
 class BackupRestoreTestIn(BaseModel):

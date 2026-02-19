@@ -1,6 +1,6 @@
 """
 Scheduler simples para backup automatico local.
-Executa em background e dispara backup diario conforme configuracao persistida.
+Executa em background e dispara backup diario/semanal conforme configuracao persistida.
 """
 
 from __future__ import annotations

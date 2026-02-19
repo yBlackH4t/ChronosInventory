@@ -10,6 +10,19 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.1",
+    "date": "2026-02-19",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Filtro de estoque na aba Ativar/Inativar com opcoes: Todos, Com estoque (> 0) e Sem estoque (= 0).",
+      "Novo: Suporte a agendamento semanal no backup automatico, com dia da semana configuravel.",
+      "Mudanca: Endpoint /produtos/gestao-status passou a aceitar o parametro has_stock para combinar status + busca + estoque.",
+      "Mudanca: Tela de backup passou a permitir escolha de frequencia (Diario ou Semanal) e dia da semana quando semanal.",
+      "Correcao: Correcao no fluxo de triagem para localizar itens inativados que ainda possuem saldo em estoque.",
+      "Correcao: Scheduler de backup semanal agora ignora dias fora da configuracao e evita dupla execucao no mesmo dia."
+    ]
+  },
+  {
     "version": "1.2.0",
     "date": "2026-02-19",
     "title": "Melhorias e correcoes",

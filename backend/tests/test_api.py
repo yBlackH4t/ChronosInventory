@@ -88,6 +88,40 @@ def test_bulk_inactivate_hides_product_from_default_list(client):
     assert product.json()["data"]["ativo"] is False
 
 
+def test_products_status_can_filter_items_with_stock(client):
+    inativo_com_estoque = _create_product(client, "Produto Inativo Com Estoque", qtd_canoas=1, qtd_pf=0)
+    sem_estoque_id = _create_product(client, "Produto Sem Estoque", qtd_canoas=1, qtd_pf=0)
+    _create_product(client, "Produto PF Com Estoque", qtd_canoas=0, qtd_pf=2)
+
+    saida = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": sem_estoque_id,
+            "quantidade": 1,
+            "origem": "CANOAS",
+        },
+    )
+    assert saida.status_code == 201
+
+    updated = client.put(
+        "/produtos/status-lote",
+        json={"ids": [inativo_com_estoque], "ativo": False, "motivo_inativacao": "Teste filtro"},
+    )
+    assert updated.status_code == 200
+
+    with_stock = client.get("/produtos/gestao-status?status=TODOS&has_stock=true")
+    assert with_stock.status_code == 200
+    with_stock_ids = {item["id"] for item in with_stock.json()["data"]}
+    assert inativo_com_estoque in with_stock_ids
+    assert any(item["qtd_pf"] > 0 for item in with_stock.json()["data"])
+    assert all((item["qtd_canoas"] + item["qtd_pf"]) > 0 for item in with_stock.json()["data"])
+
+    no_stock = client.get("/produtos/gestao-status?status=TODOS&has_stock=false")
+    assert no_stock.status_code == 200
+    assert all((item["qtd_canoas"] + item["qtd_pf"]) == 0 for item in no_stock.json()["data"])
+
+
 def test_analytics_stock_summary_excludes_inactive_products(client):
     hidden_id = _create_product(client, "Produto Hidden", qtd_canoas=10, qtd_pf=1)
     _create_product(client, "Produto Visivel", qtd_canoas=2, qtd_pf=3)
@@ -416,13 +450,24 @@ def test_backup_auto_config_and_restore_test(client):
     cfg = client.get("/backup/auto-config")
     assert cfg.status_code == 200
     assert "enabled" in cfg.json()["data"]
+    assert cfg.json()["data"]["schedule_mode"] in {"DAILY", "WEEKLY"}
+    assert 0 <= int(cfg.json()["data"]["weekday"]) <= 6
 
     updated = client.put(
         "/backup/auto-config",
-        json={"enabled": True, "hour": 18, "minute": 0, "retention_days": 15},
+        json={
+            "enabled": True,
+            "hour": 18,
+            "minute": 0,
+            "retention_days": 15,
+            "schedule_mode": "WEEKLY",
+            "weekday": 0,
+        },
     )
     assert updated.status_code == 200
     assert bool(updated.json()["data"]["enabled"]) is True
+    assert updated.json()["data"]["schedule_mode"] == "WEEKLY"
+    assert updated.json()["data"]["weekday"] == 0
 
     created = client.post("/backup/criar")
     assert created.status_code == 200
@@ -431,6 +476,44 @@ def test_backup_auto_config_and_restore_test(client):
     tested = client.post("/backup/testar-restauracao", json={"backup_name": backup_name})
     assert tested.status_code == 200
     assert bool(tested.json()["data"]["ok"]) is True
+
+
+def test_backup_weekly_schedule_runs_only_on_configured_weekday(client):
+    updated = client.put(
+        "/backup/auto-config",
+        json={
+            "enabled": True,
+            "hour": 18,
+            "minute": 0,
+            "retention_days": 7,
+            "schedule_mode": "WEEKLY",
+            "weekday": 0,
+        },
+    )
+    assert updated.status_code == 200
+
+    from app.services.backup_service import BackupService
+
+    service = BackupService()
+
+    tuesday = datetime(2026, 2, 17, 18, 5, 0)
+    result_tuesday = service.run_due_scheduled_backup(tuesday)
+    assert result_tuesday["executed"] is False
+    assert result_tuesday["reason"] == "wrong_weekday"
+
+    monday_before = datetime(2026, 2, 16, 17, 59, 0)
+    result_before = service.run_due_scheduled_backup(monday_before)
+    assert result_before["executed"] is False
+    assert result_before["reason"] == "before_schedule"
+
+    monday_due = datetime(2026, 2, 16, 18, 0, 0)
+    result_due = service.run_due_scheduled_backup(monday_due)
+    assert result_due["executed"] is True
+
+    monday_repeat = datetime(2026, 2, 16, 18, 10, 0)
+    result_repeat = service.run_due_scheduled_backup(monday_repeat)
+    assert result_repeat["executed"] is False
+    assert result_repeat["reason"] == "already_ran_today"
 
 
 def test_backup_restore_roundtrip(client):

@@ -7,25 +7,22 @@ Formato recomendado:
 - Secoes `### Added`, `### Changed`, `### Fixed`
 - Itens em lista com `- `
 
-## [Unreleased]
+
+
+
+## [1.2.1] - 2026-02-19
 
 ### Added
-- Tela de backup com listagem, validacao de integridade, restauracao e exportacao de diagnostico.
-- Endpoints de backup para listar (`/backup/listar`), validar (`/backup/validar`), restaurar (`/backup/restaurar`) e baixar pacote de suporte (`/backup/diagnostico`).
-- Testes automatizados cobrindo fluxo de backup/restore e download de diagnostico.
+- Filtro de estoque na aba **Ativar/Inativar** com opcoes: `Todos`, `Com estoque (> 0)` e `Sem estoque (= 0)`.
+- Suporte a agendamento **semanal** no backup automatico, com dia da semana configuravel.
 
 ### Changed
-- Updater do desktop agora mostra release notes no fluxo automatico e no botao manual de verificacao.
-- `release_sign.ps1` passou a gerar `latest.json` com `notes` automaticas a partir do `CHANGELOG.md`.
-- `release:bump` passou a criar template de secao no changelog para novas versoes.
-- Allowlist do Tauri foi reduzida para minimo necessario (`process.relaunch`).
+- Endpoint `/produtos/gestao-status` passou a aceitar o parametro `has_stock` para combinar status + busca + estoque.
+- Tela de backup passou a permitir escolha de frequencia (`Diario` ou `Semanal`) e dia da semana quando semanal.
 
 ### Fixed
-- Restauracao de backup em Windows sem falha de lock no arquivo `-wal`.
-- Startup do backend com execucao de migracao versionada e rollback em caso de erro.
-- Endpoint `--version` no backend sidecar para validar sincronismo de versao no processo de release.
-
-
+- Correcao no fluxo de triagem para localizar itens inativados que ainda possuem saldo em estoque.
+- Scheduler de backup semanal agora ignora dias fora da configuracao e evita dupla execucao no mesmo dia.
 
 ## [1.2.0] - 2026-02-19
 

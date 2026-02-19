@@ -123,6 +123,7 @@ def list_products(
 def list_products_status(
     query: str = "",
     status: ProductStatusFilter = "TODOS",
+    has_stock: bool | None = Query(default=None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort: str | None = None,
@@ -133,6 +134,7 @@ def list_products_status(
     products, total_items = stock_service.get_products_status_paginated(
         search_term=query,
         status=status,
+        has_stock=has_stock,
         sort_column=sort_column,
         sort_direction=sort_direction,
         limit=page_size,

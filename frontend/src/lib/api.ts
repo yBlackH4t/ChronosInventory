@@ -112,6 +112,7 @@ export type ListProductsParams = {
 
 export type ListProductsStatusParams = ListProductsParams & {
   status?: ProductStatusFilter;
+  has_stock?: boolean;
 };
 
 export type MovementCreate = {
@@ -194,6 +195,8 @@ export type BackupAutoConfigOut = {
   hour: number;
   minute: number;
   retention_days: number;
+  schedule_mode: "DAILY" | "WEEKLY";
+  weekday: number;
   last_run_date?: string | null;
   last_result?: string | null;
   last_backup_name?: string | null;
@@ -204,6 +207,8 @@ export type BackupAutoConfigIn = {
   hour: number;
   minute: number;
   retention_days: number;
+  schedule_mode: "DAILY" | "WEEKLY";
+  weekday: number;
 };
 
 export type BackupRestoreTestIn = {

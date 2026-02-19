@@ -40,6 +40,8 @@ class BackupService:
         self._default_auto_hour = 18
         self._default_auto_minute = 0
         self._default_retention_days = 15
+        self._default_schedule_mode = "DAILY"
+        self._default_weekday = 0  # 0=segunda-feira (datetime.weekday)
 
     def export_backup(self, excel_path: str) -> Tuple[bool, str]:
         """
@@ -275,11 +277,21 @@ class BackupService:
         return filename, buf.getvalue()
 
     def get_auto_backup_config(self) -> Dict[str, object]:
+        schedule_mode = self._normalize_schedule_mode(
+            self._read_system_text("backup_auto_schedule_mode"),
+            self._default_schedule_mode,
+        )
+        weekday = self._normalize_weekday(
+            self._read_system_int("backup_auto_weekday", self._default_weekday),
+            self._default_weekday,
+        )
         return {
             "enabled": self._read_system_bool("backup_auto_enabled", True),
             "hour": self._read_system_int("backup_auto_hour", self._default_auto_hour),
             "minute": self._read_system_int("backup_auto_minute", self._default_auto_minute),
             "retention_days": self._read_system_int("backup_retention_days", self._default_retention_days),
+            "schedule_mode": schedule_mode,
+            "weekday": weekday,
             "last_run_date": self._read_system_text("backup_auto_last_run_date"),
             "last_result": self._read_system_text("backup_auto_last_result"),
             "last_backup_name": self._read_system_text("backup_auto_last_backup"),
@@ -291,6 +303,8 @@ class BackupService:
         hour: int,
         minute: int,
         retention_days: int,
+        schedule_mode: str = "DAILY",
+        weekday: int = 0,
     ) -> Dict[str, object]:
         if hour < 0 or hour > 23:
             raise ValidationException("Hora invalida para backup automatico. Use 0-23.")
@@ -298,11 +312,19 @@ class BackupService:
             raise ValidationException("Minuto invalido para backup automatico. Use 0-59.")
         if retention_days not in {7, 15, 30}:
             raise ValidationException("Retencao invalida. Use 7, 15 ou 30 dias.")
+        schedule_mode_value = self._normalize_schedule_mode(schedule_mode, "")
+        if schedule_mode_value not in {"DAILY", "WEEKLY"}:
+            raise ValidationException("Frequencia invalida. Use DAILY ou WEEKLY.")
+        weekday_value = self._normalize_weekday(weekday, -1)
+        if weekday_value < 0:
+            raise ValidationException("Dia da semana invalido. Use 0 (segunda) ate 6 (domingo).")
 
         self._set_system_value("backup_auto_enabled", "1" if enabled else "0")
         self._set_system_value("backup_auto_hour", str(hour))
         self._set_system_value("backup_auto_minute", str(minute))
         self._set_system_value("backup_retention_days", str(retention_days))
+        self._set_system_value("backup_auto_schedule_mode", schedule_mode_value)
+        self._set_system_value("backup_auto_weekday", str(weekday_value))
         return self.get_auto_backup_config()
 
     def run_due_scheduled_backup(self, now: Optional[datetime] = None) -> Dict[str, object]:
@@ -314,6 +336,22 @@ class BackupService:
 
         scheduled_hour = int(cfg.get("hour") or self._default_auto_hour)
         scheduled_minute = int(cfg.get("minute") or self._default_auto_minute)
+        schedule_mode = self._normalize_schedule_mode(
+            str(cfg.get("schedule_mode") or self._default_schedule_mode),
+            self._default_schedule_mode,
+        )
+        scheduled_weekday = self._normalize_weekday(
+            int(cfg.get("weekday") or self._default_weekday),
+            self._default_weekday,
+        )
+
+        if schedule_mode == "WEEKLY" and now_dt.weekday() != scheduled_weekday:
+            return {
+                "executed": False,
+                "reason": "wrong_weekday",
+                "config": cfg,
+            }
+
         scheduled_minutes = scheduled_hour * 60 + scheduled_minute
         current_minutes = now_dt.hour * 60 + now_dt.minute
         if current_minutes < scheduled_minutes:
@@ -404,6 +442,23 @@ class BackupService:
         if value is None:
             return default
         return str(value).strip() in {"1", "true", "True", "TRUE", "yes", "on"}
+
+    def _normalize_schedule_mode(self, value: Optional[str], default: str) -> str:
+        if value is None:
+            return default
+        normalized = str(value).strip().upper()
+        if normalized in {"DAILY", "WEEKLY"}:
+            return normalized
+        return default
+
+    def _normalize_weekday(self, value: int, default: int) -> int:
+        try:
+            normalized = int(value)
+        except Exception:
+            return default
+        if 0 <= normalized <= 6:
+            return normalized
+        return default
 
     def _set_system_value(self, key: str, value: str) -> None:
         conn = self.db_connection.get_connection()

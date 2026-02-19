@@ -73,6 +73,7 @@ class StockService:
         self,
         search_term: str = "",
         status: str = "TODOS",
+        has_stock: bool | None = None,
         sort_column: str = "nome",
         sort_direction: str = "ASC",
         limit: int = 20,
@@ -81,12 +82,17 @@ class StockService:
         products_data = self.product_repo.get_all_paginated(
             search_term=search_term,
             status=status,
+            has_stock=has_stock,
             sort_column=sort_column,
             sort_direction=sort_direction,
             limit=limit,
             offset=offset,
         )
-        total = self.product_repo.count_filtered(search_term=search_term, status=status)
+        total = self.product_repo.count_filtered(
+            search_term=search_term,
+            status=status,
+            has_stock=has_stock,
+        )
         return [Product.from_dict(data) for data in products_data], total
     
     def get_products_as_dataframe(self, search_term: str = "") -> pd.DataFrame:

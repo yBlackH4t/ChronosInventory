@@ -28,23 +28,32 @@ const STATUS_OPTIONS = [
   { value: "ATIVO", label: "Ativos" },
   { value: "INATIVO", label: "Inativos" },
 ];
+const STOCK_OPTIONS = [
+  { value: "TODOS", label: "Estoque: Todos" },
+  { value: "COM_ESTOQUE", label: "Com estoque (> 0)" },
+  { value: "SEM_ESTOQUE", label: "Sem estoque (= 0)" },
+] as const;
+type StockFilter = (typeof STOCK_OPTIONS)[number]["value"];
 
 
 export default function ProductStatusPage() {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ProductStatusFilter>("TODOS");
+  const [stockFilter, setStockFilter] = useState<StockFilter>("TODOS");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState("20");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const listQuery = useQuery<SuccessResponse<Product[]>>({
-    queryKey: ["produtos-status", query, status, page, pageSize],
+    queryKey: ["produtos-status", query, status, stockFilter, page, pageSize],
     queryFn: ({ signal }) =>
       api.listProductsStatus(
         {
           query: query.trim() || undefined,
           status,
+          has_stock:
+            stockFilter === "TODOS" ? undefined : stockFilter === "COM_ESTOQUE",
           page,
           page_size: Number(pageSize),
           sort: "nome",
@@ -171,6 +180,16 @@ export default function ProductStatusPage() {
             w={180}
           />
           <Select
+            label="Estoque"
+            data={STOCK_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+            value={stockFilter}
+            onChange={(value) => {
+              setStockFilter((value as StockFilter) || "TODOS");
+              setPage(1);
+            }}
+            w={220}
+          />
+          <Select
             label="Por pagina"
             data={["10", "20", "50", "100"]}
             value={pageSize}
@@ -186,6 +205,7 @@ export default function ProductStatusPage() {
             onClick={() => {
               setQuery("");
               setStatus("TODOS");
+              setStockFilter("TODOS");
               setPage(1);
               setSelectedIds([]);
             }}

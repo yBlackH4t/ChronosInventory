@@ -40,6 +40,7 @@ class ProductRepository(BaseRepository):
         limit: int = 20,
         offset: int = 0,
         status: str = "ATIVO",
+        has_stock: Optional[bool] = None,
     ) -> List[Dict[str, Any]]:
         sort_col = self._ALLOWED_SORT_COLUMNS.get(sort_column, "nome")
         sort_dir = "DESC" if str(sort_direction).upper() == "DESC" else "ASC"
@@ -47,6 +48,7 @@ class ProductRepository(BaseRepository):
         where_clauses: List[str] = ["1=1"]
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
+        self._append_stock_filter(has_stock, where_clauses)
         if search_term:
             where_clauses.append("nome LIKE ?")
             params.append(f"%{search_term}%")
@@ -57,10 +59,16 @@ class ProductRepository(BaseRepository):
         params.extend([limit, offset])
         return self._execute_query(query, tuple(params))
 
-    def count_filtered(self, search_term: str = "", status: str = "ATIVO") -> int:
+    def count_filtered(
+        self,
+        search_term: str = "",
+        status: str = "ATIVO",
+        has_stock: Optional[bool] = None,
+    ) -> int:
         where_clauses: List[str] = ["1=1"]
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
+        self._append_stock_filter(has_stock, where_clauses)
         if search_term:
             where_clauses.append("nome LIKE ?")
             params.append(f"%{search_term}%")
@@ -448,3 +456,11 @@ class ProductRepository(BaseRepository):
         if normalized == "TODOS":
             return
         raise DatabaseException("Filtro de status invalido. Use ATIVO, INATIVO ou TODOS.")
+
+    def _append_stock_filter(self, has_stock: Optional[bool], where_clauses: List[str]) -> None:
+        if has_stock is None:
+            return
+        if has_stock:
+            where_clauses.append("(COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0)) > 0")
+            return
+        where_clauses.append("(COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0)) = 0")

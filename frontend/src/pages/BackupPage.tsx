@@ -46,6 +46,19 @@ const DEFAULT_BACKUP_TAB_STATE: BackupTabState = {
   selectedBackupName: null,
   scrollY: 0,
 };
+const AUTO_SCHEDULE_MODE_OPTIONS = [
+  { value: "DAILY", label: "Diario" },
+  { value: "WEEKLY", label: "Semanal" },
+] as const;
+const AUTO_WEEKDAY_OPTIONS = [
+  { value: "0", label: "Segunda-feira" },
+  { value: "1", label: "Terca-feira" },
+  { value: "2", label: "Quarta-feira" },
+  { value: "3", label: "Quinta-feira" },
+  { value: "4", label: "Sexta-feira" },
+  { value: "5", label: "Sabado" },
+  { value: "6", label: "Domingo" },
+] as const;
 
 function bytesToHuman(size: number): string {
   if (size < 1024) return `${size} B`;
@@ -69,6 +82,8 @@ export default function BackupPage() {
   const [autoHourInput, setAutoHourInput] = useState<number | null>(null);
   const [autoMinuteInput, setAutoMinuteInput] = useState<number | null>(null);
   const [autoRetentionInput, setAutoRetentionInput] = useState<string | null>(null);
+  const [autoScheduleModeInput, setAutoScheduleModeInput] = useState<"DAILY" | "WEEKLY" | null>(null);
+  const [autoWeekdayInput, setAutoWeekdayInput] = useState<string | null>(null);
 
   const backupsQuery = useQuery<SuccessResponse<BackupListItemOut[]>>({
     queryKey: ["backup-list"],
@@ -154,6 +169,8 @@ export default function BackupPage() {
       setAutoHourInput(null);
       setAutoMinuteInput(null);
       setAutoRetentionInput(null);
+      setAutoScheduleModeInput(null);
+      setAutoWeekdayInput(null);
     },
     onError: (error) => notifyError(error),
   });
@@ -187,6 +204,8 @@ export default function BackupPage() {
   const autoHour = autoHourInput ?? Number(autoConfig?.hour ?? 18);
   const autoMinute = autoMinuteInput ?? Number(autoConfig?.minute ?? 0);
   const autoRetention = autoRetentionInput ?? String(autoConfig?.retention_days ?? 15);
+  const autoScheduleMode = autoScheduleModeInput ?? autoConfig?.schedule_mode ?? "DAILY";
+  const autoWeekday = autoWeekdayInput ?? String(autoConfig?.weekday ?? 0);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -249,6 +268,8 @@ export default function BackupPage() {
       hour: Number(autoHour ?? 0),
       minute: Number(autoMinute ?? 0),
       retention_days: Number(autoRetention),
+      schedule_mode: autoScheduleMode,
+      weekday: Number(autoWeekday),
     });
   };
 
@@ -307,9 +328,26 @@ export default function BackupPage() {
             <>
               <Group align="end" wrap="wrap">
                 <Switch
-                  label="Ativar backup diario"
+                  label="Ativar backup automatico"
                   checked={autoEnabled}
                   onChange={(event) => setAutoEnabledInput(event.currentTarget.checked)}
+                />
+                <Select
+                  label="Frequencia"
+                  data={AUTO_SCHEDULE_MODE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+                  value={autoScheduleMode}
+                  onChange={(value) => setAutoScheduleModeInput((value as "DAILY" | "WEEKLY") || "DAILY")}
+                  w={150}
+                  allowDeselect={false}
+                />
+                <Select
+                  label="Dia da semana"
+                  data={AUTO_WEEKDAY_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+                  value={autoWeekday}
+                  onChange={(value) => setAutoWeekdayInput(value || "0")}
+                  w={170}
+                  disabled={autoScheduleMode !== "WEEKLY"}
+                  allowDeselect={false}
                 />
                 <NumberInput
                   label="Hora"
@@ -345,6 +383,11 @@ export default function BackupPage() {
 
               {autoConfigQuery.data?.data && (
                 <Text size="sm" c="dimmed">
+                  Frequencia: {autoConfigQuery.data.data.schedule_mode === "WEEKLY" ? "semanal" : "diaria"}
+                  {autoConfigQuery.data.data.schedule_mode === "WEEKLY"
+                    ? ` (${AUTO_WEEKDAY_OPTIONS[autoConfigQuery.data.data.weekday]?.label || "Segunda-feira"})`
+                    : ""}
+                  {" | "}
                   Ultima execucao: {autoConfigQuery.data.data.last_run_date || "nunca"} | Resultado:{" "}
                   {autoConfigQuery.data.data.last_result || "sem execucoes"} | Ultimo arquivo:{" "}
                   {autoConfigQuery.data.data.last_backup_name || "-"}

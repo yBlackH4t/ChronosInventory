@@ -142,6 +142,8 @@ def get_auto_backup_config(
             hour=int(cfg["hour"]),
             minute=int(cfg["minute"]),
             retention_days=int(cfg["retention_days"]),
+            schedule_mode=str(cfg["schedule_mode"]),
+            weekday=int(cfg["weekday"]),
             last_run_date=str(cfg["last_run_date"]) if cfg.get("last_run_date") else None,
             last_result=str(cfg["last_result"]) if cfg.get("last_result") else None,
             last_backup_name=str(cfg["last_backup_name"]) if cfg.get("last_backup_name") else None,
@@ -159,6 +161,8 @@ def update_auto_backup_config(
         hour=payload.hour,
         minute=payload.minute,
         retention_days=payload.retention_days,
+        schedule_mode=payload.schedule_mode,
+        weekday=payload.weekday,
     )
     return ok(
         BackupAutoConfigOut(
@@ -166,6 +170,8 @@ def update_auto_backup_config(
             hour=int(cfg["hour"]),
             minute=int(cfg["minute"]),
             retention_days=int(cfg["retention_days"]),
+            schedule_mode=str(cfg["schedule_mode"]),
+            weekday=int(cfg["weekday"]),
             last_run_date=str(cfg["last_run_date"]) if cfg.get("last_run_date") else None,
             last_result=str(cfg["last_result"]) if cfg.get("last_result") else None,
             last_backup_name=str(cfg["last_backup_name"]) if cfg.get("last_backup_name") else None,
