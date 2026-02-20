@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Button,
@@ -16,9 +16,11 @@ import {
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconPrinter } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
+import { buildInventorySheetHtml } from "../lib/inventorySheetTemplate";
 import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
@@ -47,6 +49,20 @@ type SessionItemEdit = {
   observacao?: string | null;
 };
 
+type CollectorResolvedInput =
+  | { kind: "product_id"; value: number }
+  | { kind: "product_code"; value: string };
+
+type CollectorLogStatus = "OK" | "ERRO";
+
+type CollectorLogItem = {
+  id: string;
+  at: string;
+  input: string;
+  status: CollectorLogStatus;
+  message: string;
+};
+
 export default function InventoryPage() {
   const queryClient = useQueryClient();
   const [sessionName, setSessionName] = useState("");
@@ -58,6 +74,14 @@ export default function InventoryPage() {
   const [onlyDivergent, setOnlyDivergent] = useState(true);
   const [search, setSearch] = useState("");
   const [edits, setEdits] = useState<Record<number, SessionItemEdit>>({});
+  const [collectorInput, setCollectorInput] = useState("");
+  const [collectorStep, setCollectorStep] = useState(1);
+  const [collectorLoading, setCollectorLoading] = useState(false);
+  const [collectorInitializing, setCollectorInitializing] = useState(false);
+  const [collectorModeActive, setCollectorModeActive] = useState(false);
+  const [collectorSessionId, setCollectorSessionId] = useState<number | null>(null);
+  const [collectorLog, setCollectorLog] = useState<CollectorLogItem[]>([]);
+  const collectorInputRef = useRef<HTMLInputElement>(null);
 
   const sessionsQuery = useQuery<SuccessResponse<InventorySessionOut[]>>({
     queryKey: ["inventory-sessions", sessionPage],
@@ -71,6 +95,25 @@ export default function InventoryPage() {
     () => sessionsQuery.data?.data?.find((item) => item.id === selectedSessionId) ?? null,
     [selectedSessionId, sessionsQuery.data?.data]
   );
+
+  useEffect(() => {
+    if (!selectedSessionId) {
+      setCollectorModeActive(false);
+      setCollectorSessionId(null);
+      return;
+    }
+    if (collectorSessionId !== selectedSessionId) {
+      setCollectorModeActive(false);
+    }
+  }, [collectorSessionId, selectedSessionId]);
+
+  useEffect(() => {
+    if (!collectorModeActive) return;
+    const timer = window.setTimeout(() => {
+      collectorInputRef.current?.focus();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [collectorModeActive]);
 
   const itemsQuery = useQuery<SuccessResponse<InventoryCountOut[]>>({
     queryKey: ["inventory-session-items", selectedSessionId, itemsPage, onlyDivergent, search],
@@ -130,6 +173,85 @@ export default function InventoryPage() {
     onError: (error) => notifyError(error),
   });
 
+  const normalizeText = (value: string): string => String(value || "").toUpperCase();
+  const appendCollectorLog = (entry: Omit<CollectorLogItem, "id" | "at">) => {
+    setCollectorLog((current) => [
+      {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        at: dayjs().format("HH:mm:ss"),
+        ...entry,
+      },
+      ...current,
+    ].slice(0, 12));
+  };
+
+  const parseCollectorInput = (rawValue: string): CollectorResolvedInput | null => {
+    const value = normalizeText(rawValue).trim();
+    if (!value) return null;
+
+    const ciMatch = value.match(/^CI[-\s]?(\d{1,10})$/i);
+    if (ciMatch) {
+      return {
+        kind: "product_id",
+        value: Number.parseInt(ciMatch[1], 10),
+      };
+    }
+
+    const digits = value.replace(/\D/g, "");
+    if (!digits) return null;
+
+    if (/^\d+$/.test(value) && digits.length <= 4) {
+      return {
+        kind: "product_id",
+        value: Number.parseInt(digits, 10),
+      };
+    }
+
+    return {
+      kind: "product_code",
+      value: digits,
+    };
+  };
+
+  const resolveCollectorItem = async (
+    sessionId: number,
+    parsedInput: CollectorResolvedInput
+  ): Promise<InventoryCountOut> => {
+    const query = parsedInput.kind === "product_id"
+      ? String(parsedInput.value)
+      : parsedInput.value;
+    const response = await api.inventoryListSessionItems(sessionId, {
+      page: 1,
+      page_size: 50,
+      only_divergent: false,
+      query,
+    });
+    const rows = response.data ?? [];
+
+    if (parsedInput.kind === "product_id") {
+      const exact = rows.find((item) => item.produto_id === parsedInput.value);
+      if (!exact) {
+        throw new Error(`Item ${parsedInput.value} nao encontrado nesta sessao.`);
+      }
+      return exact;
+    }
+
+    const normalizedCode = normalizeText(parsedInput.value);
+    const byCodeInName = rows.filter((item) => normalizeText(item.produto_nome).includes(normalizedCode));
+    if (byCodeInName.length === 1) {
+      return byCodeInName[0];
+    }
+    if (byCodeInName.length > 1) {
+      const sample = byCodeInName
+        .slice(0, 3)
+        .map((item) => `${item.produto_nome} (#${item.produto_id})`)
+        .join(" | ");
+      throw new Error(`Codigo ambiguo. Matches: ${sample}`);
+    }
+
+    throw new Error(`Codigo ${parsedInput.value} nao encontrado nesta sessao.`);
+  };
+
   const onCreateSession = () => {
     createSessionMutation.mutate({
       nome: sessionName.trim(),
@@ -174,6 +296,170 @@ export default function InventoryPage() {
     updateItemsMutation.mutate({ sessionId: selectedSessionId, items: payload });
   };
 
+  const listAllSessionItems = async (sessionId: number): Promise<InventoryCountOut[]> => {
+    const pageSize = 200;
+    let page = 1;
+    let totalPages = 1;
+    const collected: InventoryCountOut[] = [];
+
+    while (page <= totalPages) {
+      const response = await api.inventoryListSessionItems(sessionId, {
+        page,
+        page_size: pageSize,
+        only_divergent: false,
+      });
+      collected.push(...(response.data || []));
+      totalPages = Math.max(response.meta?.total_pages ?? 1, 1);
+      page += 1;
+    }
+
+    return collected;
+  };
+
+  const initializeCollectorMode = () => {
+    if (!selectedSessionId) {
+      notifyError(new Error("Abra uma sessao antes de iniciar o modo bip."));
+      return;
+    }
+    if (selectedSession?.status !== "ABERTO") {
+      notifyError(new Error("Somente sessoes abertas podem iniciar modo bip."));
+      return;
+    }
+
+    modals.openConfirmModal({
+      title: "Iniciar inventario por bip",
+      children: (
+        <Text size="sm">
+          Essa acao zera o fisico de todos os itens da sessao para 0 e prepara o inventario por leitura.
+          Itens nao bipados ficarao como divergencia negativa.
+        </Text>
+      ),
+      labels: { confirm: "Iniciar e zerar fisico", cancel: "Cancelar" },
+      confirmProps: { color: "orange" },
+      onConfirm: async () => {
+        setCollectorInitializing(true);
+        try {
+          const allItems = await listAllSessionItems(selectedSessionId);
+          if (allItems.length === 0) {
+            throw new Error("Sessao sem itens para iniciar coletor.");
+          }
+
+          const chunkSize = 300;
+          for (let index = 0; index < allItems.length; index += chunkSize) {
+            const chunk = allItems.slice(index, index + chunkSize);
+            await api.inventoryUpdateSessionItems(selectedSessionId, {
+              items: chunk.map((item) => ({
+                produto_id: item.produto_id,
+                qtd_fisico: 0,
+              })),
+            });
+          }
+
+          setCollectorModeActive(true);
+          setCollectorSessionId(selectedSessionId);
+          setCollectorInput("");
+          setCollectorLog([]);
+          setEdits({});
+          appendCollectorLog({
+            input: "init",
+            status: "OK",
+            message: `Modo bip iniciado. ${allItems.length} item(ns) zerado(s).`,
+          });
+          notifySuccess("Modo bip iniciado. Agora e so bipar os itens.");
+          void queryClient.invalidateQueries({ queryKey: ["inventory-session-items", selectedSessionId] });
+          void queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
+          window.setTimeout(() => collectorInputRef.current?.focus(), 0);
+        } catch (error) {
+          notifyError(error, "Falha ao iniciar modo bip.");
+        } finally {
+          setCollectorInitializing(false);
+        }
+      },
+    });
+  };
+
+  const stopCollectorMode = () => {
+    setCollectorModeActive(false);
+    appendCollectorLog({
+      input: "stop",
+      status: "OK",
+      message: "Modo bip encerrado.",
+    });
+  };
+
+  const runCollector = async () => {
+    if (!selectedSessionId) {
+      notifyError(new Error("Abra uma sessao antes de usar o coletor."));
+      return;
+    }
+    if (selectedSession?.status !== "ABERTO") {
+      notifyError(new Error("Coletor disponivel apenas para sessoes abertas."));
+      return;
+    }
+    if (!collectorModeActive || collectorSessionId !== selectedSessionId) {
+      notifyError(new Error("Inicie primeiro o modo bip para esta sessao."));
+      return;
+    }
+
+    const rawInput = collectorInput.trim();
+    if (!rawInput) {
+      notifyError(new Error("Leia ou digite uma etiqueta primeiro."));
+      return;
+    }
+    const parsedInput = parseCollectorInput(rawInput);
+    if (!parsedInput) {
+      appendCollectorLog({
+        input: rawInput,
+        status: "ERRO",
+        message: "Formato invalido. Use CI-<id> ou codigo numerico da peca.",
+      });
+      notifyError(new Error("Formato invalido. Use CI-<id> ou codigo numerico da peca."));
+      return;
+    }
+
+    setCollectorLoading(true);
+    try {
+      const item = await resolveCollectorItem(selectedSessionId, parsedInput);
+      const currentValue = item.qtd_fisico ?? 0;
+      const increment = Math.max(1, Math.round(Number(collectorStep || 1)));
+      const nextValue = currentValue + increment;
+
+      await api.inventoryUpdateSessionItems(selectedSessionId, {
+        items: [
+          {
+            produto_id: item.produto_id,
+            qtd_fisico: nextValue,
+          },
+        ],
+      });
+      setEdits((current) => {
+        if (!(item.produto_id in current)) return current;
+        const next = { ...current };
+        delete next[item.produto_id];
+        return next;
+      });
+      setCollectorInput("");
+      appendCollectorLog({
+        input: rawInput,
+        status: "OK",
+        message: `${item.produto_nome} (#${item.produto_id}) -> ${nextValue}`,
+      });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-session-items", selectedSessionId] });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
+      window.setTimeout(() => collectorInputRef.current?.focus(), 0);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Falha no coletor.";
+      appendCollectorLog({
+        input: rawInput,
+        status: "ERRO",
+        message,
+      });
+      notifyError(error, "Falha no coletor.");
+    } finally {
+      setCollectorLoading(false);
+    }
+  };
+
   const confirmApply = () => {
     if (!selectedSessionId) return;
     modals.openConfirmModal({
@@ -194,11 +480,65 @@ export default function InventoryPage() {
   const items = itemsQuery.data?.data ?? [];
   const itemPages = Math.max(itemsQuery.data?.meta?.total_pages ?? 1, 1);
 
+  const printTemplate = () => {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    const html = buildInventorySheetHtml({
+      sessionName: selectedSession?.nome || sessionName.trim() || "Sessao manual",
+      local: selectedSession?.local || sessionLocal,
+      totalRows: 56,
+    });
+
+    const frame = document.createElement("iframe");
+    frame.style.position = "fixed";
+    frame.style.right = "0";
+    frame.style.bottom = "0";
+    frame.style.width = "0";
+    frame.style.height = "0";
+    frame.style.border = "0";
+    frame.style.visibility = "hidden";
+
+    const cleanup = () => {
+      window.setTimeout(() => {
+        if (frame.parentNode) {
+          frame.parentNode.removeChild(frame);
+        }
+      }, 500);
+    };
+
+    frame.onload = () => {
+      const frameWindow = frame.contentWindow;
+      if (!frameWindow) {
+        cleanup();
+        notifyError(new Error("Nao foi possivel abrir a impressao da folha."));
+        return;
+      }
+      frameWindow.focus();
+      frameWindow.print();
+      cleanup();
+    };
+
+    frame.onerror = () => {
+      cleanup();
+      notifyError(new Error("Falha ao preparar a folha para impressao."));
+    };
+
+    document.body.appendChild(frame);
+    if (!frame.contentDocument) {
+      cleanup();
+      notifyError(new Error("Falha ao criar documento de impressao."));
+      return;
+    }
+    frame.contentDocument.open();
+    frame.contentDocument.write(html);
+    frame.contentDocument.close();
+  };
+
   return (
     <Stack gap="lg">
       <PageHeader
         title="Inventario"
         subtitle="Crie sessoes de contagem, identifique divergencias e aplique ajustes em lote."
+        actions={<Button leftSection={<IconPrinter size={16} />} variant="light" onClick={printTemplate}>Imprimir folha modelo</Button>}
       />
 
       <Card withBorder>
@@ -283,6 +623,8 @@ export default function InventoryPage() {
                           setSelectedSessionId(session.id);
                           setItemsPage(1);
                           setEdits({});
+                          setCollectorInput("");
+                          setCollectorLog([]);
                         }}
                       >
                         Abrir
@@ -341,6 +683,107 @@ export default function InventoryPage() {
             </Group>
 
             <FilterToolbar>
+              <Stack gap="xs">
+                <Group justify="space-between" wrap="wrap">
+                  <Text fw={600} size="sm">
+                    Coletor por etiqueta
+                  </Text>
+                  <Badge color={collectorModeActive ? "green" : "gray"} variant="light">
+                    {collectorModeActive ? "Modo bip ativo" : "Modo bip inativo"}
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Fluxo simples: iniciar modo bip (zera fisico para 0), depois so bipar item por item.
+                  O sistema compara automaticamente e mostra faltando/a mais na divergencia.
+                </Text>
+                <Group align="end" wrap="wrap">
+                  <Button
+                    color={collectorModeActive ? "gray" : "blue"}
+                    variant={collectorModeActive ? "light" : "filled"}
+                    onClick={initializeCollectorMode}
+                    loading={collectorInitializing}
+                    disabled={selectedSession.status !== "ABERTO" || collectorInitializing || collectorLoading}
+                  >
+                    Iniciar modo bip
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    onClick={stopCollectorMode}
+                    disabled={!collectorModeActive || collectorInitializing || collectorLoading}
+                  >
+                    Encerrar modo bip
+                  </Button>
+                  <TextInput
+                    label="Etiqueta"
+                    placeholder="Bipe ou digite CI-123 / 4031196"
+                    value={collectorInput}
+                    onChange={(event) => setCollectorInput(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void runCollector();
+                      }
+                    }}
+                    ref={collectorInputRef}
+                    w={320}
+                    disabled={selectedSession.status !== "ABERTO" || collectorLoading || !collectorModeActive}
+                  />
+                  <NumberInput
+                    label="Incremento"
+                    min={1}
+                    max={200}
+                    value={collectorStep}
+                    onChange={(value) => setCollectorStep(Math.max(1, Math.round(Number(value || 1))))}
+                    w={120}
+                    disabled={selectedSession.status !== "ABERTO" || collectorLoading || !collectorModeActive}
+                  />
+                  <Button
+                    onClick={() => void runCollector()}
+                    loading={collectorLoading}
+                    disabled={selectedSession.status !== "ABERTO" || !collectorModeActive}
+                  >
+                    Somar
+                  </Button>
+                  <Button
+                    variant="subtle"
+                    onClick={() => setCollectorLog([])}
+                    disabled={collectorLog.length === 0 || collectorLoading}
+                  >
+                    Limpar log
+                  </Button>
+                </Group>
+                {collectorLog.length > 0 && (
+                  <DataTable minWidth={780}>
+                    <Table withTableBorder striped>
+                      <Table.Thead>
+                        <Table.Tr>
+                          <Table.Th>Hora</Table.Th>
+                          <Table.Th>Entrada</Table.Th>
+                          <Table.Th>Status</Table.Th>
+                          <Table.Th>Mensagem</Table.Th>
+                        </Table.Tr>
+                      </Table.Thead>
+                      <Table.Tbody>
+                        {collectorLog.map((entry) => (
+                          <Table.Tr key={entry.id}>
+                            <Table.Td>{entry.at}</Table.Td>
+                            <Table.Td>{entry.input}</Table.Td>
+                            <Table.Td>
+                              <Badge color={entry.status === "OK" ? "green" : "red"} variant="light">
+                                {entry.status}
+                              </Badge>
+                            </Table.Td>
+                            <Table.Td>{entry.message}</Table.Td>
+                          </Table.Tr>
+                        ))}
+                      </Table.Tbody>
+                    </Table>
+                  </DataTable>
+                )}
+              </Stack>
+            </FilterToolbar>
+
+            <FilterToolbar>
               <Group align="end" wrap="wrap">
                 <Switch
                   label="Somente divergentes"
@@ -375,6 +818,7 @@ export default function InventoryPage() {
                       <Table.Th>Sistema</Table.Th>
                       <Table.Th>Fisico</Table.Th>
                       <Table.Th>Divergencia</Table.Th>
+                      <Table.Th>Analise</Table.Th>
                       <Table.Th>Motivo</Table.Th>
                       <Table.Th>Observacao</Table.Th>
                       <Table.Th>Movimento</Table.Th>
@@ -404,6 +848,18 @@ export default function InventoryPage() {
                           <Table.Td>
                             <Badge color={divergencia === 0 ? "gray" : divergencia > 0 ? "green" : "red"} variant="light">
                               {divergencia}
+                            </Badge>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge
+                              color={divergencia === 0 ? "gray" : divergencia > 0 ? "green" : "red"}
+                              variant="light"
+                            >
+                              {divergencia === 0
+                                ? "OK"
+                                : divergencia > 0
+                                  ? `A mais: ${divergencia}`
+                                  : `Faltando: ${Math.abs(divergencia)}`}
                             </Badge>
                           </Table.Td>
                           <Table.Td>
@@ -439,7 +895,7 @@ export default function InventoryPage() {
                     })}
                     {items.length === 0 && (
                       <Table.Tr>
-                        <Table.Td colSpan={8}>
+                        <Table.Td colSpan={9}>
                           <EmptyState message="Nenhum item para o filtro selecionado." />
                         </Table.Td>
                       </Table.Tr>

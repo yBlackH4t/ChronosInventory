@@ -4,6 +4,7 @@ import { Divider, NavLink, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconArrowsExchange,
+  IconBarcode,
   IconBox,
   IconCheckbox,
   IconClipboardList,
@@ -37,6 +38,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Importar", to: "/importar", icon: IconFileImport },
       { label: "Exportar", to: "/exportar", icon: IconFileExport },
+      { label: "Etiquetas", to: "/etiquetas", icon: IconBarcode },
       { label: "Relatorios", to: "/relatorios", icon: IconReport },
     ],
   },
@@ -44,6 +46,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     title: "Sistema",
     items: [
       { label: "Backup", to: "/backup", icon: IconDatabase },
+      { label: "Estoques", to: "/estoques", icon: IconDatabase },
       { label: "Ativar/Inativar", to: "/itens-status", icon: IconCheckbox },
       { label: "Novidades", to: "/novidades", icon: IconSparkles },
     ],
@@ -130,6 +133,32 @@ export default function SidebarNav() {
       return;
     }
 
+    if (route === "/etiquetas") {
+      void queryClient.prefetchQuery({
+        queryKey: ["labels-products", "", "ATIVO", "COM_ESTOQUE", 1, "20"],
+        queryFn: () =>
+          api.listProductsStatus({
+            query: "",
+            status: "ATIVO",
+            has_stock: true,
+            page: 1,
+            page_size: 20,
+            sort: "nome",
+          }),
+        staleTime: 30_000,
+      });
+      return;
+    }
+
+    if (route === "/estoques") {
+      void queryClient.prefetchQuery({
+        queryKey: ["stock-profiles"],
+        queryFn: () => api.listStockProfiles(),
+        staleTime: 30_000,
+      });
+      return;
+    }
+
     if (route === "/inventario") {
       void queryClient.prefetchQuery({
         queryKey: ["inventory-sessions", 1],
@@ -141,11 +170,12 @@ export default function SidebarNav() {
 
     if (route === "/itens-status") {
       void queryClient.prefetchQuery({
-        queryKey: ["produtos-status", "", "TODOS", 1, "20"],
+        queryKey: ["produtos-status", "", "TODOS", "TODOS", 1, "20"],
         queryFn: () =>
           api.listProductsStatus({
             query: "",
             status: "TODOS",
+            has_stock: undefined,
             page: 1,
             page_size: 20,
             sort: "nome",

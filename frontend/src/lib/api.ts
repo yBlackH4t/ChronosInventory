@@ -362,6 +362,41 @@ export type HealthOut = {
   version: string;
 };
 
+export type StockProfileOut = {
+  id: string;
+  name: string;
+  path: string;
+  db_exists: boolean;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+};
+
+export type StockProfilesStateOut = {
+  active_profile_id: string;
+  active_profile_name: string;
+  current_database_path: string;
+  restart_required: boolean;
+  root_directory: string;
+  profiles: StockProfileOut[];
+};
+
+export type StockProfileCreateIn = {
+  name: string;
+  profile_id?: string | null;
+};
+
+export type StockProfileActivateIn = {
+  profile_id: string;
+};
+
+export type StockProfileActivateOut = {
+  active_profile_id: string;
+  active_profile_name: string;
+  requires_restart: boolean;
+  message: string;
+};
+
 export type DownloadResponse = {
   blob: Blob;
   filename?: string;
@@ -458,6 +493,34 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
   return {
     async health(options: RequestInit = {}) {
       return request<HealthOut>(`/health`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async listStockProfiles(options: RequestInit = {}) {
+      return request<StockProfilesStateOut>(`/sistema/estoques`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async createStockProfile(payload: StockProfileCreateIn, options: RequestInit = {}) {
+      return request<StockProfileOut>(
+        `/sistema/estoques`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async activateStockProfile(payload: StockProfileActivateIn, options: RequestInit = {}) {
+      return request<StockProfileActivateOut>(
+        `/sistema/estoques/ativo`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
     },
 
     async listProducts(params: ListProductsParams = {}, options: RequestInit = {}) {

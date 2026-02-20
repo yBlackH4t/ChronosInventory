@@ -109,17 +109,26 @@ fn spawn_backend() -> Result<(tauri::api::process::CommandChild, tauri::async_ru
     } else {
         SIDECAR_ENV_APP_PROD
     };
-    log_line(&format!(
-        "spawn sidecar: name={} PORT={} APP_ENV={}",
-        SIDECAR_NAME, SIDECAR_ENV_PORT, app_env
-    ));
-    let mut cmd = Command::new_sidecar(SIDECAR_NAME)?.envs(HashMap::from([
+    let mut envs = HashMap::from([
         ("PORT".to_string(), SIDECAR_ENV_PORT.to_string()),
         ("APP_ENV".to_string(), app_env.to_string()),
         // Evita logs em cp1252 que quebram parser UTF-8 do Tauri.
         ("PYTHONUTF8".to_string(), "1".to_string()),
         ("PYTHONIOENCODING".to_string(), "utf-8".to_string()),
-    ]));
+    ]);
+    if let Ok(custom_app_dir) = std::env::var("CHRONOS_APP_DIR") {
+        if !custom_app_dir.trim().is_empty() {
+            envs.insert("CHRONOS_APP_DIR".to_string(), custom_app_dir);
+        }
+    }
+    log_line(&format!(
+        "spawn sidecar: name={} PORT={} APP_ENV={} CHRONOS_APP_DIR={}",
+        SIDECAR_NAME,
+        SIDECAR_ENV_PORT,
+        app_env,
+        envs.get("CHRONOS_APP_DIR").cloned().unwrap_or_else(|| "(inherit/default)".to_string())
+    ));
+    let mut cmd = Command::new_sidecar(SIDECAR_NAME)?.envs(envs);
     if let Some(enc) = Encoding::for_label(b"utf-8") {
         cmd = cmd.encoding(enc);
     }

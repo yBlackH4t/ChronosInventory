@@ -9,6 +9,8 @@ import BackupPage from "../pages/BackupPage";
 import InventoryPage from "../pages/InventoryPage";
 import ReleaseNotesPage from "../pages/ReleaseNotesPage";
 import ProductStatusPage from "../pages/ProductStatusPage";
+import StockProfilesPage from "../pages/StockProfilesPage";
+import LabelsPage from "../pages/LabelsPage";
 
 export function AppRouter() {
   return (
@@ -17,12 +19,15 @@ export function AppRouter() {
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/produtos" element={<ProductsPage />} />
       <Route path="/movimentacoes" element={<MovementsPage />} />
+      <Route path="/entrada-nf" element={<Navigate to="/produtos" replace />} />
       <Route path="/importar" element={<ImportPage />} />
       <Route path="/exportar" element={<ExportPage />} />
       <Route path="/relatorios" element={<ReportsPage />} />
       <Route path="/backup" element={<BackupPage />} />
+      <Route path="/etiquetas" element={<LabelsPage />} />
       <Route path="/inventario" element={<InventoryPage />} />
       <Route path="/itens-status" element={<ProductStatusPage />} />
+      <Route path="/estoques" element={<StockProfilesPage />} />
       <Route path="/novidades" element={<ReleaseNotesPage />} />
     </Routes>
   );

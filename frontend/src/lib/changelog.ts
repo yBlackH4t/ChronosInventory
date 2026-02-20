@@ -10,6 +10,24 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.2",
+    "date": "2026-02-20",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Nova tela Etiquetas com geracao e impressao em lote (selecao multipla, copias por item e codigo de barras CI-<id>).",
+      "Novo: Acao rapida em Produtos para abrir a geracao de etiqueta de um item especifico.",
+      "Novo: Nova tela Estoques para criar e alternar perfis de base local (multiplos estoques no mesmo app).",
+      "Novo: Novos endpoints de sistema para perfis de estoque: listar, criar e ativar (/sistema/estoques e /sistema/estoques/ativo).",
+      "Novo: Fluxo de inventario por modo bip com coletor, incremento configuravel e log de leituras.",
+      "Mudanca: Inventario agora foca no fluxo operacional por leitura de etiqueta (iniciar modo bip, zerar fisico e contar item a item).",
+      "Mudanca: Sidecar do desktop passa a respeitar CHRONOS_APP_DIR quando definido, facilitando cenarios de teste/operacao controlada.",
+      "Mudanca: Nova rota legada /entrada-nf redireciona para Produtos para evitar tela quebrada.",
+      "Correcao: Ajuste no prefetch da tela de status de produtos para manter filtros de estoque consistentes.",
+      "Correcao: Mensagens mais acionaveis quando funcionalidades exigem backend atualizado (ex.: tela de Estoques).",
+      "Correcao: Testes de API cobrindo ciclo de vida dos perfis de estoque (listar, criar e ativar)."
+    ]
+  },
+  {
     "version": "1.2.1",
     "date": "2026-02-19",
     "title": "Melhorias e correcoes",

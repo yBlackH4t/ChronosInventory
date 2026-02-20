@@ -28,7 +28,8 @@ import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { useForm } from "@mantine/form";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconEdit, IconPlus, IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
+import { IconBarcode, IconEdit, IconPlus, IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
@@ -147,6 +148,7 @@ const DEFAULT_PRODUCTS_TAB_STATE: ProductsTabState = {
 };
 
 export default function ProductsPage() {
+  const navigate = useNavigate();
   const persistedState = useMemo(
     () => loadTabState<ProductsTabState>(PRODUCTS_TAB_ID) ?? DEFAULT_PRODUCTS_TAB_STATE,
     []
@@ -304,6 +306,10 @@ export default function ProductsPage() {
     setSelectedSnapshot(product);
     setDrawerOpened(true);
     setHistoryPage(1);
+  };
+
+  const openSingleLabel = (productId: number) => {
+    navigate(`/etiquetas?ids=${productId}`);
   };
 
   const closeDetails = () => {
@@ -785,6 +791,11 @@ export default function ProductsPage() {
                     </Table.Td>
                     <Table.Td>
                       <Group gap="xs" onClick={(event) => event.stopPropagation()}>
+                        <Tooltip label="Gerar etiqueta">
+                          <ActionIcon variant="light" onClick={() => openSingleLabel(product.id)}>
+                            <IconBarcode size={16} />
+                          </ActionIcon>
+                        </Tooltip>
                         <ActionIcon variant="light" onClick={() => openEdit(product)}>
                           <IconEdit size={16} />
                         </ActionIcon>

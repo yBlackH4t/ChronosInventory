@@ -10,6 +10,25 @@ Formato recomendado:
 
 
 
+## [1.2.2] - 2026-02-20
+
+### Added
+- Nova tela **Etiquetas** com geracao e impressao em lote (selecao multipla, copias por item e codigo de barras `CI-<id>`).
+- Acao rapida em **Produtos** para abrir a geracao de etiqueta de um item especifico.
+- Nova tela **Estoques** para criar e alternar perfis de base local (multiplos estoques no mesmo app).
+- Novos endpoints de sistema para perfis de estoque: listar, criar e ativar (`/sistema/estoques` e `/sistema/estoques/ativo`).
+- Fluxo de inventario por **modo bip** com coletor, incremento configuravel e log de leituras.
+
+### Changed
+- Inventario agora foca no fluxo operacional por leitura de etiqueta (iniciar modo bip, zerar fisico e contar item a item).
+- Sidecar do desktop passa a respeitar `CHRONOS_APP_DIR` quando definido, facilitando cenarios de teste/operacao controlada.
+- Nova rota legada `/entrada-nf` redireciona para **Produtos** para evitar tela quebrada.
+
+### Fixed
+- Ajuste no prefetch da tela de status de produtos para manter filtros de estoque consistentes.
+- Mensagens mais acionaveis quando funcionalidades exigem backend atualizado (ex.: tela de Estoques).
+- Testes de API cobrindo ciclo de vida dos perfis de estoque (listar, criar e ativar).
+
 ## [1.2.1] - 2026-02-19
 
 ### Added

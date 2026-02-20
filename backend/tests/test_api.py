@@ -40,6 +40,38 @@ def test_list_products_success(client):
     }
 
 
+def test_stock_profiles_lifecycle(client):
+    listed = client.get("/sistema/estoques")
+    assert listed.status_code == 200
+    state = listed.json()["data"]
+    assert state["active_profile_id"] == "default"
+    assert state["restart_required"] is False
+    assert isinstance(state["profiles"], list)
+    assert any(item["id"] == "default" for item in state["profiles"])
+
+    created = client.post(
+        "/sistema/estoques",
+        json={"name": "Filial Teste", "profile_id": "filial_teste"},
+    )
+    assert created.status_code == 201
+    created_data = created.json()["data"]
+    assert created_data["id"] == "filial_teste"
+    assert created_data["is_active"] is False
+
+    switched = client.put("/sistema/estoques/ativo", json={"profile_id": "filial_teste"})
+    assert switched.status_code == 200
+    switched_data = switched.json()["data"]
+    assert switched_data["active_profile_id"] == "filial_teste"
+    assert switched_data["requires_restart"] is True
+
+    listed_after = client.get("/sistema/estoques")
+    assert listed_after.status_code == 200
+    state_after = listed_after.json()["data"]
+    assert state_after["active_profile_id"] == "filial_teste"
+    assert state_after["restart_required"] is True
+    assert any(item["id"] == "filial_teste" for item in state_after["profiles"])
+
+
 def test_create_and_get_product(client):
     payload = {"nome": "Produto Teste", "qtd_canoas": 1, "qtd_pf": 0}
     create = client.post("/produtos", json=payload)

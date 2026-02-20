@@ -29,7 +29,7 @@ from core.exceptions import (
 )
 from core.utils.file_utils import FileUtils
 
-from backend.app.api.routers import products, backup, reports, movements, export, imports, dashboard, analytics, inventory
+from backend.app.api.routers import products, backup, reports, movements, export, imports, dashboard, analytics, inventory, system
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.common import SuccessResponse
 from backend.app.schemas.system import HealthOut, VersionOut
@@ -99,6 +99,7 @@ app.include_router(imports.router)
 app.include_router(dashboard.router)
 app.include_router(analytics.router)
 app.include_router(inventory.router)
+app.include_router(system.router)
 
 
 @app.on_event("startup")

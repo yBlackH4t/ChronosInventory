@@ -2,6 +2,7 @@
 File helpers used across the project.
 """
 
+import json
 import os
 import shutil
 import sys
@@ -15,6 +16,24 @@ class FileUtils:
     """Utility class for file and directory operations."""
 
     _legacy_migration_done = False
+    _profiles_filename = "stock_profiles.json"
+    _profiles_folder = "profiles"
+    _default_profile_id = "default"
+
+    @staticmethod
+    def get_app_root_directory() -> str:
+        """
+        Returns the root folder used by the app (independent of active stock profile).
+        """
+        if getattr(sys, "frozen", False):
+            appdata_root = os.getenv("APPDATA") or os.path.expanduser("~")
+            app_root = os.path.join(appdata_root, APP_NAME)
+        else:
+            app_root = os.path.abspath(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            )
+        os.makedirs(app_root, exist_ok=True)
+        return app_root
 
     @staticmethod
     def get_app_directory() -> str:
@@ -23,17 +42,49 @@ class FileUtils:
         Production: %APPDATA%/Chronos Inventory
         Development: project root
         """
-        if getattr(sys, "frozen", False):
-            appdata_root = os.getenv("APPDATA") or os.path.expanduser("~")
-            app_dir = os.path.join(appdata_root, APP_NAME)
-            FileUtils.migrate_legacy_data_to(app_dir)
+        forced_dir = os.getenv("CHRONOS_APP_DIR")
+        if forced_dir:
+            app_dir = os.path.abspath(forced_dir)
+            os.makedirs(app_dir, exist_ok=True)
+            return app_dir
+
+        app_root = FileUtils.get_app_root_directory()
+        active_profile_id = FileUtils._read_active_profile_id(app_root)
+        if active_profile_id and active_profile_id != FileUtils._default_profile_id:
+            app_dir = os.path.join(app_root, FileUtils._profiles_folder, active_profile_id)
         else:
-            app_dir = os.path.abspath(
-                os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-            )
+            app_dir = app_root
+            # Keep legacy migration scoped to principal/base profile only.
+            FileUtils.migrate_legacy_data_to(app_root)
 
         os.makedirs(app_dir, exist_ok=True)
         return app_dir
+
+    @staticmethod
+    def get_profiles_registry_path() -> str:
+        app_root = FileUtils.get_app_root_directory()
+        return os.path.join(app_root, FileUtils._profiles_filename)
+
+    @staticmethod
+    def get_profiles_directory() -> str:
+        profiles_dir = os.path.join(FileUtils.get_app_root_directory(), FileUtils._profiles_folder)
+        os.makedirs(profiles_dir, exist_ok=True)
+        return profiles_dir
+
+    @staticmethod
+    def _read_active_profile_id(app_root: str) -> str:
+        registry_path = os.path.join(app_root, FileUtils._profiles_filename)
+        if not os.path.isfile(registry_path):
+            return FileUtils._default_profile_id
+        try:
+            with open(registry_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            active = str(data.get("active_profile_id") or FileUtils._default_profile_id).strip()
+            if active:
+                return active
+        except Exception:
+            pass
+        return FileUtils._default_profile_id
 
     @staticmethod
     def _iter_legacy_app_dirs(target_dir: str) -> list[str]:
@@ -209,4 +260,3 @@ class FileUtils:
     @staticmethod
     def get_temp_directory() -> str:
         return os.environ.get("TEMP", "/tmp")
-

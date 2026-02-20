@@ -7,6 +7,7 @@ from app.services.migration_service import MigrationService
 from app.services.report_api_service import ReportApiService
 from app.services.import_service import ImportService
 from app.services.inventory_service import InventoryService
+from app.services.stock_profile_service import StockProfileService
 
 
 def get_stock_service() -> StockService:
@@ -43,3 +44,7 @@ def get_import_service() -> ImportService:
 
 def get_inventory_service() -> InventoryService:
     return InventoryService()
+
+
+def get_stock_profile_service() -> StockProfileService:
+    return StockProfileService()
