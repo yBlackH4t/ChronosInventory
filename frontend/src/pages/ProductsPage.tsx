@@ -37,6 +37,7 @@ import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import { useProfileScope } from "../state/profileScope";
 import type {
   MovementCreate,
   MovementOut,
@@ -149,6 +150,7 @@ const DEFAULT_PRODUCTS_TAB_STATE: ProductsTabState = {
 
 export default function ProductsPage() {
   const navigate = useNavigate();
+  const { profileScopeKey } = useProfileScope();
   const persistedState = useMemo(
     () => loadTabState<ProductsTabState>(PRODUCTS_TAB_ID) ?? DEFAULT_PRODUCTS_TAB_STATE,
     []
@@ -164,7 +166,7 @@ export default function ProductsPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const productsQuery = useQuery<SuccessResponse<Product[]>>({
-    queryKey: ["produtos", debounced, page, pageSize, sort],
+    queryKey: ["produtos", profileScopeKey, debounced, page, pageSize, sort],
     queryFn: ({ signal }) =>
       api.listProducts(
         {
@@ -189,7 +191,7 @@ export default function ProductsPage() {
       createForm.reset();
       createForm.resetDirty();
       formHandlers.close();
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
     },
     onError: (error) => notifyError(error),
   });
@@ -207,8 +209,8 @@ export default function ProductsPage() {
       }
       editForm.resetDirty();
       formHandlers.close();
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
-      queryClient.invalidateQueries({ queryKey: ["produto", editing?.id] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, editing?.id] });
     },
     onError: (error) => notifyError(error),
   });
@@ -221,7 +223,7 @@ export default function ProductsPage() {
     mutationFn: (id: number) => api.deleteProduct(id),
     onSuccess: () => {
       notifySuccess("Produto removido");
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
     },
     onError: (error) => notifyError(error),
   });
@@ -318,7 +320,7 @@ export default function ProductsPage() {
   };
 
   const detailQuery = useQuery<SuccessResponse<Product>>({
-    queryKey: ["produto", selectedId],
+    queryKey: ["produto", profileScopeKey, selectedId],
     queryFn: ({ signal }) => api.getProduct(selectedId!, { signal }),
     enabled: !!selectedId && drawerOpened,
     staleTime: 30_000,
@@ -328,7 +330,7 @@ export default function ProductsPage() {
   const currentProduct = detailQuery.data?.data ?? selectedSnapshot;
 
   const imagesQuery = useQuery<SuccessResponse<{ items: ProductImageItem[]; total: number; max_images: number }>>({
-    queryKey: ["produto-imagens", selectedId],
+    queryKey: ["produto-imagens", profileScopeKey, selectedId],
     queryFn: ({ signal }) => api.listProductImages(selectedId!, { signal }),
     enabled: !!selectedId,
     retry: false,
@@ -342,8 +344,8 @@ export default function ProductsPage() {
     mutationFn: (files: File[]) => api.uploadProductImages(selectedId!, files),
     onSuccess: () => {
       notifySuccess("Imagem(ns) adicionada(s)");
-      queryClient.invalidateQueries({ queryKey: ["produto-imagens", selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["produto-imagens", profileScopeKey, selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
     },
     onError: (error) => notifyError(error),
   });
@@ -356,7 +358,7 @@ export default function ProductsPage() {
     mutationFn: (imageId: number) => api.setPrimaryProductImage(selectedId!, imageId),
     onSuccess: () => {
       notifySuccess("Imagem principal definida");
-      queryClient.invalidateQueries({ queryKey: ["produto-imagens", selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["produto-imagens", profileScopeKey, selectedId] });
     },
     onError: (error) => notifyError(error),
   });
@@ -369,8 +371,8 @@ export default function ProductsPage() {
     mutationFn: (imageId: number) => api.deleteProductImage(selectedId!, imageId),
     onSuccess: () => {
       notifySuccess("Imagem removida");
-      queryClient.invalidateQueries({ queryKey: ["produto-imagens", selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["produto-imagens", profileScopeKey, selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
     },
     onError: (error) => notifyError(error),
   });
@@ -406,8 +408,8 @@ export default function ProductsPage() {
     mutationFn: ({ id, observacao }) => api.patchProduct(id, { observacao }),
     onSuccess: () => {
       notifySuccess("Observacao atualizada");
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
-      queryClient.invalidateQueries({ queryKey: ["produto", selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, selectedId] });
     },
     onError: (error) => notifyError(error),
   });
@@ -474,9 +476,9 @@ export default function ProductsPage() {
     mutationFn: (payload: MovementCreate) => api.createMovement(payload),
     onSuccess: () => {
       notifySuccess("Movimentacao registrada");
-      queryClient.invalidateQueries({ queryKey: ["produtos"] });
-      queryClient.invalidateQueries({ queryKey: ["produto", selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["historico", selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["historico", profileScopeKey, selectedId] });
     },
     onError: (error) => notifyError(error),
   });
@@ -550,7 +552,7 @@ export default function ProductsPage() {
   const [historyPageSize, setHistoryPageSize] = useState(persistedState.historyPageSize);
 
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
-    queryKey: ["historico", selectedId, historyPage, historyPageSize],
+    queryKey: ["historico", profileScopeKey, selectedId, historyPage, historyPageSize],
     queryFn: ({ signal }) =>
       api.getProductHistory(
         selectedId!,
@@ -567,6 +569,7 @@ export default function ProductsPage() {
   const totalItems = productsQuery.data?.meta?.total_items ?? 0;
   const totalPages = Math.max(productsQuery.data?.meta?.total_pages ?? 1, 1);
   const historyTotalPages = Math.max(historyQuery.data?.meta?.total_pages ?? 1, 1);
+  const productsErrorMessage = productsQuery.error instanceof Error ? productsQuery.error.message : null;
 
   const rows = useMemo(() => {
     return productsQuery.data?.data ?? [];
@@ -748,6 +751,12 @@ export default function ProductsPage() {
         <Group justify="center" mt="xl">
           <Loader />
         </Group>
+      ) : productsErrorMessage ? (
+        <EmptyState
+          message={`Falha ao carregar produtos: ${productsErrorMessage}`}
+          actionLabel="Tentar novamente"
+          onAction={() => void productsQuery.refetch()}
+        />
       ) : (
         <DataTable minWidth={860}>
           <Table striped highlightOnHover withTableBorder>
@@ -1110,64 +1119,78 @@ export default function ProductsPage() {
                     />
                   </Group>
 
-                  <Table striped highlightOnHover>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>ID</Table.Th>
-                        <Table.Th>Tipo</Table.Th>
-                        <Table.Th>Natureza</Table.Th>
-                        <Table.Th>Qtd</Table.Th>
-                        <Table.Th>Origem</Table.Th>
-                        <Table.Th>Destino</Table.Th>
-                        <Table.Th>Documento</Table.Th>
-                        <Table.Th>Motivo ajuste</Table.Th>
-                        <Table.Th>Local externo</Table.Th>
-                        <Table.Th>Observacao</Table.Th>
-                        <Table.Th>Data</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {historyQuery.data?.data?.map((mov: MovementOut) => (
-                        <Table.Tr key={mov.id}>
-                          <Table.Td>{mov.id}</Table.Td>
-                          <Table.Td>
-                            <Badge color={movementColor(mov.tipo)} variant="light">
-                              {mov.tipo}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
-                          <Table.Td>{mov.quantidade}</Table.Td>
-                          <Table.Td>{mov.origem || "-"}</Table.Td>
-                          <Table.Td>{mov.destino || "-"}</Table.Td>
-                          <Table.Td>{mov.documento || "-"}</Table.Td>
-                          <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste as AdjustmentReason | undefined)}</Table.Td>
-                          <Table.Td>{mov.local_externo || "-"}</Table.Td>
-                          <Table.Td>{mov.observacao || "-"}</Table.Td>
-                          <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
-                        </Table.Tr>
-                      ))}
-                      {historyQuery.data?.data?.length === 0 && (
-                        <Table.Tr>
-                          <Table.Td colSpan={11}>
-                            <Text c="dimmed" ta="center">
-                              Sem historico
-                            </Text>
-                          </Table.Td>
-                        </Table.Tr>
-                      )}
-                    </Table.Tbody>
-                  </Table>
-
-                  <Group justify="space-between">
-                    <Text size="sm" c="dimmed">
-                      Total: {historyQuery.data?.meta?.total_items ?? 0}
-                    </Text>
-                    <Pagination
-                      value={historyPage}
-                      onChange={setHistoryPage}
-                      total={historyTotalPages}
+                  {historyQuery.isLoading ? (
+                    <Group justify="center" py="md">
+                      <Loader size="sm" />
+                    </Group>
+                  ) : historyQuery.error instanceof Error ? (
+                    <EmptyState
+                      message={`Falha ao carregar historico: ${historyQuery.error.message}`}
+                      actionLabel="Tentar novamente"
+                      onAction={() => void historyQuery.refetch()}
                     />
-                  </Group>
+                  ) : (
+                    <>
+                      <Table striped highlightOnHover>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>ID</Table.Th>
+                            <Table.Th>Tipo</Table.Th>
+                            <Table.Th>Natureza</Table.Th>
+                            <Table.Th>Qtd</Table.Th>
+                            <Table.Th>Origem</Table.Th>
+                            <Table.Th>Destino</Table.Th>
+                            <Table.Th>Documento</Table.Th>
+                            <Table.Th>Motivo ajuste</Table.Th>
+                            <Table.Th>Local externo</Table.Th>
+                            <Table.Th>Observacao</Table.Th>
+                            <Table.Th>Data</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {historyQuery.data?.data?.map((mov: MovementOut) => (
+                            <Table.Tr key={mov.id}>
+                              <Table.Td>{mov.id}</Table.Td>
+                              <Table.Td>
+                                <Badge color={movementColor(mov.tipo)} variant="light">
+                                  {mov.tipo}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
+                              <Table.Td>{mov.quantidade}</Table.Td>
+                              <Table.Td>{mov.origem || "-"}</Table.Td>
+                              <Table.Td>{mov.destino || "-"}</Table.Td>
+                              <Table.Td>{mov.documento || "-"}</Table.Td>
+                              <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste as AdjustmentReason | undefined)}</Table.Td>
+                              <Table.Td>{mov.local_externo || "-"}</Table.Td>
+                              <Table.Td>{mov.observacao || "-"}</Table.Td>
+                              <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
+                            </Table.Tr>
+                          ))}
+                          {historyQuery.data?.data?.length === 0 && (
+                            <Table.Tr>
+                              <Table.Td colSpan={11}>
+                                <Text c="dimmed" ta="center">
+                                  Sem historico
+                                </Text>
+                              </Table.Td>
+                            </Table.Tr>
+                          )}
+                        </Table.Tbody>
+                      </Table>
+
+                      <Group justify="space-between">
+                        <Text size="sm" c="dimmed">
+                          Total: {historyQuery.data?.meta?.total_items ?? 0}
+                        </Text>
+                        <Pagination
+                          value={historyPage}
+                          onChange={setHistoryPage}
+                          total={historyTotalPages}
+                        />
+                      </Group>
+                    </>
+                  )}
                 </Stack>
               </Tabs.Panel>
             </Tabs>

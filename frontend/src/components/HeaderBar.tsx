@@ -5,12 +5,14 @@ import { IconCircleFilled, IconRefresh } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import type { HealthOut } from "../lib/api";
 import { api } from "../lib/apiClient";
+import { useProfileScope } from "../state/profileScope";
 import { notifyError, notifySuccess } from "../lib/notify";
 import { isTauri } from "../lib/tauri";
 import { getReleaseNotesFromManifest } from "../lib/updaterNotes";
 import { getLatestReleaseEntry, getReleaseEntry } from "../lib/changelog";
 
 export default function HeaderBar({ health }: { health: HealthOut }) {
+  const { activeProfileName, activeProfileId, restartRequired, backendSupportsProfiles } = useProfileScope();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState(health.version);
   const [releaseNotesChecked, setReleaseNotesChecked] = useState(false);
@@ -150,6 +152,11 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
 
   return (
     <Group justify="flex-end" h="100%" wrap="nowrap" className="header-shell">
+      {backendSupportsProfiles && (
+        <Badge variant="light" color={restartRequired ? "orange" : "blue"}>
+          {activeProfileName} ({activeProfileId})
+        </Badge>
+      )}
       <Button
         size="xs"
         variant="subtle"

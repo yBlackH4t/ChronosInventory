@@ -34,6 +34,7 @@ import {
 
 import { api } from "../lib/apiClient";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
+import { useProfileScope } from "../state/profileScope";
 import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
@@ -102,6 +103,7 @@ function numericValue(value: number | string | undefined | null): number {
 }
 
 export default function DashboardPage() {
+  const { profileScopeKey } = useProfileScope();
   const persistedState = useMemo(
     () => loadTabState<DashboardTabState>(DASHBOARD_TAB_ID) ?? DEFAULT_DASHBOARD_TAB_STATE,
     []
@@ -124,17 +126,17 @@ export default function DashboardPage() {
   const bucket = periodMode === "week" ? "day" : "week";
 
   const summaryQuery = useQuery<SuccessResponse<StockSummary>>({
-    queryKey: ["analytics", "stock-summary"],
+    queryKey: ["analytics", profileScopeKey, "stock-summary"],
     queryFn: ({ signal }) => api.getAnalyticsStockSummary({ signal }),
   });
 
   const distributionQuery = useQuery<SuccessResponse<StockDistribution>>({
-    queryKey: ["analytics", "stock-distribution"],
+    queryKey: ["analytics", profileScopeKey, "stock-distribution"],
     queryFn: ({ signal }) => api.getAnalyticsStockDistribution({ signal }),
   });
 
   const topSaidasQuery = useQuery<SuccessResponse<TopSaidaItem[]>>({
-    queryKey: ["analytics", "top-saidas", dateFrom, dateTo, scope],
+    queryKey: ["analytics", profileScopeKey, "top-saidas", dateFrom, dateTo, scope],
     queryFn: ({ signal }) =>
       api.getAnalyticsTopSaidas(
         { date_from: dateFrom, date_to: dateTo, scope, limit: 5 },
@@ -143,7 +145,7 @@ export default function DashboardPage() {
   });
 
   const flowQuery = useQuery<SuccessResponse<FlowPoint[]>>({
-    queryKey: ["analytics", "flow", dateFrom, dateTo, scope, bucket],
+    queryKey: ["analytics", profileScopeKey, "flow", dateFrom, dateTo, scope, bucket],
     queryFn: ({ signal }) =>
       api.getAnalyticsFlow(
         {
@@ -157,7 +159,7 @@ export default function DashboardPage() {
   });
 
   const evolutionQuery = useQuery<SuccessResponse<StockEvolutionPoint[]>>({
-    queryKey: ["analytics", "stock-evolution", dateFrom, dateTo, bucket],
+    queryKey: ["analytics", profileScopeKey, "stock-evolution", dateFrom, dateTo, bucket],
     queryFn: ({ signal }) =>
       api.getAnalyticsStockEvolution(
         {
@@ -170,7 +172,7 @@ export default function DashboardPage() {
   });
 
   const inactiveQuery = useQuery<SuccessResponse<TopSemMovItem[]>>({
-    queryKey: ["analytics", "inactive", dateTo],
+    queryKey: ["analytics", profileScopeKey, "inactive", dateTo],
     queryFn: ({ signal }) =>
       api.getAnalyticsInactiveProducts(
         {

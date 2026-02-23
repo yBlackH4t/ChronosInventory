@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { NavLink as RouterLink, useLocation } from "react-router-dom";
 import { Divider, NavLink, Stack, Text } from "@mantine/core";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import {
   IconSparkles,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
+import { useProfileScope } from "../state/profileScope";
 
 type NavItem = {
   label: string;
@@ -56,7 +57,12 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
 export default function SidebarNav() {
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { profileScopeKey } = useProfileScope();
   const prefetched = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    prefetched.current.clear();
+  }, [profileScopeKey]);
 
   const prefetchByRoute = (route: string) => {
     if (prefetched.current.has(route)) return;
@@ -64,12 +70,12 @@ export default function SidebarNav() {
 
     if (route === "/dashboard") {
       void queryClient.prefetchQuery({
-        queryKey: ["analytics", "stock-summary"],
+        queryKey: ["analytics", profileScopeKey, "stock-summary"],
         queryFn: () => api.getAnalyticsStockSummary(),
         staleTime: 30_000,
       });
       void queryClient.prefetchQuery({
-        queryKey: ["analytics", "stock-distribution"],
+        queryKey: ["analytics", profileScopeKey, "stock-distribution"],
         queryFn: () => api.getAnalyticsStockDistribution(),
         staleTime: 30_000,
       });
@@ -78,7 +84,7 @@ export default function SidebarNav() {
 
     if (route === "/produtos") {
       void queryClient.prefetchQuery({
-        queryKey: ["produtos", "", 1, "10", "nome"],
+        queryKey: ["produtos", profileScopeKey, "", 1, "10", "nome"],
         queryFn: () =>
           api.listProducts({
             query: "",
@@ -95,6 +101,7 @@ export default function SidebarNav() {
       void queryClient.prefetchQuery({
         queryKey: [
           "movimentacoes",
+          profileScopeKey,
           1,
           "10",
           "-data",
@@ -135,7 +142,7 @@ export default function SidebarNav() {
 
     if (route === "/etiquetas") {
       void queryClient.prefetchQuery({
-        queryKey: ["labels-products", "", "ATIVO", "COM_ESTOQUE", 1, "20"],
+        queryKey: ["labels-products", profileScopeKey, "", "ATIVO", "COM_ESTOQUE", 1, "20"],
         queryFn: () =>
           api.listProductsStatus({
             query: "",
@@ -170,7 +177,7 @@ export default function SidebarNav() {
 
     if (route === "/itens-status") {
       void queryClient.prefetchQuery({
-        queryKey: ["produtos-status", "", "TODOS", "TODOS", 1, "20"],
+        queryKey: ["produtos-status", profileScopeKey, "", "TODOS", "TODOS", 1, "20"],
         queryFn: () =>
           api.listProductsStatus({
             query: "",

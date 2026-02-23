@@ -63,6 +63,7 @@ export default function StockProfilesPage() {
     onSuccess: async (response) => {
       notifySuccess(response.data.message);
       queryClient.invalidateQueries({ queryKey: ["stock-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-profiles", "scope"] });
       if (!response.data.requires_restart) return;
 
       if (!isTauri()) {

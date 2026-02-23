@@ -51,3 +51,20 @@ export function clearTabState(tabId: string): void {
     // ignore
   }
 }
+
+export function clearAllTabStates(): void {
+  MEMORY_CACHE.clear();
+  if (!isStorageAvailable()) return;
+  try {
+    const keysToDelete: string[] = [];
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      const key = window.sessionStorage.key(i);
+      if (key && key.startsWith(STORAGE_PREFIX)) {
+        keysToDelete.push(key);
+      }
+    }
+    keysToDelete.forEach((key) => window.sessionStorage.removeItem(key));
+  } catch {
+    // ignore
+  }
+}

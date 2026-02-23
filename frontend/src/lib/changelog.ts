@@ -10,6 +10,22 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.4",
+    "date": "2026-02-23",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Isolamento de contexto por estoque ativo no frontend, com profileScopeKey para separar cache/queries por perfil.",
+      "Novo: Error boundary global no app para reduzir impacto de falhas de renderizacao e evitar tela branca total.",
+      "Novo: Lazy loading das rotas principais com fallback de carregamento para melhorar percepcao de performance.",
+      "Mudanca: Consultas de Dashboard, Produtos e Movimentacoes passaram a incluir escopo do estoque ativo nas query keys.",
+      "Mudanca: Header e layout agora exibem estoque ativo e estado de reinicio pendente de forma mais clara.",
+      "Mudanca: Prefetch da sidebar passou a considerar o perfil ativo para evitar dados cruzados entre estoques.",
+      "Correcao: Limpeza de estados de aba e cache antigo ao trocar estoque ativo, reduzindo inconsistencias apos alternancia.",
+      "Correcao: Tratamento explicito de erro nas listagens e historicos de Produtos/Movimentacoes (com acao de tentar novamente).",
+      "Correcao: Maior robustez no fluxo de troca de perfil com invalidadacao de dados de escopo do frontend."
+    ]
+  },
+  {
     "version": "1.2.3",
     "date": "2026-02-23",
     "title": "Melhorias e correcoes",

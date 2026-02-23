@@ -1,6 +1,7 @@
-﻿import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import type { HealthOut } from "../lib/api";
 import AppLayout from "../components/AppLayout";
+import AppErrorBoundary from "../components/AppErrorBoundary";
 import { AppRouter } from "./router";
 import { useTauriUpdater } from "../hooks/useTauriUpdater";
 
@@ -9,9 +10,12 @@ export default function App({ health }: { health: HealthOut }) {
 
   return (
     <BrowserRouter>
-      <AppLayout health={health}>
-        <AppRouter />
-      </AppLayout>
+      <AppErrorBoundary>
+        <AppLayout health={health}>
+          <AppRouter />
+        </AppLayout>
+      </AppErrorBoundary>
     </BrowserRouter>
   );
 }
+

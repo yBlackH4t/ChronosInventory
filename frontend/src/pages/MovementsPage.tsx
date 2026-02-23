@@ -25,6 +25,7 @@ import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import { useProfileScope } from "../state/profileScope";
 import type { MovementCreate, MovementOut, Product, SuccessResponse } from "../lib/api";
 import { clearTabState, loadTabState, saveTabState } from "../state/tabStateCache";
 
@@ -286,7 +287,6 @@ class MovementsPageErrorBoundary extends Component<
   }
 
   componentDidCatch(error: unknown): void {
-    // eslint-disable-next-line no-console
     console.error("Erro ao renderizar Movimentacoes:", error);
   }
 
@@ -315,6 +315,7 @@ class MovementsPageErrorBoundary extends Component<
 }
 
 function MovementsPageContent() {
+  const { profileScopeKey } = useProfileScope();
   const persistedState = useMemo(
     () => loadTabState<MovementsTabState>(MOVEMENTS_TAB_ID) ?? DEFAULT_MOVEMENTS_TAB_STATE,
     []
@@ -353,7 +354,7 @@ function MovementsPageContent() {
   );
 
   const productLookupQuery = useQuery<SuccessResponse<Product[]>>({
-    queryKey: ["movimentacoes-product-lookup", debouncedProductSearch],
+    queryKey: ["movimentacoes-product-lookup", profileScopeKey, debouncedProductSearch],
     queryFn: ({ signal }) =>
       api.listProducts(
         {
@@ -381,7 +382,7 @@ function MovementsPageContent() {
   }, [filtersForm.values.produto_id, productLookupQuery.data?.data]);
 
   const listQuery = useQuery<SuccessResponse<MovementOut[]>>({
-    queryKey: ["movimentacoes", page, pageSize, sort, serializedFilters],
+    queryKey: ["movimentacoes", profileScopeKey, page, pageSize, sort, serializedFilters],
     queryFn: ({ signal }) =>
       api.listMovements(
         {
@@ -391,10 +392,10 @@ function MovementsPageContent() {
           origem: serializedFilters.origem || undefined,
           destino: serializedFilters.destino || undefined,
           date_from: serializedFilters.date_from
-            ? dayjs(serializedFilters.date_from).startOf("day").toISOString()
+            ? dayjs(serializedFilters.date_from).startOf("day").format("YYYY-MM-DDTHH:mm:ss")
             : undefined,
           date_to: serializedFilters.date_to
-            ? dayjs(serializedFilters.date_to).endOf("day").toISOString()
+            ? dayjs(serializedFilters.date_to).endOf("day").format("YYYY-MM-DDTHH:mm:ss")
             : undefined,
           page,
           page_size: Number(pageSize),
@@ -407,7 +408,7 @@ function MovementsPageContent() {
   });
 
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
-    queryKey: ["historico", historyProductId],
+    queryKey: ["historico", profileScopeKey, historyProductId],
     queryFn: ({ signal }) =>
       api.getProductHistory(historyProductId!, { page: 1, page_size: 20, sort: "-data" }, { signal }),
     enabled: !!historyProductId && historyOpened,
@@ -417,6 +418,8 @@ function MovementsPageContent() {
 
   const totalItems = listQuery.data?.meta?.total_items ?? 0;
   const totalPages = Math.max(listQuery.data?.meta?.total_pages ?? 1, 1);
+  const listErrorMessage = listQuery.error instanceof Error ? listQuery.error.message : null;
+  const historyErrorMessage = historyQuery.error instanceof Error ? historyQuery.error.message : null;
 
   const activeViewCount = useMemo(() => {
     let count = 0;
@@ -722,6 +725,12 @@ function MovementsPageContent() {
           <Group justify="center" mt="xl">
             <Loader />
           </Group>
+        ) : listErrorMessage ? (
+          <EmptyState
+            message={`Falha ao carregar movimentacoes: ${listErrorMessage}`}
+            actionLabel="Tentar novamente"
+            onAction={() => void listQuery.refetch()}
+          />
         ) : (
           <DataTable minWidth={tableLayout.minWidth}>
             <Table striped highlightOnHover withTableBorder>
@@ -819,6 +828,12 @@ function MovementsPageContent() {
           <Group justify="center" mt="sm">
             <Loader size="sm" />
           </Group>
+        ) : historyErrorMessage ? (
+          <EmptyState
+            message={`Falha ao carregar historico: ${historyErrorMessage}`}
+            actionLabel="Tentar novamente"
+            onAction={() => void historyQuery.refetch()}
+          />
         ) : (
           <Table.ScrollContainer minWidth={900}>
             <Table striped withTableBorder>
