@@ -10,6 +10,16 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.6",
+    "date": "2026-02-23",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Reinicio hardening no desktop: verificacao de liberacao da porta 8000 antes de reabrir o app.",
+      "Mudanca: Fluxo de restart_app agora faz tentativa forcada de encerramento do sidecar (taskkill) quando o processo permanece ativo.",
+      "Correcao: Correcao definitiva do loop de \"reinicio pendente\" quando estoque_backend.exe fica preso no gerenciador de tarefas."
+    ]
+  },
+  {
     "version": "1.2.5",
     "date": "2026-02-23",
     "title": "Melhorias e correcoes",

@@ -5,12 +5,14 @@ use std::{
     error::Error,
     fs::{create_dir_all, OpenOptions},
     io::Write,
+    net::TcpListener,
     path::PathBuf,
+    process::Command as StdCommand,
     sync::Mutex,
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
-use tauri::{api::process::{Command, CommandEvent, Encoding}, Manager, RunEvent};
+use tauri::{api::process::{Command as TauriCommand, CommandEvent, Encoding}, Manager, RunEvent};
 use tokio::time::sleep;
 
 struct BackendState(Mutex<Option<tauri::api::process::CommandChild>>);
@@ -128,7 +130,7 @@ fn spawn_backend() -> Result<(tauri::api::process::CommandChild, tauri::async_ru
         app_env,
         envs.get("CHRONOS_APP_DIR").cloned().unwrap_or_else(|| "(inherit/default)".to_string())
     ));
-    let mut cmd = Command::new_sidecar(SIDECAR_NAME)?.envs(envs);
+    let mut cmd = TauriCommand::new_sidecar(SIDECAR_NAME)?.envs(envs);
     if let Some(enc) = Encoding::for_label(b"utf-8") {
         cmd = cmd.encoding(enc);
     }
@@ -148,11 +150,65 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
+fn is_backend_port_free() -> bool {
+    TcpListener::bind(("127.0.0.1", 8000)).is_ok()
+}
+
+fn wait_backend_port_release(timeout: Duration) -> bool {
+    let started = Instant::now();
+    while started.elapsed() < timeout {
+        if is_backend_port_free() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(120));
+    }
+    is_backend_port_free()
+}
+
+#[cfg(target_os = "windows")]
+fn taskkill_image(image_name: &str) {
+    match StdCommand::new("taskkill")
+        .args(["/F", "/T", "/IM", image_name])
+        .output()
+    {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            log_line(&format!(
+                "taskkill {image_name}: code={:?} stdout={} stderr={}",
+                output.status.code(),
+                if stdout.is_empty() { "-" } else { stdout.as_str() },
+                if stderr.is_empty() { "-" } else { stderr.as_str() }
+            ));
+        }
+        Err(err) => log_line(&format!("taskkill {image_name} falhou: {err}")),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn force_kill_backend_processes() {
+    taskkill_image("estoque_backend.exe");
+    taskkill_image("estoque_backend-x86_64-pc-windows-msvc.exe");
+}
+
+#[cfg(not(target_os = "windows"))]
+fn force_kill_backend_processes() {}
+
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     log_line("restart_app command invoked");
     stop_backend(&app, "restart_app_command");
-    std::thread::sleep(Duration::from_millis(450));
+
+    if !wait_backend_port_release(Duration::from_secs(3)) {
+        log_line("porta 8000 ainda ocupada apos stop_backend");
+        force_kill_backend_processes();
+        std::thread::sleep(Duration::from_millis(300));
+    }
+
+    if !wait_backend_port_release(Duration::from_secs(3)) {
+        log_line("porta 8000 ainda ocupada antes do restart; prosseguindo mesmo assim");
+    }
+
     app.restart();
     Ok(())
 }

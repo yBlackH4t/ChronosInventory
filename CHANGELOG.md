@@ -13,6 +13,18 @@ Formato recomendado:
 
 
 
+
+## [1.2.6] - 2026-02-23
+
+### Added
+- Reinicio hardening no desktop: verificacao de liberacao da porta `8000` antes de reabrir o app.
+
+### Changed
+- Fluxo de `restart_app` agora faz tentativa forcada de encerramento do sidecar (`taskkill`) quando o processo permanece ativo.
+
+### Fixed
+- Correcao definitiva do loop de "reinicio pendente" quando `estoque_backend.exe` fica preso no gerenciador de tarefas.
+
 ## [1.2.5] - 2026-02-23
 
 ### Added
