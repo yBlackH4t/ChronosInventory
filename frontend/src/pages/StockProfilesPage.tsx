@@ -84,6 +84,14 @@ export default function StockProfilesPage() {
         );
         return;
       }
+      if (error instanceof Error && /id reservado/i.test(error.message)) {
+        notifyError(
+          new Error(
+            "Seu backend atual nao possui a correcao para reativar o estoque Principal/default. Recompile o sidecar e reinicie o app."
+          )
+        );
+        return;
+      }
       notifyError(error);
     },
   });

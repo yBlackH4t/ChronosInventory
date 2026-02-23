@@ -71,6 +71,12 @@ def test_stock_profiles_lifecycle(client):
     assert state_after["restart_required"] is True
     assert any(item["id"] == "filial_teste" for item in state_after["profiles"])
 
+    switched_back = client.put("/sistema/estoques/ativo", json={"profile_id": "default"})
+    assert switched_back.status_code == 200
+    switched_back_data = switched_back.json()["data"]
+    assert switched_back_data["active_profile_id"] == "default"
+    assert switched_back_data["requires_restart"] is True
+
 
 def test_create_and_get_product(client):
     payload = {"nome": "Produto Teste", "qtd_canoas": 1, "qtd_pf": 0}

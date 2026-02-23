@@ -69,7 +69,8 @@ class StockProfileService:
         return self._to_profile_out(profile_entry, str(registry["active_profile_id"]))
 
     def activate_profile(self, profile_id: str) -> Dict[str, object]:
-        pid = self._normalize_profile_id(profile_id)
+        # `default` is reserved for creation, but valid for activation.
+        pid = self._normalize_profile_id(profile_id, allow_default=True)
         registry = self._load_registry()
         exists = any(str(item.get("id")) == pid for item in registry["profiles"])
         if not exists:

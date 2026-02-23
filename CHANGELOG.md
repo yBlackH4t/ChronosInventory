@@ -10,6 +10,22 @@ Formato recomendado:
 
 
 
+
+## [1.2.3] - 2026-02-23
+
+### Added
+- Protecao de renderizacao na tela de **Movimentacoes** para evitar tela branca total em caso de erro inesperado.
+- Cobertura de teste para reativacao do estoque **Principal/default** no ciclo de perfis.
+
+### Changed
+- Tabela de **Movimentacoes** com layout adaptativo (Auto/Compacto/Detalhado) e preferencia persistida entre sessoes.
+- Coluna de observacao em Movimentacoes voltou ao modo de linha unica com reticencias para melhor estabilidade.
+
+### Fixed
+- Correcao no backend para permitir ativar novamente o estoque **default** sem erro de "ID reservado".
+- Mensagem de erro da tela **Estoques** ficou mais clara quando o app estiver com backend antigo.
+- Ajustes de robustez no salvamento de preferencias da tela de Movimentacoes para evitar falhas em runtime.
+
 ## [1.2.2] - 2026-02-20
 
 ### Added

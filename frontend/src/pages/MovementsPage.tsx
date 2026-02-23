@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Badge,
   Button,
@@ -74,6 +74,19 @@ type SerializedMovementFilters = {
   date_to: string | null;
 };
 
+type MovementTableViewMode = "AUTO" | "COMPACTO" | "DETALHADO";
+
+type MovementsTablePreferences = {
+  viewMode: MovementTableViewMode;
+};
+
+type ResolvedMovementTableLayout = {
+  minWidth: number;
+  showExtraColumns: boolean;
+  productMaxWidth: number;
+  observationMaxWidth: number;
+};
+
 type MovementsTabState = {
   page: number;
   pageSize: string;
@@ -87,6 +100,17 @@ type MovementsTabState = {
 };
 
 const MOVEMENTS_TAB_ID = "movements";
+const MOVEMENTS_TABLE_PREFS_KEY = "chronos.movements.table_prefs.v1";
+
+const TABLE_VIEW_MODE_OPTIONS: { value: MovementTableViewMode; label: string }[] = [
+  { value: "AUTO", label: "Auto" },
+  { value: "COMPACTO", label: "Compacto" },
+  { value: "DETALHADO", label: "Detalhado" },
+];
+
+const DEFAULT_TABLE_PREFERENCES: MovementsTablePreferences = {
+  viewMode: "AUTO",
+};
 
 const DEFAULT_MOVEMENT_FILTERS: MovementFilters = {
   produto_id: "",
@@ -150,7 +174,147 @@ function adjustmentReasonLabel(reason?: string | null) {
   return ADJUSTMENT_REASON_LABELS[reason] ?? reason;
 }
 
-export default function MovementsPage() {
+function getViewportWidth(): number {
+  if (typeof window === "undefined") return 1366;
+  return window.innerWidth || 1366;
+}
+
+function getLocalStorageSafe(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function loadTablePreferences(): MovementsTablePreferences {
+  const storage = getLocalStorageSafe();
+  if (!storage) return DEFAULT_TABLE_PREFERENCES;
+  try {
+    const raw = storage.getItem(MOVEMENTS_TABLE_PREFS_KEY);
+    if (!raw) return DEFAULT_TABLE_PREFERENCES;
+    const parsed = JSON.parse(raw) as Partial<MovementsTablePreferences>;
+    const viewMode = parsed.viewMode;
+    if (!viewMode || !["AUTO", "COMPACTO", "DETALHADO"].includes(viewMode)) {
+      return DEFAULT_TABLE_PREFERENCES;
+    }
+    return {
+      viewMode: viewMode as MovementTableViewMode,
+    };
+  } catch {
+    return DEFAULT_TABLE_PREFERENCES;
+  }
+}
+
+function saveTablePreferences(preferences: MovementsTablePreferences): void {
+  const storage = getLocalStorageSafe();
+  if (!storage) return;
+  try {
+    storage.setItem(MOVEMENTS_TABLE_PREFS_KEY, JSON.stringify(preferences));
+  } catch {
+    // best effort
+  }
+}
+
+function resolveMovementTableLayout(
+  viewMode: MovementTableViewMode,
+  viewportWidth: number
+): ResolvedMovementTableLayout {
+  if (viewMode === "COMPACTO") {
+    return {
+      minWidth: 1260,
+      showExtraColumns: false,
+      productMaxWidth: 190,
+      observationMaxWidth: 230,
+    };
+  }
+
+  if (viewMode === "DETALHADO") {
+    return {
+      minWidth: 1840,
+      showExtraColumns: true,
+      productMaxWidth: 380,
+      observationMaxWidth: 440,
+    };
+  }
+
+  // AUTO
+  if (viewportWidth < 1360) {
+    return {
+      minWidth: 1260,
+      showExtraColumns: false,
+      productMaxWidth: 190,
+      observationMaxWidth: 230,
+    };
+  }
+  if (viewportWidth < 1680) {
+    return {
+      minWidth: 1500,
+      showExtraColumns: true,
+      productMaxWidth: 280,
+      observationMaxWidth: 320,
+    };
+  }
+  return {
+    minWidth: 1840,
+    showExtraColumns: true,
+    productMaxWidth: 380,
+    observationMaxWidth: 440,
+  };
+}
+
+type MovementsPageErrorBoundaryProps = {
+  children: ReactNode;
+};
+
+type MovementsPageErrorBoundaryState = {
+  hasError: boolean;
+};
+
+class MovementsPageErrorBoundary extends Component<
+  MovementsPageErrorBoundaryProps,
+  MovementsPageErrorBoundaryState
+> {
+  constructor(props: MovementsPageErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): MovementsPageErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: unknown): void {
+    // eslint-disable-next-line no-console
+    console.error("Erro ao renderizar Movimentacoes:", error);
+  }
+
+  private handleReload = () => {
+    if (typeof window !== "undefined") window.location.reload();
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Stack gap="lg">
+          <PageHeader
+            title="Movimentacoes"
+            subtitle="Ocorreu um erro visual nesta tela. Clique para recarregar."
+          />
+          <EmptyState
+            message="Falha ao renderizar esta visualizacao."
+            actionLabel="Recarregar tela"
+            onAction={this.handleReload}
+          />
+        </Stack>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function MovementsPageContent() {
   const persistedState = useMemo(
     () => loadTabState<MovementsTabState>(MOVEMENTS_TAB_ID) ?? DEFAULT_MOVEMENTS_TAB_STATE,
     []
@@ -172,6 +336,10 @@ export default function MovementsPage() {
     persistedState.historyProductId
   );
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
+  const [viewportWidth, setViewportWidth] = useState<number>(() => getViewportWidth());
+  const [tablePreferences, setTablePreferences] = useState<MovementsTablePreferences>(() =>
+    loadTablePreferences()
+  );
   const [debouncedProductSearch] = useDebouncedValue(productSearch, 300);
   const [historyOpened, historyHandlers] = useDisclosure(persistedState.historyOpened);
 
@@ -274,6 +442,12 @@ export default function MovementsPage() {
     sort,
   ]);
 
+  const tableLayout = useMemo(
+    () => resolveMovementTableLayout(tablePreferences.viewMode, viewportWidth),
+    [tablePreferences.viewMode, viewportWidth]
+  );
+  const tableColumnCount = tableLayout.showExtraColumns ? 13 : 11;
+
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
       saveTabState<MovementsTabState>(MOVEMENTS_TAB_ID, {
@@ -330,6 +504,16 @@ export default function MovementsPage() {
     };
   }, [persistState]);
 
+  useEffect(() => {
+    saveTablePreferences(tablePreferences);
+  }, [tablePreferences]);
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(getViewportWidth());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const setFilterValue = useCallback(
     (field: keyof MovementFilters, value: MovementFilters[keyof MovementFilters]) => {
       filtersForm.setFieldValue(field, value as never);
@@ -353,6 +537,7 @@ export default function MovementsPage() {
     setHistoryProductId(DEFAULT_MOVEMENTS_TAB_STATE.historyProductId);
     historyHandlers.close();
     filtersForm.setValues({ ...DEFAULT_MOVEMENT_FILTERS });
+    setTablePreferences(DEFAULT_TABLE_PREFERENCES);
     clearTabState(MOVEMENTS_TAB_ID);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
@@ -475,6 +660,24 @@ export default function MovementsPage() {
               </Button>
             </Group>
 
+            <Group align="end" wrap="wrap">
+              <Select
+                label="Layout da tabela"
+                data={TABLE_VIEW_MODE_OPTIONS}
+                value={tablePreferences.viewMode}
+                onChange={(value) =>
+                  setTablePreferences((current) => ({
+                    ...current,
+                    viewMode: (value as MovementTableViewMode) || "AUTO",
+                  }))
+                }
+                w={260}
+              />
+              <Text size="xs" c="dimmed">
+                Preferencias salvas automaticamente (inclusive apos fechar o app).
+              </Text>
+            </Group>
+
             <Collapse in={showAdvancedFilters}>
               <Group align="end" wrap="wrap">
                 <Switch
@@ -520,7 +723,7 @@ export default function MovementsPage() {
             <Loader />
           </Group>
         ) : (
-          <DataTable minWidth={1100}>
+          <DataTable minWidth={tableLayout.minWidth}>
             <Table striped highlightOnHover withTableBorder>
               <Table.Thead>
                 <Table.Tr>
@@ -532,8 +735,8 @@ export default function MovementsPage() {
                   <Table.Th>Origem</Table.Th>
                   <Table.Th>Destino</Table.Th>
                   <Table.Th>Documento</Table.Th>
-                  <Table.Th>Motivo ajuste</Table.Th>
-                  <Table.Th>Local externo</Table.Th>
+                  {tableLayout.showExtraColumns && <Table.Th>Motivo ajuste</Table.Th>}
+                  {tableLayout.showExtraColumns && <Table.Th>Local externo</Table.Th>}
                   <Table.Th>Observacao</Table.Th>
                   <Table.Th>Data</Table.Th>
                   <Table.Th>Acoes</Table.Th>
@@ -543,7 +746,16 @@ export default function MovementsPage() {
                 {listQuery.data?.data?.map((mov: MovementOut) => (
                   <Table.Tr key={mov.id}>
                     <Table.Td>{mov.id}</Table.Td>
-                    <Table.Td>{mov.produto_nome || `ID ${mov.produto_id}`}</Table.Td>
+                    <Table.Td>
+                      <Text
+                        size="sm"
+                        title={mov.produto_nome || `ID ${mov.produto_id}`}
+                        maw={tableLayout.productMaxWidth}
+                        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      >
+                        {mov.produto_nome || `ID ${mov.produto_id}`}
+                      </Text>
+                    </Table.Td>
                     <Table.Td>
                       <Badge color={movementColor(mov.tipo)} variant="light">
                         {mov.tipo}
@@ -554,9 +766,20 @@ export default function MovementsPage() {
                     <Table.Td>{mov.origem || "-"}</Table.Td>
                     <Table.Td>{mov.destino || "-"}</Table.Td>
                     <Table.Td>{mov.documento || "-"}</Table.Td>
-                    <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste)}</Table.Td>
-                    <Table.Td>{mov.local_externo || "-"}</Table.Td>
-                    <Table.Td>{mov.observacao || "-"}</Table.Td>
+                    {tableLayout.showExtraColumns && (
+                      <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste)}</Table.Td>
+                    )}
+                    {tableLayout.showExtraColumns && <Table.Td>{mov.local_externo || "-"}</Table.Td>}
+                    <Table.Td>
+                      <Text
+                        size="sm"
+                        title={String(mov.observacao || "-")}
+                        maw={tableLayout.observationMaxWidth}
+                        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      >
+                        {String(mov.observacao || "-")}
+                      </Text>
+                    </Table.Td>
                     <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
                     <Table.Td>
                       <Button size="xs" variant="light" onClick={() => openHistory(mov.produto_id)}>
@@ -567,7 +790,7 @@ export default function MovementsPage() {
                 ))}
                 {(listQuery.data?.data?.length ?? 0) === 0 && (
                   <Table.Tr>
-                    <Table.Td colSpan={13}>
+                    <Table.Td colSpan={tableColumnCount}>
                       <EmptyState
                         message="Nenhuma movimentacao encontrada"
                         actionLabel={activeViewCount > 0 ? "Limpar filtros" : undefined}
@@ -647,5 +870,13 @@ export default function MovementsPage() {
         )}
       </Modal>
     </Stack>
+  );
+}
+
+export default function MovementsPage() {
+  return (
+    <MovementsPageErrorBoundary>
+      <MovementsPageContent />
+    </MovementsPageErrorBoundary>
   );
 }

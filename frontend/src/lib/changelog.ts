@@ -10,6 +10,20 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.3",
+    "date": "2026-02-23",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Protecao de renderizacao na tela de Movimentacoes para evitar tela branca total em caso de erro inesperado.",
+      "Novo: Cobertura de teste para reativacao do estoque Principal/default no ciclo de perfis.",
+      "Mudanca: Tabela de Movimentacoes com layout adaptativo (Auto/Compacto/Detalhado) e preferencia persistida entre sessoes.",
+      "Mudanca: Coluna de observacao em Movimentacoes voltou ao modo de linha unica com reticencias para melhor estabilidade.",
+      "Correcao: Correcao no backend para permitir ativar novamente o estoque default sem erro de \"ID reservado\".",
+      "Correcao: Mensagem de erro da tela Estoques ficou mais clara quando o app estiver com backend antigo.",
+      "Correcao: Ajustes de robustez no salvamento de preferencias da tela de Movimentacoes para evitar falhas em runtime."
+    ]
+  },
+  {
     "version": "1.2.2",
     "date": "2026-02-20",
     "title": "Melhorias e correcoes",
