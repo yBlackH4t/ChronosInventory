@@ -10,6 +10,16 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.5",
+    "date": "2026-02-23",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Comando nativo de reinicio controlado no desktop (restart_app) para fechar o sidecar antes do relaunch.",
+      "Mudanca: Botao de reinicio em Estoques e no aviso de reinicio pendente passou a usar fluxo unico de reinicializacao.",
+      "Correcao: Correcao do loop de \"reinicio pendente\": o app agora encerra o sidecar antes de reiniciar, evitando conflito de porta 8000."
+    ]
+  },
+  {
     "version": "1.2.4",
     "date": "2026-02-23",
     "title": "Melhorias e correcoes",

@@ -148,6 +148,15 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
+    log_line("restart_app command invoked");
+    stop_backend(&app, "restart_app_command");
+    std::thread::sleep(Duration::from_millis(450));
+    app.restart();
+    Ok(())
+}
+
 fn main() {
     log_line("main start");
     std::panic::set_hook(Box::new(|info| {
@@ -155,6 +164,7 @@ fn main() {
     }));
 
     let app = tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![restart_app])
         .manage(BackendState(Mutex::new(None)))
         .setup(|app| {
             log_line("App setup iniciado");

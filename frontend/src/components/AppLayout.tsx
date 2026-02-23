@@ -4,8 +4,8 @@ import { AppShell, Badge, Button, Card, Group, Stack, Text } from "@mantine/core
 import { IconAlertTriangle } from "@tabler/icons-react";
 import type { HealthOut } from "../lib/api";
 import { useProfileScope } from "../state/profileScope";
-import { isTauri } from "../lib/tauri";
 import { notifyError } from "../lib/notify";
+import { restartApplication } from "../lib/restartApp";
 import SidebarNav from "./SidebarNav";
 import HeaderBar from "./HeaderBar";
 
@@ -23,12 +23,7 @@ export default function AppLayout({
     if (restarting) return;
     setRestarting(true);
     try {
-      if (isTauri()) {
-        const process = await import("@tauri-apps/api/process");
-        await process.relaunch();
-        return;
-      }
-      window.location.reload();
+      await restartApplication();
     } catch (error) {
       notifyError(error, "Nao foi possivel reiniciar automaticamente. Feche e abra o app.");
     } finally {
@@ -88,4 +83,3 @@ export default function AppLayout({
     </AppShell>
   );
 }
-

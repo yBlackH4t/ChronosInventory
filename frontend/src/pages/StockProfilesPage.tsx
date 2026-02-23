@@ -27,6 +27,7 @@ import type {
 import { api } from "../lib/apiClient";
 import { notifyError, notifySuccess } from "../lib/notify";
 import { isTauri } from "../lib/tauri";
+import { restartApplication } from "../lib/restartApp";
 
 export default function StockProfilesPage() {
   const queryClient = useQueryClient();
@@ -72,8 +73,7 @@ export default function StockProfilesPage() {
       }
 
       try {
-        const process = await import("@tauri-apps/api/process");
-        await process.relaunch();
+        await restartApplication();
       } catch (error) {
         notifyError(error, "Nao foi possivel reiniciar automaticamente. Reinicie manualmente.");
       }

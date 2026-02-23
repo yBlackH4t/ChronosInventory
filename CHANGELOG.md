@@ -12,6 +12,18 @@ Formato recomendado:
 
 
 
+
+## [1.2.5] - 2026-02-23
+
+### Added
+- Comando nativo de reinicio controlado no desktop (`restart_app`) para fechar o sidecar antes do relaunch.
+
+### Changed
+- Botao de reinicio em `Estoques` e no aviso de reinicio pendente passou a usar fluxo unico de reinicializacao.
+
+### Fixed
+- Correcao do loop de "reinicio pendente": o app agora encerra o sidecar antes de reiniciar, evitando conflito de porta `8000`.
+
 ## [1.2.4] - 2026-02-23
 
 ### Added
