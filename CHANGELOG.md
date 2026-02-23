@@ -11,6 +11,24 @@ Formato recomendado:
 
 
 
+
+## [1.2.4] - 2026-02-23
+
+### Added
+- Isolamento de contexto por estoque ativo no frontend, com `profileScopeKey` para separar cache/queries por perfil.
+- Error boundary global no app para reduzir impacto de falhas de renderizacao e evitar tela branca total.
+- Lazy loading das rotas principais com fallback de carregamento para melhorar percepcao de performance.
+
+### Changed
+- Consultas de Dashboard, Produtos e Movimentacoes passaram a incluir escopo do estoque ativo nas query keys.
+- Header e layout agora exibem estoque ativo e estado de reinicio pendente de forma mais clara.
+- Prefetch da sidebar passou a considerar o perfil ativo para evitar dados cruzados entre estoques.
+
+### Fixed
+- Limpeza de estados de aba e cache antigo ao trocar estoque ativo, reduzindo inconsistencias apos alternancia.
+- Tratamento explicito de erro nas listagens e historicos de Produtos/Movimentacoes (com acao de tentar novamente).
+- Maior robustez no fluxo de troca de perfil com invalidadacao de dados de escopo do frontend.
+
 ## [1.2.3] - 2026-02-23
 
 ### Added
