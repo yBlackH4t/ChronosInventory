@@ -297,12 +297,34 @@ class MovementService:
             for row in rows
         ], total
 
-    def get_stock_summary(self) -> dict:
-        return self.repo.get_stock_summary()
+    def get_stock_summary(self, scope: str = "AMBOS") -> dict:
+        return self.repo.get_stock_summary(scope=scope)
 
-    def get_stock_distribution(self) -> dict:
-        summary = self.repo.get_stock_summary()
+    def get_stock_distribution(self, scope: str = "AMBOS") -> dict:
+        summary = self.repo.get_stock_summary(scope=scope)
         total = summary["total_geral"] or 0
+        if scope == "CANOAS":
+            return {
+                "items": [
+                    {
+                        "local": "CANOAS",
+                        "quantidade": summary["total_canoas"],
+                        "percentual": 100.0 if total > 0 else 0.0,
+                    }
+                ],
+                "total": total,
+            }
+        if scope == "PF":
+            return {
+                "items": [
+                    {
+                        "local": "PF",
+                        "quantidade": summary["total_pf"],
+                        "percentual": 100.0 if total > 0 else 0.0,
+                    }
+                ],
+                "total": total,
+            }
         if total == 0:
             return {
                 "items": [
@@ -386,17 +408,18 @@ class MovementService:
         date_from: date,
         date_to: date,
         bucket: str,
+        scope: str = "AMBOS",
     ) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.get_stock_evolution(df, dt, bucket=bucket)
+        rows = self.repo.get_stock_evolution(df, dt, bucket=bucket, scope=scope)
         return [{"period": row["periodo"], "total_stock": int(row["total_stock"] or 0)} for row in rows]
 
-    def get_top_sem_mov(self, days: int, date_to: date, limit: int = 5) -> List[dict]:
+    def get_top_sem_mov(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
         cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
         cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
 
-        rows = self.repo.get_top_sem_mov(cutoff, limit=limit)
+        rows = self.repo.get_top_sem_mov(cutoff, limit=limit, scope=scope)
         items: List[dict] = []
         for row in rows:
             last = row.get("last_movement")

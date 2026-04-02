@@ -49,16 +49,20 @@ def _validate_dates(date_from: date, date_to: date) -> None:
 
 @router.get("/stock/summary", response_model=SuccessResponse[StockSummaryOut])
 def stock_summary(
+    scope: str = Query("AMBOS"),
     movement_service: MovementService = Depends(get_movement_service),
 ) -> SuccessResponse[StockSummaryOut]:
-    return ok(StockSummaryOut(**movement_service.get_stock_summary()))
+    scope = _validate_scope(scope)
+    return ok(StockSummaryOut(**movement_service.get_stock_summary(scope=scope)))
 
 
 @router.get("/stock/distribution", response_model=SuccessResponse[StockDistributionOut])
 def stock_distribution(
+    scope: str = Query("AMBOS"),
     movement_service: MovementService = Depends(get_movement_service),
 ) -> SuccessResponse[StockDistributionOut]:
-    return ok(StockDistributionOut(**movement_service.get_stock_distribution()))
+    scope = _validate_scope(scope)
+    return ok(StockDistributionOut(**movement_service.get_stock_distribution(scope=scope)))
 
 
 @router.get("/movements/top-saidas", response_model=SuccessResponse[list[TopSaidaItem]])
@@ -114,13 +118,15 @@ def movements_flow(
 def stock_evolution(
     date_from: date = Query(...),
     date_to: date = Query(...),
+    scope: str = Query("AMBOS"),
     bucket: str = Query("day"),
     movement_service: MovementService = Depends(get_movement_service),
 ) -> SuccessResponse[list[StockEvolutionPoint]]:
     _validate_dates(date_from, date_to)
+    scope = _validate_scope(scope)
     bucket = _validate_bucket(bucket)
 
-    series = movement_service.get_stock_evolution_series(date_from, date_to, bucket=bucket)
+    series = movement_service.get_stock_evolution_series(date_from, date_to, bucket=bucket, scope=scope)
     return ok([StockEvolutionPoint(**item) for item in series])
 
 
@@ -128,11 +134,13 @@ def stock_evolution(
 def products_inactive(
     days: int = Query(30, ge=1, le=365),
     date_to: date | None = Query(None),
+    scope: str = Query("AMBOS"),
     limit: int = Query(5, ge=1, le=20),
     movement_service: MovementService = Depends(get_movement_service),
 ) -> SuccessResponse[list[TopSemMovItem]]:
     date_to = date_to or date.today()
-    items = movement_service.get_top_sem_mov(days, date_to, limit=limit)
+    scope = _validate_scope(scope)
+    items = movement_service.get_top_sem_mov(days, date_to, limit=limit, scope=scope)
     return ok([TopSemMovItem(**item) for item in items])
 
 
@@ -153,7 +161,7 @@ def top_saidas_legacy(
 def estoque_distribuicao_legacy(
     movement_service: MovementService = Depends(get_movement_service),
 ) -> SuccessResponse[StockDistributionOut]:
-    return stock_distribution(movement_service)
+    return stock_distribution("AMBOS", movement_service)
 
 
 @router.get("/entradas-saidas", response_model=SuccessResponse[list[EntradasSaidasPoint]])

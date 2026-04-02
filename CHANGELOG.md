@@ -14,6 +14,22 @@ Formato recomendado:
 
 
 
+
+## [1.2.7] - 2026-04-02
+
+### Added
+- Botao `Ajustar altura ao texto` no editor visual de etiquetas para reduzir corte em fontes maiores.
+
+### Changed
+- Dashboard passou a respeitar o escopo selecionado (`Ambos`, `Canoas` ou `Passo Fundo`) nos cards, distribuicao, evolucao e itens sem movimentacao.
+- Datas da interface foram padronizadas para locale `pt-BR`.
+- Compatibilidade entre endpoints novos e legados de analytics foi reforcada para manter frontend e backend alinhados durante update.
+
+### Fixed
+- Tooltip do grafico de fluxo corrigido: a serie verde agora aparece como `Entradas`.
+- Erros simultaneos do dashboard agora sao consolidados em um unico aviso, evitando spam de notificacoes.
+- Consulta de `top saidas` e rota legada de distribuicao de estoque foram corrigidas para evitar falhas no dashboard e nos testes da API.
+
 ## [1.2.6] - 2026-02-23
 
 ### Added

@@ -45,6 +45,5 @@ def get_import_service() -> ImportService:
 def get_inventory_service() -> InventoryService:
     return InventoryService()
 
-
 def get_stock_profile_service() -> StockProfileService:
     return StockProfileService()

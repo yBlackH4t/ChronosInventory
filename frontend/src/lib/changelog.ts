@@ -10,6 +10,20 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.2.7",
+    "date": "2026-04-02",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Botao Ajustar altura ao texto no editor visual de etiquetas para reduzir corte em fontes maiores.",
+      "Mudanca: Dashboard passou a respeitar o escopo selecionado (Ambos, Canoas ou Passo Fundo) nos cards, distribuicao, evolucao e itens sem movimentacao.",
+      "Mudanca: Datas da interface foram padronizadas para locale pt-BR.",
+      "Mudanca: Compatibilidade entre endpoints novos e legados de analytics foi reforcada para manter frontend e backend alinhados durante update.",
+      "Correcao: Tooltip do grafico de fluxo corrigido: a serie verde agora aparece como Entradas.",
+      "Correcao: Erros simultaneos do dashboard agora sao consolidados em um unico aviso, evitando spam de notificacoes.",
+      "Correcao: Consulta de top saidas e rota legada de distribuicao de estoque foram corrigidas para evitar falhas no dashboard e nos testes da API."
+    ]
+  },
+  {
     "version": "1.2.6",
     "date": "2026-02-23",
     "title": "Melhorias e correcoes",

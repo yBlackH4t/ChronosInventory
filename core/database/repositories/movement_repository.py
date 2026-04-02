@@ -299,17 +299,66 @@ class MovementRepository(BaseRepository):
 
         return self._execute_query(query, tuple(params))
 
-    def get_stock_summary(self) -> Dict[str, int]:
-        row = self._execute_query(
+    @staticmethod
+    def _scope_stock_column(scope: str) -> str:
+        return "qtd_canoas" if scope == "CANOAS" else "qtd_pf"
+
+    @staticmethod
+    def _scope_movement_delta_expr(scope: str, alias: str = "m") -> str:
+        if scope == "CANOAS":
+            return f"""
+                CASE
+                    WHEN {alias}.tipo = 'ENTRADA' AND {alias}.destino = 'CANOAS' THEN {alias}.quantidade
+                    WHEN {alias}.tipo = 'SAIDA' AND {alias}.origem = 'CANOAS' THEN -{alias}.quantidade
+                    WHEN {alias}.tipo = 'TRANSFERENCIA' AND {alias}.destino = 'CANOAS' THEN {alias}.quantidade
+                    WHEN {alias}.tipo = 'TRANSFERENCIA' AND {alias}.origem = 'CANOAS' THEN -{alias}.quantidade
+                    ELSE 0
+                END
             """
-            SELECT
-              COALESCE(SUM(qtd_canoas), 0) as total_canoas,
-              COALESCE(SUM(qtd_pf), 0) as total_pf,
-              COALESCE(SUM(CASE WHEN (qtd_canoas + qtd_pf) = 0 THEN 1 ELSE 0 END), 0) as zerados
-            FROM produtos
-            WHERE ativo = 1
-            """
-        )[0]
+        return f"""
+            CASE
+                WHEN {alias}.tipo = 'ENTRADA' AND {alias}.destino = 'PF' THEN {alias}.quantidade
+                WHEN {alias}.tipo = 'SAIDA' AND {alias}.origem = 'PF' THEN -{alias}.quantidade
+                WHEN {alias}.tipo = 'TRANSFERENCIA' AND {alias}.destino = 'PF' THEN {alias}.quantidade
+                WHEN {alias}.tipo = 'TRANSFERENCIA' AND {alias}.origem = 'PF' THEN -{alias}.quantidade
+                ELSE 0
+            END
+        """
+
+    def get_stock_summary(self, scope: str = "AMBOS") -> Dict[str, int]:
+        if scope == "CANOAS":
+            row = self._execute_query(
+                """
+                SELECT
+                  COALESCE(SUM(qtd_canoas), 0) as total_canoas,
+                  0 as total_pf,
+                  COALESCE(SUM(CASE WHEN qtd_canoas = 0 THEN 1 ELSE 0 END), 0) as zerados
+                FROM produtos
+                WHERE ativo = 1
+                """
+            )[0]
+        elif scope == "PF":
+            row = self._execute_query(
+                """
+                SELECT
+                  0 as total_canoas,
+                  COALESCE(SUM(qtd_pf), 0) as total_pf,
+                  COALESCE(SUM(CASE WHEN qtd_pf = 0 THEN 1 ELSE 0 END), 0) as zerados
+                FROM produtos
+                WHERE ativo = 1
+                """
+            )[0]
+        else:
+            row = self._execute_query(
+                """
+                SELECT
+                  COALESCE(SUM(qtd_canoas), 0) as total_canoas,
+                  COALESCE(SUM(qtd_pf), 0) as total_pf,
+                  COALESCE(SUM(CASE WHEN (qtd_canoas + qtd_pf) = 0 THEN 1 ELSE 0 END), 0) as zerados
+                FROM produtos
+                WHERE ativo = 1
+                """
+            )[0]
         total_canoas = int(row.get("total_canoas") or 0)
         total_pf = int(row.get("total_pf") or 0)
         return {
@@ -394,6 +443,7 @@ class MovementRepository(BaseRepository):
         date_from: str,
         date_to: str,
         bucket: str = "day",
+        scope: str = "AMBOS",
     ) -> List[Dict[str, Any]]:
         """
         Evolucao de estoque total baseada no saldo diario acumulado.
@@ -403,48 +453,83 @@ class MovementRepository(BaseRepository):
         if not expr:
             raise DatabaseException("Bucket invalido para serie temporal.")
 
-        current_total_row = self._execute_query(
-            "SELECT COALESCE(SUM(qtd_canoas + qtd_pf), 0) as total FROM produtos WHERE ativo = 1"
-        )[0]
+        if scope in {"CANOAS", "PF"}:
+            scope_column = self._scope_stock_column(scope)
+            current_total_row = self._execute_query(
+                f"SELECT COALESCE(SUM({scope_column}), 0) as total FROM produtos WHERE ativo = 1"
+            )[0]
+        else:
+            current_total_row = self._execute_query(
+                "SELECT COALESCE(SUM(qtd_canoas + qtd_pf), 0) as total FROM produtos WHERE ativo = 1"
+            )[0]
         current_total = int(current_total_row.get("total") or 0)
 
-        net_to_now_row = self._execute_query(
-            """
-            SELECT COALESCE(SUM(
-                CASE
-                    WHEN m.tipo = 'ENTRADA' THEN m.quantidade
-                    WHEN m.tipo = 'SAIDA' THEN -m.quantidade
-                    ELSE 0
-                END
-            ), 0) as delta
-            FROM movimentacoes m
-            JOIN produtos p ON p.id = m.produto_id
-            WHERE p.ativo = 1
-              AND m.data_hora >= ?
-            """,
-            (date_from,),
-        )[0]
+        if scope in {"CANOAS", "PF"}:
+            scope_delta_expr = self._scope_movement_delta_expr(scope, "m")
+            net_to_now_row = self._execute_query(
+                f"""
+                SELECT COALESCE(SUM({scope_delta_expr}), 0) as delta
+                FROM movimentacoes m
+                JOIN produtos p ON p.id = m.produto_id
+                WHERE p.ativo = 1
+                  AND m.data_hora >= ?
+                """,
+                (date_from,),
+            )[0]
+        else:
+            net_to_now_row = self._execute_query(
+                """
+                SELECT COALESCE(SUM(
+                    CASE
+                        WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                        WHEN m.tipo = 'SAIDA' THEN -m.quantidade
+                        ELSE 0
+                    END
+                ), 0) as delta
+                FROM movimentacoes m
+                JOIN produtos p ON p.id = m.produto_id
+                WHERE p.ativo = 1
+                  AND m.data_hora >= ?
+                """,
+                (date_from,),
+            )[0]
         total_at_start = current_total - int(net_to_now_row.get("delta") or 0)
 
-        deltas = self._execute_query(
-            f"""
-            SELECT {expr} as periodo,
-                   SUM(
-                        CASE
-                            WHEN m.tipo = 'ENTRADA' THEN m.quantidade
-                            WHEN m.tipo = 'SAIDA' THEN -m.quantidade
-                            ELSE 0
-                        END
-                   ) as delta
-            FROM movimentacoes m
-            JOIN produtos p ON p.id = m.produto_id
-            WHERE p.ativo = 1
-              AND m.data_hora >= ? AND m.data_hora <= ?
-            GROUP BY periodo
-            ORDER BY periodo ASC
-            """,
-            (date_from, date_to),
-        )
+        if scope in {"CANOAS", "PF"}:
+            scope_delta_expr = self._scope_movement_delta_expr(scope, "m")
+            deltas = self._execute_query(
+                f"""
+                SELECT {expr} as periodo,
+                       SUM({scope_delta_expr}) as delta
+                FROM movimentacoes m
+                JOIN produtos p ON p.id = m.produto_id
+                WHERE p.ativo = 1
+                  AND m.data_hora >= ? AND m.data_hora <= ?
+                GROUP BY periodo
+                ORDER BY periodo ASC
+                """,
+                (date_from, date_to),
+            )
+        else:
+            deltas = self._execute_query(
+                f"""
+                SELECT {expr} as periodo,
+                       SUM(
+                            CASE
+                                WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                                WHEN m.tipo = 'SAIDA' THEN -m.quantidade
+                                ELSE 0
+                            END
+                       ) as delta
+                FROM movimentacoes m
+                JOIN produtos p ON p.id = m.produto_id
+                WHERE p.ativo = 1
+                  AND m.data_hora >= ? AND m.data_hora <= ?
+                GROUP BY periodo
+                ORDER BY periodo ASC
+                """,
+                (date_from, date_to),
+            )
 
         running = total_at_start
         result: List[Dict[str, Any]] = []
@@ -454,7 +539,45 @@ class MovementRepository(BaseRepository):
 
         return result
 
-    def get_top_sem_mov(self, cutoff: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_top_sem_mov(self, cutoff: str, limit: int = 5, scope: str = "AMBOS") -> List[Dict[str, Any]]:
+        if scope == "CANOAS":
+            return self._execute_query(
+                """
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       MAX(m.data_hora) as last_movement
+                FROM produtos p
+                LEFT JOIN movimentacoes m
+                  ON m.produto_id = p.id
+                 AND (m.origem = 'CANOAS' OR m.destino = 'CANOAS')
+                WHERE p.ativo = 1
+                  AND p.qtd_canoas > 0
+                GROUP BY p.id, p.nome
+                HAVING last_movement IS NULL OR last_movement < ?
+                ORDER BY last_movement ASC
+                LIMIT ?
+                """,
+                (cutoff, limit),
+            )
+        if scope == "PF":
+            return self._execute_query(
+                """
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       MAX(m.data_hora) as last_movement
+                FROM produtos p
+                LEFT JOIN movimentacoes m
+                  ON m.produto_id = p.id
+                 AND (m.origem = 'PF' OR m.destino = 'PF')
+                WHERE p.ativo = 1
+                  AND p.qtd_pf > 0
+                GROUP BY p.id, p.nome
+                HAVING last_movement IS NULL OR last_movement < ?
+                ORDER BY last_movement ASC
+                LIMIT ?
+                """,
+                (cutoff, limit),
+            )
         return self._execute_query(
             """
             SELECT p.id as produto_id,

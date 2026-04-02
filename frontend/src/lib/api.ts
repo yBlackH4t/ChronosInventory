@@ -309,6 +309,8 @@ export type StockDistribution = {
   total: number;
 };
 
+type AnalyticsScope = "CANOAS" | "PF" | "AMBOS";
+
 export type TopSaidaItem = {
   produto_id: number;
   nome: string;
@@ -419,6 +421,20 @@ function buildQuery(params: Record<string, QueryValue>): string {
 
 function isNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
+}
+
+function isRequestInitLike(value: unknown): value is RequestInit {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as RequestInit;
+  return (
+    "signal" in candidate ||
+    "headers" in candidate ||
+    "method" in candidate ||
+    "body" in candidate ||
+    "credentials" in candidate ||
+    "cache" in candidate ||
+    "mode" in candidate
+  );
 }
 
 async function request<T>(
@@ -836,12 +852,49 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<DashboardSummary>(`/dashboard/resumo`, { method: "GET", ...options }, baseUrl);
     },
 
-    async getAnalyticsStockSummary(options: RequestInit = {}) {
+    async getAnalyticsStockSummary(
+      paramsOrOptions: { scope?: AnalyticsScope } | RequestInit = {},
+      options: RequestInit = {}
+    ) {
+      const params = isRequestInitLike(paramsOrOptions) ? {} : paramsOrOptions;
+      const requestOptions = isRequestInitLike(paramsOrOptions) ? paramsOrOptions : options;
+      const scope = params.scope ?? "AMBOS";
+      const query = buildQuery({ scope });
       try {
-        return await request<StockSummary>(`/analytics/stock/summary`, { method: "GET", ...options }, baseUrl);
+        return await request<StockSummary>(
+          `/analytics/stock/summary${query}`,
+          { method: "GET", ...requestOptions },
+          baseUrl
+        );
       } catch (error) {
         if (!isNotFound(error)) throw error;
-        const legacy = await request<DashboardSummary>(`/dashboard/resumo`, { method: "GET", ...options }, baseUrl);
+        const legacy = await request<DashboardSummary>(
+          `/dashboard/resumo`,
+          { method: "GET", ...requestOptions },
+          baseUrl
+        );
+        if (scope === "CANOAS") {
+          return {
+            data: {
+              total_canoas: legacy.data.total_canoas,
+              total_pf: 0,
+              total_geral: legacy.data.total_canoas,
+              zerados: legacy.data.zerados,
+            },
+            meta: legacy.meta,
+          };
+        }
+        if (scope === "PF") {
+          return {
+            data: {
+              total_canoas: 0,
+              total_pf: legacy.data.total_pf,
+              total_geral: legacy.data.total_pf,
+              zerados: legacy.data.zerados,
+            },
+            meta: legacy.meta,
+          };
+        }
         return {
           data: {
             total_canoas: legacy.data.total_canoas,
@@ -854,26 +907,67 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       }
     },
 
-    async getAnalyticsStockDistribution(options: RequestInit = {}) {
+    async getAnalyticsStockDistribution(
+      paramsOrOptions: { scope?: AnalyticsScope } | RequestInit = {},
+      options: RequestInit = {}
+    ) {
+      const params = isRequestInitLike(paramsOrOptions) ? {} : paramsOrOptions;
+      const requestOptions = isRequestInitLike(paramsOrOptions) ? paramsOrOptions : options;
+      const scope = params.scope ?? "AMBOS";
+      const query = buildQuery({ scope });
       try {
-        return await request<StockDistribution>(`/analytics/stock/distribution`, { method: "GET", ...options }, baseUrl);
+        return await request<StockDistribution>(
+          `/analytics/stock/distribution${query}`,
+          { method: "GET", ...requestOptions },
+          baseUrl
+        );
       } catch (error) {
         if (!isNotFound(error)) throw error;
         const legacy = await request<{ canoas: number; pf: number; total: number }>(
           `/analytics/estoque-distribuicao`,
-          { method: "GET", ...options },
+          { method: "GET", ...requestOptions },
           baseUrl
         );
         const total = legacy.data.total || 0;
+        if (scope === "CANOAS") {
+          return {
+            data: {
+              items: [
+                {
+                  local: "CANOAS" as const,
+                  quantidade: legacy.data.canoas,
+                  percentual: legacy.data.canoas > 0 ? 100 : 0,
+                },
+              ],
+              total: legacy.data.canoas,
+            },
+            meta: legacy.meta,
+          };
+        }
+        if (scope === "PF") {
+          return {
+            data: {
+              items: [
+                {
+                  local: "PF" as const,
+                  quantidade: legacy.data.pf,
+                  percentual: legacy.data.pf > 0 ? 100 : 0,
+                },
+              ],
+              total: legacy.data.pf,
+            },
+            meta: legacy.meta,
+          };
+        }
         const mapped: StockDistribution = {
           items: [
             {
-              local: "CANOAS",
+              local: "CANOAS" as const,
               quantidade: legacy.data.canoas,
               percentual: total > 0 ? Number(((legacy.data.canoas / total) * 100).toFixed(2)) : 0,
             },
             {
-              local: "PF",
+              local: "PF" as const,
               quantidade: legacy.data.pf,
               percentual: total > 0 ? Number(((legacy.data.pf / total) * 100).toFixed(2)) : 0,
             },
@@ -948,7 +1042,7 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     },
 
     async getAnalyticsStockEvolution(
-      params: { date_from: string; date_to: string; bucket?: "day" | "week" | "month" },
+      params: { date_from: string; date_to: string; scope?: "CANOAS" | "PF" | "AMBOS"; bucket?: "day" | "week" | "month" },
       options: RequestInit = {}
     ) {
       const query = buildQuery(params);
@@ -976,7 +1070,7 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     },
 
     async getAnalyticsInactiveProducts(
-      params: { days?: number; date_to?: string; limit?: number } = {},
+      params: { days?: number; date_to?: string; limit?: number; scope?: "CANOAS" | "PF" | "AMBOS" } = {},
       options: RequestInit = {}
     ) {
       const query = buildQuery(params);
@@ -1001,7 +1095,7 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     },
 
     async getStockDistribution(options: RequestInit = {}) {
-      return this.getAnalyticsStockDistribution(options);
+      return this.getAnalyticsStockDistribution({}, options);
     },
 
     async getEntradasSaidas(params: { date_from: string; date_to: string }, options: RequestInit = {}) {

@@ -479,6 +479,8 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
       queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, selectedId] });
       queryClient.invalidateQueries({ queryKey: ["historico", profileScopeKey, selectedId] });
+      queryClient.invalidateQueries({ queryKey: ["movimentacoes", profileScopeKey] });
+      queryClient.invalidateQueries({ queryKey: ["analytics", profileScopeKey] });
     },
     onError: (error) => notifyError(error),
   });

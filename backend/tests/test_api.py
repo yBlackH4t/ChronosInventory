@@ -967,3 +967,4 @@ def test_inventory_session_does_not_include_inactive_products(client):
     ids = {row["produto_id"] for row in items.json()["data"]}
     assert active_id in ids
     assert inactive_id not in ids
+

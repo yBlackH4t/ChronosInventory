@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Card,
@@ -60,7 +60,7 @@ const SCOPE_OPTIONS = [
   { value: "AMBOS", label: "Ambos" },
   { value: "CANOAS", label: "Canoas" },
   { value: "PF", label: "Passo Fundo" },
-] ;
+];
 
 type Scope = "AMBOS" | "CANOAS" | "PF";
 type PeriodMode = "week" | "month";
@@ -69,6 +69,12 @@ type DashboardTabState = {
   periodMode: PeriodMode;
   selectedDate: string | null;
   scrollY: number;
+};
+
+type SummaryCard = {
+  label: string;
+  value: number;
+  color: string;
 };
 
 const DASHBOARD_TAB_ID = "dashboard";
@@ -102,8 +108,23 @@ function numericValue(value: number | string | undefined | null): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function flowSeriesLabel(name: string | undefined): string {
+  const normalized = (name ?? "").trim().toLowerCase();
+  if (normalized === "entradas" || normalized === "entrada") return "Entradas";
+  if (normalized === "saidas" || normalized === "saida" || normalized === "saída") return "Saidas";
+  return name ?? "Valor";
+}
+
+function getQueryErrorMessage(error: unknown): string | null {
+  if (!error) return null;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return "Falha ao carregar dados do dashboard.";
+}
+
 export default function DashboardPage() {
   const { profileScopeKey } = useProfileScope();
+  const lastErrorToastRef = useRef<string | null>(null);
   const persistedState = useMemo(
     () => loadTabState<DashboardTabState>(DASHBOARD_TAB_ID) ?? DEFAULT_DASHBOARD_TAB_STATE,
     []
@@ -126,13 +147,13 @@ export default function DashboardPage() {
   const bucket = periodMode === "week" ? "day" : "week";
 
   const summaryQuery = useQuery<SuccessResponse<StockSummary>>({
-    queryKey: ["analytics", profileScopeKey, "stock-summary"],
-    queryFn: ({ signal }) => api.getAnalyticsStockSummary({ signal }),
+    queryKey: ["analytics", profileScopeKey, "stock-summary", scope],
+    queryFn: ({ signal }) => api.getAnalyticsStockSummary({ scope }, { signal }),
   });
 
   const distributionQuery = useQuery<SuccessResponse<StockDistribution>>({
-    queryKey: ["analytics", profileScopeKey, "stock-distribution"],
-    queryFn: ({ signal }) => api.getAnalyticsStockDistribution({ signal }),
+    queryKey: ["analytics", profileScopeKey, "stock-distribution", scope],
+    queryFn: ({ signal }) => api.getAnalyticsStockDistribution({ scope }, { signal }),
   });
 
   const topSaidasQuery = useQuery<SuccessResponse<TopSaidaItem[]>>({
@@ -159,12 +180,13 @@ export default function DashboardPage() {
   });
 
   const evolutionQuery = useQuery<SuccessResponse<StockEvolutionPoint[]>>({
-    queryKey: ["analytics", profileScopeKey, "stock-evolution", dateFrom, dateTo, bucket],
+    queryKey: ["analytics", profileScopeKey, "stock-evolution", dateFrom, dateTo, scope, bucket],
     queryFn: ({ signal }) =>
       api.getAnalyticsStockEvolution(
         {
           date_from: dateFrom,
           date_to: dateTo,
+          scope,
           bucket,
         },
         { signal }
@@ -172,44 +194,54 @@ export default function DashboardPage() {
   });
 
   const inactiveQuery = useQuery<SuccessResponse<TopSemMovItem[]>>({
-    queryKey: ["analytics", profileScopeKey, "inactive", dateTo],
+    queryKey: ["analytics", profileScopeKey, "inactive", dateTo, scope],
     queryFn: ({ signal }) =>
       api.getAnalyticsInactiveProducts(
         {
           days: 30,
           date_to: dateTo,
+          scope,
           limit: 5,
         },
         { signal }
       ),
   });
 
+  const dashboardErrors = useMemo(
+    () =>
+      [
+        summaryQuery.error,
+        distributionQuery.error,
+        topSaidasQuery.error,
+        flowQuery.error,
+        evolutionQuery.error,
+        inactiveQuery.error,
+      ]
+        .map(getQueryErrorMessage)
+        .filter((item): item is string => Boolean(item)),
+    [
+      summaryQuery.error,
+      distributionQuery.error,
+      topSaidasQuery.error,
+      flowQuery.error,
+      evolutionQuery.error,
+      inactiveQuery.error,
+    ]
+  );
+
   useEffect(() => {
-    const queries = [
-      summaryQuery,
-      distributionQuery,
-      topSaidasQuery,
-      flowQuery,
-      evolutionQuery,
-      inactiveQuery,
-    ];
-    queries.forEach((query) => {
-      if (query.isError) notifyError(query.error);
-    });
-  }, [
-    summaryQuery.isError,
-    summaryQuery.error,
-    distributionQuery.isError,
-    distributionQuery.error,
-    topSaidasQuery.isError,
-    topSaidasQuery.error,
-    flowQuery.isError,
-    flowQuery.error,
-    evolutionQuery.isError,
-    evolutionQuery.error,
-    inactiveQuery.isError,
-    inactiveQuery.error,
-  ]);
+    if (dashboardErrors.length === 0) {
+      lastErrorToastRef.current = null;
+      return;
+    }
+    const combinedMessage =
+      dashboardErrors.length === 1
+        ? dashboardErrors[0]
+        : `Falha ao carregar parte do dashboard (${dashboardErrors.length} blocos). Primeiro erro: ${dashboardErrors[0]}`;
+    if (lastErrorToastRef.current === combinedMessage) return;
+    lastErrorToastRef.current = combinedMessage;
+    notifyError(new Error(combinedMessage));
+  }, [dashboardErrors]);
 
   const summary = summaryQuery.data?.data;
   const topSaidas = topSaidasQuery.data?.data ?? [];
@@ -227,7 +259,29 @@ export default function DashboardPage() {
     [topSaidas]
   );
   const periodContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
-  const evolutionContext = `${PERIOD_LABELS[periodMode]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+  const evolutionContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+
+  const summaryCards = useMemo<SummaryCard[]>(() => {
+    if (!summary) return [];
+    if (scope === "CANOAS") {
+      return [
+        { label: "Total em Canoas", value: summary.total_canoas, color: COLORS.canoas },
+        { label: "Itens zerados em Canoas", value: summary.zerados, color: COLORS.zerado },
+      ];
+    }
+    if (scope === "PF") {
+      return [
+        { label: "Total em Passo Fundo", value: summary.total_pf, color: COLORS.pf },
+        { label: "Itens zerados em Passo Fundo", value: summary.zerados, color: COLORS.zerado },
+      ];
+    }
+    return [
+      { label: "Total Canoas", value: summary.total_canoas, color: COLORS.canoas },
+      { label: "Total PF", value: summary.total_pf, color: COLORS.pf },
+      { label: "Total Geral", value: summary.total_geral, color: COLORS.total },
+      { label: "Itens zerados", value: summary.zerados, color: COLORS.zerado },
+    ];
+  }, [scope, summary]);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -288,46 +342,29 @@ export default function DashboardPage() {
                 { value: "month", label: "Mes" },
               ]}
             />
-            <DatePickerInput
-              value={selectedDate}
-              onChange={setSelectedDate}
-              label="Data base"
-              w={180}
-            />
+            <DatePickerInput value={selectedDate} onChange={setSelectedDate} label="Data base" w={180} />
           </Group>
-          <SegmentedControl
-            value={scope}
-            onChange={(value) => setScope(value as Scope)}
-            data={SCOPE_OPTIONS}
-          />
+          <SegmentedControl value={scope} onChange={(value) => setScope(value as Scope)} data={SCOPE_OPTIONS} />
         </Group>
       </FilterToolbar>
 
       <Grid>
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Card className="kpi-card">
-            <Text size="sm" c="dimmed">Total Canoas</Text>
-            {summaryQuery.isLoading ? <Skeleton h={30} mt={8} /> : <Text fw={700} size="xl" c={COLORS.canoas}>{summary?.total_canoas ?? 0}</Text>}
-          </Card>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Card className="kpi-card">
-            <Text size="sm" c="dimmed">Total PF</Text>
-            {summaryQuery.isLoading ? <Skeleton h={30} mt={8} /> : <Text fw={700} size="xl" c={COLORS.pf}>{summary?.total_pf ?? 0}</Text>}
-          </Card>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Card className="kpi-card">
-            <Text size="sm" c="dimmed">Total Geral</Text>
-            {summaryQuery.isLoading ? <Skeleton h={30} mt={8} /> : <Text fw={700} size="xl" c={COLORS.total}>{summary?.total_geral ?? 0}</Text>}
-          </Card>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 3 }}>
-          <Card className="kpi-card">
-            <Text size="sm" c="dimmed">Itens zerados</Text>
-            {summaryQuery.isLoading ? <Skeleton h={30} mt={8} /> : <Text fw={700} size="xl" c={COLORS.zerado}>{summary?.zerados ?? 0}</Text>}
-          </Card>
-        </Grid.Col>
+        {summaryQuery.isLoading
+          ? Array.from({ length: scope === "AMBOS" ? 4 : 2 }, (_, index) => (
+              <Grid.Col key={index} span={{ base: 12, md: scope === "AMBOS" ? 3 : 6 }}>
+                <Card className="kpi-card">
+                  <Skeleton h={30} mt={8} />
+                </Card>
+              </Grid.Col>
+            ))
+          : summaryCards.map((card) => (
+              <Grid.Col key={card.label} span={{ base: 12, md: scope === "AMBOS" ? 3 : 6 }}>
+                <Card className="kpi-card">
+                  <Text size="sm" c="dimmed">{card.label}</Text>
+                  <Text fw={700} size="xl" c={card.color}>{card.value}</Text>
+                </Card>
+              </Grid.Col>
+            ))}
       </Grid>
 
       <Grid>
@@ -367,9 +404,13 @@ export default function DashboardPage() {
 
         <Grid.Col span={{ base: 12, lg: 6 }}>
           <Card withBorder>
-            <Title order={4} mb="sm">Distribuicao atual de estoque</Title>
+            <Title order={4} mb="sm">
+              {scope === "AMBOS" ? "Distribuicao atual de estoque" : `Estoque atual em ${SCOPE_LABELS[scope]}`}
+            </Title>
             <Text size="xs" c="dimmed" mb="sm">
-              Base atual por filial | Total: {distribution?.total ?? 0} itens
+              {scope === "AMBOS"
+                ? `Base atual por filial | Total: ${distribution?.total ?? 0} itens`
+                : `Base atual no escopo | Total: ${distribution?.total ?? 0} itens`}
             </Text>
             {distributionQuery.isLoading ? (
               <Loader size="sm" />
@@ -391,13 +432,15 @@ export default function DashboardPage() {
                       }
                     >
                       {distribution.items.map((entry: { local: "CANOAS" | "PF"; quantidade: number; percentual: number }) => (
-                        <Cell
-                          key={entry.local}
-                          fill={entry.local === "CANOAS" ? COLORS.canoas : COLORS.pf}
-                        />
+                        <Cell key={entry.local} fill={entry.local === "CANOAS" ? COLORS.canoas : COLORS.pf} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number | string | undefined, name: string | undefined) => [`${numericValue(value)} itens`, name ?? "Local"]} />
+                    <Tooltip
+                      formatter={(value: number | string | undefined, name: string | undefined) => [
+                        `${numericValue(value)} itens`,
+                        name ?? "Local",
+                      ]}
+                    />
                     <Legend formatter={(value: string) => (value === "CANOAS" ? "Canoas" : "Passo Fundo")} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -423,7 +466,12 @@ export default function DashboardPage() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="period" tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} />
-                    <Tooltip formatter={(value: number | string | undefined, name: string | undefined) => [numericValue(value), name === "entradas" ? "Entradas" : "Saidas"]} />
+                    <Tooltip
+                      formatter={(value: number | string | undefined, name: string | undefined) => [
+                        numericValue(value),
+                        flowSeriesLabel(name),
+                      ]}
+                    />
                     <Legend />
                     <Line type="monotone" dataKey="entradas" name="Entradas" stroke={COLORS.total} strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="saidas" name="Saidas" stroke={COLORS.zerado} strokeWidth={2} dot={false} />
@@ -453,7 +501,7 @@ export default function DashboardPage() {
                     <YAxis allowDecimals={false} />
                     <Tooltip formatter={(value: number | string | undefined) => [numericValue(value), "Total em estoque"]} />
                     <Legend />
-                    <Line type="monotone" dataKey="total_stock" name="Total em estoque" stroke={COLORS.canoas} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="total_stock" name="Total em estoque" stroke={scope === "PF" ? COLORS.pf : COLORS.canoas} strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -465,7 +513,7 @@ export default function DashboardPage() {
           <Card withBorder>
             <Title order={4} mb="sm">Itens sem movimentacao (ultimos 30 dias)</Title>
             <Text size="xs" c="dimmed" mb="sm">
-              Referencia: ate {dayjs(dateTo).format("DD/MM/YYYY")} | Janela: 30 dias
+              Referencia: ate {dayjs(dateTo).format("DD/MM/YYYY")} | Escopo: {SCOPE_LABELS[scope]} | Janela: 30 dias
             </Text>
             {inactiveQuery.isLoading ? (
               <Loader size="sm" />
@@ -501,4 +549,3 @@ export default function DashboardPage() {
     </Stack>
   );
 }
-

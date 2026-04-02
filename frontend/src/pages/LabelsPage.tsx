@@ -8,6 +8,7 @@ import {
   Group,
   NumberInput,
   Pagination,
+  SegmentedControl,
   Select,
   Stack,
   Table,
@@ -18,6 +19,7 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { IconBarcode, IconPrinter } from "@tabler/icons-react";
 
+import NfeLabelDesignerPanel from "../components/labels/NfeLabelDesignerPanel";
 import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
@@ -42,6 +44,7 @@ const STOCK_OPTIONS = [
 
 type StockFilter = (typeof STOCK_OPTIONS)[number]["value"];
 type CopiesMode = "ONE" | "TOTAL_STOCK" | "MANUAL";
+type LabelMode = "INTERNAL" | "NFE";
 
 const COPIES_MODE_OPTIONS: { value: CopiesMode; label: string }[] = [
   { value: "ONE", label: "1 por item" },
@@ -61,10 +64,8 @@ function parseIdsParam(raw: string | null): number[] {
   return Array.from(new Set(values));
 }
 
-function printLabels(items: LabelPrintableItem[]) {
+function printHtml(html: string) {
   if (typeof document === "undefined" || typeof window === "undefined") return;
-  const html = buildLabelsPrintHtml(items);
-
   const frame = document.createElement("iframe");
   frame.style.position = "fixed";
   frame.style.right = "0";
@@ -101,10 +102,15 @@ function printLabels(items: LabelPrintableItem[]) {
   frame.contentDocument.close();
 }
 
+function printLabels(items: LabelPrintableItem[]) {
+  printHtml(buildLabelsPrintHtml(items));
+}
+
 export default function LabelsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const preselectedFromUrl = useMemo(() => parseIdsParam(searchParams.get("ids")), [searchParams]);
 
+  const [labelMode, setLabelMode] = useState<LabelMode>("INTERNAL");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ProductStatusFilter>("ATIVO");
   const [stockFilter, setStockFilter] = useState<StockFilter>("COM_ESTOQUE");
@@ -130,6 +136,7 @@ export default function LabelsPage() {
         },
         { signal }
       ),
+    enabled: labelMode === "INTERNAL",
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
@@ -290,190 +297,223 @@ export default function LabelsPage() {
     <Stack gap="lg">
       <PageHeader
         title="Etiquetas"
-        subtitle="Gere etiquetas por item ou em lote. O codigo de barras e vinculado ao ID do item no banco."
-        actions={(
-          <>
-            <Badge variant="light">Selecionados: {selectedIds.length}</Badge>
-            <Badge variant="light">Modo: {COPIES_MODE_OPTIONS.find((item) => item.value === copiesMode)?.label}</Badge>
-            <Button
-              leftSection={<IconPrinter size={16} />}
-              onClick={() => void runPrintSelected()}
-              disabled={selectedIds.length === 0}
-              loading={printing}
-            >
-              Gerar etiquetas selecionadas
-            </Button>
-          </>
-        )}
+        subtitle={
+          labelMode === "INTERNAL"
+            ? "Gere etiquetas de estoque por item ou em lote."
+            : "Editor visual de etiqueta de expedicao (arraste e solte)."
+        }
+        actions={
+          labelMode === "INTERNAL" ? (
+            <>
+              <Badge variant="light">Selecionados: {selectedIds.length}</Badge>
+              <Badge variant="light">Modo: {COPIES_MODE_OPTIONS.find((item) => item.value === copiesMode)?.label}</Badge>
+              <Button
+                leftSection={<IconPrinter size={16} />}
+                onClick={() => void runPrintSelected()}
+                disabled={selectedIds.length === 0}
+                loading={printing}
+              >
+                Gerar etiquetas selecionadas
+              </Button>
+            </>
+          ) : (
+            <Badge variant="light">Designer visual ativo</Badge>
+          )
+        }
       />
 
       <FilterToolbar>
-        <Group align="end" wrap="wrap">
-          <TextInput
-            label="Buscar"
-            placeholder="Nome ou numero"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.currentTarget.value);
-              setPage(1);
-            }}
-            w={320}
+        <Group justify="space-between" wrap="wrap">
+          <SegmentedControl
+            value={labelMode}
+            onChange={(value) => setLabelMode((value as LabelMode) || "INTERNAL")}
+            data={[
+              { value: "INTERNAL", label: "Etiqueta de estoque" },
+              { value: "NFE", label: "Etiqueta de expedicao (designer)" },
+            ]}
           />
-          <Select
-            label="Status"
-            data={STATUS_OPTIONS}
-            value={status}
-            onChange={(value) => {
-              setStatus((value as ProductStatusFilter) || "ATIVO");
-              setPage(1);
-            }}
-            w={180}
-          />
-          <Select
-            label="Estoque"
-            data={STOCK_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
-            value={stockFilter}
-            onChange={(value) => {
-              setStockFilter((value as StockFilter) || "COM_ESTOQUE");
-              setPage(1);
-            }}
-            w={220}
-          />
-          <Select
-            label="Por pagina"
-            data={["10", "20", "50", "100"]}
-            value={pageSize}
-            onChange={(value) => {
-              if (!value) return;
-              setPageSize(value);
-              setPage(1);
-            }}
-            w={120}
-          />
-          <Select
-            label="Copias"
-            data={COPIES_MODE_OPTIONS}
-            value={copiesMode}
-            onChange={(value) => setCopiesMode((value as CopiesMode) || "ONE")}
-            w={210}
-          />
-          {copiesMode === "MANUAL" && (
-            <NumberInput
-              label="Padrao manual"
-              value={defaultManualCopies}
-              min={1}
-              max={MAX_COPIES_PER_ITEM}
-              onChange={(value) =>
-                setDefaultManualCopies(
-                  Math.max(1, Math.min(MAX_COPIES_PER_ITEM, Math.round(Number(value || 1))))
-                )
-              }
-              w={160}
-            />
+          {labelMode === "NFE" && (
+            <Text size="xs" c="dimmed">
+              Fluxo: carregar XML, montar layout visual e imprimir.
+            </Text>
           )}
-          <Button
-            variant="subtle"
-            onClick={() => {
-              setQuery("");
-              setStatus("ATIVO");
-              setStockFilter("COM_ESTOQUE");
-              setPage(1);
-              setSelectedIds([]);
-              setManualCopiesById({});
-            }}
-          >
-            Limpar filtros
-          </Button>
         </Group>
       </FilterToolbar>
 
-      <DataTable minWidth={980}>
-        <Table striped highlightOnHover withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>
-                <Checkbox
-                  checked={allVisibleSelected}
-                  indeterminate={selectedVisibleCount > 0 && !allVisibleSelected}
-                  onChange={(event) => toggleSelectAllVisible(event.currentTarget.checked)}
+      {labelMode === "INTERNAL" ? (
+        <>
+          <FilterToolbar>
+            <Group align="end" wrap="wrap">
+              <TextInput
+                label="Buscar"
+                placeholder="Nome ou numero"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.currentTarget.value);
+                  setPage(1);
+                }}
+                w={320}
+              />
+              <Select
+                label="Status"
+                data={STATUS_OPTIONS}
+                value={status}
+                onChange={(value) => {
+                  setStatus((value as ProductStatusFilter) || "ATIVO");
+                  setPage(1);
+                }}
+                w={180}
+              />
+              <Select
+                label="Estoque"
+                data={STOCK_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+                value={stockFilter}
+                onChange={(value) => {
+                  setStockFilter((value as StockFilter) || "COM_ESTOQUE");
+                  setPage(1);
+                }}
+                w={220}
+              />
+              <Select
+                label="Por pagina"
+                data={["10", "20", "50", "100"]}
+                value={pageSize}
+                onChange={(value) => {
+                  if (!value) return;
+                  setPageSize(value);
+                  setPage(1);
+                }}
+                w={120}
+              />
+              <Select
+                label="Copias"
+                data={COPIES_MODE_OPTIONS}
+                value={copiesMode}
+                onChange={(value) => setCopiesMode((value as CopiesMode) || "ONE")}
+                w={210}
+              />
+              {copiesMode === "MANUAL" && (
+                <NumberInput
+                  label="Padrao manual"
+                  value={defaultManualCopies}
+                  min={1}
+                  max={MAX_COPIES_PER_ITEM}
+                  onChange={(value) =>
+                    setDefaultManualCopies(
+                      Math.max(1, Math.min(MAX_COPIES_PER_ITEM, Math.round(Number(value || 1))))
+                    )
+                  }
+                  w={160}
                 />
-              </Table.Th>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Nome</Table.Th>
-              <Table.Th>Canoas</Table.Th>
-              <Table.Th>PF</Table.Th>
-              <Table.Th>Total</Table.Th>
-              <Table.Th>Copias</Table.Th>
-              <Table.Th>Acoes</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.map((product) => {
-              const checked = selectedSet.has(product.id);
-              return (
-                <Table.Tr key={product.id}>
-                  <Table.Td>
-                    <Checkbox
-                      checked={checked}
-                      onChange={(event) => toggleRow(product.id, event.currentTarget.checked)}
-                    />
-                  </Table.Td>
-                  <Table.Td>{product.id}</Table.Td>
-                  <Table.Td>{product.nome}</Table.Td>
-                  <Table.Td>{product.qtd_canoas}</Table.Td>
-                  <Table.Td>{product.qtd_pf}</Table.Td>
-                  <Table.Td>{product.total_stock}</Table.Td>
-                  <Table.Td>
-                    {copiesMode === "MANUAL" ? (
-                      <NumberInput
-                        min={1}
-                        max={MAX_COPIES_PER_ITEM}
-                        value={resolveManualCopies(product.id)}
-                        onChange={(value) => setManualCopies(product.id, Number(value || 1))}
-                        w={110}
-                      />
-                    ) : (
-                      <Badge variant="light">{resolveCopies(product)}</Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Tooltip label="Gerar etiqueta deste item">
-                      <ActionIcon
-                        variant="light"
-                        onClick={() => runPrintSingle(product)}
-                        aria-label={`Gerar etiqueta do item ${product.id}`}
-                      >
-                        <IconBarcode size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-            {listQuery.isError && (
-              <Table.Tr>
-                <Table.Td colSpan={8}>
-                  <EmptyState message={loadError} actionLabel="Tentar novamente" onAction={() => void listQuery.refetch()} />
-                </Table.Td>
-              </Table.Tr>
-            )}
-            {!listQuery.isError && rows.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={8}>
-                  <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
-                </Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
-      </DataTable>
+              )}
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  setQuery("");
+                  setStatus("ATIVO");
+                  setStockFilter("COM_ESTOQUE");
+                  setPage(1);
+                  setSelectedIds([]);
+                  setManualCopiesById({});
+                }}
+              >
+                Limpar filtros
+              </Button>
+            </Group>
+          </FilterToolbar>
 
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          Total: {listQuery.data?.meta?.total_items ?? 0}
-        </Text>
-        <Pagination value={page} onChange={setPage} total={totalPages} />
-      </Group>
+          <DataTable minWidth={980}>
+            <Table striped highlightOnHover withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>
+                    <Checkbox
+                      checked={allVisibleSelected}
+                      indeterminate={selectedVisibleCount > 0 && !allVisibleSelected}
+                      onChange={(event) => toggleSelectAllVisible(event.currentTarget.checked)}
+                    />
+                  </Table.Th>
+                  <Table.Th>ID</Table.Th>
+                  <Table.Th>Nome</Table.Th>
+                  <Table.Th>Canoas</Table.Th>
+                  <Table.Th>PF</Table.Th>
+                  <Table.Th>Total</Table.Th>
+                  <Table.Th>Copias</Table.Th>
+                  <Table.Th>Acoes</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {rows.map((product) => {
+                  const checked = selectedSet.has(product.id);
+                  return (
+                    <Table.Tr key={product.id}>
+                      <Table.Td>
+                        <Checkbox
+                          checked={checked}
+                          onChange={(event) => toggleRow(product.id, event.currentTarget.checked)}
+                        />
+                      </Table.Td>
+                      <Table.Td>{product.id}</Table.Td>
+                      <Table.Td>{product.nome}</Table.Td>
+                      <Table.Td>{product.qtd_canoas}</Table.Td>
+                      <Table.Td>{product.qtd_pf}</Table.Td>
+                      <Table.Td>{product.total_stock}</Table.Td>
+                      <Table.Td>
+                        {copiesMode === "MANUAL" ? (
+                          <NumberInput
+                            min={1}
+                            max={MAX_COPIES_PER_ITEM}
+                            value={resolveManualCopies(product.id)}
+                            onChange={(value) => setManualCopies(product.id, Number(value || 1))}
+                            w={110}
+                          />
+                        ) : (
+                          <Badge variant="light">{resolveCopies(product)}</Badge>
+                        )}
+                      </Table.Td>
+                      <Table.Td>
+                        <Tooltip label="Gerar etiqueta deste item">
+                          <ActionIcon
+                            variant="light"
+                            onClick={() => runPrintSingle(product)}
+                            aria-label={`Gerar etiqueta do item ${product.id}`}
+                          >
+                            <IconBarcode size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+                {listQuery.isError && (
+                  <Table.Tr>
+                    <Table.Td colSpan={8}>
+                      <EmptyState message={loadError} actionLabel="Tentar novamente" onAction={() => void listQuery.refetch()} />
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+                {!listQuery.isError && rows.length === 0 && (
+                  <Table.Tr>
+                    <Table.Td colSpan={8}>
+                      <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
+          </DataTable>
+
+          <Group justify="space-between">
+            <Text size="sm" c="dimmed">
+              Total: {listQuery.data?.meta?.total_items ?? 0}
+            </Text>
+            <Pagination value={page} onChange={setPage} total={totalPages} />
+          </Group>
+        </>
+      ) : (
+        <NfeLabelDesignerPanel />
+      )}
     </Stack>
   );
 }
+
