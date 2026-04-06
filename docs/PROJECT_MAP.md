@@ -12,7 +12,6 @@ The migration target is a local-only FastAPI backend that reuses the existing se
 - `app/services/backup_service.py`: Excel + DB backup export, auto/pre-update backups.
 - `app/services/migration_service.py`: legacy Excel -> SQLite import.
 - `app/services/report_service.py`: PDF reports (stock + ABC curve) using reportlab.
-- `app/services/update_service.py`: update check/download/run installer.
 - `app/services/image_service.py`: image storage/retrieval (BLOB) for products.
 
 - `app/models/product.py`: Product entity (id, nome, qtd_canoas, qtd_pf).
@@ -30,11 +29,11 @@ The migration target is a local-only FastAPI backend that reuses the existing se
 - In development: project root `estoque.db`.
 - `DatabaseConnection` opens a new connection per operation (row_factory to dict), sets WAL and foreign keys.
 
-## Backup / Import / Export / Reports / Update
+## Backup / Import / Export / Reports
 - Backups: `app/services/backup_service.py` (Excel + .db copy), files stored under `backups/` (AppData in prod).
 - Legacy import: `app/services/migration_service.py` reads Excel, bulk inserts, and moves the file to backups.
 - Reports: `app/services/report_service.py` (PDF via reportlab). Uses `tkinter.filedialog` and `os.startfile` (UI coupling).
-- Updates: `app/services/update_service.py` fetches JSON manifest, downloads installer, runs it.
+- Updates: current release flow is driven by Tauri + GitHub Release manifest, not by a Python `UpdateService`.
 
 ## Tkinter Coupling Points
 - UI controllers in `app/controllers/*` are tightly bound to UI inputs and dataframes.

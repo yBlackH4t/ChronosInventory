@@ -4,13 +4,16 @@ Responsabilidade: Orquestrar operações de estoque (CRUD + Movimentações).
 """
 
 import pandas as pd
+from datetime import datetime
 from typing import Tuple, List, Dict, Any
 from app.models.product import Product
 from app.models.stock_movement import StockMovement
 from app.models.validators import ProductValidator, StockMovementValidator
+from core.constants import DATE_FORMAT_DB
+from core.database.repositories.movement_repository import MovementRepository
 from core.database.repositories.product_repository import ProductRepository
 from core.database.repositories.history_repository import HistoryRepository
-from core.exceptions import ValidationException, InsufficientStockException
+from core.exceptions import DatabaseException, ValidationException, InsufficientStockException
 
 
 class StockService:
@@ -21,6 +24,7 @@ class StockService:
     
     def __init__(self):
         self.product_repo = ProductRepository()
+        self.movement_repo = MovementRepository()
         self.history_repo = HistoryRepository()
     
     def get_all_products(self, search_term: str = "") -> List[Product]:
@@ -163,16 +167,74 @@ class StockService:
         # Normaliza nome
         nome_normalizado = nome.strip().upper()
         
-        # Adiciona no banco
-        product_id = self.product_repo.add(nome_normalizado, qtd_canoas, qtd_pf, observacao)
-        
-        # Registra log
-        self.history_repo.add_log(
-            "CADASTRO",
-            nome_normalizado,
-            0,
-            f"Inicial: C={qtd_canoas}/P={qtd_pf}"
-        )
+        data_hora = datetime.now().strftime(DATE_FORMAT_DB)
+        movement_obs = "Estoque inicial gerado no cadastro do produto."
+        conn = self.product_repo.db.get_connection()
+
+        try:
+            conn.execute("BEGIN")
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO produtos (nome, qtd_canoas, qtd_pf, observacao, ativo)
+                VALUES (?, ?, ?, ?, 1)
+                """,
+                (nome_normalizado, qtd_canoas, qtd_pf, observacao),
+            )
+            product_id = int(cursor.lastrowid)
+
+            self.movement_repo.insert_history(
+                conn,
+                "CADASTRO",
+                nome_normalizado,
+                0,
+                f"Inicial: C={qtd_canoas}/P={qtd_pf}",
+                data_hora,
+            )
+
+            if qtd_canoas > 0:
+                self.movement_repo.insert_movement(
+                    conn,
+                    "ENTRADA",
+                    product_id,
+                    qtd_canoas,
+                    None,
+                    "CANOAS",
+                    movement_obs,
+                    "OPERACAO_NORMAL",
+                    None,
+                    None,
+                    "CADASTRO_INICIAL",
+                    None,
+                    data_hora,
+                )
+
+            if qtd_pf > 0:
+                self.movement_repo.insert_movement(
+                    conn,
+                    "ENTRADA",
+                    product_id,
+                    qtd_pf,
+                    None,
+                    "PF",
+                    movement_obs,
+                    "OPERACAO_NORMAL",
+                    None,
+                    None,
+                    "CADASTRO_INICIAL",
+                    None,
+                    data_hora,
+                )
+
+            conn.commit()
+        except ValidationException:
+            conn.rollback()
+            raise
+        except Exception as exc:
+            conn.rollback()
+            raise DatabaseException(f"Erro ao cadastrar produto: {exc}") from exc
+        finally:
+            conn.close()
         
         # Retorna produto criado
         return Product(

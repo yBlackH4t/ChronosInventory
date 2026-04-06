@@ -279,6 +279,7 @@ class MovementRepository(BaseRepository):
             FROM movimentacoes m
             JOIN produtos p ON p.id = m.produto_id
             WHERE m.tipo = 'SAIDA'
+              AND m.natureza = 'OPERACAO_NORMAL'
               AND p.ativo = 1
               AND m.data_hora >= ?
               AND m.data_hora <= ?
@@ -539,7 +540,7 @@ class MovementRepository(BaseRepository):
 
         return result
 
-    def get_top_sem_mov(self, cutoff: str, limit: int = 5, scope: str = "AMBOS") -> List[Dict[str, Any]]:
+    def get_top_sem_mov(self, cutoff: str, date_to: str, limit: int = 5, scope: str = "AMBOS") -> List[Dict[str, Any]]:
         if scope == "CANOAS":
             return self._execute_query(
                 """
@@ -549,6 +550,7 @@ class MovementRepository(BaseRepository):
                 FROM produtos p
                 LEFT JOIN movimentacoes m
                   ON m.produto_id = p.id
+                 AND m.data_hora <= ?
                  AND (m.origem = 'CANOAS' OR m.destino = 'CANOAS')
                 WHERE p.ativo = 1
                   AND p.qtd_canoas > 0
@@ -557,7 +559,7 @@ class MovementRepository(BaseRepository):
                 ORDER BY last_movement ASC
                 LIMIT ?
                 """,
-                (cutoff, limit),
+                (date_to, cutoff, limit),
             )
         if scope == "PF":
             return self._execute_query(
@@ -568,6 +570,7 @@ class MovementRepository(BaseRepository):
                 FROM produtos p
                 LEFT JOIN movimentacoes m
                   ON m.produto_id = p.id
+                 AND m.data_hora <= ?
                  AND (m.origem = 'PF' OR m.destino = 'PF')
                 WHERE p.ativo = 1
                   AND p.qtd_pf > 0
@@ -576,7 +579,7 @@ class MovementRepository(BaseRepository):
                 ORDER BY last_movement ASC
                 LIMIT ?
                 """,
-                (cutoff, limit),
+                (date_to, cutoff, limit),
             )
         return self._execute_query(
             """
@@ -584,14 +587,16 @@ class MovementRepository(BaseRepository):
                    p.nome as nome,
                    MAX(m.data_hora) as last_movement
             FROM produtos p
-            LEFT JOIN movimentacoes m ON m.produto_id = p.id
+            LEFT JOIN movimentacoes m
+              ON m.produto_id = p.id
+             AND m.data_hora <= ?
             WHERE p.ativo = 1
             GROUP BY p.id, p.nome
             HAVING last_movement IS NULL OR last_movement < ?
             ORDER BY last_movement ASC
             LIMIT ?
             """,
-            (cutoff, limit),
+            (date_to, cutoff, limit),
         )
 
     # Compat endpoints antigos

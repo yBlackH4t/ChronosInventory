@@ -68,3 +68,77 @@ class BackupRestoreTestOut(BaseModel):
     integrity_result: str
     required_tables: list[str]
     missing_tables: list[str]
+
+
+class OfficialBaseManifestOut(BaseModel):
+    format_version: int
+    published_at: str
+    publisher_machine: str
+    publisher_name: str | None = None
+    app_version: str
+    min_app_version: str
+    db_version: str
+    database_filename: str
+    database_sha256: str
+    notes: str | None = None
+
+
+class OfficialBaseStatusOut(BaseModel):
+    config_path: str
+    role: Literal["publisher", "consumer"]
+    official_base_dir: str | None = None
+    machine_label: str
+    publisher_name: str | None = None
+    can_publish: bool
+    directory_configured: bool
+    directory_accessible: bool
+    current_app_version: str
+    current_db_version: str
+    current_database_path: str
+    current_database_size: int
+    current_products_count: int
+    current_products_with_stock_count: int
+    current_movements_count: int
+    latest_available: bool
+    latest_zip_path: str | None = None
+    latest_manifest_path: str | None = None
+    latest_manifest: OfficialBaseManifestOut | None = None
+    app_compatible_with_latest: bool | None = None
+
+
+class OfficialBaseConfigIn(BaseModel):
+    role: Literal["publisher", "consumer"] = "consumer"
+    official_base_dir: str | None = Field(default=None, max_length=1024)
+    machine_label: str | None = Field(default=None, max_length=120)
+    publisher_name: str | None = Field(default=None, max_length=120)
+
+
+class OfficialBasePublishIn(BaseModel):
+    notes: str | None = Field(default=None, max_length=500)
+
+
+class OfficialBasePublishOut(BaseModel):
+    published_at: str
+    zip_path: str
+    manifest_path: str
+    history_zip_path: str
+    history_manifest_path: str
+    app_version: str
+    db_version: str
+    machine_label: str
+    publisher_name: str | None = None
+    notes: str | None = None
+
+
+class OfficialBaseApplyOut(BaseModel):
+    restored_from: str
+    active_database: str
+    pre_restore_backup: str
+    validation_result: str
+    published_at: str
+    publisher_machine: str
+    publisher_name: str | None = None
+    app_version: str
+    db_version: str
+    notes: str | None = None
+    restart_required: bool

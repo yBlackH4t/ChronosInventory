@@ -43,3 +43,10 @@ class StockProfileActivateOut(BaseModel):
     active_profile_name: str
     requires_restart: bool
     message: str
+
+
+class StockProfileDeleteOut(BaseModel):
+    deleted_profile_id: str
+    deleted_profile_name: str
+    deleted_path: str
+    message: str

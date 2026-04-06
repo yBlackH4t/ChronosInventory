@@ -10,6 +10,23 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.3.0",
+    "date": "2026-04-06",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Nova area de Base oficial compartilhada em Backup, com fluxo de publisher/consumer para publicar uma base oficial e atualizar outras instalacoes locais pela pasta compartilhada.",
+      "Novo: Publicacao da base oficial com manifesto (base_oficial.json), checksum, historico de snapshots e backup automatico antes de aplicar a base em outra maquina.",
+      "Novo: Resumo visivel da base ativa antes de publicar, mostrando caminho do banco, quantidade de produtos, itens com estoque, movimentacoes e tamanho do arquivo.",
+      "Novo: Botao Remover na tela de Estoques para excluir perfis locais cadastrados com confirmacao e limpeza da pasta do perfil.",
+      "Mudanca: Cadastro de produto com estoque inicial agora gera movimentacoes reais de ENTRADA por local (Canoas e/ou PF), fazendo o item aparecer corretamente no grafico de fluxo.",
+      "Mudanca: Top 5 saidas no periodo passou a considerar somente vendas reais (SAIDA com natureza OPERACAO_NORMAL).",
+      "Mudanca: Consulta de itens sem movimentacao ficou mais fiel ao periodo consultado, ignorando movimentos futuros na apuracao historica.",
+      "Correcao: Correcao do risco de publicar uma base vazia por engano ao usar ambiente de desenvolvimento diferente da base principal.",
+      "Correcao: Bloqueio de exclusao para perfil Principal/default e para o perfil atualmente ativo.",
+      "Correcao: Ajustes de robustez no fluxo de distribuicao da base oficial, com validacao de versao minima do app e restauracao segura em caso de falha."
+    ]
+  },
+  {
     "version": "1.2.7",
     "date": "2026-04-02",
     "title": "Melhorias e correcoes",

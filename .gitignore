@@ -20,6 +20,8 @@ venv/
 *.sqlite3
 *.bak
 *.log
+official_base_config.json
+stock_profiles.json
 backups/
 exports/
 backend/logs/
@@ -27,6 +29,7 @@ backend/logs/
 # Build artifacts (Python)
 build/
 dist/
+*.spec
 *.spec.bak
 
 # Frontend / Node

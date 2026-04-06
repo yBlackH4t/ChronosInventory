@@ -14,6 +14,11 @@ from backend.app.schemas.backup import (
     BackupAutoConfigIn,
     BackupAutoConfigOut,
     BackupListItemOut,
+    OfficialBaseApplyOut,
+    OfficialBaseConfigIn,
+    OfficialBasePublishIn,
+    OfficialBasePublishOut,
+    OfficialBaseStatusOut,
     BackupOut,
     BackupRestoreIn,
     BackupRestoreOut,
@@ -23,6 +28,8 @@ from backend.app.schemas.backup import (
 )
 from backend.app.schemas.common import SuccessResponse
 from core.exceptions import FileOperationException
+from app.services.official_base_service import OfficialBaseService
+from backend.app.api.deps import get_official_base_service
 
 
 router = APIRouter(prefix="/backup", tags=["backup"])
@@ -189,3 +196,42 @@ def export_diagnostics(
         "content-disposition": f'attachment; filename="{filename}"',
     }
     return Response(content=content, media_type="application/zip", headers=headers)
+
+
+@router.get("/base-oficial/status", response_model=SuccessResponse[OfficialBaseStatusOut])
+def official_base_status(
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseStatusOut]:
+    status = official_base_service.get_status()
+    return ok(OfficialBaseStatusOut(**status))
+
+
+@router.put("/base-oficial/config", response_model=SuccessResponse[OfficialBaseStatusOut])
+def official_base_update_config(
+    payload: OfficialBaseConfigIn,
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseStatusOut]:
+    status = official_base_service.update_config(
+        role=payload.role,
+        official_base_dir=payload.official_base_dir,
+        machine_label=payload.machine_label,
+        publisher_name=payload.publisher_name,
+    )
+    return ok(OfficialBaseStatusOut(**status))
+
+
+@router.post("/base-oficial/publicar", response_model=SuccessResponse[OfficialBasePublishOut])
+def official_base_publish(
+    payload: OfficialBasePublishIn,
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBasePublishOut]:
+    result = official_base_service.publish_official_base(notes=payload.notes)
+    return ok(OfficialBasePublishOut(**result))
+
+
+@router.post("/base-oficial/aplicar", response_model=SuccessResponse[OfficialBaseApplyOut])
+def official_base_apply(
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseApplyOut]:
+    result = official_base_service.apply_official_base()
+    return ok(OfficialBaseApplyOut(**result))

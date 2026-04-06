@@ -224,6 +224,82 @@ export type BackupRestoreTestOut = {
   missing_tables: string[];
 };
 
+export type OfficialBaseRole = "publisher" | "consumer";
+
+export type OfficialBaseManifestOut = {
+  format_version: number;
+  published_at: string;
+  publisher_machine: string;
+  publisher_name?: string | null;
+  app_version: string;
+  min_app_version: string;
+  db_version: string;
+  database_filename: string;
+  database_sha256: string;
+  notes?: string | null;
+};
+
+export type OfficialBaseStatusOut = {
+  config_path: string;
+  role: OfficialBaseRole;
+  official_base_dir?: string | null;
+  machine_label: string;
+  publisher_name?: string | null;
+  can_publish: boolean;
+  directory_configured: boolean;
+  directory_accessible: boolean;
+  current_app_version: string;
+  current_db_version: string;
+  current_database_path: string;
+  current_database_size: number;
+  current_products_count: number;
+  current_products_with_stock_count: number;
+  current_movements_count: number;
+  latest_available: boolean;
+  latest_zip_path?: string | null;
+  latest_manifest_path?: string | null;
+  latest_manifest?: OfficialBaseManifestOut | null;
+  app_compatible_with_latest?: boolean | null;
+};
+
+export type OfficialBaseConfigIn = {
+  role: OfficialBaseRole;
+  official_base_dir?: string | null;
+  machine_label?: string | null;
+  publisher_name?: string | null;
+};
+
+export type OfficialBasePublishIn = {
+  notes?: string | null;
+};
+
+export type OfficialBasePublishOut = {
+  published_at: string;
+  zip_path: string;
+  manifest_path: string;
+  history_zip_path: string;
+  history_manifest_path: string;
+  app_version: string;
+  db_version: string;
+  machine_label: string;
+  publisher_name?: string | null;
+  notes?: string | null;
+};
+
+export type OfficialBaseApplyOut = {
+  restored_from: string;
+  active_database: string;
+  pre_restore_backup: string;
+  validation_result: string;
+  published_at: string;
+  publisher_machine: string;
+  publisher_name?: string | null;
+  app_version: string;
+  db_version: string;
+  notes?: string | null;
+  restart_required: boolean;
+};
+
 export type InventorySessionLocal = "CANOAS" | "PF";
 export type InventorySessionStatus = "ABERTO" | "APLICADO";
 export type InventoryAdjustmentReason =
@@ -399,6 +475,13 @@ export type StockProfileActivateOut = {
   message: string;
 };
 
+export type StockProfileDeleteOut = {
+  deleted_profile_id: string;
+  deleted_profile_name: string;
+  deleted_path: string;
+  message: string;
+};
+
 export type DownloadResponse = {
   blob: Blob;
   filename?: string;
@@ -535,6 +618,14 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
           body: JSON.stringify(payload),
           ...options,
         },
+        baseUrl
+      );
+    },
+
+    async deleteStockProfile(profileId: string, options: RequestInit = {}) {
+      return request<StockProfileDeleteOut>(
+        `/sistema/estoques/${encodeURIComponent(profileId)}`,
+        { method: "DELETE", ...options },
         baseUrl
       );
     },
@@ -763,6 +854,45 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
 
     async backupDiagnostics(options: RequestInit = {}) {
       return requestBlob(`/backup/diagnostico`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async officialBaseStatus(options: RequestInit = {}) {
+      return request<OfficialBaseStatusOut>(`/backup/base-oficial/status`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async officialBaseUpdateConfig(payload: OfficialBaseConfigIn, options: RequestInit = {}) {
+      return request<OfficialBaseStatusOut>(
+        `/backup/base-oficial/config`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async officialBasePublish(payload: OfficialBasePublishIn, options: RequestInit = {}) {
+      return request<OfficialBasePublishOut>(
+        `/backup/base-oficial/publicar`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async officialBaseApply(options: RequestInit = {}) {
+      return request<OfficialBaseApplyOut>(
+        `/backup/base-oficial/aplicar`,
+        {
+          method: "POST",
+          ...options,
+        },
+        baseUrl
+      );
     },
 
     async inventoryCreateSession(payload: InventorySessionCreateIn, options: RequestInit = {}) {

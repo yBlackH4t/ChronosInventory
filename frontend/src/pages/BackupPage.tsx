@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -8,9 +9,11 @@ import {
   NumberInput,
   Select,
   Stack,
+  Textarea,
   Switch,
   Table,
   Text,
+  TextInput,
   Title,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
@@ -32,9 +35,15 @@ import type {
   BackupRestoreTestOut,
   BackupValidateOut,
   DownloadResponse,
+  OfficialBaseApplyOut,
+  OfficialBaseConfigIn,
+  OfficialBasePublishOut,
+  OfficialBaseRole,
+  OfficialBaseStatusOut,
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { restartApplication } from "../lib/restartApp";
 
 type BackupTabState = {
   selectedBackupName: string | null;
@@ -84,6 +93,11 @@ export default function BackupPage() {
   const [autoRetentionInput, setAutoRetentionInput] = useState<string | null>(null);
   const [autoScheduleModeInput, setAutoScheduleModeInput] = useState<"DAILY" | "WEEKLY" | null>(null);
   const [autoWeekdayInput, setAutoWeekdayInput] = useState<string | null>(null);
+  const [officialRoleInput, setOfficialRoleInput] = useState<OfficialBaseRole>("consumer");
+  const [officialBaseDirInput, setOfficialBaseDirInput] = useState("");
+  const [officialMachineLabelInput, setOfficialMachineLabelInput] = useState("");
+  const [officialPublisherNameInput, setOfficialPublisherNameInput] = useState("");
+  const [officialNotesInput, setOfficialNotesInput] = useState("");
 
   const backupsQuery = useQuery<SuccessResponse<BackupListItemOut[]>>({
     queryKey: ["backup-list"],
@@ -98,6 +112,11 @@ export default function BackupPage() {
   const autoConfigQuery = useQuery<SuccessResponse<BackupAutoConfigOut>>({
     queryKey: ["backup-auto-config"],
     queryFn: ({ signal }) => api.backupAutoConfig({ signal }),
+  });
+
+  const officialBaseStatusQuery = useQuery<SuccessResponse<OfficialBaseStatusOut>>({
+    queryKey: ["official-base-status"],
+    queryFn: ({ signal }) => api.officialBaseStatus({ signal }),
   });
 
   const backupMutation = useMutation<SuccessResponse<BackupOut>, Error, void>({
@@ -184,6 +203,51 @@ export default function BackupPage() {
     onError: (error) => notifyError(error),
   });
 
+  const officialBaseConfigMutation = useMutation<
+    SuccessResponse<OfficialBaseStatusOut>,
+    Error,
+    OfficialBaseConfigIn
+  >({
+    mutationFn: (payload) => api.officialBaseUpdateConfig(payload),
+    onSuccess: (response) => {
+      notifySuccess("Configuracao da base oficial salva.");
+      queryClient.setQueryData(["official-base-status"], response);
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const officialBasePublishMutation = useMutation<
+    SuccessResponse<OfficialBasePublishOut>,
+    Error,
+    { notes?: string | null }
+  >({
+    mutationFn: (payload) => api.officialBasePublish(payload),
+    onSuccess: (response) => {
+      notifySuccess(`Base oficial publicada em ${dayjs(response.data.published_at).format("DD/MM/YYYY HH:mm")}.`);
+      setOfficialNotesInput("");
+      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const officialBaseApplyMutation = useMutation<SuccessResponse<OfficialBaseApplyOut>, Error, void>({
+    mutationFn: () => api.officialBaseApply(),
+    onSuccess: async (response) => {
+      notifySuccess("Base oficial aplicada com sucesso.");
+      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+      queryClient.invalidateQueries({ queryKey: ["backup-list"] });
+      queryClient.invalidateQueries({ queryKey: ["backup-validate-current"] });
+      if (!response.data.restart_required) return;
+
+      try {
+        await restartApplication();
+      } catch (error) {
+        notifyError(error, "Base aplicada. Reinicie o aplicativo manualmente para concluir.");
+      }
+    },
+    onError: (error) => notifyError(error),
+  });
+
   const backups = useMemo(() => backupsQuery.data?.data ?? [], [backupsQuery.data?.data]);
   const backupOptions = useMemo(
     () => backups.map((item) => ({ value: item.name, label: `${item.name} (${bytesToHuman(item.size)})` })),
@@ -200,12 +264,27 @@ export default function BackupPage() {
   const selectedBackup = backups.find((item) => item.name === effectiveSelectedBackupName) || null;
   const currentValidation = validateCurrentQuery.data?.data;
   const autoConfig = autoConfigQuery.data?.data;
+  const officialBaseStatus = officialBaseStatusQuery.data?.data;
   const autoEnabled = autoEnabledInput ?? Boolean(autoConfig?.enabled ?? false);
   const autoHour = autoHourInput ?? Number(autoConfig?.hour ?? 18);
   const autoMinute = autoMinuteInput ?? Number(autoConfig?.minute ?? 0);
   const autoRetention = autoRetentionInput ?? String(autoConfig?.retention_days ?? 15);
   const autoScheduleMode = autoScheduleModeInput ?? autoConfig?.schedule_mode ?? "DAILY";
   const autoWeekday = autoWeekdayInput ?? String(autoConfig?.weekday ?? 0);
+  const latestOfficialManifest = officialBaseStatus?.latest_manifest;
+
+  useEffect(() => {
+    if (!officialBaseStatus) return;
+    setOfficialRoleInput(officialBaseStatus.role);
+    setOfficialBaseDirInput(officialBaseStatus.official_base_dir || "");
+    setOfficialMachineLabelInput(officialBaseStatus.machine_label || "");
+    setOfficialPublisherNameInput(officialBaseStatus.publisher_name || "");
+  }, [
+    officialBaseStatus?.role,
+    officialBaseStatus?.official_base_dir,
+    officialBaseStatus?.machine_label,
+    officialBaseStatus?.publisher_name,
+  ]);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -273,6 +352,47 @@ export default function BackupPage() {
     });
   };
 
+  const saveOfficialBaseConfig = () => {
+    officialBaseConfigMutation.mutate({
+      role: officialRoleInput,
+      official_base_dir: officialBaseDirInput.trim() || null,
+      machine_label: officialMachineLabelInput.trim() || null,
+      publisher_name: officialPublisherNameInput.trim() || null,
+    });
+  };
+
+  const confirmPublishOfficialBase = () => {
+    modals.openConfirmModal({
+      title: "Publicar base oficial",
+      children: (
+        <Text size="sm">
+          Esta operacao vai gerar uma copia oficial da base atual e publicar na pasta compartilhada configurada.
+          Use isso somente na maquina que representa a fonte oficial do estoque.
+        </Text>
+      ),
+      labels: { confirm: "Publicar agora", cancel: "Cancelar" },
+      onConfirm: () =>
+        officialBasePublishMutation.mutate({
+          notes: officialNotesInput.trim() || undefined,
+        }),
+    });
+  };
+
+  const confirmApplyOfficialBase = () => {
+    modals.openConfirmModal({
+      title: "Atualizar minha base local",
+      children: (
+        <Text size="sm">
+          O sistema vai criar um backup automatico do banco atual, importar a base oficial mais recente e reiniciar o
+          aplicativo ao final.
+        </Text>
+      ),
+      labels: { confirm: "Atualizar base", cancel: "Cancelar" },
+      confirmProps: { color: "orange" },
+      onConfirm: () => officialBaseApplyMutation.mutate(),
+    });
+  };
+
   return (
     <Stack gap="lg">
       <PageHeader
@@ -315,6 +435,168 @@ export default function BackupPage() {
                 {currentValidation.result}
               </Text>
             </Group>
+          )}
+        </Stack>
+      </Card>
+
+      <Card withBorder>
+        <Stack>
+          <Title order={4}>Base oficial compartilhada</Title>
+          {officialBaseStatusQuery.isLoading ? (
+            <Loader size="sm" />
+          ) : officialBaseStatusQuery.error instanceof Error ? (
+            <EmptyState
+              message={officialBaseStatusQuery.error.message}
+              actionLabel="Tentar novamente"
+              onAction={() => void officialBaseStatusQuery.refetch()}
+            />
+          ) : (
+            <>
+              <Alert color={officialBaseStatus?.directory_configured ? "blue" : "orange"} variant="light">
+                {officialBaseStatus?.directory_configured
+                  ? "Use uma unica maquina como publisher e deixe as demais como consumer. Todas sempre fazem backup local antes de importar a base oficial."
+                  : "Configure a pasta compartilhada e o papel desta maquina para ativar a distribuicao da base oficial."}
+              </Alert>
+
+              <Group gap="sm" wrap="wrap">
+                <Badge variant="light" color={officialBaseStatus?.role === "publisher" ? "blue" : "gray"}>
+                  Papel: {officialBaseStatus?.role === "publisher" ? "Publisher" : "Consumer"}
+                </Badge>
+                <Badge variant="light" color={officialBaseStatus?.directory_accessible ? "green" : "orange"}>
+                  Pasta {officialBaseStatus?.directory_accessible ? "acessivel" : "indisponivel"}
+                </Badge>
+                <Badge variant="light" color={officialBaseStatus?.latest_available ? "green" : "gray"}>
+                  {officialBaseStatus?.latest_available ? "Base oficial encontrada" : "Sem base publicada"}
+                </Badge>
+                {officialBaseStatus?.app_compatible_with_latest === false && (
+                  <Badge variant="light" color="red">
+                    App local incompativel com a ultima base
+                  </Badge>
+                )}
+              </Group>
+
+              <Group align="end" wrap="wrap">
+                <Select
+                  label="Papel desta maquina"
+                  data={[
+                    { value: "consumer", label: "Consumer" },
+                    { value: "publisher", label: "Publisher" },
+                  ]}
+                  value={officialRoleInput}
+                  onChange={(value) => setOfficialRoleInput((value as OfficialBaseRole) || "consumer")}
+                  w={160}
+                  allowDeselect={false}
+                />
+                <TextInput
+                  label="Pasta compartilhada"
+                  placeholder="\\\\DELL-WIN11PRO\\BaseOficialChronos"
+                  value={officialBaseDirInput}
+                  onChange={(event) => setOfficialBaseDirInput(event.currentTarget.value)}
+                  w={420}
+                />
+                <TextInput
+                  label="Identificacao da maquina"
+                  value={officialMachineLabelInput}
+                  onChange={(event) => setOfficialMachineLabelInput(event.currentTarget.value)}
+                  w={220}
+                />
+                <TextInput
+                  label="Nome do publicador"
+                  value={officialPublisherNameInput}
+                  onChange={(event) => setOfficialPublisherNameInput(event.currentTarget.value)}
+                  w={220}
+                />
+                <Button onClick={saveOfficialBaseConfig} loading={officialBaseConfigMutation.isPending}>
+                  Salvar configuracao
+                </Button>
+              </Group>
+
+              <Text size="sm" c="dimmed">
+                Config local: {officialBaseStatus?.config_path || "-"}
+              </Text>
+
+              <Card withBorder bg="var(--mantine-color-gray-0)">
+                <Stack gap="xs">
+                  <Text fw={600}>Base ativa desta maquina</Text>
+                  <Text size="sm">Banco em uso: {officialBaseStatus?.current_database_path || "-"}</Text>
+                  <Group gap="sm" wrap="wrap">
+                    <Badge variant="light" color="blue">
+                      Produtos: {officialBaseStatus?.current_products_count ?? 0}
+                    </Badge>
+                    <Badge variant="light" color="teal">
+                      Com estoque: {officialBaseStatus?.current_products_with_stock_count ?? 0}
+                    </Badge>
+                    <Badge variant="light" color="grape">
+                      Movimentacoes: {officialBaseStatus?.current_movements_count ?? 0}
+                    </Badge>
+                    <Badge variant="light" color="gray">
+                      Tamanho: {bytesToHuman(officialBaseStatus?.current_database_size ?? 0)}
+                    </Badge>
+                  </Group>
+                  {(officialBaseStatus?.current_products_count ?? 0) === 0 && (
+                    <Alert color="red" variant="light">
+                      Esta base esta vazia. Se voce publicar agora, vai distribuir um estoque zerado.
+                      Se estiver em modo dev, confirme se o app esta apontando para o banco certo antes de publicar.
+                    </Alert>
+                  )}
+                </Stack>
+              </Card>
+
+              {latestOfficialManifest ? (
+                <Card withBorder bg="var(--mantine-color-gray-0)">
+                  <Stack gap="xs">
+                    <Group justify="space-between" wrap="wrap">
+                      <Text fw={600}>Ultima base publicada</Text>
+                      <Text size="sm" c="dimmed">
+                        {dayjs(latestOfficialManifest.published_at).format("DD/MM/YYYY HH:mm")}
+                      </Text>
+                    </Group>
+                    <Text size="sm">
+                      Publicada por: {latestOfficialManifest.publisher_name || latestOfficialManifest.publisher_machine}
+                    </Text>
+                    <Text size="sm">
+                      App minimo: {latestOfficialManifest.min_app_version} | Banco: {latestOfficialManifest.db_version}
+                    </Text>
+                    <Text size="sm">Notas: {latestOfficialManifest.notes || "Sem observacoes."}</Text>
+                  </Stack>
+                </Card>
+              ) : (
+                <Text size="sm" c="dimmed">
+                  Nenhuma base oficial publicada ainda.
+                </Text>
+              )}
+
+              {officialRoleInput === "publisher" && (
+                <Textarea
+                  label="Observacao da publicacao"
+                  placeholder="Ex: base conferida apos inventario de Canoas"
+                  minRows={2}
+                  value={officialNotesInput}
+                  onChange={(event) => setOfficialNotesInput(event.currentTarget.value)}
+                />
+              )}
+
+              <Group>
+                {officialRoleInput === "publisher" && (
+                  <Button
+                    onClick={confirmPublishOfficialBase}
+                    loading={officialBasePublishMutation.isPending}
+                    disabled={!officialBaseDirInput.trim() || (officialBaseStatus?.current_products_count ?? 0) === 0}
+                  >
+                    Publicar base oficial
+                  </Button>
+                )}
+                <Button
+                  variant="light"
+                  color="orange"
+                  onClick={confirmApplyOfficialBase}
+                  loading={officialBaseApplyMutation.isPending}
+                  disabled={!officialBaseStatus?.latest_available || officialBaseStatus?.app_compatible_with_latest === false}
+                >
+                  Atualizar minha base
+                </Button>
+              </Group>
+            </>
           )}
         </Stack>
       </Card>

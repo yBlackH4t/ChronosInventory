@@ -17,6 +17,7 @@ class FileUtils:
 
     _legacy_migration_done = False
     _profiles_filename = "stock_profiles.json"
+    _official_base_config_filename = "official_base_config.json"
     _profiles_folder = "profiles"
     _default_profile_id = "default"
 
@@ -70,6 +71,11 @@ class FileUtils:
         profiles_dir = os.path.join(FileUtils.get_app_root_directory(), FileUtils._profiles_folder)
         os.makedirs(profiles_dir, exist_ok=True)
         return profiles_dir
+
+    @staticmethod
+    def get_official_base_config_path() -> str:
+        app_root = FileUtils.get_app_root_directory()
+        return os.path.join(app_root, FileUtils._official_base_config_filename)
 
     @staticmethod
     def _read_active_profile_id(app_root: str) -> str:

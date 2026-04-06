@@ -4,6 +4,7 @@ from app.services.movement_service import MovementService
 from app.services.backup_service import BackupService
 from app.services.export_service import ExportService
 from app.services.migration_service import MigrationService
+from app.services.official_base_service import OfficialBaseService
 from app.services.report_api_service import ReportApiService
 from app.services.import_service import ImportService
 from app.services.inventory_service import InventoryService
@@ -24,6 +25,10 @@ def get_movement_service() -> MovementService:
 
 def get_backup_service() -> BackupService:
     return BackupService()
+
+
+def get_official_base_service() -> OfficialBaseService:
+    return OfficialBaseService()
 
 
 def get_export_service() -> ExportService:

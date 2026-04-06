@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -102,6 +103,39 @@ class StockProfileService:
             "active_profile_name": active_name,
             "requires_restart": True,
             "message": "Estoque ativo alterado. Reinicie o app para aplicar a troca da base.",
+        }
+
+    def delete_profile(self, profile_id: str) -> Dict[str, object]:
+        pid = self._normalize_profile_id(profile_id, allow_default=True)
+        if pid == self._default_profile_id:
+            raise ValidationException("O estoque Principal nao pode ser removido.")
+
+        registry = self._load_registry()
+        current = str(registry["active_profile_id"])
+        if current == pid:
+            raise ValidationException("Nao e possivel remover o estoque ativo. Ative outro perfil antes.")
+
+        existing = next((item for item in registry["profiles"] if str(item.get("id")) == pid), None)
+        if not existing:
+            raise ValidationException("Estoque nao encontrado para remocao.")
+
+        profile_dir = self._profile_dir(pid)
+        profiles_root = os.path.abspath(self.profiles_dir)
+        profile_dir_abs = os.path.abspath(profile_dir)
+        if not profile_dir_abs.startswith(profiles_root + os.sep):
+            raise ValidationException("Remocao bloqueada por seguranca para esta pasta de estoque.")
+
+        registry["profiles"] = [item for item in registry["profiles"] if str(item.get("id")) != pid]
+        self._save_registry(registry)
+
+        if os.path.isdir(profile_dir_abs):
+            shutil.rmtree(profile_dir_abs, ignore_errors=False)
+
+        return {
+            "deleted_profile_id": pid,
+            "deleted_profile_name": str(existing.get("name") or pid),
+            "deleted_path": profile_dir_abs,
+            "message": "Estoque removido com sucesso.",
         }
 
     def _load_registry(self) -> Dict[str, Any]:

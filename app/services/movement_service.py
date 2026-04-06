@@ -418,8 +418,9 @@ class MovementService:
     def get_top_sem_mov(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
         cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
         cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
+        date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
 
-        rows = self.repo.get_top_sem_mov(cutoff, limit=limit, scope=scope)
+        rows = self.repo.get_top_sem_mov(cutoff, date_to_limit, limit=limit, scope=scope)
         items: List[dict] = []
         for row in rows:
             last = row.get("last_movement")

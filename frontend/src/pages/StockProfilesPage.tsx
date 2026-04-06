@@ -11,6 +11,7 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import DataTable from "../components/ui/DataTable";
@@ -20,6 +21,7 @@ import PageHeader from "../components/ui/PageHeader";
 import type {
   ApiError,
   StockProfileActivateOut,
+  StockProfileDeleteOut,
   StockProfileOut,
   StockProfilesStateOut,
   SuccessResponse,
@@ -97,6 +99,24 @@ export default function StockProfilesPage() {
     },
   });
 
+  const deleteMutation = useMutation<SuccessResponse<StockProfileDeleteOut>, Error, StockProfileOut>({
+    mutationFn: (profile) => api.deleteStockProfile(profile.id),
+    onSuccess: (response) => {
+      notifySuccess(response.data.message);
+      queryClient.invalidateQueries({ queryKey: ["stock-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["stock-profiles", "scope"] });
+    },
+    onError: (error) => {
+      if (error instanceof Error && (error as ApiError).status === 404) {
+        notifyError(
+          new Error("Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.")
+        );
+        return;
+      }
+      notifyError(error);
+    },
+  });
+
   const createProfile = () => {
     const name = nameInput.trim();
     const profile_id = idInput.trim().toLowerCase();
@@ -107,6 +127,21 @@ export default function StockProfilesPage() {
     createMutation.mutate({
       name,
       profile_id: profile_id || undefined,
+    });
+  };
+
+  const confirmDeleteProfile = (profile: StockProfileOut) => {
+    modals.openConfirmModal({
+      title: "Remover estoque",
+      children: (
+        <Text size="sm">
+          O estoque <b>{profile.name}</b> sera removido da lista junto com a pasta local desse perfil.
+          Essa acao nao pode ser desfeita.
+        </Text>
+      ),
+      labels: { confirm: "Remover estoque", cancel: "Cancelar" },
+      confirmProps: { color: "red" },
+      onConfirm: () => deleteMutation.mutate(profile),
     });
   };
 
@@ -221,15 +256,27 @@ export default function StockProfilesPage() {
                         </Badge>
                       </Table.Td>
                       <Table.Td>
-                        <Button
-                          size="xs"
-                          variant={profile.is_active ? "default" : "light"}
-                          disabled={profile.is_active}
-                          loading={activateMutation.isPending}
-                          onClick={() => activateMutation.mutate(profile.id)}
-                        >
-                          {profile.is_active ? "Em uso" : "Ativar"}
-                        </Button>
+                        <Group gap="xs">
+                          <Button
+                            size="xs"
+                            variant={profile.is_active ? "default" : "light"}
+                            disabled={profile.is_active}
+                            loading={activateMutation.isPending}
+                            onClick={() => activateMutation.mutate(profile.id)}
+                          >
+                            {profile.is_active ? "Em uso" : "Ativar"}
+                          </Button>
+                          <Button
+                            size="xs"
+                            color="red"
+                            variant="light"
+                            disabled={profile.is_active || profile.id === "default"}
+                            loading={deleteMutation.isPending}
+                            onClick={() => confirmDeleteProfile(profile)}
+                          >
+                            Remover
+                          </Button>
+                        </Group>
                       </Table.Td>
                     </Table.Tr>
                   ))}

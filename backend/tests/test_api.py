@@ -78,6 +78,39 @@ def test_stock_profiles_lifecycle(client):
     assert switched_back_data["requires_restart"] is True
 
 
+def test_stock_profile_delete_rules(client):
+    created = client.post(
+        "/sistema/estoques",
+        json={"name": "Filial Excluir", "profile_id": "filial_excluir"},
+    )
+    assert created.status_code == 201
+    created_data = created.json()["data"]
+    assert created_data["id"] == "filial_excluir"
+
+    delete_default = client.delete("/sistema/estoques/default")
+    assert delete_default.status_code == 400
+
+    switched = client.put("/sistema/estoques/ativo", json={"profile_id": "filial_excluir"})
+    assert switched.status_code == 200
+
+    delete_active = client.delete("/sistema/estoques/filial_excluir")
+    assert delete_active.status_code == 400
+
+    switched_back = client.put("/sistema/estoques/ativo", json={"profile_id": "default"})
+    assert switched_back.status_code == 200
+
+    deleted = client.delete("/sistema/estoques/filial_excluir")
+    assert deleted.status_code == 200
+    deleted_data = deleted.json()["data"]
+    assert deleted_data["deleted_profile_id"] == "filial_excluir"
+    assert not os.path.exists(created_data["path"])
+
+    listed_after = client.get("/sistema/estoques")
+    assert listed_after.status_code == 200
+    ids_after = {item["id"] for item in listed_after.json()["data"]["profiles"]}
+    assert "filial_excluir" not in ids_after
+
+
 def test_create_and_get_product(client):
     payload = {"nome": "Produto Teste", "qtd_canoas": 1, "qtd_pf": 0}
     create = client.post("/produtos", json=payload)
@@ -625,6 +658,93 @@ def test_backup_diagnostics_download(client):
         assert "backups" in summary
 
 
+def test_official_base_config_status_and_publish_apply(client, tmp_path):
+    product_a = _create_product(client, "Produto Oficial A", qtd_canoas=2, qtd_pf=0)
+    share_dir = tmp_path / "BaseOficialChronos"
+
+    initial_status = client.get("/backup/base-oficial/status")
+    assert initial_status.status_code == 200
+    initial_data = initial_status.json()["data"]
+    assert initial_data["role"] == "consumer"
+    assert initial_data["latest_available"] is False
+
+    config = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "publisher",
+            "official_base_dir": str(share_dir),
+            "machine_label": "PC-TESTE",
+            "publisher_name": "Usuario Teste",
+        },
+    )
+    assert config.status_code == 200
+    config_data = config.json()["data"]
+    assert config_data["role"] == "publisher"
+    assert config_data["official_base_dir"] == str(share_dir)
+
+    published = client.post(
+        "/backup/base-oficial/publicar",
+        json={"notes": "Base oficial apos conferencia"},
+    )
+    assert published.status_code == 200
+    published_data = published.json()["data"]
+    assert os.path.exists(published_data["zip_path"])
+    assert os.path.exists(published_data["manifest_path"])
+    assert os.path.exists(published_data["history_zip_path"])
+    assert os.path.exists(published_data["history_manifest_path"])
+
+    product_b = _create_product(client, "Produto Oficial B", qtd_canoas=1, qtd_pf=0)
+    listed_before_apply = client.get("/produtos")
+    ids_before = {item["id"] for item in listed_before_apply.json()["data"]}
+    assert product_a in ids_before
+    assert product_b in ids_before
+
+    applied = client.post("/backup/base-oficial/aplicar")
+    assert applied.status_code == 200
+    applied_data = applied.json()["data"]
+    assert applied_data["restart_required"] is True
+    assert os.path.exists(applied_data["pre_restore_backup"])
+
+    listed_after_apply = client.get("/produtos")
+    ids_after = {item["id"] for item in listed_after_apply.json()["data"]}
+    assert product_a in ids_after
+    assert product_b not in ids_after
+
+    final_status = client.get("/backup/base-oficial/status")
+    assert final_status.status_code == 200
+    final_data = final_status.json()["data"]
+    assert final_data["latest_available"] is True
+    assert final_data["app_compatible_with_latest"] is True
+    assert final_data["latest_manifest"]["publisher_machine"] == "PC-TESTE"
+
+
+def test_official_base_apply_requires_compatible_app_version(client, tmp_path):
+    _create_product(client, "Produto Compat", qtd_canoas=1, qtd_pf=0)
+    share_dir = tmp_path / "BaseOficialChronos"
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "publisher",
+            "official_base_dir": str(share_dir),
+            "machine_label": "PC-TESTE",
+        },
+    )
+    assert configured.status_code == 200
+
+    published = client.post("/backup/base-oficial/publicar", json={})
+    assert published.status_code == 200
+
+    manifest_path = share_dir / "latest" / "base_oficial.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["min_app_version"] = "9.9.9"
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    applied = client.post("/backup/base-oficial/aplicar")
+    assert applied.status_code == 400
+    assert "Atualize o aplicativo" in applied.json()["error"]["message"]
+
+
 def test_export_products(client):
     _create_product(client, "Produto Export", qtd_canoas=1, qtd_pf=0)
     resp = client.post("/export/produtos")
@@ -691,8 +811,9 @@ def test_upload_product_image(client):
 
 def test_analytics_top_saidas_filters_and_order(client):
     product_a = _create_product(client, "Produto A", qtd_canoas=10, qtd_pf=0)
-    product_b = _create_product(client, "Produto B", qtd_canoas=5, qtd_pf=0)
+    product_b = _create_product(client, "Produto B", qtd_canoas=0, qtd_pf=5)
     product_c = _create_product(client, "Produto C", qtd_canoas=2, qtd_pf=0)
+    product_d = _create_product(client, "Produto D", qtd_canoas=4, qtd_pf=0)
 
     base_date = "2026-02-10T10:00:00"
 
@@ -711,19 +832,34 @@ def test_analytics_top_saidas_filters_and_order(client):
         "data": base_date,
     })
     client.post("/movimentacoes", json={
-        "tipo": "TRANSFERENCIA",
+        "tipo": "SAIDA",
         "produto_id": product_c,
-        "quantidade": 10,
+        "quantidade": 2,
         "origem": "CANOAS",
-        "destino": "PF",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "MATRIZ",
+        "data": base_date,
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_d,
+        "quantidade": 1,
+        "origem": "CANOAS",
+        "natureza": "AJUSTE",
+        "motivo_ajuste": "ERRO_OPERACIONAL",
+        "observacao": "Ajuste teste",
         "data": base_date,
     })
 
     resp = client.get("/analytics/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS")
     assert resp.status_code == 200
     data = resp.json()["data"]
+    ids = {item["produto_id"] for item in data}
     assert data[0]["produto_id"] == product_a
     assert data[0]["total_saida"] == 5
+    assert product_b in ids
+    assert product_c not in ids
+    assert product_d not in ids
 
     resp_canoas = client.get("/analytics/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=CANOAS")
     assert resp_canoas.status_code == 200
@@ -773,6 +909,37 @@ def test_analytics_entradas_saidas_and_distribuicao(client):
     assert distrib.status_code == 200
     distrib_data = distrib.json()["data"]
     assert distrib_data["total"] >= 0
+
+
+def test_create_product_generates_initial_entry_in_flow(client):
+    created = client.post(
+        "/produtos",
+        json={"nome": "Produto Fluxo Inicial", "qtd_canoas": 2, "qtd_pf": 3},
+    )
+    assert created.status_code == 201
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    flow_ambos = client.get(
+        f"/analytics/movements/flow?date_from={today}&date_to={today}&scope=AMBOS&bucket=day"
+    )
+    assert flow_ambos.status_code == 200
+    flow_ambos_data = flow_ambos.json()["data"]
+    assert len(flow_ambos_data) == 1
+    assert flow_ambos_data[0]["entradas"] == 5
+    assert flow_ambos_data[0]["saidas"] == 0
+
+    flow_canoas = client.get(
+        f"/analytics/movements/flow?date_from={today}&date_to={today}&scope=CANOAS&bucket=day"
+    )
+    assert flow_canoas.status_code == 200
+    assert flow_canoas.json()["data"][0]["entradas"] == 2
+
+    flow_pf = client.get(
+        f"/analytics/movements/flow?date_from={today}&date_to={today}&scope=PF&bucket=day"
+    )
+    assert flow_pf.status_code == 200
+    assert flow_pf.json()["data"][0]["entradas"] == 3
 
 
 def test_analytics_top_sem_mov(client):
@@ -967,4 +1134,3 @@ def test_inventory_session_does_not_include_inactive_products(client):
     ids = {row["produto_id"] for row in items.json()["data"]}
     assert active_id in ids
     assert inactive_id not in ids
-

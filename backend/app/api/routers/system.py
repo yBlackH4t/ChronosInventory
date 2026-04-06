@@ -10,6 +10,7 @@ from backend.app.schemas.system import (
     StockProfileActivateIn,
     StockProfileActivateOut,
     StockProfileCreateIn,
+    StockProfileDeleteOut,
     StockProfileOut,
     StockProfilesStateOut,
 )
@@ -51,3 +52,12 @@ def activate_stock_profile(
 ) -> SuccessResponse[StockProfileActivateOut]:
     result = stock_profile_service.activate_profile(payload.profile_id)
     return ok(StockProfileActivateOut(**result))
+
+
+@router.delete("/estoques/{profile_id}", response_model=SuccessResponse[StockProfileDeleteOut])
+def delete_stock_profile(
+    profile_id: str,
+    stock_profile_service: StockProfileService = Depends(get_stock_profile_service),
+) -> SuccessResponse[StockProfileDeleteOut]:
+    result = stock_profile_service.delete_profile(profile_id)
+    return ok(StockProfileDeleteOut(**result))
