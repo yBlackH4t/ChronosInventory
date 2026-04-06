@@ -99,6 +99,7 @@ As próximas versões serão atualizadas automaticamente.
 ## 🔧 Requisitos
 
 - Windows 10/11
+- npm
 - Python 3.12
 - Node 20+
 - Rust (toolchain estável)
