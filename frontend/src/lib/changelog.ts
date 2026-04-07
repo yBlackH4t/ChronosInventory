@@ -10,6 +10,23 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.4.0",
+    "date": "2026-04-07",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Novo release:doctor no fluxo de release para validar versoes, changelog e sidecar antes de gerar/publicar a nova versao.",
+      "Novo: Historico e teste da pasta em Base oficial compartilhada, com comparativo entre a base local ativa e a ultima base publicada.",
+      "Novo: Novas acoes de inventario para Fechar sessao e Excluir sessao, com confirmacao na interface.",
+      "Novo: Novos relatorios em PDF de Vendas reais e Estoque parado.",
+      "Mudanca: Tela de inventario ficou mais operacional: resumo claro de divergencias, filtros por status, atalhos (Ctrl+F, Ctrl+B, Ctrl+S) e persistencia de filtros na sessao.",
+      "Mudanca: TRANSFERENCIA_EXTERNA passou a ser aceita tambem em ENTRADA, permitindo registrar recebimento de mercadoria vinda de filial/matriz com Local externo.",
+      "Mudanca: Fluxo de release no GitHub Actions agora executa validacoes previas para reduzir chance de publicar versao quebrada.",
+      "Correcao: Bloqueio preventivo de release quando o backend sidecar estiver desatualizado em relacao ao app.",
+      "Correcao: Publicacao da base oficial ficou mais segura, com leitura mais clara da base ativa e menor risco de distribuir banco errado ou vazio.",
+      "Correcao: Sessoes de inventario fechadas nao podem mais ser editadas, e sessoes com ajustes aplicados nao podem ser excluidas."
+    ]
+  },
+  {
     "version": "1.3.0",
     "date": "2026-04-06",
     "title": "Melhorias e correcoes",

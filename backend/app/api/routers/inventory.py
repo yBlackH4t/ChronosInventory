@@ -12,6 +12,8 @@ from backend.app.schemas.inventory import (
     InventoryApplyOut,
     InventoryCountOut,
     InventoryCountsUpdateIn,
+    InventorySessionDeleteOut,
+    InventorySessionSummaryOut,
     InventorySessionCreateIn,
     InventorySessionOut,
 )
@@ -92,10 +94,20 @@ def get_inventory_session(
     return ok(_to_session_out(row))
 
 
+@router.get("/sessoes/{session_id}/resumo", response_model=SuccessResponse[InventorySessionSummaryOut])
+def get_inventory_session_summary(
+    session_id: int,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+) -> SuccessResponse[InventorySessionSummaryOut]:
+    summary = inventory_service.get_session_summary(session_id)
+    return ok(InventorySessionSummaryOut(**summary))
+
+
 @router.get("/sessoes/{session_id}/itens", response_model=SuccessResponse[list[InventoryCountOut]])
 def list_inventory_session_items(
     session_id: int,
     only_divergent: bool = False,
+    status_filter: str = Query("ALL"),
     query: str = "",
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
@@ -108,6 +120,7 @@ def list_inventory_session_items(
         offset=offset,
         only_divergent=only_divergent,
         query=query,
+        status_filter=status_filter,
     )
     total_pages = ceil(total_items / page_size) if total_items else 0
     meta = PaginationMeta(
@@ -131,6 +144,24 @@ def update_inventory_session_items(
         items=[item.model_dump() for item in payload.items],
     )
     return ok(_to_session_out(session))
+
+
+@router.post("/sessoes/{session_id}/fechar", response_model=SuccessResponse[InventorySessionOut])
+def close_inventory_session(
+    session_id: int,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+) -> SuccessResponse[InventorySessionOut]:
+    session = inventory_service.close_session(session_id=session_id)
+    return ok(_to_session_out(session))
+
+
+@router.delete("/sessoes/{session_id}", response_model=SuccessResponse[InventorySessionDeleteOut])
+def delete_inventory_session(
+    session_id: int,
+    inventory_service: InventoryService = Depends(get_inventory_service),
+) -> SuccessResponse[InventorySessionDeleteOut]:
+    result = inventory_service.delete_session(session_id=session_id)
+    return ok(InventorySessionDeleteOut(**result))
 
 
 @router.post("/sessoes/{session_id}/aplicar", response_model=SuccessResponse[InventoryApplyOut])

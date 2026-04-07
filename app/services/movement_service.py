@@ -443,6 +443,53 @@ class MovementService:
 
         return items
 
+    def list_real_sales(self, date_from: date, date_to: date, scope: str = "AMBOS") -> List[dict]:
+        df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
+        dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+        origem = None if scope == "AMBOS" else self._normalize_location(scope)
+        rows = self.repo.list_real_sales(df, dt, origem=origem)
+        return [
+            {
+                "movement_id": int(row["id"]),
+                "date": str(row["data_hora"]),
+                "produto_id": int(row["produto_id"]),
+                "produto_nome": str(row["produto_nome"]),
+                "quantidade": int(row["quantidade"] or 0),
+                "origem": row["origem"],
+                "documento": row.get("documento"),
+                "observacao": row.get("observacao"),
+            }
+            for row in rows
+        ]
+
+    def list_inactive_products_report(self, days: int, date_to: date, scope: str = "AMBOS") -> List[dict]:
+        cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
+        cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
+        date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+        rows = self.repo.list_inactive_products_report(cutoff, date_to_limit, scope=scope)
+        items: List[dict] = []
+        for row in rows:
+            last = row.get("last_movement")
+            dias = days
+            if last:
+                try:
+                    last_dt = datetime.strptime(last, DATE_FORMAT_DB)
+                    dias = max((date_to - last_dt.date()).days, 0)
+                except Exception:
+                    dias = days
+
+            items.append(
+                {
+                    "produto_id": int(row["produto_id"]),
+                    "nome": str(row["nome"]),
+                    "estoque_atual": int(row.get("estoque_atual") or 0),
+                    "local": str(row.get("local") or scope),
+                    "last_movement": last,
+                    "dias_sem_mov": dias,
+                }
+            )
+        return items
+
     # Compatibilidade de endpoints antigos
     def get_entradas_saidas(self, date_from: date, date_to: date) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
@@ -569,8 +616,8 @@ class MovementService:
             raise ValidationException("Natureza DEVOLUCAO exige movimentacao do tipo ENTRADA.")
 
         if natureza == NATUREZA_TRANSFERENCIA_EXTERNA:
-            if tipo != "SAIDA":
-                raise ValidationException("Natureza TRANSFERENCIA_EXTERNA exige movimentacao do tipo SAIDA.")
+            if tipo not in {"ENTRADA", "SAIDA"}:
+                raise ValidationException("Natureza TRANSFERENCIA_EXTERNA exige movimentacao do tipo ENTRADA ou SAIDA.")
             if not local_externo:
                 raise ValidationException("Informe o local externo para TRANSFERENCIA_EXTERNA.")
 

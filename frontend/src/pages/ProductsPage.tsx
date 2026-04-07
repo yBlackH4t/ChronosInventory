@@ -111,7 +111,10 @@ function adjustmentReasonLabel(reason?: AdjustmentReason | null) {
 function movementNatureOptionsByType(tipo: MovementType): { value: MovementNature; label: string }[] {
   if (tipo === "ENTRADA") {
     return MOVEMENT_NATURE_OPTIONS.filter((item) =>
-      item.value === "OPERACAO_NORMAL" || item.value === "DEVOLUCAO" || item.value === "AJUSTE"
+      item.value === "OPERACAO_NORMAL" ||
+      item.value === "DEVOLUCAO" ||
+      item.value === "AJUSTE" ||
+      item.value === "TRANSFERENCIA_EXTERNA"
     );
   }
   if (tipo === "SAIDA") {
@@ -441,8 +444,8 @@ export default function ProductsPage() {
         if (value === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
           return "Devolucao so pode ser ENTRADA";
         }
-        if (value === "TRANSFERENCIA_EXTERNA" && values.tipo !== "SAIDA") {
-          return "Transferencia externa so pode ser SAIDA";
+        if (value === "TRANSFERENCIA_EXTERNA" && values.tipo !== "ENTRADA" && values.tipo !== "SAIDA") {
+          return "Transferencia externa so pode ser ENTRADA ou SAIDA";
         }
         return null;
       },
@@ -516,8 +519,8 @@ export default function ProductsPage() {
       movementForm.setFieldError("natureza", "Devolucao so pode ser ENTRADA");
       return;
     }
-    if (values.natureza === "TRANSFERENCIA_EXTERNA" && values.tipo !== "SAIDA") {
-      movementForm.setFieldError("natureza", "Transferencia externa so pode ser SAIDA");
+    if (values.natureza === "TRANSFERENCIA_EXTERNA" && values.tipo !== "ENTRADA" && values.tipo !== "SAIDA") {
+      movementForm.setFieldError("natureza", "Transferencia externa so pode ser ENTRADA ou SAIDA");
       return;
     }
     if (values.natureza === "TRANSFERENCIA_EXTERNA" && !(values.local_externo || "").trim()) {

@@ -36,6 +36,9 @@ jobs:
       - name: Check version consistency
         run: python scripts/check_versions.py
 
+      - name: Release doctor (prebuild)
+        run: python scripts/release_doctor.py --frontend-dir frontend --skip-sidecar
+
       - name: Setup Node 20
         uses: actions/setup-node@v4
         with:

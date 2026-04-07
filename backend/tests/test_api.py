@@ -310,6 +310,30 @@ def test_movement_saida_transferencia_externa_registers_metadata(client):
     assert product["qtd_canoas"] == 3
 
 
+def test_movement_entrada_transferencia_externa_registers_metadata(client):
+    product_id = _create_product(client, "Produto Recebido Externo", qtd_canoas=1, qtd_pf=0)
+
+    movement = {
+        "tipo": "ENTRADA",
+        "produto_id": product_id,
+        "quantidade": 2,
+        "destino": "CANOAS",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "MATRIZ",
+        "documento": "NF REM 456",
+        "observacao": "Recebido da filial",
+    }
+    resp = client.post("/movimentacoes", json=movement)
+    assert resp.status_code == 201
+    data = resp.json()["data"]
+    assert data["natureza"] == "TRANSFERENCIA_EXTERNA"
+    assert data["local_externo"] == "MATRIZ"
+    assert data["documento"] == "NF REM 456"
+
+    product = client.get(f"/produtos/{product_id}").json()["data"]
+    assert product["qtd_canoas"] == 3
+
+
 def test_movement_devolucao_reentrada_with_reference(client):
     product_id = _create_product(client, "Produto Devolucao", qtd_canoas=1, qtd_pf=0)
 
@@ -693,6 +717,22 @@ def test_official_base_config_status_and_publish_apply(client, tmp_path):
     assert os.path.exists(published_data["history_zip_path"])
     assert os.path.exists(published_data["history_manifest_path"])
 
+    tested = client.post("/backup/base-oficial/testar-pasta")
+    assert tested.status_code == 200
+    tested_data = tested.json()["data"]
+    assert tested_data["directory_exists"] is True
+    assert tested_data["directory_accessible"] is True
+    assert tested_data["read_ok"] is True
+    assert tested_data["write_ok"] is True
+    assert tested_data["latest_manifest_found"] is True
+
+    history = client.get("/backup/base-oficial/historico?limit=5")
+    assert history.status_code == 200
+    history_data = history.json()["data"]
+    assert len(history_data) >= 1
+    assert history_data[0]["manifest"]["products_count"] == 1
+    assert history_data[0]["manifest"]["movements_count"] >= 1
+
     product_b = _create_product(client, "Produto Oficial B", qtd_canoas=1, qtd_pf=0)
     listed_before_apply = client.get("/produtos")
     ids_before = {item["id"] for item in listed_before_apply.json()["data"]}
@@ -716,6 +756,8 @@ def test_official_base_config_status_and_publish_apply(client, tmp_path):
     assert final_data["latest_available"] is True
     assert final_data["app_compatible_with_latest"] is True
     assert final_data["latest_manifest"]["publisher_machine"] == "PC-TESTE"
+    assert final_data["latest_manifest"]["products_count"] == 1
+    assert final_data["latest_manifest"]["movements_count"] >= 1
 
 
 def test_official_base_apply_requires_compatible_app_version(client, tmp_path):
@@ -752,6 +794,36 @@ def test_export_products(client):
     assert resp.headers.get("content-type", "").startswith(
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+    assert resp.content
+
+
+def test_report_real_sales_pdf(client):
+    product_id = _create_product(client, "Produto Venda Relatorio", qtd_canoas=5, qtd_pf=0)
+    movement = client.post(
+        "/movimentacoes",
+        json={
+            "tipo": "SAIDA",
+            "produto_id": product_id,
+            "quantidade": 2,
+            "origem": "CANOAS",
+            "natureza": "OPERACAO_NORMAL",
+            "documento": "NF 9988",
+            "data": "2026-04-06T10:00:00",
+        },
+    )
+    assert movement.status_code == 201
+
+    resp = client.get("/relatorios/vendas-reais.pdf?date_from=2026-04-01&date_to=2026-04-07&scope=AMBOS")
+    assert resp.status_code == 200
+    assert resp.headers.get("content-type", "").startswith("application/pdf")
+    assert resp.content
+
+
+def test_report_inactive_stock_pdf(client):
+    _create_product(client, "Produto Parado Relatorio", qtd_canoas=3, qtd_pf=0)
+    resp = client.get("/relatorios/estoque-parado.pdf?days=30&date_to=2026-04-07&scope=AMBOS")
+    assert resp.status_code == 200
+    assert resp.headers.get("content-type", "").startswith("application/pdf")
     assert resp.content
 
 
@@ -1110,6 +1182,140 @@ def test_inventory_session_flow(client):
     product = client.get(f"/produtos/{product_id}")
     assert product.status_code == 200
     assert product.json()["data"]["qtd_canoas"] == 3
+
+
+def test_inventory_session_summary_and_filters(client):
+    missing_id = _create_product(client, "Produto Falta", qtd_canoas=5, qtd_pf=0)
+    surplus_id = _create_product(client, "Produto Sobra", qtd_canoas=1, qtd_pf=0)
+    matched_id = _create_product(client, "Produto OK", qtd_canoas=2, qtd_pf=0)
+
+    created = client.post(
+        "/inventario/sessoes",
+        json={"nome": "Inventario Divergencias", "local": "CANOAS"},
+    )
+    assert created.status_code == 201
+    session_id = created.json()["data"]["id"]
+
+    update = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={
+            "items": [
+                {
+                    "produto_id": missing_id,
+                    "qtd_fisico": 3,
+                    "motivo_ajuste": "CORRECAO_INVENTARIO",
+                    "observacao": "Faltou no fisico",
+                },
+                {
+                    "produto_id": surplus_id,
+                    "qtd_fisico": 4,
+                    "motivo_ajuste": "CORRECAO_INVENTARIO",
+                    "observacao": "Sobrou no fisico",
+                },
+                {
+                    "produto_id": matched_id,
+                    "qtd_fisico": 2,
+                    "observacao": "Conferido",
+                },
+            ]
+        },
+    )
+    assert update.status_code == 200
+
+    summary = client.get(f"/inventario/sessoes/{session_id}/resumo")
+    assert summary.status_code == 200
+    summary_data = summary.json()["data"]
+    assert summary_data["missing_items"] >= 1
+    assert summary_data["surplus_items"] >= 1
+    assert summary_data["matched_items"] >= 1
+    assert summary_data["pending_items"] >= 2
+
+    missing = client.get(f"/inventario/sessoes/{session_id}/itens?status_filter=MISSING&page=1&page_size=100")
+    assert missing.status_code == 200
+    missing_ids = {row["produto_id"] for row in missing.json()["data"]}
+    assert missing_id in missing_ids
+    assert surplus_id not in missing_ids
+
+    surplus = client.get(f"/inventario/sessoes/{session_id}/itens?status_filter=SURPLUS&page=1&page_size=100")
+    assert surplus.status_code == 200
+    surplus_ids = {row["produto_id"] for row in surplus.json()["data"]}
+    assert surplus_id in surplus_ids
+    assert missing_id not in surplus_ids
+
+    matched = client.get(f"/inventario/sessoes/{session_id}/itens?status_filter=MATCHED&page=1&page_size=100")
+    assert matched.status_code == 200
+    matched_ids = {row["produto_id"] for row in matched.json()["data"]}
+    assert matched_id in matched_ids
+
+
+def test_inventory_session_can_be_closed_and_deleted(client):
+    product_id = _create_product(client, "Produto Inventario Fechar", qtd_canoas=2, qtd_pf=0)
+
+    created = client.post(
+        "/inventario/sessoes",
+        json={"nome": "Inventario para fechar", "local": "CANOAS"},
+    )
+    assert created.status_code == 201
+    session_id = created.json()["data"]["id"]
+
+    closed = client.post(f"/inventario/sessoes/{session_id}/fechar")
+    assert closed.status_code == 200
+    assert closed.json()["data"]["status"] == "FECHADO"
+
+    update = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={
+            "items": [
+                {
+                    "produto_id": product_id,
+                    "qtd_fisico": 1,
+                    "motivo_ajuste": "CORRECAO_INVENTARIO",
+                    "observacao": "teste",
+                }
+            ]
+        },
+    )
+    assert update.status_code == 400
+
+    deleted = client.delete(f"/inventario/sessoes/{session_id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"]["session_id"] == session_id
+
+    missing = client.get(f"/inventario/sessoes/{session_id}")
+    assert missing.status_code == 400
+
+
+def test_inventory_applied_session_cannot_be_deleted(client):
+    product_id = _create_product(client, "Produto Inventario Aplicado", qtd_canoas=5, qtd_pf=0)
+
+    created = client.post(
+        "/inventario/sessoes",
+        json={"nome": "Inventario aplicado", "local": "CANOAS"},
+    )
+    assert created.status_code == 201
+    session_id = created.json()["data"]["id"]
+
+    updated = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={
+            "items": [
+                {
+                    "produto_id": product_id,
+                    "qtd_fisico": 3,
+                    "motivo_ajuste": "CORRECAO_INVENTARIO",
+                    "observacao": "fechar depois",
+                }
+            ]
+        },
+    )
+    assert updated.status_code == 200
+
+    applied = client.post(f"/inventario/sessoes/{session_id}/aplicar")
+    assert applied.status_code == 200
+
+    deleted = client.delete(f"/inventario/sessoes/{session_id}")
+    assert deleted.status_code == 400
+    assert deleted.json()["error"]["code"] == "validation_error"
 
 
 def test_inventory_session_does_not_include_inactive_products(client):

@@ -8,6 +8,7 @@ import {
   Loader,
   NumberInput,
   Select,
+  SimpleGrid,
   Stack,
   Textarea,
   Switch,
@@ -37,6 +38,8 @@ import type {
   DownloadResponse,
   OfficialBaseApplyOut,
   OfficialBaseConfigIn,
+  OfficialBaseDirectoryTestOut,
+  OfficialBaseHistoryItemOut,
   OfficialBasePublishOut,
   OfficialBaseRole,
   OfficialBaseStatusOut,
@@ -98,6 +101,7 @@ export default function BackupPage() {
   const [officialMachineLabelInput, setOfficialMachineLabelInput] = useState("");
   const [officialPublisherNameInput, setOfficialPublisherNameInput] = useState("");
   const [officialNotesInput, setOfficialNotesInput] = useState("");
+  const [officialDirectoryTestResult, setOfficialDirectoryTestResult] = useState<OfficialBaseDirectoryTestOut | null>(null);
 
   const backupsQuery = useQuery<SuccessResponse<BackupListItemOut[]>>({
     queryKey: ["backup-list"],
@@ -117,6 +121,13 @@ export default function BackupPage() {
   const officialBaseStatusQuery = useQuery<SuccessResponse<OfficialBaseStatusOut>>({
     queryKey: ["official-base-status"],
     queryFn: ({ signal }) => api.officialBaseStatus({ signal }),
+  });
+
+  const officialBaseHistoryQuery = useQuery<SuccessResponse<OfficialBaseHistoryItemOut[]>>({
+    queryKey: ["official-base-history"],
+    queryFn: ({ signal }) => api.officialBaseHistory({ limit: 8 }, { signal }),
+    enabled: !!officialBaseStatusQuery.data?.data?.directory_configured,
+    staleTime: 30_000,
   });
 
   const backupMutation = useMutation<SuccessResponse<BackupOut>, Error, void>({
@@ -212,6 +223,20 @@ export default function BackupPage() {
     onSuccess: (response) => {
       notifySuccess("Configuracao da base oficial salva.");
       queryClient.setQueryData(["official-base-status"], response);
+      queryClient.invalidateQueries({ queryKey: ["official-base-history"] });
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const officialBaseTestDirectoryMutation = useMutation<
+    SuccessResponse<OfficialBaseDirectoryTestOut>,
+    Error,
+    void
+  >({
+    mutationFn: () => api.officialBaseTestDirectory(),
+    onSuccess: (response) => {
+      setOfficialDirectoryTestResult(response.data);
+      notifySuccess(response.data.message);
     },
     onError: (error) => notifyError(error),
   });
@@ -226,6 +251,7 @@ export default function BackupPage() {
       notifySuccess(`Base oficial publicada em ${dayjs(response.data.published_at).format("DD/MM/YYYY HH:mm")}.`);
       setOfficialNotesInput("");
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+      queryClient.invalidateQueries({ queryKey: ["official-base-history"] });
     },
     onError: (error) => notifyError(error),
   });
@@ -235,6 +261,7 @@ export default function BackupPage() {
     onSuccess: async (response) => {
       notifySuccess("Base oficial aplicada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+      queryClient.invalidateQueries({ queryKey: ["official-base-history"] });
       queryClient.invalidateQueries({ queryKey: ["backup-list"] });
       queryClient.invalidateQueries({ queryKey: ["backup-validate-current"] });
       if (!response.data.restart_required) return;
@@ -272,6 +299,7 @@ export default function BackupPage() {
   const autoScheduleMode = autoScheduleModeInput ?? autoConfig?.schedule_mode ?? "DAILY";
   const autoWeekday = autoWeekdayInput ?? String(autoConfig?.weekday ?? 0);
   const latestOfficialManifest = officialBaseStatus?.latest_manifest;
+  const officialBaseHistory = officialBaseHistoryQuery.data?.data ?? [];
 
   useEffect(() => {
     if (!officialBaseStatus) return;
@@ -509,11 +537,51 @@ export default function BackupPage() {
                 <Button onClick={saveOfficialBaseConfig} loading={officialBaseConfigMutation.isPending}>
                   Salvar configuracao
                 </Button>
+                <Button
+                  variant="light"
+                  onClick={() => officialBaseTestDirectoryMutation.mutate()}
+                  loading={officialBaseTestDirectoryMutation.isPending}
+                  disabled={!officialBaseDirInput.trim()}
+                >
+                  Testar pasta
+                </Button>
               </Group>
 
               <Text size="sm" c="dimmed">
                 Config local: {officialBaseStatus?.config_path || "-"}
               </Text>
+
+              {officialDirectoryTestResult && (
+                <Alert
+                  color={
+                    officialDirectoryTestResult.directory_accessible &&
+                    (officialRoleInput !== "publisher" || officialDirectoryTestResult.write_ok)
+                      ? "green"
+                      : "orange"
+                  }
+                  variant="light"
+                >
+                  <Stack gap={4}>
+                    <Text size="sm">{officialDirectoryTestResult.message}</Text>
+                    <Group gap="xs" wrap="wrap">
+                      <Badge variant="light" color={officialDirectoryTestResult.read_ok ? "green" : "orange"}>
+                        Leitura {officialDirectoryTestResult.read_ok ? "OK" : "falhou"}
+                      </Badge>
+                      <Badge variant="light" color={officialDirectoryTestResult.write_ok ? "green" : "orange"}>
+                        Escrita {officialDirectoryTestResult.write_ok ? "OK" : "nao validada"}
+                      </Badge>
+                      <Badge
+                        variant="light"
+                        color={officialDirectoryTestResult.latest_manifest_found ? "blue" : "gray"}
+                      >
+                        {officialDirectoryTestResult.latest_manifest_found
+                          ? "Manifesto encontrado"
+                          : "Sem manifesto ainda"}
+                      </Badge>
+                    </Group>
+                  </Stack>
+                </Alert>
+              )}
 
               <Card withBorder bg="var(--mantine-color-gray-0)">
                 <Stack gap="xs">
@@ -558,12 +626,59 @@ export default function BackupPage() {
                       App minimo: {latestOfficialManifest.min_app_version} | Banco: {latestOfficialManifest.db_version}
                     </Text>
                     <Text size="sm">Notas: {latestOfficialManifest.notes || "Sem observacoes."}</Text>
+                    <Group gap="sm" wrap="wrap">
+                      <Badge variant="light" color="blue">
+                        Produtos: {latestOfficialManifest.products_count ?? 0}
+                      </Badge>
+                      <Badge variant="light" color="teal">
+                        Com estoque: {latestOfficialManifest.products_with_stock_count ?? 0}
+                      </Badge>
+                      <Badge variant="light" color="grape">
+                        Movimentacoes: {latestOfficialManifest.movements_count ?? 0}
+                      </Badge>
+                      <Badge variant="light" color="gray">
+                        Tamanho: {bytesToHuman(latestOfficialManifest.database_size ?? 0)}
+                      </Badge>
+                    </Group>
                   </Stack>
                 </Card>
               ) : (
                 <Text size="sm" c="dimmed">
                   Nenhuma base oficial publicada ainda.
                 </Text>
+              )}
+
+              {latestOfficialManifest && (
+                <SimpleGrid cols={{ base: 1, md: 2 }}>
+                  <Card withBorder>
+                    <Stack gap={4}>
+                      <Text fw={600}>Comparativo rapido</Text>
+                      <Text size="sm">
+                        Produtos locais: {officialBaseStatus?.current_products_count ?? 0} | publicados:{" "}
+                        {latestOfficialManifest.products_count ?? 0}
+                      </Text>
+                      <Text size="sm">
+                        Com estoque local: {officialBaseStatus?.current_products_with_stock_count ?? 0} | publicados:{" "}
+                        {latestOfficialManifest.products_with_stock_count ?? 0}
+                      </Text>
+                      <Text size="sm">
+                        Movimentacoes locais: {officialBaseStatus?.current_movements_count ?? 0} | publicadas:{" "}
+                        {latestOfficialManifest.movements_count ?? 0}
+                      </Text>
+                    </Stack>
+                  </Card>
+                  <Card withBorder>
+                    <Stack gap={4}>
+                      <Text fw={600}>Leitura operacional</Text>
+                      <Text size="sm">
+                        Se estes numeros divergirem muito, confira antes de publicar ou aplicar a base.
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        Isso ajuda a evitar sobrescrever o colega com uma base errada ou desatualizada.
+                      </Text>
+                    </Stack>
+                  </Card>
+                </SimpleGrid>
               )}
 
               {officialRoleInput === "publisher" && (
@@ -596,6 +711,47 @@ export default function BackupPage() {
                   Atualizar minha base
                 </Button>
               </Group>
+
+              <Card withBorder>
+                <Stack gap="sm">
+                  <Group justify="space-between" wrap="wrap">
+                    <Text fw={600}>Historico recente de publicacoes</Text>
+                    {officialBaseHistoryQuery.isFetching && <Loader size="xs" />}
+                  </Group>
+                  {officialBaseHistory.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                      Nenhuma publicacao historica encontrada nesta pasta.
+                    </Text>
+                  ) : (
+                    <DataTable minWidth={880}>
+                      <Table striped highlightOnHover withTableBorder>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Publicado em</Table.Th>
+                            <Table.Th>Origem</Table.Th>
+                            <Table.Th>App</Table.Th>
+                            <Table.Th>Produtos</Table.Th>
+                            <Table.Th>Movs</Table.Th>
+                            <Table.Th>Notas</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {officialBaseHistory.map((item) => (
+                            <Table.Tr key={item.manifest_path}>
+                              <Table.Td>{dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
+                              <Table.Td>{item.manifest.publisher_name || item.manifest.publisher_machine}</Table.Td>
+                              <Table.Td>{item.manifest.app_version}</Table.Td>
+                              <Table.Td>{item.manifest.products_count ?? "-"}</Table.Td>
+                              <Table.Td>{item.manifest.movements_count ?? "-"}</Table.Td>
+                              <Table.Td>{item.manifest.notes || "-"}</Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </DataTable>
+                  )}
+                </Stack>
+              </Card>
             </>
           )}
         </Stack>

@@ -300,6 +300,38 @@ class MovementRepository(BaseRepository):
 
         return self._execute_query(query, tuple(params))
 
+    def list_real_sales(
+        self,
+        date_from: str,
+        date_to: str,
+        origem: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        query = """
+            SELECT m.id,
+                   m.data_hora,
+                   m.produto_id,
+                   p.nome AS produto_nome,
+                   m.quantidade,
+                   m.origem,
+                   m.documento,
+                   m.observacao
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE m.tipo = 'SAIDA'
+              AND m.natureza = 'OPERACAO_NORMAL'
+              AND p.ativo = 1
+              AND m.data_hora >= ?
+              AND m.data_hora <= ?
+        """
+        params: List[Any] = [date_from, date_to]
+
+        if origem:
+            query += " AND m.origem = ?"
+            params.append(origem)
+
+        query += " ORDER BY m.data_hora DESC, m.id DESC"
+        return self._execute_query(query, tuple(params))
+
     @staticmethod
     def _scope_stock_column(scope: str) -> str:
         return "qtd_canoas" if scope == "CANOAS" else "qtd_pf"
@@ -597,6 +629,74 @@ class MovementRepository(BaseRepository):
             LIMIT ?
             """,
             (date_to, cutoff, limit),
+        )
+
+    def list_inactive_products_report(
+        self,
+        cutoff: str,
+        date_to: str,
+        scope: str = "AMBOS",
+    ) -> List[Dict[str, Any]]:
+        if scope == "CANOAS":
+            return self._execute_query(
+                """
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       p.qtd_canoas as estoque_atual,
+                       'CANOAS' as local,
+                       MAX(m.data_hora) as last_movement
+                FROM produtos p
+                LEFT JOIN movimentacoes m
+                  ON m.produto_id = p.id
+                 AND m.data_hora <= ?
+                 AND (m.origem = 'CANOAS' OR m.destino = 'CANOAS')
+                WHERE p.ativo = 1
+                  AND p.qtd_canoas > 0
+                GROUP BY p.id, p.nome, p.qtd_canoas
+                HAVING last_movement IS NULL OR last_movement < ?
+                ORDER BY last_movement ASC, p.nome ASC
+                """,
+                (date_to, cutoff),
+            )
+        if scope == "PF":
+            return self._execute_query(
+                """
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       p.qtd_pf as estoque_atual,
+                       'PF' as local,
+                       MAX(m.data_hora) as last_movement
+                FROM produtos p
+                LEFT JOIN movimentacoes m
+                  ON m.produto_id = p.id
+                 AND m.data_hora <= ?
+                 AND (m.origem = 'PF' OR m.destino = 'PF')
+                WHERE p.ativo = 1
+                  AND p.qtd_pf > 0
+                GROUP BY p.id, p.nome, p.qtd_pf
+                HAVING last_movement IS NULL OR last_movement < ?
+                ORDER BY last_movement ASC, p.nome ASC
+                """,
+                (date_to, cutoff),
+            )
+        return self._execute_query(
+            """
+            SELECT p.id as produto_id,
+                   p.nome as nome,
+                   (COALESCE(p.qtd_canoas, 0) + COALESCE(p.qtd_pf, 0)) as estoque_atual,
+                   'AMBOS' as local,
+                   MAX(m.data_hora) as last_movement
+            FROM produtos p
+            LEFT JOIN movimentacoes m
+              ON m.produto_id = p.id
+             AND m.data_hora <= ?
+            WHERE p.ativo = 1
+              AND (COALESCE(p.qtd_canoas, 0) + COALESCE(p.qtd_pf, 0)) > 0
+            GROUP BY p.id, p.nome, p.qtd_canoas, p.qtd_pf
+            HAVING last_movement IS NULL OR last_movement < ?
+            ORDER BY last_movement ASC, p.nome ASC
+            """,
+            (date_to, cutoff),
         )
 
     # Compat endpoints antigos

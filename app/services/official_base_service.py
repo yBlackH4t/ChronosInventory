@@ -12,7 +12,7 @@ import tempfile
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from app.services.backup_service import BackupService
 from core.constants import APP_VERSION, DB_NAME, DATE_FORMAT_FILE
@@ -71,6 +71,95 @@ class OfficialBaseService:
             "app_compatible_with_latest": app_compatible,
         }
 
+    def test_directory_access(self) -> Dict[str, Any]:
+        config = self._load_config()
+        base_dir = str(config["official_base_dir"] or "").strip()
+        if not base_dir:
+            raise ValidationException("Configure a pasta da base oficial antes de testar.")
+
+        result = {
+            "directory_exists": False,
+            "directory_accessible": False,
+            "read_ok": False,
+            "write_ok": False,
+            "latest_manifest_found": False,
+            "message": "",
+        }
+
+        if not os.path.exists(base_dir):
+            result["message"] = "A pasta configurada nao existe."
+            return result
+
+        result["directory_exists"] = True
+
+        if not os.path.isdir(base_dir):
+            result["message"] = "O caminho configurado nao e uma pasta."
+            return result
+
+        try:
+            list(Path(base_dir).iterdir())
+            result["directory_accessible"] = True
+            result["read_ok"] = True
+        except Exception as exc:
+            result["message"] = f"Falha ao ler a pasta compartilhada: {exc}"
+            return result
+
+        latest_paths = self._latest_paths(base_dir)
+        result["latest_manifest_found"] = bool(self._read_manifest(latest_paths["manifest"]))
+
+        try:
+            probe_dir = Path(base_dir) / self._latest_dirname
+            probe_dir.mkdir(parents=True, exist_ok=True)
+            probe_file = probe_dir / ".chronos_probe.tmp"
+            probe_file.write_text("ok", encoding="utf-8")
+            probe_file.unlink(missing_ok=True)
+            result["write_ok"] = True
+        except Exception:
+            result["write_ok"] = False
+
+        if config["role"] == "publisher" and not result["write_ok"]:
+            result["message"] = (
+                "Leitura OK, mas sem escrita. Publisher precisa permissao de gravacao nesta pasta."
+            )
+        elif result["latest_manifest_found"]:
+            result["message"] = "Pasta acessivel e base oficial localizada."
+        else:
+            result["message"] = "Pasta acessivel, mas nenhuma base oficial foi publicada ainda."
+
+        return result
+
+    def list_history(self, limit: int = 10) -> List[Dict[str, Any]]:
+        config = self._load_config()
+        base_dir = str(config["official_base_dir"] or "").strip()
+        if not base_dir:
+            return []
+
+        history_dir = Path(base_dir) / self._history_dirname
+        if not history_dir.exists() or not history_dir.is_dir():
+            return []
+
+        items: List[Dict[str, Any]] = []
+        manifest_paths = sorted(
+            history_dir.glob(f"*_{self._manifest_filename}"),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        for manifest_path in manifest_paths[: max(limit, 1)]:
+            manifest = self._read_manifest(str(manifest_path))
+            if not manifest:
+                continue
+            zip_name = manifest_path.name.replace(f"_{self._manifest_filename}", f"_{self._zip_filename}")
+            zip_path = manifest_path.with_name(zip_name)
+            items.append(
+                {
+                    "manifest_path": str(manifest_path),
+                    "zip_path": str(zip_path) if zip_path.exists() else None,
+                    "manifest": manifest,
+                }
+            )
+
+        return items
+
     def update_config(
         self,
         role: str,
@@ -121,6 +210,8 @@ class OfficialBaseService:
         with tempfile.TemporaryDirectory(prefix="chronos_official_base_publish_") as tmp_dir:
             snapshot_path = os.path.join(tmp_dir, DB_NAME)
             self.backup_service._create_sqlite_snapshot(self.db_connection.get_database_path(), snapshot_path)
+            snapshot_summary = self._read_database_summary(snapshot_path)
+            snapshot_size = os.path.getsize(snapshot_path) if os.path.isfile(snapshot_path) else 0
 
             with zipfile.ZipFile(latest_paths["zip"], mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
                 zf.write(snapshot_path, arcname=DB_NAME)
@@ -137,6 +228,10 @@ class OfficialBaseService:
                 "database_filename": DB_NAME,
                 "database_sha256": checksum,
                 "notes": notes_value,
+                "products_count": snapshot_summary["current_products_count"],
+                "products_with_stock_count": snapshot_summary["current_products_with_stock_count"],
+                "movements_count": snapshot_summary["current_movements_count"],
+                "database_size": snapshot_size,
             }
 
             self._write_manifest(latest_paths["manifest"], manifest)
@@ -322,6 +417,10 @@ class OfficialBaseService:
             "database_filename": str(data.get("database_filename") or DB_NAME),
             "database_sha256": str(data.get("database_sha256") or ""),
             "notes": str(data.get("notes") or ""),
+            "products_count": self._safe_int(data.get("products_count")),
+            "products_with_stock_count": self._safe_int(data.get("products_with_stock_count")),
+            "movements_count": self._safe_int(data.get("movements_count")),
+            "database_size": self._safe_int(data.get("database_size")),
         }
 
     def _extract_official_database(self, zip_path: str, target_dir: str) -> str:
@@ -378,3 +477,11 @@ class OfficialBaseService:
 
     def _iso_now(self) -> str:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    def _safe_int(self, value: Any) -> Optional[int]:
+        if value is None or value == "":
+            return None
+        try:
+            return int(value)
+        except Exception:
+            return None

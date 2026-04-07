@@ -21,8 +21,19 @@ from core.exceptions import ValidationException
 
 
 INVENTORY_STATUS_ABERTO = "ABERTO"
+INVENTORY_STATUS_FECHADO = "FECHADO"
 INVENTORY_STATUS_APLICADO = "APLICADO"
 INVENTORY_LOCAL_VALIDOS = {"CANOAS", "PF"}
+INVENTORY_STATUS_FILTERS = {
+    "ALL",
+    "DIVERGENT",
+    "MATCHED",
+    "MISSING",
+    "SURPLUS",
+    "NOT_COUNTED",
+    "PENDING",
+    "APPLIED",
+}
 
 
 @dataclass
@@ -142,6 +153,42 @@ class InventoryService:
         finally:
             conn.close()
 
+    def get_session_summary(self, session_id: int) -> dict:
+        conn = self.db.get_connection()
+        try:
+            self._ensure_session_exists(conn, session_id)
+            row = conn.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_items,
+                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL THEN 1 ELSE 0 END), 0) AS counted_items,
+                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0 THEN 1 ELSE 0 END), 0) AS divergent_items,
+                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) = 0 THEN 1 ELSE 0 END), 0) AS matched_items,
+                    COALESCE(SUM(CASE WHEN COALESCE(c.divergencia, 0) < 0 THEN 1 ELSE 0 END), 0) AS missing_items,
+                    COALESCE(SUM(CASE WHEN COALESCE(c.divergencia, 0) > 0 THEN 1 ELSE 0 END), 0) AS surplus_items,
+                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NULL THEN 1 ELSE 0 END), 0) AS not_counted_items,
+                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0 AND c.applied_movement_id IS NULL THEN 1 ELSE 0 END), 0) AS pending_items,
+                    COALESCE(SUM(CASE WHEN c.applied_movement_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS applied_items
+                FROM inventory_counts c
+                WHERE c.session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            return {
+                "session_id": int(session_id),
+                "total_items": int(row["total_items"] or 0),
+                "counted_items": int(row["counted_items"] or 0),
+                "divergent_items": int(row["divergent_items"] or 0),
+                "matched_items": int(row["matched_items"] or 0),
+                "missing_items": int(row["missing_items"] or 0),
+                "surplus_items": int(row["surplus_items"] or 0),
+                "not_counted_items": int(row["not_counted_items"] or 0),
+                "pending_items": int(row["pending_items"] or 0),
+                "applied_items": int(row["applied_items"] or 0),
+            }
+        finally:
+            conn.close()
+
     def list_session_counts(
         self,
         session_id: int,
@@ -149,6 +196,7 @@ class InventoryService:
         offset: int = 0,
         only_divergent: bool = False,
         query: str = "",
+        status_filter: str = "ALL",
     ) -> Tuple[List[InventoryCountRecord], int]:
         conn = self.db.get_connection()
         try:
@@ -156,8 +204,24 @@ class InventoryService:
 
             where = ["c.session_id = ?"]
             params: List[object] = [session_id]
-            if only_divergent:
-                where.append("COALESCE(c.divergencia, 0) <> 0")
+            status_filter = self._normalize_status_filter(status_filter)
+            if only_divergent and status_filter == "ALL":
+                status_filter = "DIVERGENT"
+
+            if status_filter == "DIVERGENT":
+                where.append("c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0")
+            elif status_filter == "MATCHED":
+                where.append("c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) = 0")
+            elif status_filter == "MISSING":
+                where.append("COALESCE(c.divergencia, 0) < 0")
+            elif status_filter == "SURPLUS":
+                where.append("COALESCE(c.divergencia, 0) > 0")
+            elif status_filter == "NOT_COUNTED":
+                where.append("c.qtd_fisico IS NULL")
+            elif status_filter == "PENDING":
+                where.append("c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0 AND c.applied_movement_id IS NULL")
+            elif status_filter == "APPLIED":
+                where.append("c.applied_movement_id IS NOT NULL")
             query = (query or "").strip()
             if query:
                 where.append("(p.nome LIKE ? OR CAST(p.id AS TEXT) = ?)")
@@ -260,6 +324,87 @@ class InventoryService:
             )
             conn.commit()
             return self._get_session_by_id(conn, session_id)
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def close_session(self, session_id: int) -> InventorySessionRecord:
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            row = cursor.execute(
+                "SELECT id, status FROM inventory_sessions WHERE id = ?",
+                (session_id,),
+            ).fetchone()
+            if not row:
+                raise ValidationException("Sessao de inventario nao encontrada.")
+
+            status = str(row["status"]).upper()
+            if status == INVENTORY_STATUS_APLICADO:
+                raise ValidationException("Sessao aplicada nao pode ser fechada.")
+            if status == INVENTORY_STATUS_FECHADO:
+                raise ValidationException("Sessao de inventario ja esta fechada.")
+
+            cursor.execute(
+                """
+                UPDATE inventory_sessions
+                SET status = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (INVENTORY_STATUS_FECHADO, session_id),
+            )
+            conn.commit()
+            return self._get_session_by_id(conn, session_id)
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def delete_session(self, session_id: int) -> dict:
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            row = cursor.execute(
+                """
+                SELECT id, nome, status
+                FROM inventory_sessions
+                WHERE id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if not row:
+                raise ValidationException("Sessao de inventario nao encontrada.")
+
+            status = str(row["status"]).upper()
+            if status == INVENTORY_STATUS_APLICADO:
+                raise ValidationException("Sessao aplicada nao pode ser excluida.")
+
+            applied_row = cursor.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM inventory_counts
+                WHERE session_id = ?
+                  AND applied_movement_id IS NOT NULL
+                """,
+                (session_id,),
+            ).fetchone()
+            if int(applied_row["total"] or 0) > 0:
+                raise ValidationException("Sessao com ajustes aplicados nao pode ser excluida.")
+
+            cursor.execute("DELETE FROM inventory_sessions WHERE id = ?", (session_id,))
+            conn.commit()
+            return {
+                "session_id": int(row["id"]),
+                "session_name": str(row["nome"]),
+                "status": status,
+                "message": "Sessao de inventario excluida com sucesso.",
+            }
         except Exception:
             conn.rollback()
             raise
@@ -462,6 +607,14 @@ class InventoryService:
                 "Motivo de ajuste invalido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
             )
         return motivo
+
+    def _normalize_status_filter(self, status_filter: Optional[str]) -> str:
+        value = str(status_filter or "ALL").strip().upper()
+        if value not in INVENTORY_STATUS_FILTERS:
+            raise ValidationException(
+                "Filtro de inventario invalido. Use ALL, DIVERGENT, MATCHED, MISSING, SURPLUS, NOT_COUNTED, PENDING ou APPLIED."
+            )
+        return value
 
     def _compute_deltas(self, local: str, divergencia: int) -> Tuple[int, int]:
         if local == "CANOAS":

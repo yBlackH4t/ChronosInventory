@@ -237,6 +237,25 @@ export type OfficialBaseManifestOut = {
   database_filename: string;
   database_sha256: string;
   notes?: string | null;
+  products_count?: number | null;
+  products_with_stock_count?: number | null;
+  movements_count?: number | null;
+  database_size?: number | null;
+};
+
+export type OfficialBaseHistoryItemOut = {
+  manifest_path: string;
+  zip_path?: string | null;
+  manifest: OfficialBaseManifestOut;
+};
+
+export type OfficialBaseDirectoryTestOut = {
+  directory_exists: boolean;
+  directory_accessible: boolean;
+  read_ok: boolean;
+  write_ok: boolean;
+  latest_manifest_found: boolean;
+  message: string;
 };
 
 export type OfficialBaseStatusOut = {
@@ -301,7 +320,7 @@ export type OfficialBaseApplyOut = {
 };
 
 export type InventorySessionLocal = "CANOAS" | "PF";
-export type InventorySessionStatus = "ABERTO" | "APLICADO";
+export type InventorySessionStatus = "ABERTO" | "FECHADO" | "APLICADO";
 export type InventoryAdjustmentReason =
   | "AVARIA"
   | "PERDA"
@@ -328,6 +347,29 @@ export type InventorySessionOut = {
   counted_items: number;
   divergent_items: number;
 };
+
+export type InventorySessionSummaryOut = {
+  session_id: number;
+  total_items: number;
+  counted_items: number;
+  divergent_items: number;
+  matched_items: number;
+  missing_items: number;
+  surplus_items: number;
+  not_counted_items: number;
+  pending_items: number;
+  applied_items: number;
+};
+
+export type InventoryStatusFilter =
+  | "ALL"
+  | "DIVERGENT"
+  | "MATCHED"
+  | "MISSING"
+  | "SURPLUS"
+  | "NOT_COUNTED"
+  | "PENDING"
+  | "APPLIED";
 
 export type InventoryCountOut = {
   produto_id: number;
@@ -357,6 +399,13 @@ export type InventoryApplyOut = {
   applied_items: number;
   movement_ids: number[];
   status: InventorySessionStatus;
+};
+
+export type InventorySessionDeleteOut = {
+  session_id: number;
+  session_name: string;
+  status: InventorySessionStatus;
+  message: string;
 };
 
 export type DashboardSummary = {
@@ -872,6 +921,26 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       );
     },
 
+    async officialBaseTestDirectory(options: RequestInit = {}) {
+      return request<OfficialBaseDirectoryTestOut>(
+        `/backup/base-oficial/testar-pasta`,
+        { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async officialBaseHistory(
+      params: { limit?: number } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<OfficialBaseHistoryItemOut[]>(
+        `/backup/base-oficial/historico${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
     async officialBasePublish(payload: OfficialBasePublishIn, options: RequestInit = {}) {
       return request<OfficialBasePublishOut>(
         `/backup/base-oficial/publicar`,
@@ -919,9 +988,23 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<InventorySessionOut>(`/inventario/sessoes/${sessionId}`, { method: "GET", ...options }, baseUrl);
     },
 
+    async inventoryGetSessionSummary(sessionId: number, options: RequestInit = {}) {
+      return request<InventorySessionSummaryOut>(
+        `/inventario/sessoes/${sessionId}/resumo`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
     async inventoryListSessionItems(
       sessionId: number,
-      params: { only_divergent?: boolean; query?: string; page?: number; page_size?: number } = {},
+      params: {
+        only_divergent?: boolean;
+        query?: string;
+        page?: number;
+        page_size?: number;
+        status_filter?: InventoryStatusFilter;
+      } = {},
       options: RequestInit = {}
     ) {
       const query = buildQuery(params);
@@ -956,6 +1039,22 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       );
     },
 
+    async inventoryCloseSession(sessionId: number, options: RequestInit = {}) {
+      return request<InventorySessionOut>(
+        `/inventario/sessoes/${sessionId}/fechar`,
+        { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async inventoryDeleteSession(sessionId: number, options: RequestInit = {}) {
+      return request<InventorySessionDeleteOut>(
+        `/inventario/sessoes/${sessionId}`,
+        { method: "DELETE", ...options },
+        baseUrl
+      );
+    },
+
     async importExcel(file: File, options: RequestInit = {}) {
       const form = new FormData();
       form.append("file", file);
@@ -976,6 +1075,22 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
 
     async reportStockPDF(options: RequestInit = {}) {
       return requestBlob(`/relatorios/estoque.pdf`, { method: "POST", ...options }, baseUrl);
+    },
+
+    async reportRealSalesPDF(
+      params: { date_from: string; date_to: string; scope?: "CANOAS" | "PF" | "AMBOS" },
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return requestBlob(`/relatorios/vendas-reais.pdf${query}`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async reportInactiveStockPDF(
+      params: { days?: number; date_to?: string; scope?: "CANOAS" | "PF" | "AMBOS" },
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return requestBlob(`/relatorios/estoque-parado.pdf${query}`, { method: "GET", ...options }, baseUrl);
     },
 
     async getDashboardSummary(options: RequestInit = {}) {

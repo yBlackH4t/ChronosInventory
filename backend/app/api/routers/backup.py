@@ -16,6 +16,8 @@ from backend.app.schemas.backup import (
     BackupListItemOut,
     OfficialBaseApplyOut,
     OfficialBaseConfigIn,
+    OfficialBaseDirectoryTestOut,
+    OfficialBaseHistoryItemOut,
     OfficialBasePublishIn,
     OfficialBasePublishOut,
     OfficialBaseStatusOut,
@@ -218,6 +220,23 @@ def official_base_update_config(
         publisher_name=payload.publisher_name,
     )
     return ok(OfficialBaseStatusOut(**status))
+
+
+@router.post("/base-oficial/testar-pasta", response_model=SuccessResponse[OfficialBaseDirectoryTestOut])
+def official_base_test_directory(
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseDirectoryTestOut]:
+    result = official_base_service.test_directory_access()
+    return ok(OfficialBaseDirectoryTestOut(**result))
+
+
+@router.get("/base-oficial/historico", response_model=SuccessResponse[list[OfficialBaseHistoryItemOut]])
+def official_base_history(
+    limit: int = Query(10, ge=1, le=30),
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[list[OfficialBaseHistoryItemOut]]:
+    items = official_base_service.list_history(limit=limit)
+    return ok([OfficialBaseHistoryItemOut(**item) for item in items])
 
 
 @router.post("/base-oficial/publicar", response_model=SuccessResponse[OfficialBasePublishOut])

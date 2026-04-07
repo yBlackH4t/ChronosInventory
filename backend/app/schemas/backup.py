@@ -81,6 +81,25 @@ class OfficialBaseManifestOut(BaseModel):
     database_filename: str
     database_sha256: str
     notes: str | None = None
+    products_count: int | None = None
+    products_with_stock_count: int | None = None
+    movements_count: int | None = None
+    database_size: int | None = None
+
+
+class OfficialBaseHistoryItemOut(BaseModel):
+    manifest_path: str
+    zip_path: str | None = None
+    manifest: OfficialBaseManifestOut
+
+
+class OfficialBaseDirectoryTestOut(BaseModel):
+    directory_exists: bool
+    directory_accessible: bool
+    read_ok: bool
+    write_ok: bool
+    latest_manifest_found: bool
+    message: str
 
 
 class OfficialBaseStatusOut(BaseModel):

@@ -7,13 +7,23 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 InventoryLocal = Literal["CANOAS", "PF"]
-InventoryStatus = Literal["ABERTO", "APLICADO"]
+InventoryStatus = Literal["ABERTO", "FECHADO", "APLICADO"]
 AdjustmentReason = Literal[
     "AVARIA",
     "PERDA",
     "CORRECAO_INVENTARIO",
     "ERRO_OPERACIONAL",
     "TRANSFERENCIA",
+]
+InventoryCountStatusFilter = Literal[
+    "ALL",
+    "DIVERGENT",
+    "MATCHED",
+    "MISSING",
+    "SURPLUS",
+    "NOT_COUNTED",
+    "PENDING",
+    "APPLIED",
 ]
 
 
@@ -66,8 +76,28 @@ class InventoryCountOut(BaseModel):
     updated_at: Optional[datetime] = None
 
 
+class InventorySessionSummaryOut(BaseModel):
+    session_id: int
+    total_items: int
+    counted_items: int
+    divergent_items: int
+    matched_items: int
+    missing_items: int
+    surplus_items: int
+    not_counted_items: int
+    pending_items: int
+    applied_items: int
+
+
 class InventoryApplyOut(BaseModel):
     session_id: int
     applied_items: int
     movement_ids: list[int]
     status: InventoryStatus
+
+
+class InventorySessionDeleteOut(BaseModel):
+    session_id: int
+    session_name: str
+    status: InventoryStatus
+    message: str

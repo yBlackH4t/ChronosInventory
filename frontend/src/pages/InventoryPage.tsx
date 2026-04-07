@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Button,
@@ -7,8 +7,8 @@ import {
   NumberInput,
   Pagination,
   Select,
+  SimpleGrid,
   Stack,
-  Switch,
   Table,
   Text,
   TextInput,
@@ -25,10 +25,14 @@ import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import { clearTabState, loadTabState, saveTabState } from "../state/tabStateCache";
 import type {
   InventoryAdjustmentReason,
   InventoryCountItemIn,
   InventoryCountOut,
+  InventorySessionDeleteOut,
+  InventorySessionSummaryOut,
+  InventoryStatusFilter,
   InventorySessionCreateIn,
   InventorySessionOut,
   SuccessResponse,
@@ -63,25 +67,69 @@ type CollectorLogItem = {
   message: string;
 };
 
+type InventoryTabState = {
+  sessionName: string;
+  sessionLocal: "CANOAS" | "PF";
+  sessionObservacao: string;
+  sessionPage: number;
+  selectedSessionId: number | null;
+  itemsPage: number;
+  statusFilter: InventoryStatusFilter;
+  search: string;
+  collectorStep: number;
+  scrollY: number;
+};
+
+const INVENTORY_TAB_ID = "inventory";
+const DEFAULT_INVENTORY_TAB_STATE: InventoryTabState = {
+  sessionName: "",
+  sessionLocal: "CANOAS",
+  sessionObservacao: "",
+  sessionPage: 1,
+  selectedSessionId: null,
+  itemsPage: 1,
+  statusFilter: "DIVERGENT",
+  search: "",
+  collectorStep: 1,
+  scrollY: 0,
+};
+
+const INVENTORY_STATUS_FILTER_OPTIONS: { value: InventoryStatusFilter; label: string }[] = [
+  { value: "DIVERGENT", label: "Divergentes" },
+  { value: "NOT_COUNTED", label: "Nao contados" },
+  { value: "MISSING", label: "Faltando" },
+  { value: "SURPLUS", label: "Sobrando" },
+  { value: "PENDING", label: "Pendentes" },
+  { value: "MATCHED", label: "OK" },
+  { value: "APPLIED", label: "Ja aplicados" },
+  { value: "ALL", label: "Todos" },
+];
+
 export default function InventoryPage() {
+  const persistedState = useMemo(
+    () => loadTabState<InventoryTabState>(INVENTORY_TAB_ID) ?? DEFAULT_INVENTORY_TAB_STATE,
+    []
+  );
   const queryClient = useQueryClient();
-  const [sessionName, setSessionName] = useState("");
-  const [sessionLocal, setSessionLocal] = useState<"CANOAS" | "PF">("CANOAS");
-  const [sessionObservacao, setSessionObservacao] = useState("");
-  const [sessionPage, setSessionPage] = useState(1);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
-  const [itemsPage, setItemsPage] = useState(1);
-  const [onlyDivergent, setOnlyDivergent] = useState(true);
-  const [search, setSearch] = useState("");
+  const [sessionName, setSessionName] = useState(persistedState.sessionName);
+  const [sessionLocal, setSessionLocal] = useState<"CANOAS" | "PF">(persistedState.sessionLocal);
+  const [sessionObservacao, setSessionObservacao] = useState(persistedState.sessionObservacao);
+  const [sessionPage, setSessionPage] = useState(persistedState.sessionPage);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(persistedState.selectedSessionId);
+  const [itemsPage, setItemsPage] = useState(persistedState.itemsPage);
+  const [statusFilter, setStatusFilter] = useState<InventoryStatusFilter>(persistedState.statusFilter);
+  const [search, setSearch] = useState(persistedState.search);
   const [edits, setEdits] = useState<Record<number, SessionItemEdit>>({});
   const [collectorInput, setCollectorInput] = useState("");
-  const [collectorStep, setCollectorStep] = useState(1);
+  const [collectorStep, setCollectorStep] = useState(persistedState.collectorStep);
   const [collectorLoading, setCollectorLoading] = useState(false);
   const [collectorInitializing, setCollectorInitializing] = useState(false);
   const [collectorModeActive, setCollectorModeActive] = useState(false);
   const [collectorSessionId, setCollectorSessionId] = useState<number | null>(null);
   const [collectorLog, setCollectorLog] = useState<CollectorLogItem[]>([]);
   const collectorInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [scrollY, setScrollY] = useState(persistedState.scrollY);
 
   const sessionsQuery = useQuery<SuccessResponse<InventorySessionOut[]>>({
     queryKey: ["inventory-sessions", sessionPage],
@@ -115,21 +163,86 @@ export default function InventoryPage() {
     return () => window.clearTimeout(timer);
   }, [collectorModeActive]);
 
+  const persistState = useCallback(
+    (nextScrollY = scrollY) => {
+      saveTabState<InventoryTabState>(INVENTORY_TAB_ID, {
+        sessionName,
+        sessionLocal,
+        sessionObservacao,
+        sessionPage,
+        selectedSessionId,
+        itemsPage,
+        statusFilter,
+        search,
+        collectorStep,
+        scrollY: nextScrollY,
+      });
+    },
+    [
+      collectorStep,
+      itemsPage,
+      scrollY,
+      search,
+      selectedSessionId,
+      sessionLocal,
+      sessionName,
+      sessionObservacao,
+      sessionPage,
+      statusFilter,
+    ]
+  );
+
+  useEffect(() => {
+    persistState();
+  }, [persistState]);
+
+  useEffect(() => {
+    if (!persistedState.scrollY || persistedState.scrollY <= 0) return;
+    const timer = window.setTimeout(() => {
+      window.scrollTo({ top: persistedState.scrollY, behavior: "auto" });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [persistedState.scrollY]);
+
+  useEffect(() => {
+    let timeout: number | null = null;
+    const onScroll = () => {
+      if (timeout !== null) return;
+      timeout = window.setTimeout(() => {
+        setScrollY(window.scrollY);
+        timeout = null;
+      }, 180);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      if (timeout !== null) window.clearTimeout(timeout);
+      window.removeEventListener("scroll", onScroll);
+      persistState(window.scrollY);
+    };
+  }, [persistState]);
+
   const itemsQuery = useQuery<SuccessResponse<InventoryCountOut[]>>({
-    queryKey: ["inventory-session-items", selectedSessionId, itemsPage, onlyDivergent, search],
+    queryKey: ["inventory-session-items", selectedSessionId, itemsPage, statusFilter, search],
     queryFn: ({ signal }) =>
       api.inventoryListSessionItems(
         selectedSessionId!,
         {
           page: itemsPage,
           page_size: 50,
-          only_divergent: onlyDivergent,
           query: search.trim() || undefined,
+          status_filter: statusFilter,
         },
         { signal }
       ),
     enabled: !!selectedSessionId,
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+
+  const summaryQuery = useQuery<SuccessResponse<InventorySessionSummaryOut>>({
+    queryKey: ["inventory-session-summary", selectedSessionId],
+    queryFn: ({ signal }) => api.inventoryGetSessionSummary(selectedSessionId!, { signal }),
+    enabled: !!selectedSessionId,
     staleTime: 30_000,
   });
 
@@ -141,6 +254,7 @@ export default function InventoryPage() {
       setSessionObservacao("");
       setSelectedSessionId(response.data.id);
       setItemsPage(1);
+      setStatusFilter("DIVERGENT");
       setEdits({});
       queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
     },
@@ -157,6 +271,7 @@ export default function InventoryPage() {
       notifySuccess("Contagens salvas");
       setEdits({});
       queryClient.invalidateQueries({ queryKey: ["inventory-session-items", selectedSessionId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", selectedSessionId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
     },
     onError: (error) => notifyError(error),
@@ -168,7 +283,44 @@ export default function InventoryPage() {
       notifySuccess(`Ajustes aplicados: ${response.data.applied_items} item(ns)`);
       setEdits({});
       queryClient.invalidateQueries({ queryKey: ["inventory-session-items", selectedSessionId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", selectedSessionId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const closeSessionMutation = useMutation<SuccessResponse<InventorySessionOut>, Error, number>({
+    mutationFn: (sessionId) => api.inventoryCloseSession(sessionId),
+    onSuccess: (response) => {
+      notifySuccess(`Sessao #${response.data.id} fechada`);
+      if (selectedSessionId === response.data.id) {
+        setCollectorModeActive(false);
+        setCollectorSessionId(null);
+        setCollectorInput("");
+      }
+      queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-session-items", response.data.id] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", response.data.id] });
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const deleteSessionMutation = useMutation<SuccessResponse<InventorySessionDeleteOut>, Error, number>({
+    mutationFn: (sessionId) => api.inventoryDeleteSession(sessionId),
+    onSuccess: (response) => {
+      notifySuccess(response.data.message);
+      if (selectedSessionId === response.data.session_id) {
+        setSelectedSessionId(null);
+        setItemsPage(1);
+        setEdits({});
+        setCollectorInput("");
+        setCollectorLog([]);
+        setCollectorModeActive(false);
+        setCollectorSessionId(null);
+      }
+      queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
+      queryClient.removeQueries({ queryKey: ["inventory-session-items", response.data.session_id] });
+      queryClient.removeQueries({ queryKey: ["inventory-session-summary", response.data.session_id] });
     },
     onError: (error) => notifyError(error),
   });
@@ -260,6 +412,36 @@ export default function InventoryPage() {
     });
   };
 
+  const confirmCloseSession = (session: InventorySessionOut) => {
+    modals.openConfirmModal({
+      title: "Fechar sessao de inventario",
+      children: (
+        <Text size="sm">
+          A sessao <strong>#{session.id}</strong> sera fechada e ficara somente para consulta. Depois disso, nao
+          sera mais possivel editar contagens nem aplicar ajustes.
+        </Text>
+      ),
+      labels: { confirm: "Fechar sessao", cancel: "Cancelar" },
+      confirmProps: { color: "orange" },
+      onConfirm: () => closeSessionMutation.mutate(session.id),
+    });
+  };
+
+  const confirmDeleteSession = (session: InventorySessionOut) => {
+    modals.openConfirmModal({
+      title: "Excluir sessao de inventario",
+      children: (
+        <Text size="sm">
+          A sessao <strong>#{session.id}</strong> sera removida com todas as contagens vinculadas. Essa acao so e
+          permitida para sessoes sem ajustes aplicados.
+        </Text>
+      ),
+      labels: { confirm: "Excluir sessao", cancel: "Cancelar" },
+      confirmProps: { color: "red" },
+      onConfirm: () => deleteSessionMutation.mutate(session.id),
+    });
+  };
+
   const setItemEdit = (
     produtoId: number,
     patch: Partial<SessionItemEdit>,
@@ -281,7 +463,7 @@ export default function InventoryPage() {
     });
   };
 
-  const savePageCounts = () => {
+  const savePageCounts = useCallback(() => {
     if (!selectedSessionId) return;
     const payload = Object.entries(edits).map(([produtoId, item]) => ({
       produto_id: Number(produtoId),
@@ -294,7 +476,30 @@ export default function InventoryPage() {
       return;
     }
     updateItemsMutation.mutate({ sessionId: selectedSessionId, items: payload });
-  };
+  }, [edits, selectedSessionId, updateItemsMutation]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+        if (!collectorModeActive) return;
+        event.preventDefault();
+        collectorInputRef.current?.focus();
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        if (!selectedSessionId || selectedSession?.status !== "ABERTO") return;
+        event.preventDefault();
+        savePageCounts();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [collectorModeActive, savePageCounts, selectedSession?.status, selectedSessionId]);
 
   const listAllSessionItems = async (sessionId: number): Promise<InventoryCountOut[]> => {
     const pageSize = 200;
@@ -306,7 +511,7 @@ export default function InventoryPage() {
       const response = await api.inventoryListSessionItems(sessionId, {
         page,
         page_size: pageSize,
-        only_divergent: false,
+        status_filter: "ALL",
       });
       collected.push(...(response.data || []));
       totalPages = Math.max(response.meta?.total_pages ?? 1, 1);
@@ -367,6 +572,7 @@ export default function InventoryPage() {
           });
           notifySuccess("Modo bip iniciado. Agora e so bipar os itens.");
           void queryClient.invalidateQueries({ queryKey: ["inventory-session-items", selectedSessionId] });
+          void queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", selectedSessionId] });
           void queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
           window.setTimeout(() => collectorInputRef.current?.focus(), 0);
         } catch (error) {
@@ -445,6 +651,7 @@ export default function InventoryPage() {
         message: `${item.produto_nome} (#${item.produto_id}) -> ${nextValue}`,
       });
       void queryClient.invalidateQueries({ queryKey: ["inventory-session-items", selectedSessionId] });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", selectedSessionId] });
       void queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
       window.setTimeout(() => collectorInputRef.current?.focus(), 0);
     } catch (error) {
@@ -479,6 +686,33 @@ export default function InventoryPage() {
   const sessionsPages = Math.max(sessionsQuery.data?.meta?.total_pages ?? 1, 1);
   const items = itemsQuery.data?.data ?? [];
   const itemPages = Math.max(itemsQuery.data?.meta?.total_pages ?? 1, 1);
+  const sessionSummary = summaryQuery.data?.data;
+  const activeFilterCount = (statusFilter !== "DIVERGENT" ? 1 : 0) + (search.trim() ? 1 : 0);
+
+  const resetCurrentView = () => {
+    setStatusFilter(DEFAULT_INVENTORY_TAB_STATE.statusFilter);
+    setSearch("");
+    setItemsPage(1);
+  };
+
+  const resetInventoryPage = () => {
+    setSessionName(DEFAULT_INVENTORY_TAB_STATE.sessionName);
+    setSessionLocal(DEFAULT_INVENTORY_TAB_STATE.sessionLocal);
+    setSessionObservacao(DEFAULT_INVENTORY_TAB_STATE.sessionObservacao);
+    setSessionPage(DEFAULT_INVENTORY_TAB_STATE.sessionPage);
+    setSelectedSessionId(DEFAULT_INVENTORY_TAB_STATE.selectedSessionId);
+    setItemsPage(DEFAULT_INVENTORY_TAB_STATE.itemsPage);
+    setStatusFilter(DEFAULT_INVENTORY_TAB_STATE.statusFilter);
+    setSearch(DEFAULT_INVENTORY_TAB_STATE.search);
+    setCollectorStep(DEFAULT_INVENTORY_TAB_STATE.collectorStep);
+    setCollectorInput("");
+    setCollectorLog([]);
+    setCollectorModeActive(false);
+    setCollectorSessionId(null);
+    setEdits({});
+    clearTabState(INVENTORY_TAB_ID);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  };
 
   const printTemplate = () => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -538,7 +772,20 @@ export default function InventoryPage() {
       <PageHeader
         title="Inventario"
         subtitle="Crie sessoes de contagem, identifique divergencias e aplique ajustes em lote."
-        actions={<Button leftSection={<IconPrinter size={16} />} variant="light" onClick={printTemplate}>Imprimir folha modelo</Button>}
+        actions={(
+          <>
+            <Badge variant="light">Filtros ativos: {activeFilterCount}</Badge>
+            <Button variant="subtle" size="xs" onClick={resetCurrentView} disabled={activeFilterCount === 0}>
+              Limpar filtros
+            </Button>
+            <Button variant="subtle" size="xs" onClick={resetInventoryPage}>
+              Resetar visao
+            </Button>
+            <Button leftSection={<IconPrinter size={16} />} variant="light" onClick={printTemplate}>
+              Imprimir folha modelo
+            </Button>
+          </>
+        )}
       />
 
       <Card withBorder>
@@ -607,7 +854,16 @@ export default function InventoryPage() {
                     <Table.Td>{session.nome}</Table.Td>
                     <Table.Td>{session.local}</Table.Td>
                     <Table.Td>
-                      <Badge color={session.status === "ABERTO" ? "blue" : "green"} variant="light">
+                      <Badge
+                        color={
+                          session.status === "ABERTO"
+                            ? "blue"
+                            : session.status === "FECHADO"
+                              ? "gray"
+                              : "green"
+                        }
+                        variant="light"
+                      >
                         {session.status}
                       </Badge>
                     </Table.Td>
@@ -616,19 +872,41 @@ export default function InventoryPage() {
                     <Table.Td>{session.divergent_items}</Table.Td>
                     <Table.Td>{dayjs(session.created_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
                     <Table.Td>
-                      <Button
-                        size="xs"
-                        variant={selectedSessionId === session.id ? "filled" : "light"}
-                        onClick={() => {
-                          setSelectedSessionId(session.id);
-                          setItemsPage(1);
-                          setEdits({});
-                          setCollectorInput("");
-                          setCollectorLog([]);
-                        }}
-                      >
-                        Abrir
-                      </Button>
+                      <Group gap="xs">
+                        <Button
+                          size="xs"
+                          variant={selectedSessionId === session.id ? "filled" : "light"}
+                          onClick={() => {
+                            setSelectedSessionId(session.id);
+                            setItemsPage(1);
+                            setEdits({});
+                            setCollectorInput("");
+                            setCollectorLog([]);
+                          }}
+                        >
+                          Abrir
+                        </Button>
+                        <Button
+                          size="xs"
+                          color="orange"
+                          variant="light"
+                          disabled={session.status !== "ABERTO"}
+                          loading={closeSessionMutation.isPending}
+                          onClick={() => confirmCloseSession(session)}
+                        >
+                          Fechar
+                        </Button>
+                        <Button
+                          size="xs"
+                          color="red"
+                          variant="light"
+                          disabled={session.status === "APLICADO"}
+                          loading={deleteSessionMutation.isPending}
+                          onClick={() => confirmDeleteSession(session)}
+                        >
+                          Excluir
+                        </Button>
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}
@@ -661,6 +939,9 @@ export default function InventoryPage() {
                 <Text size="sm" c="dimmed">
                   {selectedSession.nome} | {selectedSession.local} | Status: {selectedSession.status}
                 </Text>
+                <Text size="xs" c="dimmed">
+                  Atalhos: Ctrl+F busca | Ctrl+B campo do bip | Ctrl+S salvar contagens
+                </Text>
               </Stack>
               <Group>
                 <Button
@@ -681,6 +962,31 @@ export default function InventoryPage() {
                 </Button>
               </Group>
             </Group>
+
+            {sessionSummary && (
+              <SimpleGrid cols={{ base: 2, md: 5 }}>
+                <Card withBorder p="sm" onClick={() => { setStatusFilter("NOT_COUNTED"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
+                  <Text size="xs" c="dimmed">Nao contados</Text>
+                  <Text fw={700} size="xl">{sessionSummary.not_counted_items}</Text>
+                </Card>
+                <Card withBorder p="sm" onClick={() => { setStatusFilter("MISSING"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
+                  <Text size="xs" c="dimmed">Faltando no fisico</Text>
+                  <Text fw={700} size="xl" c="red">{sessionSummary.missing_items}</Text>
+                </Card>
+                <Card withBorder p="sm" onClick={() => { setStatusFilter("SURPLUS"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
+                  <Text size="xs" c="dimmed">Sobrando no fisico</Text>
+                  <Text fw={700} size="xl" c="green">{sessionSummary.surplus_items}</Text>
+                </Card>
+                <Card withBorder p="sm" onClick={() => { setStatusFilter("MATCHED"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
+                  <Text size="xs" c="dimmed">Conferidos OK</Text>
+                  <Text fw={700} size="xl">{sessionSummary.matched_items}</Text>
+                </Card>
+                <Card withBorder p="sm" onClick={() => { setStatusFilter("PENDING"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
+                  <Text size="xs" c="dimmed">Pendentes de ajuste</Text>
+                  <Text fw={700} size="xl" c="orange">{sessionSummary.pending_items}</Text>
+                </Card>
+              </SimpleGrid>
+            )}
 
             <FilterToolbar>
               <Stack gap="xs">
@@ -785,17 +1091,21 @@ export default function InventoryPage() {
 
             <FilterToolbar>
               <Group align="end" wrap="wrap">
-                <Switch
-                  label="Somente divergentes"
-                  checked={onlyDivergent}
-                  onChange={(event) => {
-                    setOnlyDivergent(event.currentTarget.checked);
+                <Select
+                  label="Filtro da contagem"
+                  data={INVENTORY_STATUS_FILTER_OPTIONS}
+                  value={statusFilter}
+                  onChange={(value) => {
+                    setStatusFilter((value as InventoryStatusFilter) || "DIVERGENT");
                     setItemsPage(1);
                   }}
+                  w={220}
+                  allowDeselect={false}
                 />
                 <TextInput
                   label="Buscar item"
                   placeholder="Nome ou ID"
+                  ref={searchInputRef}
                   value={search}
                   onChange={(event) => {
                     setSearch(event.currentTarget.value);
@@ -803,6 +1113,9 @@ export default function InventoryPage() {
                   }}
                   w={260}
                 />
+                <Button variant="subtle" onClick={resetCurrentView} disabled={activeFilterCount === 0}>
+                  Limpar filtros
+                </Button>
               </Group>
             </FilterToolbar>
 
