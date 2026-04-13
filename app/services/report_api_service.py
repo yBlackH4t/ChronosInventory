@@ -22,6 +22,10 @@ class ReportApiService:
         products_df = self.stock_service.get_products_as_dataframe()
         return self.report_service.generate_stock_report_bytes(products_df)
 
+    def generate_selected_stock_report_pdf(self, product_ids: list[int]) -> bytes:
+        products_df = self.stock_service.get_products_by_ids_as_dataframe(product_ids)
+        return self.report_service.generate_selected_stock_report_bytes(products_df)
+
     def generate_real_sales_report_pdf(
         self,
         date_from: date,

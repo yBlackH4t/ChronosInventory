@@ -531,10 +531,106 @@ export type StockProfileDeleteOut = {
   message: string;
 };
 
+export type StockCompareIn = {
+  left_path: string;
+  right_path: string;
+  left_label?: string | null;
+  right_label?: string | null;
+};
+
+export type StockCompareFileOut = {
+  label: string;
+  path: string;
+  file_size: number;
+  total_items: number;
+  active_items: number;
+  with_stock_items: number;
+};
+
+export type StockCompareSummaryOut = {
+  total_compared_items: number;
+  identical_items: number;
+  divergent_items: number;
+  only_left_items: number;
+  only_right_items: number;
+  canoas_mismatch_items: number;
+  pf_mismatch_items: number;
+  name_mismatch_items: number;
+  active_mismatch_items: number;
+};
+
+export type StockCompareRowOut = {
+  product_id: number;
+  display_name: string;
+  left_name?: string | null;
+  right_name?: string | null;
+  left_qtd_canoas?: number | null;
+  right_qtd_canoas?: number | null;
+  diff_canoas: number;
+  left_qtd_pf?: number | null;
+  right_qtd_pf?: number | null;
+  diff_pf: number;
+  left_ativo?: boolean | null;
+  right_ativo?: boolean | null;
+  statuses: string[];
+  has_difference: boolean;
+};
+
+export type StockCompareOut = {
+  left: StockCompareFileOut;
+  right: StockCompareFileOut;
+  summary: StockCompareSummaryOut;
+  rows: StockCompareRowOut[];
+};
+
+export type PublishedCompareManifestOut = {
+  machine_label: string;
+  published_at: string;
+  app_version: string;
+  db_version: string;
+  database_filename: string;
+  database_sha256: string;
+  total_items: number;
+  active_items: number;
+  with_stock_items: number;
+  file_size: number;
+};
+
+export type PublishedCompareBaseOut = {
+  machine_label: string;
+  zip_path: string;
+  manifest_path: string;
+  manifest: PublishedCompareManifestOut;
+  is_current_machine: boolean;
+};
+
+export type PublishedCompareStatusOut = {
+  compare_root_dir?: string | null;
+  official_base_dir?: string | null;
+  machine_label: string;
+  configured: boolean;
+  local_snapshot_available: boolean;
+  local_snapshot?: PublishedCompareBaseOut | null;
+  available_bases: PublishedCompareBaseOut[];
+};
+
+export type PublishedComparePublishOut = {
+  machine_label: string;
+  published_at: string;
+  zip_path: string;
+  manifest_path: string;
+  history_zip_path: string;
+  history_manifest_path: string;
+};
+
 export type DownloadResponse = {
   blob: Blob;
   filename?: string;
   headers: Headers;
+};
+
+export type SelectedStockReportIn = {
+  product_ids: number[];
 };
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -675,6 +771,42 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<StockProfileDeleteOut>(
         `/sistema/estoques/${encodeURIComponent(profileId)}`,
         { method: "DELETE", ...options },
+        baseUrl
+      );
+    },
+
+    async compareStockDatabases(payload: StockCompareIn, options: RequestInit = {}) {
+      return request<StockCompareOut>(
+        `/sistema/comparar-bases`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async getPublishedCompareStatus(options: RequestInit = {}) {
+      return request<PublishedCompareStatusOut>(
+        `/sistema/comparativo-publicado/status`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async publishCompareSnapshot(options: RequestInit = {}) {
+      return request<PublishedComparePublishOut>(
+        `/sistema/comparativo-publicado/publicar`,
+        { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async compareWithPublishedSnapshot(machineLabel: string, options: RequestInit = {}) {
+      return request<StockCompareOut>(
+        `/sistema/comparativo-publicado/${encodeURIComponent(machineLabel)}/comparar`,
+        { method: "POST", ...options },
         baseUrl
       );
     },
@@ -1075,6 +1207,22 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
 
     async reportStockPDF(options: RequestInit = {}) {
       return requestBlob(`/relatorios/estoque.pdf`, { method: "POST", ...options }, baseUrl);
+    },
+
+    async reportSelectedStockPDF(payload: SelectedStockReportIn, options: RequestInit = {}) {
+      return requestBlob(
+        `/relatorios/estoque-selecionado.pdf`,
+        {
+          ...options,
+          method: "POST",
+          body: JSON.stringify(payload),
+          headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {}),
+          },
+        },
+        baseUrl
+      );
     },
 
     async reportRealSalesPDF(

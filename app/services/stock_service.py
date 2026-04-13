@@ -125,6 +125,46 @@ class StockService:
         ]
         
         return pd.DataFrame(data)
+
+    def get_products_by_ids_as_dataframe(self, product_ids: List[int]) -> pd.DataFrame:
+        """
+        Retorna produtos selecionados como DataFrame, preservando a ordem enviada.
+        """
+        normalized_ids: List[int] = []
+        seen: set[int] = set()
+        for raw_id in product_ids:
+            product_id = int(raw_id)
+            if product_id <= 0 or product_id in seen:
+                continue
+            normalized_ids.append(product_id)
+            seen.add(product_id)
+
+        if not normalized_ids:
+            return pd.DataFrame(columns=["ID", "Produto", "Canoas", "PF", "Total", "Onde tem"])
+
+        products_data = self.product_repo.get_by_ids(normalized_ids)
+        by_id = {int(item["id"]): item for item in products_data}
+
+        data = []
+        for product_id in normalized_ids:
+            item = by_id.get(product_id)
+            if not item:
+                continue
+            qtd_canoas = int(item.get("qtd_canoas") or 0)
+            qtd_pf = int(item.get("qtd_pf") or 0)
+            total = qtd_canoas + qtd_pf
+            data.append(
+                {
+                    "ID": product_id,
+                    "Produto": item.get("nome") or "",
+                    "Canoas": qtd_canoas,
+                    "PF": qtd_pf,
+                    "Total": total,
+                    "Onde tem": self._location_summary(qtd_canoas, qtd_pf),
+                }
+            )
+
+        return pd.DataFrame(data, columns=["ID", "Produto", "Canoas", "PF", "Total", "Onde tem"])
     
     def get_product_by_id(self, product_id: int) -> Product:
         """
@@ -459,4 +499,13 @@ class StockService:
             "itens_distintos": int(itens_distintos or 0),
             "zerados": int(zerados or 0),
         }
+
+    def _location_summary(self, qtd_canoas: int, qtd_pf: int) -> str:
+        if qtd_canoas > 0 and qtd_pf > 0:
+            return "Canoas / PF"
+        if qtd_canoas > 0:
+            return "Canoas"
+        if qtd_pf > 0:
+            return "PF"
+        return "Sem saldo"
 

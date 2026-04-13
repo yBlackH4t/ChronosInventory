@@ -58,7 +58,7 @@ def _parse_sort(sort: str | None) -> tuple[str, str]:
     direction = "DESC" if sort.startswith("-") else "ASC"
     field = sort.lstrip("-").lower()
 
-    allowed = {"id", "nome", "qtd_canoas", "qtd_pf"}
+    allowed = {"id", "nome", "qtd_canoas", "qtd_pf", "total_stock"}
     if field not in allowed:
         raise ValidationException("Parametro 'sort' invalido.")
 

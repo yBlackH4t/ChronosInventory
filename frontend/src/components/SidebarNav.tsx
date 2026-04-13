@@ -48,6 +48,7 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Backup", to: "/backup", icon: IconDatabase },
       { label: "Estoques", to: "/estoques", icon: IconDatabase },
+      { label: "Comparar estoques", to: "/comparar-estoques", icon: IconArrowsExchange },
       { label: "Ativar/Inativar", to: "/itens-status", icon: IconCheckbox },
       { label: "Novidades", to: "/novidades", icon: IconSparkles },
     ],
@@ -158,6 +159,15 @@ export default function SidebarNav() {
     }
 
     if (route === "/estoques") {
+      void queryClient.prefetchQuery({
+        queryKey: ["stock-profiles"],
+        queryFn: () => api.listStockProfiles(),
+        staleTime: 30_000,
+      });
+      return;
+    }
+
+    if (route === "/comparar-estoques") {
       void queryClient.prefetchQuery({
         queryKey: ["stock-profiles"],
         queryFn: () => api.listStockProfiles(),

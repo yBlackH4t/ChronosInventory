@@ -13,6 +13,7 @@ const InventoryPage = lazy(() => import("../pages/InventoryPage"));
 const ReleaseNotesPage = lazy(() => import("../pages/ReleaseNotesPage"));
 const ProductStatusPage = lazy(() => import("../pages/ProductStatusPage"));
 const StockProfilesPage = lazy(() => import("../pages/StockProfilesPage"));
+const StockComparePage = lazy(() => import("../pages/StockComparePage"));
 const LabelsPage = lazy(() => import("../pages/LabelsPage"));
 
 function RouteLoader() {
@@ -45,9 +46,9 @@ export function AppRouter() {
         <Route path="/inventario" element={<InventoryPage />} />
         <Route path="/itens-status" element={<ProductStatusPage />} />
         <Route path="/estoques" element={<StockProfilesPage />} />
+        <Route path="/comparar-estoques" element={<StockComparePage />} />
         <Route path="/novidades" element={<ReleaseNotesPage />} />
       </Routes>
     </Suspense>
   );
 }
-

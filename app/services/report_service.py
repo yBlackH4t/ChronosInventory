@@ -84,6 +84,32 @@ class ReportService:
             empty_message="Nenhum item com estoque disponivel para este relatorio.",
         )
 
+    def generate_selected_stock_report_bytes(self, products_df: pd.DataFrame) -> bytes:
+        data: List[List[Any]] = [["ID", "Produto", "Canoas", "PF", "Total", "Onde tem"]]
+        for _, row in products_df.iterrows():
+            data.append(
+                [
+                    str(int(row["ID"])),
+                    self._paragraph(str(row["Produto"] or "-")),
+                    str(int(row["Canoas"] or 0)),
+                    str(int(row["PF"] or 0)),
+                    str(int(row["Total"] or 0)),
+                    self._paragraph(str(row["Onde tem"] or "-")),
+                ]
+            )
+
+        return self._build_pdf_bytes(
+            title="Relatorio de itens selecionados",
+            subtitles=[
+                "Mostra apenas os itens escolhidos manualmente na tela de relatorios.",
+                "Inclui saldo atual por local, total consolidado e onde o item possui estoque.",
+            ],
+            data=data,
+            col_widths=[42, 205, 48, 48, 48, 92],
+            left_align_column=1,
+            empty_message="Nenhum item selecionado para este relatorio.",
+        )
+
     def generate_real_sales_report_bytes(
         self,
         rows: List[Dict[str, Any]],

@@ -10,6 +10,21 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.5.0",
+    "date": "2026-04-13",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Novo Relatorio de itens selecionados, com busca de produtos, selecao manual de itens e PDF mostrando Canoas, PF, Total e Onde tem.",
+      "Novo: Novo fluxo de Comparacao publicada na rede: cada maquina pode publicar um snapshot da propria base e outra maquina pode comparar escolhendo essa base na lista.",
+      "Novo: Novo bloco de Comparacao manual mantido como plano B na tela de comparativo, para comparar dois arquivos especificos quando necessario.",
+      "Mudanca: Tela Comparar estoques passou a priorizar o fluxo mais simples de snapshots publicados em rede, reaproveitando a mesma pasta compartilhada ja usada pela base oficial.",
+      "Mudanca: Pagina de Produtos ganhou ordenacoes operacionais por Maior/Menor estoque total, Maior/Menor quantidade em Canoas e Maior/Menor quantidade em PF.",
+      "Mudanca: Lista de itens escolhidos para relatorio continua respeitando a ordem montada pelo usuario na hora de gerar o PDF.",
+      "Correcao: Fluxo de comparacao entre bases deixou de depender da copia manual do .db para uma segunda pasta compartilhada em cada uso.",
+      "Correcao: Endpoint de relatorio agora aceita selecao explicita de produtos por ID, reduzindo risco de imprimir itens fora da lista desejada."
+    ]
+  },
+  {
     "version": "1.4.0",
     "date": "2026-04-07",
     "title": "Melhorias e correcoes",

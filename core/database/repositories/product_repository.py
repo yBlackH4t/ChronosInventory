@@ -19,6 +19,7 @@ class ProductRepository(BaseRepository):
         "nome": "nome",
         "qtd_canoas": "qtd_canoas",
         "qtd_pf": "qtd_pf",
+        "total_stock": "(COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0))",
         "ativo": "ativo",
     }
 
@@ -81,6 +82,13 @@ class ProductRepository(BaseRepository):
     def get_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
         results = self._execute_query("SELECT * FROM produtos WHERE id = ?", (product_id,))
         return results[0] if results else None
+
+    def get_by_ids(self, product_ids: List[int]) -> List[Dict[str, Any]]:
+        if not product_ids:
+            return []
+        placeholders = ",".join("?" for _ in product_ids)
+        query = f"SELECT * FROM produtos WHERE id IN ({placeholders})"
+        return self._execute_query(query, tuple(product_ids))
 
     def add(self, nome: str, qtd_canoas: int, qtd_pf: int, observacao: str | None = None) -> int:
         command = """

@@ -2,6 +2,8 @@ from datetime import datetime
 import io
 import json
 import os
+import sqlite3
+import tempfile
 import zipfile
 
 import pandas as pd
@@ -38,6 +40,21 @@ def test_list_products_success(client):
         "total_pages",
         "has_next",
     }
+
+
+def test_list_products_can_sort_by_total_stock(client):
+    low_id = _create_product(client, "Produto Estoque Baixo", qtd_canoas=1, qtd_pf=0)
+    high_id = _create_product(client, "Produto Estoque Alto", qtd_canoas=3, qtd_pf=4)
+
+    desc = client.get("/produtos?sort=-total_stock&page=1&page_size=20")
+    assert desc.status_code == 200
+    desc_ids = [item["id"] for item in desc.json()["data"]]
+    assert desc_ids.index(high_id) < desc_ids.index(low_id)
+
+    asc = client.get("/produtos?sort=total_stock&page=1&page_size=20")
+    assert asc.status_code == 200
+    asc_ids = [item["id"] for item in asc.json()["data"]]
+    assert asc_ids.index(low_id) < asc_ids.index(high_id)
 
 
 def test_stock_profiles_lifecycle(client):
@@ -109,6 +126,127 @@ def test_stock_profile_delete_rules(client):
     assert listed_after.status_code == 200
     ids_after = {item["id"] for item in listed_after.json()["data"]["profiles"]}
     assert "filial_excluir" not in ids_after
+
+
+def test_compare_stock_databases(client):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        left_path = os.path.join(tmpdir, "left.db")
+        right_path = os.path.join(tmpdir, "right.db")
+
+        def write_db(path: str, rows: list[tuple[int, str, int, int, int]]) -> None:
+            conn = sqlite3.connect(path)
+            try:
+                conn.execute(
+                    """
+                    CREATE TABLE produtos (
+                        id INTEGER PRIMARY KEY,
+                        nome TEXT NOT NULL,
+                        qtd_canoas INTEGER DEFAULT 0,
+                        qtd_pf INTEGER DEFAULT 0,
+                        ativo INTEGER NOT NULL DEFAULT 1
+                    )
+                    """
+                )
+                conn.executemany(
+                    "INSERT INTO produtos (id, nome, qtd_canoas, qtd_pf, ativo) VALUES (?, ?, ?, ?, ?)",
+                    rows,
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+        write_db(
+            left_path,
+            [
+                (1, "Produto Igual", 2, 1, 1),
+                (2, "Produto Canoas", 5, 0, 1),
+                (3, "Produto So Esquerda", 0, 4, 1),
+            ],
+        )
+        write_db(
+            right_path,
+            [
+                (1, "Produto Igual", 2, 1, 1),
+                (2, "Produto Canoas", 7, 0, 1),
+                (4, "Produto So Direita", 1, 0, 1),
+            ],
+        )
+
+        resp = client.post(
+            "/sistema/comparar-bases",
+            json={
+                "left_path": left_path,
+                "right_path": right_path,
+                "left_label": "Minha base",
+                "right_label": "Base colega",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["left"]["label"] == "Minha base"
+        assert data["right"]["label"] == "Base colega"
+        assert data["summary"]["total_compared_items"] == 4
+        assert data["summary"]["identical_items"] == 1
+        assert data["summary"]["divergent_items"] == 3
+        assert data["summary"]["only_left_items"] == 1
+        assert data["summary"]["only_right_items"] == 1
+        assert data["summary"]["canoas_mismatch_items"] == 1
+
+        rows = {item["product_id"]: item for item in data["rows"]}
+        assert rows[1]["statuses"] == ["IDENTICAL"]
+        assert "CANOAS" in rows[2]["statuses"]
+        assert "ONLY_LEFT" in rows[3]["statuses"]
+        assert "ONLY_RIGHT" in rows[4]["statuses"]
+
+
+def test_compare_with_published_snapshot_flow(client, tmp_path):
+    share_dir = tmp_path / "compare-share"
+
+    remote_product = _create_product(client, "Produto Snapshot Remoto", qtd_canoas=2, qtd_pf=0)
+    assert remote_product > 0
+
+    configured_remote = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "consumer",
+            "official_base_dir": str(share_dir),
+            "machine_label": "PC_REMOTO",
+        },
+    )
+    assert configured_remote.status_code == 200
+
+    published = client.post("/sistema/comparativo-publicado/publicar")
+    assert published.status_code == 200
+    published_data = published.json()["data"]
+    assert published_data["machine_label"] == "PC_REMOTO"
+    assert os.path.isfile(published_data["zip_path"])
+
+    local_product = _create_product(client, "Produto So Local", qtd_canoas=0, qtd_pf=5)
+    assert local_product > 0
+
+    configured_local = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "consumer",
+            "official_base_dir": str(share_dir),
+            "machine_label": "PC_LOCAL",
+        },
+    )
+    assert configured_local.status_code == 200
+
+    status = client.get("/sistema/comparativo-publicado/status")
+    assert status.status_code == 200
+    status_data = status.json()["data"]
+    assert status_data["configured"] is True
+    assert any(item["machine_label"] == "PC_REMOTO" for item in status_data["available_bases"])
+
+    compared = client.post("/sistema/comparativo-publicado/PC_REMOTO/comparar")
+    assert compared.status_code == 200
+    compared_data = compared.json()["data"]
+    assert compared_data["right"]["label"] == "Base publicada - PC_REMOTO"
+    assert compared_data["summary"]["only_left_items"] >= 1
+    rows = {item["product_id"]: item for item in compared_data["rows"]}
+    assert "ONLY_LEFT" in rows[local_product]["statuses"]
 
 
 def test_create_and_get_product(client):
@@ -794,6 +932,21 @@ def test_export_products(client):
     assert resp.headers.get("content-type", "").startswith(
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+    assert resp.content
+
+
+def test_report_selected_stock_pdf(client):
+    product_a = _create_product(client, "Produto Selecionado A", qtd_canoas=2, qtd_pf=1)
+    product_b = _create_product(client, "Produto Selecionado B", qtd_canoas=0, qtd_pf=4)
+    _create_product(client, "Produto Fora Do Relatorio", qtd_canoas=7, qtd_pf=0)
+
+    resp = client.post(
+        "/relatorios/estoque-selecionado.pdf",
+        json={"product_ids": [product_b, product_a]},
+    )
+    assert resp.status_code == 200
+    assert resp.headers.get("content-type", "").startswith("application/pdf")
+    assert "Relatorio_Estoque_Selecionado.pdf" in (resp.headers.get("content-disposition") or "")
     assert resp.content
 
 

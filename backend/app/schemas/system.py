@@ -50,3 +50,95 @@ class StockProfileDeleteOut(BaseModel):
     deleted_profile_name: str
     deleted_path: str
     message: str
+
+
+class StockCompareIn(BaseModel):
+    left_path: str = Field(min_length=1, max_length=500)
+    right_path: str = Field(min_length=1, max_length=500)
+    left_label: str | None = Field(default=None, max_length=80)
+    right_label: str | None = Field(default=None, max_length=80)
+
+
+class StockCompareFileOut(BaseModel):
+    label: str
+    path: str
+    file_size: int
+    total_items: int
+    active_items: int
+    with_stock_items: int
+
+
+class StockCompareSummaryOut(BaseModel):
+    total_compared_items: int
+    identical_items: int
+    divergent_items: int
+    only_left_items: int
+    only_right_items: int
+    canoas_mismatch_items: int
+    pf_mismatch_items: int
+    name_mismatch_items: int
+    active_mismatch_items: int
+
+
+class StockCompareRowOut(BaseModel):
+    product_id: int
+    display_name: str
+    left_name: str | None = None
+    right_name: str | None = None
+    left_qtd_canoas: int | None = None
+    right_qtd_canoas: int | None = None
+    diff_canoas: int
+    left_qtd_pf: int | None = None
+    right_qtd_pf: int | None = None
+    diff_pf: int
+    left_ativo: bool | None = None
+    right_ativo: bool | None = None
+    statuses: list[str]
+    has_difference: bool
+
+
+class StockCompareOut(BaseModel):
+    left: StockCompareFileOut
+    right: StockCompareFileOut
+    summary: StockCompareSummaryOut
+    rows: list[StockCompareRowOut]
+
+
+class PublishedCompareManifestOut(BaseModel):
+    machine_label: str
+    published_at: str
+    app_version: str
+    db_version: str
+    database_filename: str
+    database_sha256: str
+    total_items: int
+    active_items: int
+    with_stock_items: int
+    file_size: int
+
+
+class PublishedCompareBaseOut(BaseModel):
+    machine_label: str
+    zip_path: str
+    manifest_path: str
+    manifest: PublishedCompareManifestOut
+    is_current_machine: bool = False
+
+
+class PublishedCompareStatusOut(BaseModel):
+    compare_root_dir: str | None = None
+    official_base_dir: str | None = None
+    machine_label: str
+    configured: bool
+    local_snapshot_available: bool
+    local_snapshot: PublishedCompareBaseOut | None = None
+    available_bases: list[PublishedCompareBaseOut]
+
+
+class PublishedComparePublishOut(BaseModel):
+    machine_label: str
+    published_at: str
+    zip_path: str
+    manifest_path: str
+    history_zip_path: str
+    history_manifest_path: str

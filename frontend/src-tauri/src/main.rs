@@ -194,6 +194,23 @@ fn force_kill_backend_processes() {
 #[cfg(not(target_os = "windows"))]
 fn force_kill_backend_processes() {}
 
+fn ensure_backend_slot_available() {
+    if is_backend_port_free() {
+        log_line("startup: porta 8000 livre");
+        return;
+    }
+
+    log_line("startup: porta 8000 ocupada antes de iniciar sidecar; limpando processos antigos");
+    force_kill_backend_processes();
+    std::thread::sleep(Duration::from_millis(400));
+
+    if wait_backend_port_release(Duration::from_secs(4)) {
+        log_line("startup: porta 8000 liberada apos limpeza preventiva");
+    } else {
+        log_line("startup: porta 8000 continua ocupada apos limpeza preventiva");
+    }
+}
+
 #[tauri::command]
 fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     log_line("restart_app command invoked");
@@ -225,6 +242,7 @@ fn main() {
         .setup(|app| {
             log_line("App setup iniciado");
             log_startup_paths(app);
+            ensure_backend_slot_available();
             let window = match app.get_window("main") {
                 Some(win) => win,
                 None => {

@@ -7,6 +7,7 @@ from fastapi.responses import Response
 
 from app.services.report_api_service import ReportApiService
 from backend.app.api.deps import get_report_api_service
+from backend.app.schemas.report import SelectedStockReportIn
 from core.exceptions import ValidationException
 
 
@@ -30,6 +31,26 @@ def report_stock_pdf(
         raise HTTPException(status_code=500, detail="Falha ao gerar relatorio.") from exc
 
     filename = "Relatorio_Estoque.pdf"
+    headers = {
+        "Content-Disposition": f"attachment; filename={filename}",
+        "X-Filename": filename,
+    }
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@router.post("/estoque-selecionado.pdf")
+def report_selected_stock_pdf(
+    payload: SelectedStockReportIn,
+    report_service: ReportApiService = Depends(get_report_api_service),
+):
+    try:
+        pdf_bytes = report_service.generate_selected_stock_report_pdf(payload.product_ids)
+    except ValidationException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Falha ao gerar relatorio de itens selecionados.") from exc
+
+    filename = "Relatorio_Estoque_Selecionado.pdf"
     headers = {
         "Content-Disposition": f"attachment; filename={filename}",
         "X-Filename": filename,

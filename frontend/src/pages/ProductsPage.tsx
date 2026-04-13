@@ -61,6 +61,12 @@ const SORT_OPTIONS = [
   { value: "-nome", label: "Nome Z-A" },
   { value: "id", label: "ID crescente" },
   { value: "-id", label: "ID decrescente" },
+  { value: "-total_stock", label: "Maior estoque total" },
+  { value: "total_stock", label: "Menor estoque total" },
+  { value: "-qtd_canoas", label: "Maior quantidade em Canoas" },
+  { value: "qtd_canoas", label: "Menor quantidade em Canoas" },
+  { value: "-qtd_pf", label: "Maior quantidade em PF" },
+  { value: "qtd_pf", label: "Menor quantidade em PF" },
 ];
 
 const LOCATIONS = [
