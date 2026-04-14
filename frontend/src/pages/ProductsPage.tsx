@@ -707,7 +707,7 @@ export default function ProductsPage() {
       <FilterToolbar>
         <Group align="end" wrap="wrap">
           <TextInput
-            placeholder="Buscar por nome"
+            placeholder="Buscar por nome ou #ID"
             label="Busca"
             value={query}
             onChange={(event) => {

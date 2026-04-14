@@ -23,13 +23,29 @@ class ProductRepository(BaseRepository):
         "ativo": "ativo",
     }
 
+    @staticmethod
+    def _append_search_filter(search_term: str, where_clauses: List[str], params: List[Any]) -> None:
+        term = (search_term or "").strip()
+        if not term:
+            return
+
+        if term.startswith("#"):
+            id_term = term[1:].strip()
+            if id_term.isdigit():
+                where_clauses.append("id = ?")
+                params.append(int(id_term))
+            else:
+                where_clauses.append("1 = 0")
+            return
+
+        where_clauses.append("nome LIKE ?")
+        params.append(f"%{term}%")
+
     def get_all(self, search_term: str = "", status: str = "ATIVO") -> List[Dict[str, Any]]:
         where_clauses: List[str] = ["1=1"]
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
-        if search_term:
-            where_clauses.append("nome LIKE ?")
-            params.append(f"%{search_term}%")
+        self._append_search_filter(search_term, where_clauses, params)
         query = f"SELECT * FROM produtos WHERE {' AND '.join(where_clauses)} ORDER BY nome"
         return self._execute_query(query, tuple(params))
 
@@ -50,9 +66,7 @@ class ProductRepository(BaseRepository):
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
         self._append_stock_filter(has_stock, where_clauses)
-        if search_term:
-            where_clauses.append("nome LIKE ?")
-            params.append(f"%{search_term}%")
+        self._append_search_filter(search_term, where_clauses, params)
         query = (
             f"SELECT * FROM produtos WHERE {' AND '.join(where_clauses)} "
             f"ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
@@ -70,9 +84,7 @@ class ProductRepository(BaseRepository):
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
         self._append_stock_filter(has_stock, where_clauses)
-        if search_term:
-            where_clauses.append("nome LIKE ?")
-            params.append(f"%{search_term}%")
+        self._append_search_filter(search_term, where_clauses, params)
         result = self._execute_query(
             f"SELECT COUNT(*) as total FROM produtos WHERE {' AND '.join(where_clauses)}",
             tuple(params),

@@ -710,6 +710,46 @@ class MovementRepository(BaseRepository):
             (cutoff, date_to, limit),
         )
 
+    def get_external_transfer_totals(
+        self,
+        date_from: str,
+        date_to: str,
+        tipo: str,
+        scope: str = "AMBOS",
+        limit: int = 15,
+    ) -> List[Dict[str, Any]]:
+        query = """
+            SELECT m.produto_id as produto_id,
+                   p.nome as nome,
+                   SUM(m.quantidade) as total_quantidade,
+                   COUNT(*) as total_movimentacoes,
+                   MAX(m.data_hora) as ultima_transferencia
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE m.tipo = ?
+              AND m.natureza = 'TRANSFERENCIA_EXTERNA'
+              AND p.ativo = 1
+              AND m.data_hora >= ?
+              AND m.data_hora <= ?
+        """
+        params: List[Any] = [tipo, date_from, date_to]
+
+        if scope == "CANOAS":
+            query += " AND m.destino = ?" if tipo == "ENTRADA" else " AND m.origem = ?"
+            params.append("CANOAS")
+        elif scope == "PF":
+            query += " AND m.destino = ?" if tipo == "ENTRADA" else " AND m.origem = ?"
+            params.append("PF")
+
+        query += """
+            GROUP BY m.produto_id, p.nome
+            HAVING total_quantidade > 0
+            ORDER BY total_quantidade DESC, total_movimentacoes DESC, ultima_transferencia DESC, p.nome ASC
+            LIMIT ?
+        """
+        params.append(limit)
+        return self._execute_query(query, tuple(params))
+
     def list_inactive_products_report(
         self,
         cutoff: str,

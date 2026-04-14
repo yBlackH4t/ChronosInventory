@@ -9,6 +9,7 @@ from backend.app.api.deps import get_movement_service
 from backend.app.api.responses import ok
 from backend.app.schemas.analytics import (
     EntradasSaidasPoint,
+    ExternalTransferItem,
     EstoqueEvolucaoPoint,
     FlowPoint,
     RecentStockoutItem,
@@ -27,6 +28,7 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 _ALLOWED_SCOPE = {"CANOAS", "PF", "AMBOS"}
 _ALLOWED_BUCKET = {"day", "week", "month"}
+_ALLOWED_MOVEMENT_TYPE = {"ENTRADA", "SAIDA"}
 
 
 def _validate_scope(scope: str) -> str:
@@ -46,6 +48,13 @@ def _validate_bucket(bucket: str) -> str:
 def _validate_dates(date_from: date, date_to: date) -> None:
     if date_from > date_to:
         raise ValidationException("date_from deve ser menor ou igual a date_to.")
+
+
+def _validate_movement_type(tipo: str) -> str:
+    value = tipo.upper()
+    if value not in _ALLOWED_MOVEMENT_TYPE:
+        raise ValidationException("tipo invalido. Use ENTRADA ou SAIDA.")
+    return value
 
 
 @router.get("/stock/summary", response_model=SuccessResponse[StockSummaryOut])
@@ -113,6 +122,29 @@ def movements_flow(
 
     series = movement_service.get_flow_timeseries(date_from, date_to, bucket=bucket, scope=scope)
     return ok([FlowPoint(**item) for item in series])
+
+
+@router.get("/movements/external-transfers", response_model=SuccessResponse[list[ExternalTransferItem]])
+def external_transfers(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    tipo: str = Query("SAIDA"),
+    scope: str = Query("AMBOS"),
+    limit: int = Query(15, ge=1, le=50),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[ExternalTransferItem]]:
+    _validate_dates(date_from, date_to)
+    scope = _validate_scope(scope)
+    tipo = _validate_movement_type(tipo)
+
+    items = movement_service.get_external_transfer_totals(
+        date_from=date_from,
+        date_to=date_to,
+        tipo=tipo,
+        scope=scope,
+        limit=limit,
+    )
+    return ok([ExternalTransferItem(**item) for item in items])
 
 
 @router.get("/stock/evolution", response_model=SuccessResponse[list[StockEvolutionPoint]])

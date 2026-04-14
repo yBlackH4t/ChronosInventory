@@ -529,6 +529,14 @@ export type RecentStockoutItem = {
   last_sale?: string | null;
 };
 
+export type ExternalTransferItem = {
+  produto_id: number;
+  nome: string;
+  total_quantidade: number;
+  total_movimentacoes: number;
+  ultima_transferencia?: string | null;
+};
+
 export type ImportSummary = {
   imported: number;
   updated: number;
@@ -1692,6 +1700,24 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       const query = buildQuery(params);
       return request<RecentStockoutItem[]>(
         `/analytics/products/recent-stockouts${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async getAnalyticsExternalTransfers(
+      params: {
+        date_from: string;
+        date_to: string;
+        tipo: "ENTRADA" | "SAIDA";
+        scope?: "CANOAS" | "PF" | "AMBOS";
+        limit?: number;
+      },
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<ExternalTransferItem[]>(
+        `/analytics/movements/external-transfers${query}`,
         { method: "GET", ...options },
         baseUrl
       );

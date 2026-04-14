@@ -65,6 +65,26 @@ def test_list_products_can_sort_by_total_stock(client):
     assert asc_ids.index(low_id) < asc_ids.index(high_id)
 
 
+def test_list_products_can_search_by_hash_id_and_status_screen(client):
+    target_id = _create_product(client, "4031196", qtd_canoas=1, qtd_pf=0)
+    other_id = _create_product(client, "5610131", qtd_canoas=2, qtd_pf=0)
+
+    by_name = client.get("/produtos?query=4031196&page=1&page_size=20")
+    assert by_name.status_code == 200
+    by_name_ids = [item["id"] for item in by_name.json()["data"]]
+    assert target_id in by_name_ids
+
+    by_id = client.get(f"/produtos?query=%23{target_id}&page=1&page_size=20")
+    assert by_id.status_code == 200
+    by_id_data = by_id.json()["data"]
+    assert [item["id"] for item in by_id_data] == [target_id]
+
+    status_by_id = client.get(f"/produtos/gestao-status?query=%23{other_id}&page=1&page_size=20")
+    assert status_by_id.status_code == 200
+    status_data = status_by_id.json()["data"]
+    assert [item["id"] for item in status_data] == [other_id]
+
+
 def test_stock_profiles_lifecycle(client):
     listed = client.get("/sistema/estoques")
     assert listed.status_code == 200
@@ -1371,6 +1391,95 @@ def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(cl
     ids_pf = {item["produto_id"] for item in data_pf}
     assert product_pf in ids_pf
     assert product_recent not in ids_pf
+
+
+def test_analytics_external_transfers_filters_type_scope_and_order(client):
+    product_a = _create_product(client, "Produto Transferencia A", qtd_canoas=10, qtd_pf=0)
+    product_b = _create_product(client, "Produto Transferencia B", qtd_canoas=0, qtd_pf=10)
+    product_c = _create_product(client, "Produto Transferencia C", qtd_canoas=5, qtd_pf=0)
+
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_a,
+        "quantidade": 3,
+        "origem": "CANOAS",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "Matriz",
+        "data": "2026-02-10T10:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_a,
+        "quantidade": 2,
+        "origem": "CANOAS",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "Matriz",
+        "data": "2026-02-11T09:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_b,
+        "quantidade": 4,
+        "origem": "PF",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "Canoas",
+        "data": "2026-02-11T11:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "ENTRADA",
+        "produto_id": product_b,
+        "quantidade": 6,
+        "destino": "PF",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "Matriz",
+        "data": "2026-02-11T12:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "ENTRADA",
+        "produto_id": product_c,
+        "quantidade": 1,
+        "destino": "CANOAS",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "Filial",
+        "data": "2026-02-12T08:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_c,
+        "quantidade": 1,
+        "origem": "CANOAS",
+        "natureza": "OPERACAO_NORMAL",
+        "data": "2026-02-12T10:00:00",
+    })
+
+    saidas = client.get(
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=AMBOS&tipo=SAIDA&limit=10"
+    )
+    assert saidas.status_code == 200
+    saidas_data = saidas.json()["data"]
+    assert [item["produto_id"] for item in saidas_data[:2]] == [product_a, product_b]
+    assert saidas_data[0]["total_quantidade"] == 5
+    assert saidas_data[0]["total_movimentacoes"] == 2
+
+    saidas_canoas = client.get(
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=CANOAS&tipo=SAIDA&limit=10"
+    )
+    assert saidas_canoas.status_code == 200
+    assert [item["produto_id"] for item in saidas_canoas.json()["data"]] == [product_a]
+
+    entradas = client.get(
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=AMBOS&tipo=ENTRADA&limit=10"
+    )
+    assert entradas.status_code == 200
+    entradas_data = entradas.json()["data"]
+    assert [item["produto_id"] for item in entradas_data[:2]] == [product_b, product_c]
+    assert entradas_data[0]["total_quantidade"] == 6
+
+    entradas_pf = client.get(
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=PF&tipo=ENTRADA&limit=10"
+    )
+    assert entradas_pf.status_code == 200
+    assert [item["produto_id"] for item in entradas_pf.json()["data"]] == [product_b]
 
 
 def test_analytics_entradas_saidas_and_distribuicao(client):

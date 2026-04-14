@@ -1,6 +1,6 @@
 [package]
 name = "chronos_inventory_desktop"
-version = "1.6.0"
+version = "1.6.1"
 description = "Chronos Inventory"
 authors = ["Você"]
 edition = "2021"

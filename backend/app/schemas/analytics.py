@@ -57,6 +57,14 @@ class RecentStockoutItem(BaseModel):
     last_sale: str | None = None
 
 
+class ExternalTransferItem(BaseModel):
+    produto_id: int
+    nome: str
+    total_quantidade: int
+    total_movimentacoes: int
+    ultima_transferencia: str | None = None
+
+
 # Compat com endpoints antigos
 class EntradasSaidasPoint(BaseModel):
     date: str

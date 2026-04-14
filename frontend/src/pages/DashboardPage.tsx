@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
+  Button,
   Card,
   Grid,
   Group,
@@ -46,6 +47,7 @@ import type {
   SuccessResponse,
   TopSaidaItem,
   RecentStockoutItem,
+  ExternalTransferItem,
 } from "../lib/api";
 import { notifyError } from "../lib/notify";
 
@@ -64,10 +66,12 @@ const SCOPE_OPTIONS = [
 
 type Scope = "AMBOS" | "CANOAS" | "PF";
 type PeriodMode = "week" | "month";
+type ExternalTransferType = "ENTRADA" | "SAIDA";
 type DashboardTabState = {
   scope: Scope;
   periodMode: PeriodMode;
   selectedDate: string | null;
+  externalTransferType: ExternalTransferType;
   scrollY: number;
 };
 
@@ -82,6 +86,7 @@ const DEFAULT_DASHBOARD_TAB_STATE: DashboardTabState = {
   scope: "AMBOS",
   periodMode: "week",
   selectedDate: dayjs().format("YYYY-MM-DD"),
+  externalTransferType: "SAIDA",
   scrollY: 0,
 };
 
@@ -111,7 +116,7 @@ function numericValue(value: number | string | undefined | null): number {
 function flowSeriesLabel(name: string | undefined): string {
   const normalized = (name ?? "").trim().toLowerCase();
   if (normalized === "entradas" || normalized === "entrada") return "Entradas";
-  if (normalized === "saidas" || normalized === "saida" || normalized === "saída") return "Saidas";
+  if (normalized === "saidas" || normalized === "saida") return "Saidas";
   return name ?? "Valor";
 }
 
@@ -132,6 +137,10 @@ export default function DashboardPage() {
   const [scope, setScope] = useState<Scope>(persistedState.scope);
   const [periodMode, setPeriodMode] = useState<PeriodMode>(persistedState.periodMode);
   const [selectedDate, setSelectedDate] = useState<string | null>(persistedState.selectedDate);
+  const [externalTransferType, setExternalTransferType] = useState<ExternalTransferType>(
+    persistedState.externalTransferType ?? "SAIDA"
+  );
+  const [showAllExternalTransfers, setShowAllExternalTransfers] = useState(false);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
 
   const selected = dayjs(selectedDate ?? new Date());
@@ -205,6 +214,28 @@ export default function DashboardPage() {
         { signal }
       ),
   });
+  const externalTransfersQuery = useQuery<SuccessResponse<ExternalTransferItem[]>>({
+    queryKey: [
+      "analytics",
+      profileScopeKey,
+      "external-transfers",
+      dateFrom,
+      dateTo,
+      scope,
+      externalTransferType,
+    ],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsExternalTransfers(
+        {
+          date_from: dateFrom,
+          date_to: dateTo,
+          scope,
+          tipo: externalTransferType,
+          limit: 15,
+        },
+        { signal }
+      ),
+  });
 
 
   const dashboardErrors = useMemo(
@@ -216,6 +247,7 @@ export default function DashboardPage() {
       flowQuery.error,
       evolutionQuery.error,
       recentStockoutsQuery.error,
+      externalTransfersQuery.error,
     ]
         .map(getQueryErrorMessage)
         .filter((item): item is string => Boolean(item)),
@@ -226,6 +258,7 @@ export default function DashboardPage() {
       flowQuery.error,
       evolutionQuery.error,
       recentStockoutsQuery.error,
+      externalTransfersQuery.error,
     ]
   );
 
@@ -249,6 +282,7 @@ export default function DashboardPage() {
   const flow = flowQuery.data?.data ?? [];
   const evolution = evolutionQuery.data?.data ?? [];
   const recentStockouts = recentStockoutsQuery.data?.data ?? [];
+  const externalTransfers = externalTransfersQuery.data?.data ?? [];
   const hasTopSaidasData = topSaidas.some((item) => item.total_saida > 0);
   const topSaidasChartData = useMemo(
     () =>
@@ -258,8 +292,25 @@ export default function DashboardPage() {
       })),
     [topSaidas]
   );
+  const externalTransfersChartData = useMemo(
+    () =>
+      externalTransfers.slice(0, 8).map((item) => ({
+        ...item,
+        nome_curto: truncateLabel(item.nome, 26),
+      })),
+    [externalTransfers]
+  );
+  const externalTransfersVisibleRows = useMemo(
+    () => (showAllExternalTransfers ? externalTransfers : externalTransfers.slice(0, 8)),
+    [externalTransfers, showAllExternalTransfers]
+  );
+  const externalTransfersChartHeight = useMemo(
+    () => Math.max(280, externalTransfersChartData.length * 34),
+    [externalTransfersChartData.length]
+  );
   const periodContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
   const evolutionContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+  const externalTransfersContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
 
   const summaryCards = useMemo<SummaryCard[]>(() => {
     if (!summary) return [];
@@ -289,15 +340,20 @@ export default function DashboardPage() {
         scope,
         periodMode,
         selectedDate,
+        externalTransferType,
         scrollY: nextScrollY,
       });
     },
-    [periodMode, scope, scrollY, selectedDate]
+    [externalTransferType, periodMode, scope, scrollY, selectedDate]
   );
 
   useEffect(() => {
     persistState();
   }, [persistState]);
+
+  useEffect(() => {
+    setShowAllExternalTransfers(false);
+  }, [dateFrom, dateTo, scope, externalTransferType]);
 
   useEffect(() => {
     if (!persistedState.scrollY || persistedState.scrollY <= 0) return;
@@ -505,6 +561,111 @@ export default function DashboardPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+            )}
+          </Card>
+        </Grid.Col>
+
+        <Grid.Col span={12}>
+          <Card withBorder>
+            <Group justify="space-between" align="start" mb="sm" wrap="wrap">
+              <div>
+                <Title order={4}>Transferencias externas</Title>
+                <Text size="xs" c="dimmed">
+                  {externalTransfersContext}
+                </Text>
+              </div>
+              <SegmentedControl
+                value={externalTransferType}
+                onChange={(value) => setExternalTransferType(value as ExternalTransferType)}
+                data={[
+                  { value: "SAIDA", label: "Saidas externas" },
+                  { value: "ENTRADA", label: "Entradas externas" },
+                ]}
+              />
+            </Group>
+            {externalTransfersQuery.isLoading ? (
+              <Loader size="sm" />
+            ) : externalTransfers.length === 0 ? (
+              <EmptyState message="Sem transferencias externas no recorte atual." />
+            ) : (
+              <Stack gap="md">
+                <div style={{ width: "100%", height: externalTransfersChartHeight }}>
+                  <ResponsiveContainer>
+                    <BarChart
+                      data={externalTransfersChartData}
+                      layout="vertical"
+                      margin={{ top: 8, right: 32, left: 8, bottom: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" allowDecimals={false} />
+                      <YAxis
+                        type="category"
+                        dataKey="nome_curto"
+                        width={200}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Tooltip
+                        formatter={(value: number | string | undefined) => [
+                          numericValue(value),
+                          externalTransferType === "ENTRADA" ? "Qtd entrada" : "Qtd saida",
+                        ]}
+                        labelFormatter={(_, payload) => payload?.[0]?.payload?.nome ?? "-"}
+                      />
+                      <Bar
+                        dataKey="total_quantidade"
+                        fill={externalTransferType === "ENTRADA" ? COLORS.total : COLORS.zerado}
+                        radius={[0, 4, 4, 0]}
+                      >
+                        <LabelList dataKey="total_quantidade" position="right" fontSize={11} />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <Table.ScrollContainer minWidth={860}>
+                  <Table striped highlightOnHover withTableBorder>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>ID</Table.Th>
+                        <Table.Th>Produto</Table.Th>
+                        <Table.Th>Qtd transferida</Table.Th>
+                        <Table.Th>Movimentacoes</Table.Th>
+                        <Table.Th>Ultima transferencia</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {externalTransfersVisibleRows.map((item) => (
+                        <Table.Tr key={`${externalTransferType}-${item.produto_id}`}>
+                          <Table.Td>{item.produto_id}</Table.Td>
+                          <Table.Td>{item.nome}</Table.Td>
+                          <Table.Td>{item.total_quantidade}</Table.Td>
+                          <Table.Td>{item.total_movimentacoes}</Table.Td>
+                          <Table.Td>
+                            {item.ultima_transferencia
+                              ? dayjs(item.ultima_transferencia).format("DD/MM/YYYY HH:mm")
+                              : "Sem historico"}
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+
+                {externalTransfers.length > 8 ? (
+                  <Group justify="space-between" align="center">
+                    <Text size="xs" c="dimmed">
+                      Mostrando {externalTransfersVisibleRows.length} de {externalTransfers.length} itens.
+                    </Text>
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      onClick={() => setShowAllExternalTransfers((current) => !current)}
+                    >
+                      {showAllExternalTransfers ? "Ver menos" : "Ver mais"}
+                    </Button>
+                  </Group>
+                ) : null}
+              </Stack>
             )}
           </Card>
         </Grid.Col>

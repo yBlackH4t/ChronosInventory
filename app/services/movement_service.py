@@ -459,6 +459,28 @@ class MovementService:
             for row in rows
         ]
 
+    def get_external_transfer_totals(
+        self,
+        date_from: date,
+        date_to: date,
+        tipo: str,
+        scope: str = "AMBOS",
+        limit: int = 15,
+    ) -> List[dict]:
+        df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
+        dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+        rows = self.repo.get_external_transfer_totals(df, dt, tipo=tipo.upper(), scope=scope, limit=limit)
+        return [
+            {
+                "produto_id": int(row["produto_id"]),
+                "nome": str(row["nome"]),
+                "total_quantidade": int(row.get("total_quantidade") or 0),
+                "total_movimentacoes": int(row.get("total_movimentacoes") or 0),
+                "ultima_transferencia": row.get("ultima_transferencia"),
+            }
+            for row in rows
+        ]
+
     def list_real_sales(self, date_from: date, date_to: date, scope: str = "AMBOS") -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)

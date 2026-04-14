@@ -17,6 +17,20 @@ Formato recomendado:
 
 
 
+
+## [1.6.1] - 2026-04-14
+
+### Added
+- Novo bloco `Transferencias externas` na dashboard, com foco exclusivo em `TRANSFERENCIA_EXTERNA` e filtro entre `Entradas externas` e `Saidas externas`.
+
+### Changed
+- Dashboard passou a mostrar transferencias externas em um formato mais operacional, combinando grafico e tabela com opcao de `Ver mais`.
+- Busca de `Produtos` e de `Ativar/Inativar Itens` agora aceita `#ID` para localizar diretamente pelo ID interno, preservando numero puro para buscar codigo/nome da peca.
+
+### Fixed
+- Busca numerica deixou de misturar o ID interno com o codigo da peca, reduzindo resultado ambiguo no dia a dia.
+- Consulta de transferencias externas na dashboard agora respeita corretamente o escopo selecionado usando `origem` para `SAIDA` e `destino` para `ENTRADA`.
+
 ## [1.6.0] - 2026-04-14
 
 ### Added

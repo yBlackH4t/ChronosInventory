@@ -161,7 +161,7 @@ export default function ProductStatusPage() {
         <Group align="end" wrap="wrap">
           <TextInput
             label="Buscar"
-            placeholder="Nome do item"
+            placeholder="Nome do item ou #ID"
             value={query}
             onChange={(event) => {
               setQuery(event.currentTarget.value);

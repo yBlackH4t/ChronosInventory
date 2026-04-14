@@ -10,6 +10,18 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.6.1",
+    "date": "2026-04-14",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Novo bloco Transferencias externas na dashboard, com foco exclusivo em TRANSFERENCIA_EXTERNA e filtro entre Entradas externas e Saidas externas.",
+      "Mudanca: Dashboard passou a mostrar transferencias externas em um formato mais operacional, combinando grafico e tabela com opcao de Ver mais.",
+      "Mudanca: Busca de Produtos e de Ativar/Inativar Itens agora aceita #ID para localizar diretamente pelo ID interno, preservando numero puro para buscar codigo/nome da peca.",
+      "Correcao: Busca numerica deixou de misturar o ID interno com o codigo da peca, reduzindo resultado ambiguo no dia a dia.",
+      "Correcao: Consulta de transferencias externas na dashboard agora respeita corretamente o escopo selecionado usando origem para SAIDA e destino para ENTRADA."
+    ]
+  },
+  {
     "version": "1.6.0",
     "date": "2026-04-14",
     "title": "Melhorias e correcoes",
