@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.services.backup_service import BackupService
+from app.services.local_share_service import LocalShareService
 from core.constants import APP_VERSION, DATE_FORMAT_FILE, DB_NAME
 from core.database.connection import DatabaseConnection
 from core.database.migration_manager import MigrationManager
@@ -31,6 +32,7 @@ class StockCompareService:
     def __init__(self) -> None:
         self.db_connection = DatabaseConnection()
         self.backup_service = BackupService()
+        self.local_share_service = LocalShareService()
         self.config_path = FileUtils.get_official_base_config_path()
 
     def compare_databases(
@@ -209,6 +211,137 @@ class StockCompareService:
         }
         return result
 
+    def get_server_compare_status(self) -> Dict[str, Any]:
+        config = self._load_shared_config()
+        paths = self.local_share_service.get_compare_paths()
+        manifest = self._read_manifest(paths["latest_manifest"])
+        server = self.local_share_service.get_server_status(
+            machine_label=config["machine_label"],
+            publisher_name="",
+            port=config["server_port"],
+            enabled=config["server_enabled"],
+        )
+        return {
+            "machine_label": config["machine_label"],
+            "current_database_path": self.db_connection.get_database_path(),
+            "server_running": bool(server["running"]),
+            "server_port": int(server["port"]),
+            "server_urls": [str(item) for item in server["urls"]],
+            "remote_server_url": config["remote_server_url"] or None,
+            "local_snapshot_available": manifest is not None and os.path.isfile(paths["latest_zip"]),
+            "local_snapshot": (
+                {
+                    "machine_label": config["machine_label"],
+                    "zip_path": paths["latest_zip"],
+                    "manifest_path": paths["latest_manifest"],
+                    "manifest": manifest,
+                    "is_current_machine": True,
+                }
+                if manifest
+                else None
+            ),
+        }
+
+    def publish_server_compare_snapshot(self) -> Dict[str, Any]:
+        config = self._load_shared_config()
+        paths = self.local_share_service.get_compare_paths()
+        latest_zip = paths["latest_zip"]
+        latest_manifest = paths["latest_manifest"]
+        timestamp = datetime.now().strftime(DATE_FORMAT_FILE)
+        history_zip = os.path.join(paths["history_dir"], f"{timestamp}_{self._zip_filename}")
+        history_manifest = os.path.join(paths["history_dir"], f"{timestamp}_{self._manifest_filename}")
+        published_at = self._iso_now()
+
+        Path(paths["latest_dir"]).mkdir(parents=True, exist_ok=True)
+        Path(paths["history_dir"]).mkdir(parents=True, exist_ok=True)
+
+        with tempfile.TemporaryDirectory(prefix="chronos_compare_publish_") as tmp_dir:
+            snapshot_path = os.path.join(tmp_dir, DB_NAME)
+            self.backup_service._create_sqlite_snapshot(self.db_connection.get_database_path(), snapshot_path)
+            db_info = self._read_database(snapshot_path, config["machine_label"])
+
+            with zipfile.ZipFile(latest_zip, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+                zf.write(snapshot_path, arcname=DB_NAME)
+
+            checksum = self._sha256_file(str(latest_zip))
+            manifest = {
+                "machine_label": config["machine_label"],
+                "published_at": published_at,
+                "app_version": APP_VERSION,
+                "db_version": MigrationManager(self.db_connection).get_current_database_version(),
+                "database_filename": DB_NAME,
+                "database_sha256": checksum,
+                "total_items": int(db_info["total_items"]),
+                "active_items": int(db_info["active_items"]),
+                "with_stock_items": int(db_info["with_stock_items"]),
+                "file_size": int(db_info["file_size"]),
+            }
+
+            self._write_manifest(str(latest_manifest), manifest)
+            FileUtils.copy_file(str(latest_zip), str(history_zip))
+            self._write_manifest(str(history_manifest), manifest)
+
+        return {
+            "machine_label": config["machine_label"],
+            "published_at": published_at,
+            "zip_path": str(latest_zip),
+            "manifest_path": str(latest_manifest),
+            "history_zip_path": str(history_zip),
+            "history_manifest_path": str(history_manifest),
+        }
+
+    def inspect_remote_compare_server(self, server_url: str) -> Dict[str, Any]:
+        normalized_url = self.local_share_service.normalize_server_url(server_url)
+        payload = self.local_share_service.fetch_remote_status(normalized_url)
+        compare_manifest = None
+        if payload.get("compare_available"):
+            compare_manifest = self._read_remote_compare_manifest(
+                self.local_share_service.fetch_remote_manifest(normalized_url, "compare")
+            )
+        return {
+            "server_url": normalized_url,
+            "reachable": True,
+            "machine_label": str(payload.get("machine_label") or ""),
+            "app_version": str(payload.get("app_version") or ""),
+            "compare_available": bool(payload.get("compare_available")),
+            "compare_manifest": compare_manifest,
+            "message": "Servidor remoto pronto para comparacao." if compare_manifest else "Servidor remoto conectado, mas sem snapshot de comparacao publicado.",
+        }
+
+    def compare_with_remote_server(self, server_url: str) -> Dict[str, Any]:
+        normalized_url = self.local_share_service.normalize_server_url(server_url)
+        manifest = self._read_remote_compare_manifest(
+            self.local_share_service.fetch_remote_manifest(normalized_url, "compare")
+        )
+
+        with tempfile.TemporaryDirectory(prefix="chronos_compare_remote_") as tmp_dir:
+            zip_path = os.path.join(tmp_dir, self._zip_filename)
+            self.local_share_service.download_remote_snapshot(normalized_url, "compare", zip_path)
+
+            expected_hash = str(manifest.get("database_sha256") or "").strip()
+            current_hash = self._sha256_file(zip_path)
+            if not expected_hash or current_hash.lower() != expected_hash.lower():
+                raise ValidationException("Checksum do snapshot remoto nao confere. Publique novamente antes de comparar.")
+
+            extracted_db = self._extract_snapshot_database(zip_path, tmp_dir)
+            current_db_path = self.db_connection.get_database_path()
+            result = self.compare_databases(
+                left_path=current_db_path,
+                right_path=extracted_db,
+                left_label="Minha base atual",
+                right_label=f"Servidor remoto - {manifest['machine_label']}",
+            )
+
+        result["right"] = {
+            "label": f"Servidor remoto - {manifest['machine_label']}",
+            "path": normalized_url,
+            "file_size": int(manifest.get("file_size") or result["right"]["file_size"]),
+            "total_items": int(manifest.get("total_items") or result["right"]["total_items"]),
+            "active_items": int(manifest.get("active_items") or result["right"]["active_items"]),
+            "with_stock_items": int(manifest.get("with_stock_items") or result["right"]["with_stock_items"]),
+        }
+        return result
+
     def _build_compare_result(self, left_info: Dict[str, object], right_info: Dict[str, object]) -> Dict[str, object]:
         left_products: Dict[int, dict] = left_info["products"]
         right_products: Dict[int, dict] = right_info["products"]
@@ -376,6 +509,9 @@ class StockCompareService:
         default = {
             "official_base_dir": "",
             "machine_label": self._default_machine_label(),
+            "server_port": LocalShareService._default_port,
+            "remote_server_url": "",
+            "server_enabled": False,
         }
         if not os.path.isfile(self.config_path):
             return default
@@ -391,6 +527,11 @@ class StockCompareService:
         return {
             "official_base_dir": official_base_dir,
             "machine_label": machine_label or self._default_machine_label(),
+            "server_port": self.local_share_service.normalize_port(data.get("server_port") or default["server_port"]),
+            "remote_server_url": self.local_share_service.normalize_server_url(data.get("remote_server_url"))
+            if str(data.get("remote_server_url") or "").strip()
+            else "",
+            "server_enabled": bool(data.get("server_enabled", default["server_enabled"])),
         }
 
     def _default_machine_label(self) -> str:
@@ -428,6 +569,20 @@ class StockCompareService:
         except Exception as exc:
             raise ValidationException(f"Manifesto da base publicada para comparacao invalido: {exc}") from exc
 
+        return {
+            "machine_label": str(data.get("machine_label") or ""),
+            "published_at": str(data.get("published_at") or ""),
+            "app_version": str(data.get("app_version") or ""),
+            "db_version": str(data.get("db_version") or ""),
+            "database_filename": str(data.get("database_filename") or DB_NAME),
+            "database_sha256": str(data.get("database_sha256") or ""),
+            "total_items": int(data.get("total_items") or 0),
+            "active_items": int(data.get("active_items") or 0),
+            "with_stock_items": int(data.get("with_stock_items") or 0),
+            "file_size": int(data.get("file_size") or 0),
+        }
+
+    def _read_remote_compare_manifest(self, data: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "machine_label": str(data.get("machine_label") or ""),
             "published_at": str(data.get("published_at") or ""),

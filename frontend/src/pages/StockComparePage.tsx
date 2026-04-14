@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Accordion,
   Badge,
   Button,
   Card,
@@ -20,8 +21,8 @@ import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
 import type {
-  PublishedCompareBaseOut,
-  PublishedCompareStatusOut,
+  CompareServerStatusOut,
+  RemoteCompareServerOut,
   StockCompareOut,
   StockCompareRowOut,
   StockProfilesStateOut,
@@ -50,7 +51,7 @@ type CompareTabState = {
   rightLabel: string;
   filter: CompareFilter;
   search: string;
-  selectedPublishedMachine: string;
+  remoteServerUrl: string;
 };
 
 const STOCK_COMPARE_TAB_ID = "stock-compare";
@@ -61,16 +62,16 @@ const DEFAULT_COMPARE_STATE: CompareTabState = {
   rightLabel: "Base colega",
   filter: "DIFFERENT",
   search: "",
-  selectedPublishedMachine: "",
+  remoteServerUrl: "",
 };
 
 const FILTER_OPTIONS: { value: CompareFilter; label: string }[] = [
   { value: "DIFFERENT", label: "Somente divergentes" },
   { value: "ALL", label: "Todos" },
-  { value: "CANOAS", label: "Diferença em Canoas" },
-  { value: "PF", label: "Diferença em PF" },
-  { value: "ONLY_LEFT", label: "Só na base A" },
-  { value: "ONLY_RIGHT", label: "Só na base B" },
+  { value: "CANOAS", label: "Diferenca em Canoas" },
+  { value: "PF", label: "Diferenca em PF" },
+  { value: "ONLY_LEFT", label: "So na base A" },
+  { value: "ONLY_RIGHT", label: "So na base B" },
   { value: "NAME", label: "Nome divergente" },
   { value: "ACTIVE", label: "Ativo/inativo divergente" },
   { value: "IDENTICAL", label: "Somente iguais" },
@@ -80,8 +81,8 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   IDENTICAL: { label: "Igual", color: "gray" },
   CANOAS: { label: "Canoas", color: "blue" },
   PF: { label: "PF", color: "orange" },
-  ONLY_LEFT: { label: "Só A", color: "red" },
-  ONLY_RIGHT: { label: "Só B", color: "green" },
+  ONLY_LEFT: { label: "So A", color: "red" },
+  ONLY_RIGHT: { label: "So B", color: "green" },
   NAME: { label: "Nome", color: "violet" },
   ACTIVE: { label: "Status", color: "yellow" },
 };
@@ -102,16 +103,6 @@ function boolLabel(value: boolean | null | undefined): string {
   return value ? "Ativo" : "Inativo";
 }
 
-function publishedBaseOption(item: PublishedCompareBaseOut) {
-  const dateLabel = item.manifest.published_at
-    ? dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")
-    : "sem data";
-  return {
-    value: item.machine_label,
-    label: `${item.machine_label} | ${dateLabel} | ${item.manifest.total_items} itens`,
-  };
-}
-
 export default function StockComparePage() {
   const persistedState = useMemo(
     () => loadTabState<CompareTabState>(STOCK_COMPARE_TAB_ID) ?? DEFAULT_COMPARE_STATE,
@@ -123,8 +114,9 @@ export default function StockComparePage() {
   const [rightLabel, setRightLabel] = useState(persistedState.rightLabel);
   const [filter, setFilter] = useState<CompareFilter>(persistedState.filter);
   const [search, setSearch] = useState(persistedState.search);
-  const [selectedPublishedMachine, setSelectedPublishedMachine] = useState(persistedState.selectedPublishedMachine);
+  const [remoteServerUrl, setRemoteServerUrl] = useState(persistedState.remoteServerUrl);
   const [compareResult, setCompareResult] = useState<StockCompareOut | null>(null);
+  const [remoteServerInfo, setRemoteServerInfo] = useState<RemoteCompareServerOut | null>(null);
 
   const stockProfilesQuery = useQuery<SuccessResponse<StockProfilesStateOut>>({
     queryKey: ["stock-profiles"],
@@ -132,9 +124,9 @@ export default function StockComparePage() {
     staleTime: 30_000,
   });
 
-  const publishedStatusQuery = useQuery<SuccessResponse<PublishedCompareStatusOut>>({
-    queryKey: ["published-compare-status"],
-    queryFn: ({ signal }) => api.getPublishedCompareStatus({ signal }),
+  const compareServerStatusQuery = useQuery<SuccessResponse<CompareServerStatusOut>>({
+    queryKey: ["compare-server-status"],
+    queryFn: ({ signal }) => api.getCompareServerStatus({ signal }),
     staleTime: 15_000,
   });
 
@@ -146,9 +138,9 @@ export default function StockComparePage() {
       rightLabel,
       filter,
       search,
-      selectedPublishedMachine,
+      remoteServerUrl,
     });
-  }, [filter, leftLabel, leftPath, rightLabel, rightPath, search, selectedPublishedMachine]);
+  }, [filter, leftLabel, leftPath, remoteServerUrl, rightLabel, rightPath, search]);
 
   useEffect(() => {
     const currentPath = stockProfilesQuery.data?.data?.current_database_path || "";
@@ -156,19 +148,11 @@ export default function StockComparePage() {
     setLeftPath(currentPath);
   }, [leftPath, stockProfilesQuery.data?.data?.current_database_path]);
 
-  const publishedBases = useMemo(
-    () => (publishedStatusQuery.data?.data?.available_bases ?? []).filter((item) => !item.is_current_machine),
-    [publishedStatusQuery.data?.data?.available_bases]
-  );
-
   useEffect(() => {
-    if (selectedPublishedMachine && publishedBases.some((item) => item.machine_label === selectedPublishedMachine)) {
-      return;
-    }
-    if (publishedBases.length > 0) {
-      setSelectedPublishedMachine(publishedBases[0].machine_label);
-    }
-  }, [publishedBases, selectedPublishedMachine]);
+    const configuredRemote = compareServerStatusQuery.data?.data?.remote_server_url || "";
+    if (!configuredRemote || remoteServerUrl.trim()) return;
+    setRemoteServerUrl(configuredRemote);
+  }, [compareServerStatusQuery.data?.data?.remote_server_url, remoteServerUrl]);
 
   const compareMutation = useMutation<SuccessResponse<StockCompareOut>, Error>({
     mutationFn: () =>
@@ -180,32 +164,43 @@ export default function StockComparePage() {
       }),
     onSuccess: (response) => {
       setCompareResult(response.data);
-      notifySuccess("Comparativo concluído.");
+      notifySuccess("Comparativo concluido.");
     },
     onError: (error) => notifyError(error),
   });
 
   const publishSnapshotMutation = useMutation<SuccessResponse<unknown>, Error>({
-    mutationFn: () => api.publishCompareSnapshot(),
+    mutationFn: () => api.publishCompareServerSnapshot(),
     onSuccess: async () => {
-      notifySuccess("Base atual publicada para comparação.");
-      await publishedStatusQuery.refetch();
+      notifySuccess("Snapshot local publicado para comparacao.");
+      await compareServerStatusQuery.refetch();
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const inspectRemoteServerMutation = useMutation<SuccessResponse<RemoteCompareServerOut>, Error>({
+    mutationFn: () => api.inspectRemoteCompareServer(remoteServerUrl.trim()),
+    onSuccess: (response) => {
+      setRemoteServerInfo(response.data);
+      notifySuccess(response.data.message);
     },
     onError: (error) => notifyError(error),
   });
 
   const comparePublishedMutation = useMutation<SuccessResponse<StockCompareOut>, Error>({
-    mutationFn: () => api.compareWithPublishedSnapshot(selectedPublishedMachine),
+    mutationFn: () => api.compareWithRemoteServer(remoteServerUrl.trim()),
     onSuccess: (response) => {
       setCompareResult(response.data);
-      notifySuccess("Comparativo com base publicada concluído.");
+      notifySuccess("Comparativo com servidor remoto concluido.");
     },
     onError: (error) => notifyError(error),
   });
 
   const chooseDatabaseFile = async (target: "left" | "right") => {
     if (!isTauri()) {
-      notifyError(new Error("Seleção de arquivo integrada disponível apenas no app desktop. Digite o caminho manualmente."));
+      notifyError(
+        new Error("Selecao de arquivo integrada disponivel apenas no app desktop. Digite o caminho manualmente.")
+      );
       return;
     }
     try {
@@ -221,7 +216,7 @@ export default function StockComparePage() {
         setRightPath(selected);
       }
     } catch (error) {
-      notifyError(error, "Não foi possível selecionar o arquivo.");
+      notifyError(error, "Nao foi possivel selecionar o arquivo.");
     }
   };
 
@@ -233,9 +228,17 @@ export default function StockComparePage() {
     compareMutation.mutate();
   };
 
+  const inspectRemoteServer = () => {
+    if (!remoteServerUrl.trim()) {
+      notifyError(new Error("Informe o endereco do servidor remoto."));
+      return;
+    }
+    inspectRemoteServerMutation.mutate();
+  };
+
   const startPublishedCompare = () => {
-    if (!selectedPublishedMachine) {
-      notifyError(new Error("Escolha uma base publicada para comparar."));
+    if (!remoteServerUrl.trim()) {
+      notifyError(new Error("Informe o endereco do servidor remoto para comparar."));
       return;
     }
     comparePublishedMutation.mutate();
@@ -268,196 +271,228 @@ export default function StockComparePage() {
 
   const currentDbPath = stockProfilesQuery.data?.data?.current_database_path || "";
   const activeProfileName = stockProfilesQuery.data?.data?.active_profile_name || "Atual";
-  const publishedStatus = publishedStatusQuery.data?.data;
-  const selectedPublishedBase =
-    publishedBases.find((item) => item.machine_label === selectedPublishedMachine) ?? null;
+  const compareServerStatus = compareServerStatusQuery.data?.data;
 
   return (
     <Stack gap="lg">
       <PageHeader
         title="Comparar estoques"
-        subtitle="Publique a base da máquina e compare com um clique. Se precisar, a comparação manual continua disponível abaixo."
+        subtitle="Publique um snapshot nesta maquina e compare com outro computador usando apenas o endereco do servidor local."
       />
 
       <Card withBorder>
         <Stack gap="md">
-          <Title order={4}>Comparação publicada na rede</Title>
+          <Title order={4}>Comparacao por servidor local</Title>
           <Text size="sm" c="dimmed">
-            Cada máquina pode publicar um snapshot próprio para comparação. Assim você evita copiar o `.db` manualmente toda vez.
+            Cada maquina publica o proprio snapshot. Do outro lado, basta informar o endereco do servidor remoto e comparar.
           </Text>
 
-          {!publishedStatus?.configured ? (
-            <EmptyState message="Configure primeiro a pasta compartilhada em Backup > Base oficial compartilhada para usar este fluxo simplificado." />
-          ) : (
-            <>
+          <SimpleGrid cols={{ base: 1, md: 2 }}>
+            <Card withBorder>
+              <Stack gap={6}>
+                <Text fw={600}>Minha maquina</Text>
+                <Text size="sm">Maquina: {compareServerStatus?.machine_label || "-"}</Text>
+                <Text size="sm">Perfil atual: {activeProfileName}</Text>
+                <Text size="sm" c="dimmed">
+                  {currentDbPath}
+                </Text>
+                <Group gap="xs" wrap="wrap">
+                  <Badge variant="light" color={compareServerStatus?.server_running ? "green" : "orange"}>
+                    Servidor {compareServerStatus?.server_running ? "ativo" : "parado"}
+                  </Badge>
+                  <Badge variant="light" color={compareServerStatus?.local_snapshot_available ? "blue" : "gray"}>
+                    {compareServerStatus?.local_snapshot_available ? "Snapshot publicado" : "Sem snapshot"}
+                  </Badge>
+                </Group>
+                {compareServerStatus?.server_urls?.length ? (
+                  <Text size="sm" c="dimmed">
+                    Endereco(s): {compareServerStatus.server_urls.join(" | ")}
+                  </Text>
+                ) : null}
+                {compareServerStatus?.local_snapshot ? (
+                  <Text size="sm" c="dimmed">
+                    Ultima publicacao:{" "}
+                    {dayjs(compareServerStatus.local_snapshot.manifest.published_at).format("DD/MM/YYYY HH:mm")}
+                  </Text>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Esta maquina ainda nao publicou snapshot de comparacao.
+                  </Text>
+                )}
+                <Button onClick={() => publishSnapshotMutation.mutate()} loading={publishSnapshotMutation.isPending}>
+                  Publicar minha base para comparacao
+                </Button>
+              </Stack>
+            </Card>
+
+            <Card withBorder>
+              <Stack gap={6}>
+                <Text fw={600}>Servidor remoto</Text>
+                <TextInput
+                  label="Endereco do servidor"
+                  placeholder="http://192.168.0.15:8765"
+                  value={remoteServerUrl}
+                  onChange={(event) => setRemoteServerUrl(event.currentTarget.value)}
+                />
+                {remoteServerInfo ? (
+                  <>
+                    <Text size="sm">
+                      Maquina: {remoteServerInfo.machine_label || "-"} | App: {remoteServerInfo.app_version || "-"}
+                    </Text>
+                    <Text size="sm">
+                      Snapshot remoto:{" "}
+                      {remoteServerInfo.compare_manifest
+                        ? dayjs(remoteServerInfo.compare_manifest.published_at).format("DD/MM/YYYY HH:mm")
+                        : "nao publicado"}
+                    </Text>
+                    {remoteServerInfo.compare_manifest ? (
+                      <Text size="sm">
+                        Itens: {remoteServerInfo.compare_manifest.total_items} | Ativos:{" "}
+                        {remoteServerInfo.compare_manifest.active_items} | Com estoque:{" "}
+                        {remoteServerInfo.compare_manifest.with_stock_items}
+                      </Text>
+                    ) : null}
+                  </>
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    Consulte o servidor remoto para conferir se ele ja publicou o snapshot.
+                  </Text>
+                )}
+                <Group>
+                  <Button
+                    variant="light"
+                    onClick={inspectRemoteServer}
+                    loading={inspectRemoteServerMutation.isPending}
+                    disabled={!remoteServerUrl.trim()}
+                  >
+                    Consultar servidor
+                  </Button>
+                  <Button
+                    onClick={startPublishedCompare}
+                    loading={comparePublishedMutation.isPending}
+                    disabled={!remoteServerUrl.trim()}
+                  >
+                    Comparar com servidor remoto
+                  </Button>
+                </Group>
+              </Stack>
+            </Card>
+          </SimpleGrid>
+        </Stack>
+      </Card>
+
+      <Accordion variant="separated">
+        <Accordion.Item value="manual">
+          <Accordion.Control>Modo avancado: comparacao manual</Accordion.Control>
+          <Accordion.Panel>
+            <Stack gap="md">
+              <Text size="sm" c="dimmed">
+                Use apenas quando precisar comparar dois arquivos especificos sem depender do servidor local.
+              </Text>
               <SimpleGrid cols={{ base: 1, md: 2 }}>
                 <Card withBorder>
-                  <Stack gap={6}>
-                    <Text fw={600}>Minha máquina</Text>
-                    <Text size="sm">Máquina: {publishedStatus.machine_label}</Text>
-                    <Text size="sm">Perfil atual: {activeProfileName}</Text>
-                    <Text size="sm" c="dimmed">{currentDbPath}</Text>
-                    <Text size="sm" c="dimmed">
-                      Pasta compartilhada: {publishedStatus.official_base_dir || "-"}
-                    </Text>
-                    {publishedStatus.local_snapshot ? (
-                      <Text size="sm" c="dimmed">
-                        Última publicação: {dayjs(publishedStatus.local_snapshot.manifest.published_at).format("DD/MM/YYYY HH:mm")}
-                      </Text>
-                    ) : (
-                      <Text size="sm" c="dimmed">Esta máquina ainda não publicou snapshot de comparação.</Text>
-                    )}
-                    <Button onClick={() => publishSnapshotMutation.mutate()} loading={publishSnapshotMutation.isPending}>
-                      Publicar minha base para comparação
-                    </Button>
+                  <Stack gap="sm">
+                    <Text fw={600}>Base A</Text>
+                    <TextInput
+                      label="Nome da base"
+                      value={leftLabel}
+                      onChange={(event) => setLeftLabel(event.currentTarget.value)}
+                      placeholder="Ex: Minha base"
+                    />
+                    <TextInput
+                      label="Caminho do arquivo"
+                      value={leftPath}
+                      onChange={(event) => setLeftPath(event.currentTarget.value)}
+                      placeholder="Ex: C:\\Bases\\estoque.db"
+                    />
+                    <Group>
+                      <Button variant="light" onClick={() => chooseDatabaseFile("left")}>
+                        Escolher arquivo
+                      </Button>
+                      <Button variant="subtle" onClick={() => setLeftPath(currentDbPath)} disabled={!currentDbPath}>
+                        Usar base atual
+                      </Button>
+                    </Group>
                   </Stack>
                 </Card>
 
                 <Card withBorder>
-                  <Stack gap={6}>
-                    <Text fw={600}>Base remota publicada</Text>
-                    <Select
-                      label="Escolha a máquina"
-                      data={publishedBases.map(publishedBaseOption)}
-                      value={selectedPublishedMachine}
-                      onChange={(value) => setSelectedPublishedMachine(value || "")}
-                      placeholder="Selecione uma base publicada"
-                      searchable
-                      nothingFoundMessage="Nenhuma base publicada encontrada"
+                  <Stack gap="sm">
+                    <Text fw={600}>Base B</Text>
+                    <TextInput
+                      label="Nome da base"
+                      value={rightLabel}
+                      onChange={(event) => setRightLabel(event.currentTarget.value)}
+                      placeholder="Ex: Base colega"
                     />
-                    {selectedPublishedBase ? (
-                      <>
-                        <Text size="sm">
-                          Publicada em: {dayjs(selectedPublishedBase.manifest.published_at).format("DD/MM/YYYY HH:mm")}
-                        </Text>
-                        <Text size="sm">
-                          Itens: {selectedPublishedBase.manifest.total_items} | Ativos: {selectedPublishedBase.manifest.active_items} | Com estoque: {selectedPublishedBase.manifest.with_stock_items}
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                          Snapshot: {selectedPublishedBase.zip_path}
-                        </Text>
-                      </>
-                    ) : (
-                      <Text size="sm" c="dimmed">
-                        Nenhuma base remota selecionada ainda.
-                      </Text>
-                    )}
+                    <TextInput
+                      label="Caminho do arquivo"
+                      value={rightPath}
+                      onChange={(event) => setRightPath(event.currentTarget.value)}
+                      placeholder="Ex: C:\\Bases\\colega\\estoque.db"
+                    />
                     <Group>
-                      <Button
-                        onClick={startPublishedCompare}
-                        loading={comparePublishedMutation.isPending}
-                        disabled={!selectedPublishedBase}
-                      >
-                        Comparar com base publicada
-                      </Button>
-                      <Button variant="light" onClick={() => publishedStatusQuery.refetch()}>
-                        Atualizar lista
+                      <Button variant="light" onClick={() => chooseDatabaseFile("right")}>
+                        Escolher arquivo
                       </Button>
                     </Group>
                   </Stack>
                 </Card>
               </SimpleGrid>
 
-              <Text size="xs" c="dimmed">
-                As bases publicadas ficam dentro da mesma pasta compartilhada, em uma subpasta `compare`, separadas por máquina.
-              </Text>
-            </>
-          )}
-        </Stack>
-      </Card>
-
-      <Card withBorder>
-        <Stack gap="md">
-          <Title order={4}>Comparação manual</Title>
-          <Text size="sm" c="dimmed">
-            Mantida como plano B. Use quando quiser comparar dois arquivos específicos sem depender da base publicada.
-          </Text>
-          <SimpleGrid cols={{ base: 1, md: 2 }}>
-            <Card withBorder>
-              <Stack gap="sm">
-                <Text fw={600}>Base A</Text>
-                <TextInput
-                  label="Nome da base"
-                  value={leftLabel}
-                  onChange={(event) => setLeftLabel(event.currentTarget.value)}
-                  placeholder="Ex: Minha base"
-                />
-                <TextInput
-                  label="Caminho do arquivo"
-                  value={leftPath}
-                  onChange={(event) => setLeftPath(event.currentTarget.value)}
-                  placeholder="Ex: \\\\SERVIDOR\\Pasta\\estoque.db"
-                />
-                <Group>
-                  <Button variant="light" onClick={() => chooseDatabaseFile("left")}>
-                    Escolher arquivo
-                  </Button>
-                  <Button
-                    variant="subtle"
-                    onClick={() => setLeftPath(currentDbPath)}
-                    disabled={!currentDbPath}
-                  >
-                    Usar base atual
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
-
-            <Card withBorder>
-              <Stack gap="sm">
-                <Text fw={600}>Base B</Text>
-                <TextInput
-                  label="Nome da base"
-                  value={rightLabel}
-                  onChange={(event) => setRightLabel(event.currentTarget.value)}
-                  placeholder="Ex: Base colega"
-                />
-                <TextInput
-                  label="Caminho do arquivo"
-                  value={rightPath}
-                  onChange={(event) => setRightPath(event.currentTarget.value)}
-                  placeholder="Ex: \\\\SERVIDOR\\Pasta\\colega\\estoque.db"
-                />
-                <Group>
-                  <Button variant="light" onClick={() => chooseDatabaseFile("right")}>
-                    Escolher arquivo
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
-          </SimpleGrid>
-
-          <Group justify="space-between" wrap="wrap">
-            <Badge variant="light">Comparação por ID do produto</Badge>
-            <Button onClick={startManualCompare} loading={compareMutation.isPending}>
-              Comparar manualmente
-            </Button>
-          </Group>
-        </Stack>
-      </Card>
+              <Group justify="space-between" wrap="wrap">
+                <Badge variant="light">Comparacao por ID do produto</Badge>
+                <Button onClick={startManualCompare} loading={compareMutation.isPending}>
+                  Comparar manualmente
+                </Button>
+              </Group>
+            </Stack>
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
 
       {compareResult ? (
         <>
           <SimpleGrid cols={{ base: 2, md: 5 }}>
             <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("DIFFERENT")}>
-              <Text size="xs" c="dimmed">Divergentes</Text>
-              <Text fw={700} size="xl" c="red">{compareResult.summary.divergent_items}</Text>
+              <Text size="xs" c="dimmed">
+                Divergentes
+              </Text>
+              <Text fw={700} size="xl" c="red">
+                {compareResult.summary.divergent_items}
+              </Text>
             </Card>
             <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("CANOAS")}>
-              <Text size="xs" c="dimmed">Diferenças em Canoas</Text>
-              <Text fw={700} size="xl" c="blue">{compareResult.summary.canoas_mismatch_items}</Text>
+              <Text size="xs" c="dimmed">
+                Diferencas em Canoas
+              </Text>
+              <Text fw={700} size="xl" c="blue">
+                {compareResult.summary.canoas_mismatch_items}
+              </Text>
             </Card>
             <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("PF")}>
-              <Text size="xs" c="dimmed">Diferenças em PF</Text>
-              <Text fw={700} size="xl" c="orange">{compareResult.summary.pf_mismatch_items}</Text>
+              <Text size="xs" c="dimmed">
+                Diferencas em PF
+              </Text>
+              <Text fw={700} size="xl" c="orange">
+                {compareResult.summary.pf_mismatch_items}
+              </Text>
             </Card>
             <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("ONLY_LEFT")}>
-              <Text size="xs" c="dimmed">Só na base A</Text>
-              <Text fw={700} size="xl">{compareResult.summary.only_left_items}</Text>
+              <Text size="xs" c="dimmed">
+                So na base A
+              </Text>
+              <Text fw={700} size="xl">
+                {compareResult.summary.only_left_items}
+              </Text>
             </Card>
             <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("ONLY_RIGHT")}>
-              <Text size="xs" c="dimmed">Só na base B</Text>
-              <Text fw={700} size="xl">{compareResult.summary.only_right_items}</Text>
+              <Text size="xs" c="dimmed">
+                So na base B
+              </Text>
+              <Text fw={700} size="xl">
+                {compareResult.summary.only_right_items}
+              </Text>
             </Card>
           </SimpleGrid>
 
@@ -465,7 +500,9 @@ export default function StockComparePage() {
             <Card withBorder>
               <Stack gap={4}>
                 <Text fw={600}>{compareResult.left.label}</Text>
-                <Text size="sm" c="dimmed">{compareResult.left.path}</Text>
+                <Text size="sm" c="dimmed">
+                  {compareResult.left.path}
+                </Text>
                 <Text size="sm">Itens: {compareResult.left.total_items}</Text>
                 <Text size="sm">Ativos: {compareResult.left.active_items}</Text>
                 <Text size="sm">Com estoque: {compareResult.left.with_stock_items}</Text>
@@ -475,7 +512,9 @@ export default function StockComparePage() {
             <Card withBorder>
               <Stack gap={4}>
                 <Text fw={600}>{compareResult.right.label}</Text>
-                <Text size="sm" c="dimmed">{compareResult.right.path}</Text>
+                <Text size="sm" c="dimmed">
+                  {compareResult.right.path}
+                </Text>
                 <Text size="sm">Itens: {compareResult.right.total_items}</Text>
                 <Text size="sm">Ativos: {compareResult.right.active_items}</Text>
                 <Text size="sm">Com estoque: {compareResult.right.with_stock_items}</Text>
@@ -501,7 +540,13 @@ export default function StockComparePage() {
                 onChange={(event) => setSearch(event.currentTarget.value)}
                 w={280}
               />
-              <Button variant="subtle" onClick={() => { setFilter("DIFFERENT"); setSearch(""); }}>
+              <Button
+                variant="subtle"
+                onClick={() => {
+                  setFilter("DIFFERENT");
+                  setSearch("");
+                }}
+              >
                 Limpar filtros
               </Button>
             </Group>
@@ -521,7 +566,7 @@ export default function StockComparePage() {
                   <Table.Th>Dif. PF</Table.Th>
                   <Table.Th>{compareResult.left.label} status</Table.Th>
                   <Table.Th>{compareResult.right.label} status</Table.Th>
-                  <Table.Th>Análise</Table.Th>
+                  <Table.Th>Analise</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -582,7 +627,7 @@ export default function StockComparePage() {
         </>
       ) : (
         <Card withBorder>
-          <EmptyState message="Publique uma base ou escolha duas bases manuais para iniciar a comparação." />
+          <EmptyState message="Publique um snapshot nesta maquina ou compare duas bases manuais para iniciar a analise." />
         </Card>
       )}
     </Stack>

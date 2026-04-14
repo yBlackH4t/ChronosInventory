@@ -10,6 +10,24 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.6.0",
+    "date": "2026-04-14",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Novo fluxo de servidor local para distribuir a base oficial na rede, com botoes para iniciar/parar o host, publicar a base atual e baixar a base de outra maquina pelo endereco do servidor.",
+      "Novo: Novo fluxo de comparacao por servidor remoto: cada maquina pode publicar um snapshot local e outra maquina compara informando apenas o endereco do host, sem copiar .db manualmente.",
+      "Novo: Novo tema claro/escuro com alternancia no topo do app e preferencia salva localmente.",
+      "Novo: Nova exportacao Resumo bonito de estoque em XLSX, com abas Resumo e Estoque, totais por local (Canoas e PF) e total global de pecas.",
+      "Mudanca: Tela Backup > Base oficial foi reorganizada para priorizar o modo servidor, mantendo o fluxo mais natural de ligar servidor -> publicar -> outro PC conecta -> baixa.",
+      "Mudanca: Tela Comparar estoques passou a priorizar comparacao por servidor remoto e manteve a comparacao manual apenas como modo avancado.",
+      "Mudanca: Dashboard ficou mais operacional: o bloco inutil de Itens sem movimentacao saiu e entrou Zerados com venda recente, focado em itens ativos sem saldo e com venda real no periodo.",
+      "Mudanca: Fluxo visual do app ficou mais limpo com reorganizacao da navegacao, abas em telas grandes e rolagem propria na barra lateral para nao esconder secoes administrativas.",
+      "Correcao: Correcao do fluxo de distribuicao/comparacao entre maquinas para nao depender mais de pasta compartilhada UNC ou de copiar o banco manualmente para a rede.",
+      "Correcao: Backup > Base oficial agora permite excluir a base publicada atual e snapshots historicos diretamente pela interface.",
+      "Correcao: Exportacao de Resumo bonito passou a exibir mensagem mais clara quando o backend local estiver desatualizado em relacao ao frontend."
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-04-13",
     "title": "Melhorias e correcoes",

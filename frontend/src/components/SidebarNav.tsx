@@ -13,7 +13,6 @@ import {
   IconFileImport,
   IconGauge,
   IconReport,
-  IconSparkles,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
 import { useProfileScope } from "../state/profileScope";
@@ -35,22 +34,26 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "Arquivos",
+    title: "Documentos",
     items: [
-      { label: "Importar", to: "/importar", icon: IconFileImport },
-      { label: "Exportar", to: "/exportar", icon: IconFileExport },
       { label: "Etiquetas", to: "/etiquetas", icon: IconBarcode },
       { label: "Relatorios", to: "/relatorios", icon: IconReport },
     ],
   },
   {
-    title: "Sistema",
+    title: "Dados",
+    items: [
+      { label: "Importar", to: "/importar", icon: IconFileImport },
+      { label: "Exportar", to: "/exportar", icon: IconFileExport },
+    ],
+  },
+  {
+    title: "Administracao",
     items: [
       { label: "Backup", to: "/backup", icon: IconDatabase },
       { label: "Estoques", to: "/estoques", icon: IconDatabase },
       { label: "Comparar estoques", to: "/comparar-estoques", icon: IconArrowsExchange },
       { label: "Ativar/Inativar", to: "/itens-status", icon: IconCheckbox },
-      { label: "Novidades", to: "/novidades", icon: IconSparkles },
     ],
   },
 ];

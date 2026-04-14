@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Badge, Button, Group, Text } from "@mantine/core";
+import { ActionIcon, Badge, Button, Group, Text, Tooltip, useMantineColorScheme } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconCircleFilled, IconRefresh } from "@tabler/icons-react";
+import { IconCircleFilled, IconMoonStars, IconRefresh, IconSun } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import type { HealthOut } from "../lib/api";
 import { api } from "../lib/apiClient";
@@ -13,6 +13,7 @@ import { getLatestReleaseEntry, getReleaseEntry } from "../lib/changelog";
 
 export default function HeaderBar({ health }: { health: HealthOut }) {
   const { activeProfileName, activeProfileId, restartRequired, backendSupportsProfiles } = useProfileScope();
+  const { colorScheme, setColorScheme } = useMantineColorScheme();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState(health.version);
   const [releaseNotesChecked, setReleaseNotesChecked] = useState(false);
@@ -157,6 +158,16 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
           {activeProfileName} ({activeProfileId})
         </Badge>
       )}
+      <Tooltip label={colorScheme === "dark" ? "Usar tema claro" : "Usar tema escuro"}>
+        <ActionIcon
+          size="md"
+          variant="light"
+          aria-label="Alternar tema"
+          onClick={() => setColorScheme(colorScheme === "dark" ? "light" : "dark")}
+        >
+          {colorScheme === "dark" ? <IconSun size={16} /> : <IconMoonStars size={16} />}
+        </ActionIcon>
+      </Tooltip>
       <Button
         size="xs"
         variant="subtle"

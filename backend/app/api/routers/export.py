@@ -28,3 +28,22 @@ def export_products(
     response.headers["X-Filename"] = filename
     background_tasks.add_task(os.remove, path)
     return response
+
+
+@router.post("/estoque-resumo")
+def export_stock_overview(
+    background_tasks: BackgroundTasks,
+    export_service: ExportService = Depends(get_export_service),
+):
+    path, total = export_service.export_stock_overview_excel()
+    filename = os.path.basename(path)
+
+    response = FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+    )
+    response.headers["X-Export-Count"] = str(total)
+    response.headers["X-Filename"] = filename
+    background_tasks.add_task(os.remove, path)
+    return response

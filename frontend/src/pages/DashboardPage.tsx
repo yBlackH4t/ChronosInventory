@@ -45,7 +45,7 @@ import type {
   StockEvolutionPoint,
   SuccessResponse,
   TopSaidaItem,
-  TopSemMovItem,
+  RecentStockoutItem,
 } from "../lib/api";
 import { notifyError } from "../lib/notify";
 
@@ -192,11 +192,10 @@ export default function DashboardPage() {
         { signal }
       ),
   });
-
-  const inactiveQuery = useQuery<SuccessResponse<TopSemMovItem[]>>({
-    queryKey: ["analytics", profileScopeKey, "inactive", dateTo, scope],
+  const recentStockoutsQuery = useQuery<SuccessResponse<RecentStockoutItem[]>>({
+    queryKey: ["analytics", profileScopeKey, "recent-stockouts", dateTo, scope],
     queryFn: ({ signal }) =>
-      api.getAnalyticsInactiveProducts(
+      api.getAnalyticsRecentStockouts(
         {
           days: 30,
           date_to: dateTo,
@@ -207,16 +206,17 @@ export default function DashboardPage() {
       ),
   });
 
+
   const dashboardErrors = useMemo(
     () =>
       [
-        summaryQuery.error,
-        distributionQuery.error,
-        topSaidasQuery.error,
-        flowQuery.error,
-        evolutionQuery.error,
-        inactiveQuery.error,
-      ]
+      summaryQuery.error,
+      distributionQuery.error,
+      topSaidasQuery.error,
+      flowQuery.error,
+      evolutionQuery.error,
+      recentStockoutsQuery.error,
+    ]
         .map(getQueryErrorMessage)
         .filter((item): item is string => Boolean(item)),
     [
@@ -225,7 +225,7 @@ export default function DashboardPage() {
       topSaidasQuery.error,
       flowQuery.error,
       evolutionQuery.error,
-      inactiveQuery.error,
+      recentStockoutsQuery.error,
     ]
   );
 
@@ -248,7 +248,7 @@ export default function DashboardPage() {
   const distribution = distributionQuery.data?.data;
   const flow = flowQuery.data?.data ?? [];
   const evolution = evolutionQuery.data?.data ?? [];
-  const inactive = inactiveQuery.data?.data ?? [];
+  const recentStockouts = recentStockoutsQuery.data?.data ?? [];
   const hasTopSaidasData = topSaidas.some((item) => item.total_saida > 0);
   const topSaidasChartData = useMemo(
     () =>
@@ -511,14 +511,14 @@ export default function DashboardPage() {
 
         <Grid.Col span={12}>
           <Card withBorder>
-            <Title order={4} mb="sm">Itens sem movimentacao (ultimos 30 dias)</Title>
+            <Title order={4} mb="sm">Zerados com venda recente</Title>
             <Text size="xs" c="dimmed" mb="sm">
               Referencia: ate {dayjs(dateTo).format("DD/MM/YYYY")} | Escopo: {SCOPE_LABELS[scope]} | Janela: 30 dias
             </Text>
-            {inactiveQuery.isLoading ? (
+            {recentStockoutsQuery.isLoading ? (
               <Loader size="sm" />
-            ) : inactive.length === 0 ? (
-              <EmptyState message="Nenhum item sem movimentacao no recorte atual." />
+            ) : recentStockouts.length === 0 ? (
+              <EmptyState message="Nenhum item zerado com venda real recente no recorte atual." />
             ) : (
               <Table.ScrollContainer minWidth={720}>
                 <Table striped highlightOnHover withTableBorder>
@@ -526,17 +526,17 @@ export default function DashboardPage() {
                     <Table.Tr>
                       <Table.Th>ID</Table.Th>
                       <Table.Th>Produto</Table.Th>
-                      <Table.Th>Ultima movimentacao</Table.Th>
-                      <Table.Th>Dias sem mov.</Table.Th>
+                      <Table.Th>Qtd vendida (30d)</Table.Th>
+                      <Table.Th>Ultima venda</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {inactive.map((item) => (
+                    {recentStockouts.map((item) => (
                       <Table.Tr key={item.produto_id}>
                         <Table.Td>{item.produto_id}</Table.Td>
                         <Table.Td>{item.nome}</Table.Td>
-                        <Table.Td>{item.last_movement ? dayjs(item.last_movement).format("DD/MM/YYYY HH:mm") : "Sem historico"}</Table.Td>
-                        <Table.Td>{item.dias_sem_mov}</Table.Td>
+                        <Table.Td>{item.total_saida_recente}</Table.Td>
+                        <Table.Td>{item.last_sale ? dayjs(item.last_sale).format("DD/MM/YYYY HH:mm") : "Sem historico"}</Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>

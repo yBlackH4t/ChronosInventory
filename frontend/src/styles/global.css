@@ -13,6 +13,21 @@
   --nav-item-active-bg: linear-gradient(135deg, #3b82f6 0%, #4338ca 100%);
 }
 
+:root[data-mantine-color-scheme="dark"] {
+  color-scheme: dark;
+  --app-bg: radial-gradient(circle at top right, #111827 0%, #0f172a 48%, #0b1220 100%);
+  --surface: #111827;
+  --surface-muted: #172133;
+  --line: #334155;
+  --line-soft: #243244;
+  --text: #e5edf8;
+  --text-muted: #9fb1ca;
+  --nav-bg: #0b1220;
+  --nav-item: #c7d2e8;
+  --nav-item-active: #ffffff;
+  --nav-item-active-bg: linear-gradient(135deg, #2563eb 0%, #4338ca 100%);
+}
+
 *,
 *::before,
 *::after {
@@ -36,6 +51,7 @@ body {
 .app-shell-navbar {
   background: var(--nav-bg);
   border-right: 1px solid rgba(255, 255, 255, 0.09);
+  overflow: hidden;
 }
 
 .app-shell-main {
@@ -50,6 +66,27 @@ body {
 
 .sidebar-shell {
   height: 100%;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.42) transparent;
+}
+
+.sidebar-shell::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-shell::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-shell::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.34);
+  border-radius: 999px;
+}
+
+.sidebar-shell::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
 }
 
 .sidebar-brand-title {
@@ -178,7 +215,7 @@ body {
 .mantine-Table-th {
   background: var(--surface-muted);
   border-bottom: 1px solid var(--line);
-  color: #334155;
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -186,7 +223,7 @@ body {
 }
 
 .mantine-Table-td {
-  color: #0f172a;
+  color: var(--text);
   font-size: 0.88rem;
 }
 

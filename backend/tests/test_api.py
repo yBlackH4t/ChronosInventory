@@ -3,10 +3,12 @@ import io
 import json
 import os
 import sqlite3
+import socket
 import tempfile
 import zipfile
 
 import pandas as pd
+from openpyxl import load_workbook
 
 
 def _create_product(client, nome="Produto Teste", qtd_canoas=1, qtd_pf=0):
@@ -14,6 +16,12 @@ def _create_product(client, nome="Produto Teste", qtd_canoas=1, qtd_pf=0):
     response = client.post("/produtos", json=payload)
     assert response.status_code == 201
     return response.json()["data"]["id"]
+
+
+def _find_free_port():
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
 
 
 def test_health_success(client):
@@ -925,6 +933,172 @@ def test_official_base_apply_requires_compatible_app_version(client, tmp_path):
     assert "Atualize o aplicativo" in applied.json()["error"]["message"]
 
 
+def test_official_base_can_delete_latest_and_history_publications(client, tmp_path):
+    _create_product(client, "Produto Delete Base", qtd_canoas=1, qtd_pf=0)
+    share_dir = tmp_path / "BaseOficialChronos"
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "publisher",
+            "official_base_dir": str(share_dir),
+            "machine_label": "PC-TESTE",
+            "publisher_name": "Usuario Teste",
+        },
+    )
+    assert configured.status_code == 200
+
+    published = client.post("/backup/base-oficial/publicar", json={"notes": "Publicacao para excluir"})
+    assert published.status_code == 200
+    published_data = published.json()["data"]
+    assert os.path.exists(published_data["manifest_path"])
+    assert os.path.exists(published_data["zip_path"])
+
+    history = client.get("/backup/base-oficial/historico?limit=5")
+    assert history.status_code == 200
+    history_data = history.json()["data"]
+    assert len(history_data) == 1
+    history_manifest_path = history_data[0]["manifest_path"]
+    history_zip_path = history_data[0]["zip_path"]
+    assert os.path.exists(history_manifest_path)
+    assert os.path.exists(history_zip_path)
+
+    deleted_history = client.request(
+        "DELETE",
+        "/backup/base-oficial/publicacoes",
+        json={"manifest_path": history_manifest_path},
+    )
+    assert deleted_history.status_code == 200
+    deleted_history_data = deleted_history.json()["data"]
+    assert deleted_history_data["deleted_latest"] is False
+    assert not os.path.exists(history_manifest_path)
+    assert not os.path.exists(history_zip_path)
+
+    status_before_latest_delete = client.get("/backup/base-oficial/status")
+    assert status_before_latest_delete.status_code == 200
+    assert status_before_latest_delete.json()["data"]["latest_available"] is True
+
+    deleted_latest = client.request(
+        "DELETE",
+        "/backup/base-oficial/publicacoes",
+        json={"delete_latest": True},
+    )
+    assert deleted_latest.status_code == 200
+    deleted_latest_data = deleted_latest.json()["data"]
+    assert deleted_latest_data["deleted_latest"] is True
+    assert not os.path.exists(published_data["manifest_path"])
+    assert not os.path.exists(published_data["zip_path"])
+
+    final_status = client.get("/backup/base-oficial/status")
+    assert final_status.status_code == 200
+    assert final_status.json()["data"]["latest_available"] is False
+
+
+def test_official_base_local_server_publish_and_apply(client):
+    product_a = _create_product(client, "Produto Server A", qtd_canoas=2, qtd_pf=0)
+    port = _find_free_port()
+    server_url = f"http://127.0.0.1:{port}"
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "publisher",
+            "machine_label": "PC-SERVIDOR",
+            "publisher_name": "Usuario Teste",
+            "server_port": port,
+            "remote_server_url": server_url,
+        },
+    )
+    assert configured.status_code == 200
+
+    started = client.post("/backup/base-oficial-servidor/iniciar")
+    assert started.status_code == 200
+    assert started.json()["data"]["running"] is True
+
+    try:
+        published = client.post(
+            "/backup/base-oficial-servidor/publicar",
+            json={"notes": "Base oficial via servidor local"},
+        )
+        assert published.status_code == 200
+        published_data = published.json()["data"]
+        assert os.path.exists(published_data["zip_path"])
+        assert os.path.exists(published_data["manifest_path"])
+
+        remote = client.get(f"/backup/base-oficial-servidor/remoto?server_url={server_url}")
+        assert remote.status_code == 200
+        remote_data = remote.json()["data"]
+        assert remote_data["official_available"] is True
+        assert remote_data["machine_label"] == "PC-SERVIDOR"
+        assert remote_data["official_manifest"]["products_count"] == 1
+
+        product_b = _create_product(client, "Produto Server B", qtd_canoas=1, qtd_pf=0)
+        listed_before_apply = client.get("/produtos")
+        ids_before = {item["id"] for item in listed_before_apply.json()["data"]}
+        assert product_a in ids_before
+        assert product_b in ids_before
+
+        applied = client.post(f"/backup/base-oficial-servidor/aplicar?server_url={server_url}")
+        assert applied.status_code == 200
+        applied_data = applied.json()["data"]
+        assert applied_data["restart_required"] is True
+        assert applied_data["publisher_machine"] == "PC-SERVIDOR"
+
+        listed_after_apply = client.get("/produtos")
+        ids_after = {item["id"] for item in listed_after_apply.json()["data"]}
+        assert product_a in ids_after
+        assert product_b not in ids_after
+    finally:
+        stopped = client.post("/backup/base-oficial-servidor/parar")
+        assert stopped.status_code == 200
+        assert stopped.json()["data"]["running"] is False
+
+
+def test_compare_local_server_snapshot_flow(client):
+    product_id = _create_product(client, "Produto Compare A", qtd_canoas=3, qtd_pf=0)
+    port = _find_free_port()
+    server_url = f"http://127.0.0.1:{port}"
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "consumer",
+            "machine_label": "PC-COMPARE",
+            "server_port": port,
+            "remote_server_url": server_url,
+        },
+    )
+    assert configured.status_code == 200
+
+    started = client.post("/backup/base-oficial-servidor/iniciar")
+    assert started.status_code == 200
+
+    try:
+        published = client.post("/sistema/comparativo-servidor/publicar")
+        assert published.status_code == 200
+
+        remote = client.get(f"/sistema/comparativo-servidor/remoto?server_url={server_url}")
+        assert remote.status_code == 200
+        remote_data = remote.json()["data"]
+        assert remote_data["compare_available"] is True
+        assert remote_data["compare_manifest"]["total_items"] == 1
+
+        moved = client.post(
+            "/movimentacoes",
+            json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 2, "destino": "CANOAS"},
+        )
+        assert moved.status_code == 201
+
+        compared = client.post("/sistema/comparativo-servidor/comparar", json={"server_url": server_url})
+        assert compared.status_code == 200
+        compare_data = compared.json()["data"]
+        assert compare_data["summary"]["divergent_items"] >= 1
+        assert compare_data["right"]["label"] == "Servidor remoto - PC-COMPARE"
+    finally:
+        stopped = client.post("/backup/base-oficial-servidor/parar")
+        assert stopped.status_code == 200
+
+
 def test_export_products(client):
     _create_product(client, "Produto Export", qtd_canoas=1, qtd_pf=0)
     resp = client.post("/export/produtos")
@@ -933,6 +1107,38 @@ def test_export_products(client):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     assert resp.content
+
+
+def test_export_stock_overview_excel(client):
+    _create_product(client, "Produto Resumo A", qtd_canoas=2, qtd_pf=1)
+    _create_product(client, "Produto Resumo B", qtd_canoas=0, qtd_pf=4)
+
+    resp = client.post("/export/estoque-resumo")
+    assert resp.status_code == 200
+    assert resp.headers.get("content-type", "").startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    workbook = load_workbook(io.BytesIO(resp.content))
+    assert "Resumo" in workbook.sheetnames
+    assert "Estoque" in workbook.sheetnames
+
+    summary = workbook["Resumo"]
+    stock = workbook["Estoque"]
+
+    assert summary["A1"].value == "Chronos Inventory - Resumo de Estoque"
+    assert summary["A4"].value == "Total de produtos ativos"
+    assert summary["B4"].value >= 2
+    assert summary["A8"].value == "Total global de pecas"
+    assert summary["B8"].value >= 7
+
+    assert stock["A1"].value == "ID"
+    assert stock["B1"].value == "Produto"
+    assert stock["C1"].value == "Estoque Canoas"
+    assert stock["D1"].value == "Estoque PF"
+    assert stock["E1"].value == "Total"
+    assert stock["F1"].value == "Onde tem"
+    assert stock.max_row >= 3
 
 
 def test_report_selected_stock_pdf(client):
@@ -1095,6 +1301,76 @@ def test_analytics_top_saidas_filters_and_order(client):
     assert resp_pf.status_code == 200
     data_pf = resp_pf.json()["data"]
     assert all(item["produto_id"] == product_b for item in data_pf)
+
+
+def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(client):
+    product_recent = _create_product(client, "Produto Zerado Recente", qtd_canoas=3, qtd_pf=0)
+    product_old = _create_product(client, "Produto Zerado Antigo", qtd_canoas=2, qtd_pf=0)
+    product_transfer = _create_product(client, "Produto Zerado Transferencia", qtd_canoas=2, qtd_pf=0)
+    product_not_zero = _create_product(client, "Produto Ainda Com Saldo", qtd_canoas=5, qtd_pf=0)
+    product_pf = _create_product(client, "Produto PF Zerado", qtd_canoas=0, qtd_pf=2)
+
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_recent,
+        "quantidade": 3,
+        "origem": "CANOAS",
+        "data": "2026-02-10T10:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_old,
+        "quantidade": 2,
+        "origem": "CANOAS",
+        "data": "2025-12-15T10:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_transfer,
+        "quantidade": 2,
+        "origem": "CANOAS",
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "MATRIZ",
+        "data": "2026-02-10T11:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_not_zero,
+        "quantidade": 2,
+        "origem": "CANOAS",
+        "data": "2026-02-10T12:00:00",
+    })
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_pf,
+        "quantidade": 2,
+        "origem": "PF",
+        "data": "2026-02-10T13:00:00",
+    })
+
+    resp_ambos = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&scope=AMBOS&limit=10")
+    assert resp_ambos.status_code == 200
+    data_ambos = resp_ambos.json()["data"]
+    ids_ambos = {item["produto_id"] for item in data_ambos}
+    assert product_recent in ids_ambos
+    assert product_pf in ids_ambos
+    assert product_old not in ids_ambos
+    assert product_transfer not in ids_ambos
+    assert product_not_zero not in ids_ambos
+
+    resp_canoas = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&scope=CANOAS&limit=10")
+    assert resp_canoas.status_code == 200
+    data_canoas = resp_canoas.json()["data"]
+    ids_canoas = {item["produto_id"] for item in data_canoas}
+    assert product_recent in ids_canoas
+    assert product_pf not in ids_canoas
+
+    resp_pf = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&scope=PF&limit=10")
+    assert resp_pf.status_code == 200
+    data_pf = resp_pf.json()["data"]
+    ids_pf = {item["produto_id"] for item in data_pf}
+    assert product_pf in ids_pf
+    assert product_recent not in ids_pf
 
 
 def test_analytics_entradas_saidas_and_distribuicao(client):

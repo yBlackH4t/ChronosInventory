@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
@@ -15,10 +16,12 @@ import {
   Table,
   Text,
   TextInput,
+  Tabs,
   Title,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
@@ -36,25 +39,29 @@ import type {
   BackupRestoreTestOut,
   BackupValidateOut,
   DownloadResponse,
+  LocalShareServerOut,
   OfficialBaseApplyOut,
   OfficialBaseConfigIn,
-  OfficialBaseDirectoryTestOut,
+  OfficialBaseDeleteOut,
   OfficialBaseHistoryItemOut,
   OfficialBasePublishOut,
   OfficialBaseRole,
   OfficialBaseStatusOut,
+  RemoteShareStatusOut,
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
 import { restartApplication } from "../lib/restartApp";
 
 type BackupTabState = {
+  activeSection: "locais" | "oficial" | "diagnostico";
   selectedBackupName: string | null;
   scrollY: number;
 };
 
 const BACKUP_TAB_ID = "backup";
 const DEFAULT_BACKUP_TAB_STATE: BackupTabState = {
+  activeSection: "locais",
   selectedBackupName: null,
   scrollY: 0,
 };
@@ -85,6 +92,7 @@ export default function BackupPage() {
     []
   );
   const queryClient = useQueryClient();
+  const [activeSection, setActiveSection] = useState<BackupTabState["activeSection"]>(persistedState.activeSection);
   const [selectedBackupName, setSelectedBackupName] = useState<string | null>(
     persistedState.selectedBackupName
   );
@@ -97,11 +105,12 @@ export default function BackupPage() {
   const [autoScheduleModeInput, setAutoScheduleModeInput] = useState<"DAILY" | "WEEKLY" | null>(null);
   const [autoWeekdayInput, setAutoWeekdayInput] = useState<string | null>(null);
   const [officialRoleInput, setOfficialRoleInput] = useState<OfficialBaseRole>("consumer");
-  const [officialBaseDirInput, setOfficialBaseDirInput] = useState("");
   const [officialMachineLabelInput, setOfficialMachineLabelInput] = useState("");
   const [officialPublisherNameInput, setOfficialPublisherNameInput] = useState("");
+  const [officialServerPortInput, setOfficialServerPortInput] = useState<number | null>(8765);
+  const [officialRemoteServerUrlInput, setOfficialRemoteServerUrlInput] = useState("");
   const [officialNotesInput, setOfficialNotesInput] = useState("");
-  const [officialDirectoryTestResult, setOfficialDirectoryTestResult] = useState<OfficialBaseDirectoryTestOut | null>(null);
+  const [remoteOfficialStatus, setRemoteOfficialStatus] = useState<RemoteShareStatusOut | null>(null);
 
   const backupsQuery = useQuery<SuccessResponse<BackupListItemOut[]>>({
     queryKey: ["backup-list"],
@@ -124,9 +133,9 @@ export default function BackupPage() {
   });
 
   const officialBaseHistoryQuery = useQuery<SuccessResponse<OfficialBaseHistoryItemOut[]>>({
-    queryKey: ["official-base-history"],
-    queryFn: ({ signal }) => api.officialBaseHistory({ limit: 8 }, { signal }),
-    enabled: !!officialBaseStatusQuery.data?.data?.directory_configured,
+    queryKey: ["official-base-server-history"],
+    queryFn: ({ signal }) => api.officialBaseServerHistory({ limit: 8 }, { signal }),
+    enabled: true,
     staleTime: 30_000,
   });
 
@@ -223,19 +232,20 @@ export default function BackupPage() {
     onSuccess: (response) => {
       notifySuccess("Configuracao da base oficial salva.");
       queryClient.setQueryData(["official-base-status"], response);
-      queryClient.invalidateQueries({ queryKey: ["official-base-history"] });
+      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
     },
     onError: (error) => notifyError(error),
   });
 
   const officialBaseTestDirectoryMutation = useMutation<
-    SuccessResponse<OfficialBaseDirectoryTestOut>,
+    SuccessResponse<RemoteShareStatusOut>,
     Error,
     void
   >({
-    mutationFn: () => api.officialBaseTestDirectory(),
+    mutationFn: () =>
+      api.officialBaseServerRemoteStatus({ server_url: officialRemoteServerUrlInput.trim() || undefined }),
     onSuccess: (response) => {
-      setOfficialDirectoryTestResult(response.data);
+      setRemoteOfficialStatus(response.data);
       notifySuccess(response.data.message);
     },
     onError: (error) => notifyError(error),
@@ -246,22 +256,41 @@ export default function BackupPage() {
     Error,
     { notes?: string | null }
   >({
-    mutationFn: (payload) => api.officialBasePublish(payload),
+    mutationFn: (payload) => api.officialBaseServerPublish(payload),
     onSuccess: (response) => {
       notifySuccess(`Base oficial publicada em ${dayjs(response.data.published_at).format("DD/MM/YYYY HH:mm")}.`);
       setOfficialNotesInput("");
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
-      queryClient.invalidateQueries({ queryKey: ["official-base-history"] });
+      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const officialBaseDeleteMutation = useMutation<
+    SuccessResponse<OfficialBaseDeleteOut>,
+    Error,
+    { manifestPath?: string | null; deleteLatest?: boolean }
+  >({
+    mutationFn: (payload) =>
+      api.officialBaseServerDeletePublication({
+        manifest_path: payload.manifestPath ?? undefined,
+        delete_latest: payload.deleteLatest ?? false,
+      }),
+    onSuccess: (response) => {
+      notifySuccess(response.data.message);
+      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
     },
     onError: (error) => notifyError(error),
   });
 
   const officialBaseApplyMutation = useMutation<SuccessResponse<OfficialBaseApplyOut>, Error, void>({
-    mutationFn: () => api.officialBaseApply(),
+    mutationFn: () =>
+      api.officialBaseServerApply({ server_url: officialRemoteServerUrlInput.trim() || undefined }),
     onSuccess: async (response) => {
       notifySuccess("Base oficial aplicada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
-      queryClient.invalidateQueries({ queryKey: ["official-base-history"] });
+      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
       queryClient.invalidateQueries({ queryKey: ["backup-list"] });
       queryClient.invalidateQueries({ queryKey: ["backup-validate-current"] });
       if (!response.data.restart_required) return;
@@ -271,6 +300,24 @@ export default function BackupPage() {
       } catch (error) {
         notifyError(error, "Base aplicada. Reinicie o aplicativo manualmente para concluir.");
       }
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const officialBaseServerStartMutation = useMutation<SuccessResponse<LocalShareServerOut>, Error, void>({
+    mutationFn: () => api.officialBaseServerStart(),
+    onSuccess: () => {
+      notifySuccess("Servidor local iniciado.");
+      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const officialBaseServerStopMutation = useMutation<SuccessResponse<LocalShareServerOut>, Error, void>({
+    mutationFn: () => api.officialBaseServerStop(),
+    onSuccess: () => {
+      notifySuccess("Servidor local parado.");
+      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
     },
     onError: (error) => notifyError(error),
   });
@@ -298,30 +345,33 @@ export default function BackupPage() {
   const autoRetention = autoRetentionInput ?? String(autoConfig?.retention_days ?? 15);
   const autoScheduleMode = autoScheduleModeInput ?? autoConfig?.schedule_mode ?? "DAILY";
   const autoWeekday = autoWeekdayInput ?? String(autoConfig?.weekday ?? 0);
-  const latestOfficialManifest = officialBaseStatus?.latest_manifest;
+  const latestOfficialManifest = officialBaseStatus?.server_latest_manifest;
   const officialBaseHistory = officialBaseHistoryQuery.data?.data ?? [];
 
   useEffect(() => {
     if (!officialBaseStatus) return;
     setOfficialRoleInput(officialBaseStatus.role);
-    setOfficialBaseDirInput(officialBaseStatus.official_base_dir || "");
     setOfficialMachineLabelInput(officialBaseStatus.machine_label || "");
     setOfficialPublisherNameInput(officialBaseStatus.publisher_name || "");
+    setOfficialServerPortInput(officialBaseStatus.server_port ?? 8765);
+    setOfficialRemoteServerUrlInput(officialBaseStatus.remote_server_url || "");
   }, [
     officialBaseStatus?.role,
-    officialBaseStatus?.official_base_dir,
     officialBaseStatus?.machine_label,
     officialBaseStatus?.publisher_name,
+    officialBaseStatus?.server_port,
+    officialBaseStatus?.remote_server_url,
   ]);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
       saveTabState<BackupTabState>(BACKUP_TAB_ID, {
+        activeSection,
         selectedBackupName,
         scrollY: nextScrollY,
       });
     },
-    [scrollY, selectedBackupName]
+    [activeSection, scrollY, selectedBackupName]
   );
 
   useEffect(() => {
@@ -383,9 +433,12 @@ export default function BackupPage() {
   const saveOfficialBaseConfig = () => {
     officialBaseConfigMutation.mutate({
       role: officialRoleInput,
-      official_base_dir: officialBaseDirInput.trim() || null,
+      official_base_dir: officialBaseStatus?.official_base_dir ?? null,
       machine_label: officialMachineLabelInput.trim() || null,
       publisher_name: officialPublisherNameInput.trim() || null,
+      server_port: officialServerPortInput ?? undefined,
+      remote_server_url: officialRemoteServerUrlInput.trim() || null,
+      server_enabled: officialBaseStatus?.server_enabled ?? false,
     });
   };
 
@@ -394,8 +447,8 @@ export default function BackupPage() {
       title: "Publicar base oficial",
       children: (
         <Text size="sm">
-          Esta operacao vai gerar uma copia oficial da base atual e publicar na pasta compartilhada configurada.
-          Use isso somente na maquina que representa a fonte oficial do estoque.
+          Esta operacao vai gerar uma copia oficial da base atual e deixar essa base disponivel no servidor local desta
+          maquina. Use isso somente na maquina que representa a fonte oficial do estoque.
         </Text>
       ),
       labels: { confirm: "Publicar agora", cancel: "Cancelar" },
@@ -411,13 +464,43 @@ export default function BackupPage() {
       title: "Atualizar minha base local",
       children: (
         <Text size="sm">
-          O sistema vai criar um backup automatico do banco atual, importar a base oficial mais recente e reiniciar o
-          aplicativo ao final.
+          O sistema vai criar um backup automatico do banco atual, baixar a base oficial do servidor remoto informado
+          e reiniciar o aplicativo ao final.
         </Text>
       ),
       labels: { confirm: "Atualizar base", cancel: "Cancelar" },
       confirmProps: { color: "orange" },
       onConfirm: () => officialBaseApplyMutation.mutate(),
+    });
+  };
+
+  const confirmDeleteLatestOfficialBase = () => {
+    modals.openConfirmModal({
+      title: "Excluir base oficial atual",
+      children: (
+        <Text size="sm">
+          Isso vai remover a base oficial mais recente publicada neste servidor local. Os snapshots do historico
+          continuam existentes, mas os outros computadores nao vao mais encontrar uma base atual para baixar.
+        </Text>
+      ),
+      labels: { confirm: "Excluir base atual", cancel: "Cancelar" },
+      confirmProps: { color: "red" },
+      onConfirm: () => officialBaseDeleteMutation.mutate({ deleteLatest: true }),
+    });
+  };
+
+  const confirmDeleteOfficialBaseHistoryItem = (item: OfficialBaseHistoryItemOut) => {
+    modals.openConfirmModal({
+      title: "Excluir publicacao historica",
+      children: (
+        <Text size="sm">
+          Isso vai remover este snapshot do historico publicado em{" "}
+          {dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}. Essa acao nao altera a base local ativa.
+        </Text>
+      ),
+      labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
+      confirmProps: { color: "red" },
+      onConfirm: () => officialBaseDeleteMutation.mutate({ manifestPath: item.manifest_path }),
     });
   };
 
@@ -427,26 +510,9 @@ export default function BackupPage() {
         title="Backup"
         subtitle="Rotinas de seguranca, validacao de integridade e restauracao assistida."
         actions={(
-          <>
-            <Button
-              variant="light"
-              onClick={() => diagnosticsMutation.mutate()}
-              loading={diagnosticsMutation.isPending}
-            >
-              Exportar diagnostico
-            </Button>
-            <Button
-              variant="light"
-              color="orange"
-              onClick={() => restorePreUpdateMutation.mutate()}
-              loading={restorePreUpdateMutation.isPending}
-            >
-              Restaurar pre-update
-            </Button>
-            <Button onClick={() => backupMutation.mutate()} loading={backupMutation.isPending}>
-              Criar backup
-            </Button>
-          </>
+          <Button onClick={() => backupMutation.mutate()} loading={backupMutation.isPending}>
+            Criar backup
+          </Button>
         )}
       />
 
@@ -467,6 +533,15 @@ export default function BackupPage() {
         </Stack>
       </Card>
 
+      <Tabs value={activeSection} onChange={(value) => setActiveSection((value as BackupTabState["activeSection"]) || "locais")}>
+        <Tabs.List>
+          <Tabs.Tab value="locais">Backups locais</Tabs.Tab>
+          <Tabs.Tab value="oficial">Base oficial</Tabs.Tab>
+          <Tabs.Tab value="diagnostico">Diagnostico</Tabs.Tab>
+        </Tabs.List>
+
+        <Tabs.Panel value="oficial" pt="md">
+
       <Card withBorder>
         <Stack>
           <Title order={4}>Base oficial compartilhada</Title>
@@ -480,23 +555,26 @@ export default function BackupPage() {
             />
           ) : (
             <>
-              <Alert color={officialBaseStatus?.directory_configured ? "blue" : "orange"} variant="light">
-                {officialBaseStatus?.directory_configured
-                  ? "Use uma unica maquina como publisher e deixe as demais como consumer. Todas sempre fazem backup local antes de importar a base oficial."
-                  : "Configure a pasta compartilhada e o papel desta maquina para ativar a distribuicao da base oficial."}
+              <Alert color={officialBaseStatus?.server_running ? "blue" : "orange"} variant="light">
+                {officialBaseStatus?.server_running
+                  ? "Servidor local ativo. Quem estiver na rede pode usar o endereco abaixo para baixar a base oficial ou comparar snapshots."
+                  : "Ligue o servidor local desta maquina para distribuir a base oficial sem depender de pasta compartilhada."}
               </Alert>
 
               <Group gap="sm" wrap="wrap">
                 <Badge variant="light" color={officialBaseStatus?.role === "publisher" ? "blue" : "gray"}>
                   Papel: {officialBaseStatus?.role === "publisher" ? "Publisher" : "Consumer"}
                 </Badge>
-                <Badge variant="light" color={officialBaseStatus?.directory_accessible ? "green" : "orange"}>
-                  Pasta {officialBaseStatus?.directory_accessible ? "acessivel" : "indisponivel"}
+                <Badge variant="light" color={officialBaseStatus?.server_running ? "green" : "orange"}>
+                  Servidor {officialBaseStatus?.server_running ? "ativo" : "parado"}
                 </Badge>
-                <Badge variant="light" color={officialBaseStatus?.latest_available ? "green" : "gray"}>
-                  {officialBaseStatus?.latest_available ? "Base oficial encontrada" : "Sem base publicada"}
+                <Badge variant="light" color={officialBaseStatus?.server_latest_available ? "green" : "gray"}>
+                  {officialBaseStatus?.server_latest_available ? "Base oficial local publicada" : "Sem base oficial local"}
                 </Badge>
-                {officialBaseStatus?.app_compatible_with_latest === false && (
+                <Badge variant="light" color={officialBaseStatus?.remote_server_url ? "indigo" : "gray"}>
+                  {officialBaseStatus?.remote_server_url ? "Servidor remoto configurado" : "Sem servidor remoto"}
+                </Badge>
+                {officialBaseStatus?.app_compatible_with_server_latest === false && (
                   <Badge variant="light" color="red">
                     App local incompativel com a ultima base
                   </Badge>
@@ -516,13 +594,6 @@ export default function BackupPage() {
                   allowDeselect={false}
                 />
                 <TextInput
-                  label="Pasta compartilhada"
-                  placeholder="\\\\DELL-WIN11PRO\\BaseOficialChronos"
-                  value={officialBaseDirInput}
-                  onChange={(event) => setOfficialBaseDirInput(event.currentTarget.value)}
-                  w={420}
-                />
-                <TextInput
                   label="Identificacao da maquina"
                   value={officialMachineLabelInput}
                   onChange={(event) => setOfficialMachineLabelInput(event.currentTarget.value)}
@@ -534,16 +605,44 @@ export default function BackupPage() {
                   onChange={(event) => setOfficialPublisherNameInput(event.currentTarget.value)}
                   w={220}
                 />
+                <NumberInput
+                  label="Porta do servidor"
+                  value={officialServerPortInput ?? undefined}
+                  onChange={(value) => setOfficialServerPortInput(typeof value === "number" ? value : null)}
+                  min={1024}
+                  max={65535}
+                  w={160}
+                />
+                <TextInput
+                  label="Servidor remoto"
+                  placeholder="http://192.168.0.15:8765"
+                  value={officialRemoteServerUrlInput}
+                  onChange={(event) => setOfficialRemoteServerUrlInput(event.currentTarget.value)}
+                  w={320}
+                />
                 <Button onClick={saveOfficialBaseConfig} loading={officialBaseConfigMutation.isPending}>
                   Salvar configuracao
                 </Button>
                 <Button
                   variant="light"
+                  onClick={() => {
+                    if (officialBaseStatus?.server_running) {
+                      officialBaseServerStopMutation.mutate();
+                      return;
+                    }
+                    officialBaseServerStartMutation.mutate();
+                  }}
+                  loading={officialBaseServerStartMutation.isPending || officialBaseServerStopMutation.isPending}
+                >
+                  {officialBaseStatus?.server_running ? "Parar servidor" : "Iniciar servidor"}
+                </Button>
+                <Button
+                  variant="light"
                   onClick={() => officialBaseTestDirectoryMutation.mutate()}
                   loading={officialBaseTestDirectoryMutation.isPending}
-                  disabled={!officialBaseDirInput.trim()}
+                  disabled={!officialRemoteServerUrlInput.trim()}
                 >
-                  Testar pasta
+                  Testar servidor remoto
                 </Button>
               </Group>
 
@@ -551,34 +650,32 @@ export default function BackupPage() {
                 Config local: {officialBaseStatus?.config_path || "-"}
               </Text>
 
-              {officialDirectoryTestResult && (
+              {officialBaseStatus?.server_urls?.length ? (
                 <Alert
-                  color={
-                    officialDirectoryTestResult.directory_accessible &&
-                    (officialRoleInput !== "publisher" || officialDirectoryTestResult.write_ok)
-                      ? "green"
-                      : "orange"
-                  }
+                  color={officialBaseStatus?.server_running ? "green" : "gray"}
                   variant="light"
                 >
                   <Stack gap={4}>
-                    <Text size="sm">{officialDirectoryTestResult.message}</Text>
-                    <Group gap="xs" wrap="wrap">
-                      <Badge variant="light" color={officialDirectoryTestResult.read_ok ? "green" : "orange"}>
-                        Leitura {officialDirectoryTestResult.read_ok ? "OK" : "falhou"}
-                      </Badge>
-                      <Badge variant="light" color={officialDirectoryTestResult.write_ok ? "green" : "orange"}>
-                        Escrita {officialDirectoryTestResult.write_ok ? "OK" : "nao validada"}
-                      </Badge>
-                      <Badge
-                        variant="light"
-                        color={officialDirectoryTestResult.latest_manifest_found ? "blue" : "gray"}
-                      >
-                        {officialDirectoryTestResult.latest_manifest_found
-                          ? "Manifesto encontrado"
-                          : "Sem manifesto ainda"}
-                      </Badge>
-                    </Group>
+                    <Text size="sm">
+                      Enderecos desta maquina: {officialBaseStatus.server_urls.join(" | ")}
+                    </Text>
+                  </Stack>
+                </Alert>
+              ) : null}
+
+              {remoteOfficialStatus && (
+                <Alert color={remoteOfficialStatus.official_available ? "green" : "orange"} variant="light">
+                  <Stack gap={4}>
+                    <Text size="sm">{remoteOfficialStatus.message}</Text>
+                    <Text size="sm">
+                      Servidor: {remoteOfficialStatus.server_url} | Maquina: {remoteOfficialStatus.machine_label || "-"}
+                    </Text>
+                    {remoteOfficialStatus.official_manifest && (
+                      <Text size="sm">
+                        Base remota: {dayjs(remoteOfficialStatus.official_manifest.published_at).format("DD/MM/YYYY HH:mm")} | Produtos:{" "}
+                        {remoteOfficialStatus.official_manifest.products_count ?? 0}
+                      </Text>
+                    )}
                   </Stack>
                 </Alert>
               )}
@@ -614,10 +711,23 @@ export default function BackupPage() {
                 <Card withBorder bg="var(--mantine-color-gray-0)">
                   <Stack gap="xs">
                     <Group justify="space-between" wrap="wrap">
-                      <Text fw={600}>Ultima base publicada</Text>
-                      <Text size="sm" c="dimmed">
-                        {dayjs(latestOfficialManifest.published_at).format("DD/MM/YYYY HH:mm")}
-                      </Text>
+                  <Text fw={600}>Ultima base publicada neste servidor</Text>
+                      <Group gap="xs">
+                        <Text size="sm" c="dimmed">
+                          {dayjs(latestOfficialManifest.published_at).format("DD/MM/YYYY HH:mm")}
+                        </Text>
+                        {officialRoleInput === "publisher" && (
+                          <Button
+                            size="xs"
+                            color="red"
+                            variant="light"
+                            onClick={confirmDeleteLatestOfficialBase}
+                            loading={officialBaseDeleteMutation.isPending}
+                          >
+                            Excluir base atual
+                          </Button>
+                        )}
+                      </Group>
                     </Group>
                     <Text size="sm">
                       Publicada por: {latestOfficialManifest.publisher_name || latestOfficialManifest.publisher_machine}
@@ -644,7 +754,7 @@ export default function BackupPage() {
                 </Card>
               ) : (
                 <Text size="sm" c="dimmed">
-                  Nenhuma base oficial publicada ainda.
+                  Nenhuma base oficial publicada neste servidor ainda.
                 </Text>
               )}
 
@@ -696,9 +806,9 @@ export default function BackupPage() {
                   <Button
                     onClick={confirmPublishOfficialBase}
                     loading={officialBasePublishMutation.isPending}
-                    disabled={!officialBaseDirInput.trim() || (officialBaseStatus?.current_products_count ?? 0) === 0}
+                    disabled={(officialBaseStatus?.current_products_count ?? 0) === 0}
                   >
-                    Publicar base oficial
+                    Publicar base oficial neste servidor
                   </Button>
                 )}
                 <Button
@@ -706,9 +816,9 @@ export default function BackupPage() {
                   color="orange"
                   onClick={confirmApplyOfficialBase}
                   loading={officialBaseApplyMutation.isPending}
-                  disabled={!officialBaseStatus?.latest_available || officialBaseStatus?.app_compatible_with_latest === false}
+                  disabled={!officialRemoteServerUrlInput.trim()}
                 >
-                  Atualizar minha base
+                  Baixar base oficial do servidor remoto
                 </Button>
               </Group>
 
@@ -720,7 +830,7 @@ export default function BackupPage() {
                   </Group>
                   {officialBaseHistory.length === 0 ? (
                     <Text size="sm" c="dimmed">
-                      Nenhuma publicacao historica encontrada nesta pasta.
+                      Nenhuma publicacao historica encontrada no servidor local.
                     </Text>
                   ) : (
                     <DataTable minWidth={880}>
@@ -733,6 +843,7 @@ export default function BackupPage() {
                             <Table.Th>Produtos</Table.Th>
                             <Table.Th>Movs</Table.Th>
                             <Table.Th>Notas</Table.Th>
+                            <Table.Th>Acoes</Table.Th>
                           </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
@@ -744,6 +855,21 @@ export default function BackupPage() {
                               <Table.Td>{item.manifest.products_count ?? "-"}</Table.Td>
                               <Table.Td>{item.manifest.movements_count ?? "-"}</Table.Td>
                               <Table.Td>{item.manifest.notes || "-"}</Table.Td>
+                              <Table.Td>
+                                {officialRoleInput === "publisher" ? (
+                                  <ActionIcon
+                                    color="red"
+                                    variant="light"
+                                    onClick={() => confirmDeleteOfficialBaseHistoryItem(item)}
+                                    loading={officialBaseDeleteMutation.isPending}
+                                    aria-label="Excluir publicacao"
+                                  >
+                                    <IconTrash size={16} />
+                                  </ActionIcon>
+                                ) : (
+                                  "-"
+                                )}
+                              </Table.Td>
                             </Table.Tr>
                           ))}
                         </Table.Tbody>
@@ -756,6 +882,9 @@ export default function BackupPage() {
           )}
         </Stack>
       </Card>
+
+        </Tabs.Panel>
+        <Tabs.Panel value="locais" pt="md">
 
       <Card withBorder>
         <Stack>
@@ -939,6 +1068,47 @@ export default function BackupPage() {
           </DataTable>
         </Stack>
       </Card>
+
+        </Tabs.Panel>
+        <Tabs.Panel value="diagnostico" pt="md">
+          <Stack gap="lg">
+            <Card withBorder>
+              <Stack gap="md">
+                <Title order={4}>Diagnostico e suporte</Title>
+                <Text size="sm" c="dimmed">
+                  Gere um pacote tecnico para suporte e use o restore pre-update quando uma atualizacao nao sobe corretamente.
+                </Text>
+                <Group>
+                  <Button
+                    variant="light"
+                    onClick={() => diagnosticsMutation.mutate()}
+                    loading={diagnosticsMutation.isPending}
+                  >
+                    Exportar diagnostico
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="orange"
+                    onClick={() => restorePreUpdateMutation.mutate()}
+                    loading={restorePreUpdateMutation.isPending}
+                  >
+                    Restaurar pre-update
+                  </Button>
+                </Group>
+              </Stack>
+            </Card>
+
+            <Card withBorder>
+              <Stack gap="xs">
+                <Title order={4}>Quando usar</Title>
+                <Text size="sm" c="dimmed">
+                  `Exportar diagnostico` ajuda a enviar logs e informacoes do ambiente para suporte. `Restaurar pre-update` funciona como rollback rapido depois de uma atualizacao com problema.
+                </Text>
+              </Stack>
+            </Card>
+          </Stack>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }

@@ -16,6 +16,26 @@ Formato recomendado:
 
 
 
+
+## [1.6.0] - 2026-04-14
+
+### Added
+- Novo fluxo de `servidor local` para distribuir a base oficial na rede, com botoes para iniciar/parar o host, publicar a base atual e baixar a base de outra maquina pelo endereco do servidor.
+- Novo fluxo de comparacao por `servidor remoto`: cada maquina pode publicar um snapshot local e outra maquina compara informando apenas o endereco do host, sem copiar `.db` manualmente.
+- Novo `tema claro/escuro` com alternancia no topo do app e preferencia salva localmente.
+- Nova exportacao `Resumo bonito de estoque` em XLSX, com abas `Resumo` e `Estoque`, totais por local (`Canoas` e `PF`) e total global de pecas.
+
+### Changed
+- Tela `Backup > Base oficial` foi reorganizada para priorizar o modo servidor, mantendo o fluxo mais natural de `ligar servidor -> publicar -> outro PC conecta -> baixa`.
+- Tela `Comparar estoques` passou a priorizar comparacao por servidor remoto e manteve a comparacao manual apenas como modo avancado.
+- Dashboard ficou mais operacional: o bloco inutil de `Itens sem movimentacao` saiu e entrou `Zerados com venda recente`, focado em itens ativos sem saldo e com venda real no periodo.
+- Fluxo visual do app ficou mais limpo com reorganizacao da navegacao, abas em telas grandes e rolagem propria na barra lateral para nao esconder secoes administrativas.
+
+### Fixed
+- Correcao do fluxo de distribuicao/comparacao entre maquinas para nao depender mais de pasta compartilhada UNC ou de copiar o banco manualmente para a rede.
+- `Backup > Base oficial` agora permite excluir a base publicada atual e snapshots historicos diretamente pela interface.
+- Exportacao de `Resumo bonito` passou a exibir mensagem mais clara quando o backend local estiver desatualizado em relacao ao frontend.
+
 ## [1.5.0] - 2026-04-13
 
 ### Added

@@ -443,6 +443,22 @@ class MovementService:
 
         return items
 
+    def get_recent_stockouts(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
+        cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
+        cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
+        date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+
+        rows = self.repo.get_recent_stockouts(cutoff, date_to_limit, limit=limit, scope=scope)
+        return [
+            {
+                "produto_id": int(row["produto_id"]),
+                "nome": str(row["nome"]),
+                "total_saida_recente": int(row.get("total_saida_recente") or 0),
+                "last_sale": row.get("last_sale"),
+            }
+            for row in rows
+        ]
+
     def list_real_sales(self, date_from: date, date_to: date, scope: str = "AMBOS") -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)

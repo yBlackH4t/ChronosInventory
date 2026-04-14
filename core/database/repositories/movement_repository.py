@@ -631,6 +631,85 @@ class MovementRepository(BaseRepository):
             (date_to, cutoff, limit),
         )
 
+    def get_recent_stockouts(
+        self,
+        cutoff: str,
+        date_to: str,
+        limit: int = 5,
+        scope: str = "AMBOS",
+    ) -> List[Dict[str, Any]]:
+        saida_liquida = self._saida_liquida_expr("m")
+
+        if scope == "CANOAS":
+            return self._execute_query(
+                f"""
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       SUM({saida_liquida}) as total_saida_recente,
+                       MAX(m.data_hora) as last_sale
+                FROM produtos p
+                JOIN movimentacoes m ON m.produto_id = p.id
+                WHERE p.ativo = 1
+                  AND p.qtd_canoas = 0
+                  AND m.tipo = 'SAIDA'
+                  AND m.natureza = 'OPERACAO_NORMAL'
+                  AND m.origem = 'CANOAS'
+                  AND m.data_hora >= ?
+                  AND m.data_hora <= ?
+                GROUP BY p.id, p.nome
+                HAVING total_saida_recente > 0
+                ORDER BY total_saida_recente DESC, last_sale DESC
+                LIMIT ?
+                """,
+                (cutoff, date_to, limit),
+            )
+
+        if scope == "PF":
+            return self._execute_query(
+                f"""
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       SUM({saida_liquida}) as total_saida_recente,
+                       MAX(m.data_hora) as last_sale
+                FROM produtos p
+                JOIN movimentacoes m ON m.produto_id = p.id
+                WHERE p.ativo = 1
+                  AND p.qtd_pf = 0
+                  AND m.tipo = 'SAIDA'
+                  AND m.natureza = 'OPERACAO_NORMAL'
+                  AND m.origem = 'PF'
+                  AND m.data_hora >= ?
+                  AND m.data_hora <= ?
+                GROUP BY p.id, p.nome
+                HAVING total_saida_recente > 0
+                ORDER BY total_saida_recente DESC, last_sale DESC
+                LIMIT ?
+                """,
+                (cutoff, date_to, limit),
+            )
+
+        return self._execute_query(
+            f"""
+            SELECT p.id as produto_id,
+                   p.nome as nome,
+                   SUM({saida_liquida}) as total_saida_recente,
+                   MAX(m.data_hora) as last_sale
+            FROM produtos p
+            JOIN movimentacoes m ON m.produto_id = p.id
+            WHERE p.ativo = 1
+              AND (COALESCE(p.qtd_canoas, 0) + COALESCE(p.qtd_pf, 0)) = 0
+              AND m.tipo = 'SAIDA'
+              AND m.natureza = 'OPERACAO_NORMAL'
+              AND m.data_hora >= ?
+              AND m.data_hora <= ?
+            GROUP BY p.id, p.nome
+            HAVING total_saida_recente > 0
+            ORDER BY total_saida_recente DESC, last_sale DESC
+            LIMIT ?
+            """,
+            (cutoff, date_to, limit),
+        )
+
     def list_inactive_products_report(
         self,
         cutoff: str,

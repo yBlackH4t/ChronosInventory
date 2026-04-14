@@ -14,6 +14,8 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.services.backup_scheduler_service import BackupSchedulerService
+from app.services.local_share_service import LocalShareService
+from app.services.official_base_service import OfficialBaseService
 from core.constants import APP_VERSION
 from core.database.connection import DatabaseConnection
 from core.database.migration_manager import MigrationManager
@@ -48,6 +50,7 @@ from backend.app.schemas.system import HealthOut, VersionOut
 
 LOG = logging.getLogger("backend")
 BACKUP_SCHEDULER = BackupSchedulerService()
+LOCAL_SHARE_SERVER = LocalShareService()
 
 
 def setup_logging() -> None:
@@ -117,6 +120,7 @@ app.include_router(system.router)
 def startup_log_runtime_paths() -> None:
     db = DatabaseConnection()
     updated, version = MigrationManager(db).check_and_run_migrations()
+    official_base_cfg = OfficialBaseService()._load_config()
     LOG.info(
         "startup app_dir=%s db_path=%s db_version=%s migrated=%s",
         FileUtils.get_app_directory(),
@@ -126,12 +130,19 @@ def startup_log_runtime_paths() -> None:
     )
     if os.getenv("APP_ENV", "").lower() != "test":
         BACKUP_SCHEDULER.start()
+        LOCAL_SHARE_SERVER.ensure_started_if_enabled(
+            enabled=bool(official_base_cfg["server_enabled"]),
+            machine_label=str(official_base_cfg["machine_label"]),
+            publisher_name=str(official_base_cfg["publisher_name"]),
+            port=int(official_base_cfg["server_port"]),
+        )
 
 
 @app.on_event("shutdown")
 def shutdown_runtime_services() -> None:
     if os.getenv("APP_ENV", "").lower() != "test":
         BACKUP_SCHEDULER.stop()
+        LOCAL_SHARE_SERVER.stop_server()
 
 def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "")

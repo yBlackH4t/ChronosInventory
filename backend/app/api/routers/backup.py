@@ -13,6 +13,8 @@ from backend.app.api.responses import ok
 from backend.app.schemas.backup import (
     BackupAutoConfigIn,
     BackupAutoConfigOut,
+    OfficialBaseDeleteIn,
+    OfficialBaseDeleteOut,
     BackupListItemOut,
     OfficialBaseApplyOut,
     OfficialBaseConfigIn,
@@ -20,6 +22,8 @@ from backend.app.schemas.backup import (
     OfficialBaseHistoryItemOut,
     OfficialBasePublishIn,
     OfficialBasePublishOut,
+    LocalShareServerOut,
+    RemoteShareStatusOut,
     OfficialBaseStatusOut,
     BackupOut,
     BackupRestoreIn,
@@ -218,6 +222,9 @@ def official_base_update_config(
         official_base_dir=payload.official_base_dir,
         machine_label=payload.machine_label,
         publisher_name=payload.publisher_name,
+        server_port=payload.server_port,
+        remote_server_url=payload.remote_server_url,
+        server_enabled=payload.server_enabled,
     )
     return ok(OfficialBaseStatusOut(**status))
 
@@ -248,9 +255,85 @@ def official_base_publish(
     return ok(OfficialBasePublishOut(**result))
 
 
+@router.delete("/base-oficial/publicacoes", response_model=SuccessResponse[OfficialBaseDeleteOut])
+def official_base_delete_publication(
+    payload: OfficialBaseDeleteIn,
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseDeleteOut]:
+    result = official_base_service.delete_official_base_publication(
+        manifest_path=payload.manifest_path,
+        delete_latest=payload.delete_latest,
+    )
+    return ok(OfficialBaseDeleteOut(**result))
+
+
 @router.post("/base-oficial/aplicar", response_model=SuccessResponse[OfficialBaseApplyOut])
 def official_base_apply(
     official_base_service: OfficialBaseService = Depends(get_official_base_service),
 ) -> SuccessResponse[OfficialBaseApplyOut]:
     result = official_base_service.apply_official_base()
+    return ok(OfficialBaseApplyOut(**result))
+
+
+@router.post("/base-oficial-servidor/iniciar", response_model=SuccessResponse[LocalShareServerOut])
+def official_base_server_start(
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[LocalShareServerOut]:
+    result = official_base_service.start_local_server()
+    return ok(LocalShareServerOut(**result))
+
+
+@router.post("/base-oficial-servidor/parar", response_model=SuccessResponse[LocalShareServerOut])
+def official_base_server_stop(
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[LocalShareServerOut]:
+    result = official_base_service.stop_local_server()
+    return ok(LocalShareServerOut(**result))
+
+
+@router.get("/base-oficial-servidor/remoto", response_model=SuccessResponse[RemoteShareStatusOut])
+def official_base_server_remote_status(
+    server_url: Optional[str] = Query(default=None, min_length=1, max_length=500),
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[RemoteShareStatusOut]:
+    result = official_base_service.test_remote_server(server_url=server_url)
+    return ok(RemoteShareStatusOut(**result))
+
+
+@router.get("/base-oficial-servidor/historico", response_model=SuccessResponse[list[OfficialBaseHistoryItemOut]])
+def official_base_server_history(
+    limit: int = Query(10, ge=1, le=30),
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[list[OfficialBaseHistoryItemOut]]:
+    items = official_base_service.list_server_history(limit=limit)
+    return ok([OfficialBaseHistoryItemOut(**item) for item in items])
+
+
+@router.post("/base-oficial-servidor/publicar", response_model=SuccessResponse[OfficialBasePublishOut])
+def official_base_server_publish(
+    payload: OfficialBasePublishIn,
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBasePublishOut]:
+    result = official_base_service.publish_server_official_base(notes=payload.notes)
+    return ok(OfficialBasePublishOut(**result))
+
+
+@router.delete("/base-oficial-servidor/publicacoes", response_model=SuccessResponse[OfficialBaseDeleteOut])
+def official_base_server_delete_publication(
+    payload: OfficialBaseDeleteIn,
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseDeleteOut]:
+    result = official_base_service.delete_server_publication(
+        manifest_path=payload.manifest_path,
+        delete_latest=payload.delete_latest,
+    )
+    return ok(OfficialBaseDeleteOut(**result))
+
+
+@router.post("/base-oficial-servidor/aplicar", response_model=SuccessResponse[OfficialBaseApplyOut])
+def official_base_server_apply(
+    server_url: Optional[str] = Query(default=None, min_length=1, max_length=500),
+    official_base_service: OfficialBaseService = Depends(get_official_base_service),
+) -> SuccessResponse[OfficialBaseApplyOut]:
+    result = official_base_service.apply_server_official_base(server_url=server_url)
     return ok(OfficialBaseApplyOut(**result))

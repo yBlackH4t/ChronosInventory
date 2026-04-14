@@ -264,7 +264,13 @@ export type OfficialBaseStatusOut = {
   official_base_dir?: string | null;
   machine_label: string;
   publisher_name?: string | null;
+  server_enabled?: boolean;
+  server_port?: number;
+  server_running?: boolean;
+  server_urls?: string[];
+  remote_server_url?: string | null;
   can_publish: boolean;
+  can_publish_server?: boolean;
   directory_configured: boolean;
   directory_accessible: boolean;
   current_app_version: string;
@@ -279,6 +285,11 @@ export type OfficialBaseStatusOut = {
   latest_manifest_path?: string | null;
   latest_manifest?: OfficialBaseManifestOut | null;
   app_compatible_with_latest?: boolean | null;
+  server_latest_available?: boolean;
+  server_latest_zip_path?: string | null;
+  server_latest_manifest_path?: string | null;
+  server_latest_manifest?: OfficialBaseManifestOut | null;
+  app_compatible_with_server_latest?: boolean | null;
 };
 
 export type OfficialBaseConfigIn = {
@@ -286,10 +297,18 @@ export type OfficialBaseConfigIn = {
   official_base_dir?: string | null;
   machine_label?: string | null;
   publisher_name?: string | null;
+  server_port?: number | null;
+  remote_server_url?: string | null;
+  server_enabled?: boolean | null;
 };
 
 export type OfficialBasePublishIn = {
   notes?: string | null;
+};
+
+export type OfficialBaseDeleteIn = {
+  manifest_path?: string | null;
+  delete_latest?: boolean;
 };
 
 export type OfficialBasePublishOut = {
@@ -305,6 +324,13 @@ export type OfficialBasePublishOut = {
   notes?: string | null;
 };
 
+export type OfficialBaseDeleteOut = {
+  deleted_manifest_path: string;
+  deleted_zip_path?: string | null;
+  deleted_latest: boolean;
+  message: string;
+};
+
 export type OfficialBaseApplyOut = {
   restored_from: string;
   active_database: string;
@@ -317,6 +343,26 @@ export type OfficialBaseApplyOut = {
   db_version: string;
   notes?: string | null;
   restart_required: boolean;
+};
+
+export type LocalShareServerOut = {
+  enabled: boolean;
+  running: boolean;
+  port: number;
+  urls: string[];
+  machine_label: string;
+  publisher_name?: string | null;
+};
+
+export type RemoteShareStatusOut = {
+  server_url: string;
+  reachable: boolean;
+  machine_label?: string | null;
+  app_version?: string | null;
+  official_available: boolean;
+  compare_available: boolean;
+  official_manifest?: OfficialBaseManifestOut | null;
+  message: string;
 };
 
 export type InventorySessionLocal = "CANOAS" | "PF";
@@ -476,6 +522,13 @@ export type TopSemMovItem = {
   dias_sem_mov: number;
 };
 
+export type RecentStockoutItem = {
+  produto_id: number;
+  nome: string;
+  total_saida_recente: number;
+  last_sale?: string | null;
+};
+
 export type ImportSummary = {
   imported: number;
   updated: number;
@@ -621,6 +674,27 @@ export type PublishedComparePublishOut = {
   manifest_path: string;
   history_zip_path: string;
   history_manifest_path: string;
+};
+
+export type CompareServerStatusOut = {
+  machine_label: string;
+  current_database_path: string;
+  server_running: boolean;
+  server_port: number;
+  server_urls: string[];
+  remote_server_url?: string | null;
+  local_snapshot_available: boolean;
+  local_snapshot?: PublishedCompareBaseOut | null;
+};
+
+export type RemoteCompareServerOut = {
+  server_url: string;
+  reachable: boolean;
+  machine_label?: string | null;
+  app_version?: string | null;
+  compare_available: boolean;
+  compare_manifest?: PublishedCompareManifestOut | null;
+  message: string;
 };
 
 export type DownloadResponse = {
@@ -807,6 +881,43 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<StockCompareOut>(
         `/sistema/comparativo-publicado/${encodeURIComponent(machineLabel)}/comparar`,
         { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async getCompareServerStatus(options: RequestInit = {}) {
+      return request<CompareServerStatusOut>(
+        `/sistema/comparativo-servidor/status`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async publishCompareServerSnapshot(options: RequestInit = {}) {
+      return request<PublishedComparePublishOut>(
+        `/sistema/comparativo-servidor/publicar`,
+        { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async inspectRemoteCompareServer(serverUrl: string, options: RequestInit = {}) {
+      const query = buildQuery({ server_url: serverUrl });
+      return request<RemoteCompareServerOut>(
+        `/sistema/comparativo-servidor/remoto${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async compareWithRemoteServer(serverUrl: string, options: RequestInit = {}) {
+      return request<StockCompareOut>(
+        `/sistema/comparativo-servidor/comparar`,
+        {
+          method: "POST",
+          body: JSON.stringify({ server_url: serverUrl }),
+          ...options,
+        },
         baseUrl
       );
     },
@@ -1085,9 +1196,100 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       );
     },
 
+    async officialBaseDeletePublication(payload: OfficialBaseDeleteIn, options: RequestInit = {}) {
+      return request<OfficialBaseDeleteOut>(
+        `/backup/base-oficial/publicacoes`,
+        {
+          method: "DELETE",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
     async officialBaseApply(options: RequestInit = {}) {
       return request<OfficialBaseApplyOut>(
         `/backup/base-oficial/aplicar`,
+        {
+          method: "POST",
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerStart(options: RequestInit = {}) {
+      return request<LocalShareServerOut>(
+        `/backup/base-oficial-servidor/iniciar`,
+        { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerStop(options: RequestInit = {}) {
+      return request<LocalShareServerOut>(
+        `/backup/base-oficial-servidor/parar`,
+        { method: "POST", ...options },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerRemoteStatus(
+      params: { server_url?: string | null } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<RemoteShareStatusOut>(
+        `/backup/base-oficial-servidor/remoto${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerHistory(
+      params: { limit?: number } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<OfficialBaseHistoryItemOut[]>(
+        `/backup/base-oficial-servidor/historico${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerPublish(payload: OfficialBasePublishIn, options: RequestInit = {}) {
+      return request<OfficialBasePublishOut>(
+        `/backup/base-oficial-servidor/publicar`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerDeletePublication(payload: OfficialBaseDeleteIn, options: RequestInit = {}) {
+      return request<OfficialBaseDeleteOut>(
+        `/backup/base-oficial-servidor/publicacoes`,
+        {
+          method: "DELETE",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl
+      );
+    },
+
+    async officialBaseServerApply(
+      params: { server_url?: string | null } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<OfficialBaseApplyOut>(
+        `/backup/base-oficial-servidor/aplicar${query}`,
         {
           method: "POST",
           ...options,
@@ -1203,6 +1405,10 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
 
     async exportProducts(options: RequestInit = {}) {
       return requestBlob(`/export/produtos`, { method: "POST", ...options }, baseUrl);
+    },
+
+    async exportStockOverview(options: RequestInit = {}) {
+      return requestBlob(`/export/estoque-resumo`, { method: "POST", ...options }, baseUrl);
     },
 
     async reportStockPDF(options: RequestInit = {}) {
@@ -1477,6 +1683,18 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
           baseUrl
         );
       }
+    },
+
+    async getAnalyticsRecentStockouts(
+      params: { days?: number; date_to?: string; limit?: number; scope?: "CANOAS" | "PF" | "AMBOS" } = {},
+      options: RequestInit = {}
+    ) {
+      const query = buildQuery(params);
+      return request<RecentStockoutItem[]>(
+        `/analytics/products/recent-stockouts${query}`,
+        { method: "GET", ...options },
+        baseUrl
+      );
     },
 
     // Compatibilidade com chamadas antigas

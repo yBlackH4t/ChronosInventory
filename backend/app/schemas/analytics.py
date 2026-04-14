@@ -50,6 +50,13 @@ class TopSemMovItem(BaseModel):
     dias_sem_mov: int
 
 
+class RecentStockoutItem(BaseModel):
+    produto_id: int
+    nome: str
+    total_saida_recente: int
+    last_sale: str | None = None
+
+
 # Compat com endpoints antigos
 class EntradasSaidasPoint(BaseModel):
     date: str

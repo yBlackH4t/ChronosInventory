@@ -11,6 +11,7 @@ from backend.app.schemas.analytics import (
     EntradasSaidasPoint,
     EstoqueEvolucaoPoint,
     FlowPoint,
+    RecentStockoutItem,
     SaidasPoint,
     StockDistributionOut,
     StockEvolutionPoint,
@@ -142,6 +143,20 @@ def products_inactive(
     scope = _validate_scope(scope)
     items = movement_service.get_top_sem_mov(days, date_to, limit=limit, scope=scope)
     return ok([TopSemMovItem(**item) for item in items])
+
+
+@router.get("/products/recent-stockouts", response_model=SuccessResponse[list[RecentStockoutItem]])
+def products_recent_stockouts(
+    days: int = Query(30, ge=1, le=365),
+    date_to: date | None = Query(None),
+    scope: str = Query("AMBOS"),
+    limit: int = Query(5, ge=1, le=20),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[RecentStockoutItem]]:
+    date_to = date_to or date.today()
+    scope = _validate_scope(scope)
+    items = movement_service.get_recent_stockouts(days, date_to, limit=limit, scope=scope)
+    return ok([RecentStockoutItem(**item) for item in items])
 
 
 # -----------------------------------------------------------------------------

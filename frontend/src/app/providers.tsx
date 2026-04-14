@@ -5,7 +5,7 @@ import "../styles/global.css";
 import "dayjs/locale/pt-br";
 
 import type { ReactNode } from "react";
-import { MantineProvider } from "@mantine/core";
+import { MantineProvider, localStorageColorSchemeManager } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
@@ -27,11 +27,19 @@ const queryClient = new QueryClient({
   },
 });
 
+const colorSchemeManager = localStorageColorSchemeManager({
+  key: "chronos.color-scheme",
+});
+
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ProfileScopeProvider>
-        <MantineProvider theme={appTheme}>
+        <MantineProvider
+          theme={appTheme}
+          colorSchemeManager={colorSchemeManager}
+          defaultColorScheme="light"
+        >
           <DatesProvider settings={{ locale: "pt-br", firstDayOfWeek: 1 }}>
             <ModalsProvider>
               <Notifications position="top-right" />

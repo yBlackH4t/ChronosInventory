@@ -142,3 +142,28 @@ class PublishedComparePublishOut(BaseModel):
     manifest_path: str
     history_zip_path: str
     history_manifest_path: str
+
+
+class CompareServerStatusOut(BaseModel):
+    machine_label: str
+    current_database_path: str
+    server_running: bool
+    server_port: int
+    server_urls: list[str]
+    remote_server_url: str | None = None
+    local_snapshot_available: bool
+    local_snapshot: PublishedCompareBaseOut | None = None
+
+
+class RemoteCompareServerOut(BaseModel):
+    server_url: str
+    reachable: bool
+    machine_label: str | None = None
+    app_version: str | None = None
+    compare_available: bool = False
+    compare_manifest: PublishedCompareManifestOut | None = None
+    message: str
+
+
+class RemoteCompareServerIn(BaseModel):
+    server_url: str = Field(min_length=1, max_length=500)

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import type { DragEvent } from "react";
 import {
   ActionIcon,
   Badge,
@@ -14,11 +13,12 @@ import {
   Table,
   Text,
   TextInput,
+  Tabs,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
-import { IconGripVertical, IconPlus, IconTrash } from "@tabler/icons-react";
+import { IconArrowDown, IconArrowUp, IconPlus, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
@@ -31,6 +31,7 @@ import { notifyError, notifySuccess } from "../lib/notify";
 type SelectedReportProduct = Pick<Product, "id" | "nome" | "qtd_canoas" | "qtd_pf" | "total_stock">;
 
 type ReportsTabState = {
+  activeSection: "estoque" | "selecionados" | "vendas" | "parados";
   salesDateFrom: string | null;
   salesDateTo: string | null;
   salesScope: "AMBOS" | "CANOAS" | "PF";
@@ -43,6 +44,7 @@ type ReportsTabState = {
 
 const REPORTS_TAB_ID = "reports";
 const DEFAULT_REPORTS_TAB_STATE: ReportsTabState = {
+  activeSection: "estoque",
   salesDateFrom: dayjs().startOf("month").format("YYYY-MM-DD"),
   salesDateTo: dayjs().format("YYYY-MM-DD"),
   salesScope: "AMBOS",
@@ -96,6 +98,7 @@ export default function ReportsPage() {
   const [salesDateFrom, setSalesDateFrom] = useState<Date | null>(
     persistedState.salesDateFrom ? dayjs(persistedState.salesDateFrom).toDate() : dayjs().startOf("month").toDate()
   );
+  const [activeSection, setActiveSection] = useState<ReportsTabState["activeSection"]>(persistedState.activeSection);
   const [salesDateTo, setSalesDateTo] = useState<Date | null>(
     persistedState.salesDateTo ? dayjs(persistedState.salesDateTo).toDate() : dayjs().toDate()
   );
@@ -107,12 +110,11 @@ export default function ReportsPage() {
   const [inactiveScope, setInactiveScope] = useState<"AMBOS" | "CANOAS" | "PF">(persistedState.inactiveScope);
   const [selectedSearch, setSelectedSearch] = useState(persistedState.selectedSearch);
   const [selectedItems, setSelectedItems] = useState<SelectedReportProduct[]>(persistedState.selectedItems);
-  const [draggedItemId, setDraggedItemId] = useState<number | null>(null);
-  const [dragOverItemId, setDragOverItemId] = useState<number | null>(null);
   const [debouncedSelectedSearch] = useDebouncedValue(selectedSearch, 300);
 
   useEffect(() => {
     saveTabState<ReportsTabState>(REPORTS_TAB_ID, {
+      activeSection,
       salesDateFrom: salesDateFrom ? dayjs(salesDateFrom).format("YYYY-MM-DD") : null,
       salesDateTo: salesDateTo ? dayjs(salesDateTo).format("YYYY-MM-DD") : null,
       salesScope,
@@ -123,6 +125,7 @@ export default function ReportsPage() {
       selectedItems,
     });
   }, [
+    activeSection,
     inactiveDateTo,
     inactiveDays,
     inactiveScope,
@@ -210,53 +213,23 @@ export default function ReportsPage() {
     setSelectedItems((current) => current.filter((item) => item.id !== productId));
   };
 
-  const moveSelectedItem = (draggedId: number, targetId: number) => {
-    if (draggedId === targetId) return;
+  const moveSelectedItem = (itemId: number, direction: "up" | "down") => {
     setSelectedItems((current) => {
-      const fromIndex = current.findIndex((item) => item.id === draggedId);
-      const toIndex = current.findIndex((item) => item.id === targetId);
-      if (fromIndex < 0 || toIndex < 0) return current;
+      const fromIndex = current.findIndex((item) => item.id === itemId);
+      if (fromIndex < 0) return current;
+
+      const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
+      if (toIndex < 0 || toIndex >= current.length) return current;
 
       const next = [...current];
       const [moved] = next.splice(fromIndex, 1);
-      const insertIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-      next.splice(insertIndex, 0, moved);
+      next.splice(toIndex, 0, moved);
       return next;
     });
   };
 
-  const handleDragStart = (event: DragEvent<HTMLElement>, itemId: number) => {
-    setDraggedItemId(itemId);
-    setDragOverItemId(itemId);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", String(itemId));
-  };
-
-  const handleDragOver = (event: DragEvent<HTMLElement>, itemId: number) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    if (dragOverItemId !== itemId) {
-      setDragOverItemId(itemId);
-    }
-  };
-
-  const handleDrop = (event: DragEvent<HTMLElement>, itemId: number) => {
-    event.preventDefault();
-    const transferredId = Number(event.dataTransfer.getData("text/plain"));
-    const sourceId = Number.isFinite(transferredId) && transferredId > 0 ? transferredId : draggedItemId;
-    if (sourceId) {
-      moveSelectedItem(sourceId, itemId);
-    }
-    setDraggedItemId(null);
-    setDragOverItemId(null);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedItemId(null);
-    setDragOverItemId(null);
-  };
-
   const resetView = () => {
+    setActiveSection(DEFAULT_REPORTS_TAB_STATE.activeSection);
     setSalesDateFrom(dayjs().startOf("month").toDate());
     setSalesDateTo(dayjs().toDate());
     setSalesScope("AMBOS");
@@ -286,304 +259,315 @@ export default function ReportsPage() {
         )}
       />
 
-      <Card withBorder>
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600}>Relatorio de estoque</Text>
-            <Badge variant="outline" color="gray">
-              PDF
-            </Badge>
-          </Group>
-          <Text size="sm" c="dimmed">
-            Lista os itens ativos com saldo atual por local. Ideal para conferencia rapida do estoque visivel no sistema.
-          </Text>
-          <Button
-            onClick={() => stockReportMutation.mutate()}
-            loading={stockReportMutation.isPending}
-          >
-            Gerar relatorio de estoque
-          </Button>
-        </Stack>
-      </Card>
+      <Tabs value={activeSection} onChange={(value) => setActiveSection((value as ReportsTabState["activeSection"]) || "estoque")}>
+        <Tabs.List>
+          <Tabs.Tab value="estoque">Estoque</Tabs.Tab>
+          <Tabs.Tab value="selecionados">Selecionados</Tabs.Tab>
+          <Tabs.Tab value="vendas">Vendas reais</Tabs.Tab>
+          <Tabs.Tab value="parados">Estoque parado</Tabs.Tab>
+        </Tabs.List>
 
-      <Card withBorder>
-        <Stack gap="md">
-          <Group justify="space-between" align="flex-start">
-            <Stack gap={4}>
-              <Text fw={600}>Relatorio de itens selecionados</Text>
-              <Text size="sm" c="dimmed">
-                Busque os itens, selecione os desejados e gere um PDF mostrando quantidade em Canoas, PF, total e onde tem saldo.
-              </Text>
-            </Stack>
-            <Badge variant="outline" color="grape">
-              Selecionados: {selectedItems.length}
-            </Badge>
-          </Group>
-
-          <TextInput
-            label="Buscar item"
-            placeholder="Digite codigo ou nome da peca"
-            value={selectedSearch}
-            onChange={(event) => setSelectedSearch(event.currentTarget.value)}
-          />
-
-          <Card withBorder radius="md" p="sm">
-            <Stack gap="xs">
+        <Tabs.Panel value="estoque" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
               <Group justify="space-between">
-                <Text fw={500}>Resultados da busca</Text>
-                {lookupQuery.isFetching && debouncedSelectedSearch.trim().length >= 2 ? <Loader size="xs" /> : null}
+                <Text fw={600}>Relatorio de estoque</Text>
+                <Badge variant="outline" color="gray">
+                  PDF
+                </Badge>
               </Group>
-
-              {selectedSearch.trim().length < 2 ? (
-                <Text size="sm" c="dimmed">
-                  Digite ao menos 2 letras para localizar produtos e adicionar ao relatorio.
-                </Text>
-              ) : lookupErrorMessage ? (
-                <Text size="sm" c="red">
-                  Falha ao buscar produtos: {lookupErrorMessage}
-                </Text>
-              ) : searchResults.length === 0 ? (
-                <Text size="sm" c="dimmed">
-                  Nenhum item encontrado para essa busca.
-                </Text>
-              ) : (
-                <ScrollArea.Autosize mah={240} offsetScrollbars>
-                  <Table striped highlightOnHover withTableBorder>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th>ID</Table.Th>
-                        <Table.Th>Produto</Table.Th>
-                        <Table.Th>Canoas</Table.Th>
-                        <Table.Th>PF</Table.Th>
-                        <Table.Th>Total</Table.Th>
-                        <Table.Th>Acoes</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {searchResults.map((product) => {
-                        const alreadySelected = selectedIds.has(product.id);
-                        return (
-                          <Table.Tr key={product.id}>
-                            <Table.Td>{product.id}</Table.Td>
-                            <Table.Td>{product.nome}</Table.Td>
-                            <Table.Td>{product.qtd_canoas}</Table.Td>
-                            <Table.Td>{product.qtd_pf}</Table.Td>
-                            <Table.Td>{product.total_stock}</Table.Td>
-                            <Table.Td>
-                              <Button
-                                size="xs"
-                                variant={alreadySelected ? "light" : "filled"}
-                                leftSection={<IconPlus size={14} />}
-                                disabled={alreadySelected}
-                                onClick={() => addSelectedItem(product)}
-                              >
-                                {alreadySelected ? "Selecionado" : "Selecionar"}
-                              </Button>
-                            </Table.Td>
-                          </Table.Tr>
-                        );
-                      })}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea.Autosize>
-              )}
+              <Text size="sm" c="dimmed">
+                Lista os itens ativos com saldo atual por local. Ideal para conferencia rapida do estoque visivel no sistema.
+              </Text>
+              <Button
+                onClick={() => stockReportMutation.mutate()}
+                loading={stockReportMutation.isPending}
+              >
+                Gerar relatorio de estoque
+              </Button>
             </Stack>
           </Card>
+        </Tabs.Panel>
 
-          <Card withBorder radius="md" p="sm">
-            <Stack gap="xs">
-              <Group justify="space-between">
-                <Text fw={500}>Itens escolhidos para o relatorio</Text>
+        <Tabs.Panel value="selecionados" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
+              <Group justify="space-between" align="flex-start">
+                <Stack gap={4}>
+                  <Text fw={600}>Relatorio de itens selecionados</Text>
+                  <Text size="sm" c="dimmed">
+                    Busque os itens, selecione os desejados e gere um PDF mostrando quantidade em Canoas, PF, total e onde tem saldo.
+                  </Text>
+                </Stack>
+                <Badge variant="outline" color="grape">
+                  Selecionados: {selectedItems.length}
+                </Badge>
+              </Group>
+
+              <TextInput
+                label="Buscar item"
+                placeholder="Digite codigo ou nome da peca"
+                value={selectedSearch}
+                onChange={(event) => setSelectedSearch(event.currentTarget.value)}
+              />
+
+              <Card withBorder radius="md" p="sm">
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text fw={500}>Resultados da busca</Text>
+                    {lookupQuery.isFetching && debouncedSelectedSearch.trim().length >= 2 ? <Loader size="xs" /> : null}
+                  </Group>
+
+                  {selectedSearch.trim().length < 2 ? (
+                    <Text size="sm" c="dimmed">
+                      Digite ao menos 2 letras para localizar produtos e adicionar ao relatorio.
+                    </Text>
+                  ) : lookupErrorMessage ? (
+                    <Text size="sm" c="red">
+                      Falha ao buscar produtos: {lookupErrorMessage}
+                    </Text>
+                  ) : searchResults.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                      Nenhum item encontrado para essa busca.
+                    </Text>
+                  ) : (
+                    <ScrollArea.Autosize mah={240} offsetScrollbars>
+                      <Table striped highlightOnHover withTableBorder>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>ID</Table.Th>
+                            <Table.Th>Produto</Table.Th>
+                            <Table.Th>Canoas</Table.Th>
+                            <Table.Th>PF</Table.Th>
+                            <Table.Th>Total</Table.Th>
+                            <Table.Th>Acoes</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {searchResults.map((product) => {
+                            const alreadySelected = selectedIds.has(product.id);
+                            return (
+                              <Table.Tr key={product.id}>
+                                <Table.Td>{product.id}</Table.Td>
+                                <Table.Td>{product.nome}</Table.Td>
+                                <Table.Td>{product.qtd_canoas}</Table.Td>
+                                <Table.Td>{product.qtd_pf}</Table.Td>
+                                <Table.Td>{product.total_stock}</Table.Td>
+                                <Table.Td>
+                                  <Button
+                                    size="xs"
+                                    variant={alreadySelected ? "light" : "filled"}
+                                    leftSection={<IconPlus size={14} />}
+                                    disabled={alreadySelected}
+                                    onClick={() => addSelectedItem(product)}
+                                  >
+                                    {alreadySelected ? "Selecionado" : "Selecionar"}
+                                  </Button>
+                                </Table.Td>
+                              </Table.Tr>
+                            );
+                          })}
+                        </Table.Tbody>
+                      </Table>
+                    </ScrollArea.Autosize>
+                  )}
+                </Stack>
+              </Card>
+
+              <Card withBorder radius="md" p="sm">
+                <Stack gap="xs">
+                  <Group justify="space-between">
+                    <Text fw={500}>Itens escolhidos para o relatorio</Text>
+                    <Button
+                      variant="subtle"
+                      size="xs"
+                      onClick={() => setSelectedItems([])}
+                      disabled={selectedItems.length === 0}
+                    >
+                      Limpar selecionados
+                    </Button>
+                  </Group>
+                  <Text size="sm" c="dimmed">
+                    Use os botoes de subir e descer para ajustar a ordem exata em que os itens vao aparecer no PDF.
+                  </Text>
+
+                  {selectedItems.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                      Nenhum item selecionado ainda. Busque acima e clique em Selecionar.
+                    </Text>
+                  ) : (
+                    <ScrollArea.Autosize mah={260} offsetScrollbars>
+                      <Table striped highlightOnHover withTableBorder>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>ID</Table.Th>
+                            <Table.Th>Produto</Table.Th>
+                            <Table.Th>Canoas</Table.Th>
+                            <Table.Th>PF</Table.Th>
+                            <Table.Th>Total</Table.Th>
+                            <Table.Th>Onde tem</Table.Th>
+                            <Table.Th>Ordem</Table.Th>
+                            <Table.Th>Acoes</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {selectedItems.map((item, index) => (
+                            <Table.Tr key={item.id}>
+                              <Table.Td>{item.id}</Table.Td>
+                              <Table.Td>{item.nome}</Table.Td>
+                              <Table.Td>{item.qtd_canoas}</Table.Td>
+                              <Table.Td>{item.qtd_pf}</Table.Td>
+                              <Table.Td>{item.total_stock}</Table.Td>
+                              <Table.Td>{locationLabel(item.qtd_canoas, item.qtd_pf)}</Table.Td>
+                              <Table.Td>
+                                <Group gap={4} wrap="nowrap">
+                                  <ActionIcon
+                                    variant="light"
+                                    color="gray"
+                                    onClick={() => moveSelectedItem(item.id, "up")}
+                                    aria-label={`Subir ${item.nome}`}
+                                    disabled={index === 0}
+                                  >
+                                    <IconArrowUp size={16} />
+                                  </ActionIcon>
+                                  <ActionIcon
+                                    variant="light"
+                                    color="gray"
+                                    onClick={() => moveSelectedItem(item.id, "down")}
+                                    aria-label={`Descer ${item.nome}`}
+                                    disabled={index === selectedItems.length - 1}
+                                  >
+                                    <IconArrowDown size={16} />
+                                  </ActionIcon>
+                                </Group>
+                              </Table.Td>
+                              <Table.Td>
+                                <ActionIcon
+                                  color="red"
+                                  variant="light"
+                                  onClick={() => removeSelectedItem(item.id)}
+                                  aria-label={`Remover ${item.nome}`}
+                                >
+                                  <IconTrash size={16} />
+                                </ActionIcon>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </ScrollArea.Autosize>
+                  )}
+                </Stack>
+              </Card>
+
+              <Group justify="space-between" align="center">
+                <Text size="sm" c="dimmed">
+                  O PDF final sempre usa os saldos atuais do sistema no momento da geracao.
+                </Text>
                 <Button
-                  variant="subtle"
-                  size="xs"
-                  onClick={() => setSelectedItems([])}
+                  onClick={() => selectedStockReportMutation.mutate()}
+                  loading={selectedStockReportMutation.isPending}
                   disabled={selectedItems.length === 0}
                 >
-                  Limpar selecionados
+                  Gerar relatorio dos selecionados
                 </Button>
               </Group>
-              <Text size="sm" c="dimmed">
-                Segure o icone de arrastar e solte mais acima ou mais abaixo para definir a ordem do PDF.
-              </Text>
-
-              {selectedItems.length === 0 ? (
-                <Text size="sm" c="dimmed">
-                  Nenhum item selecionado ainda. Busque acima e clique em Selecionar.
-                </Text>
-              ) : (
-                <ScrollArea.Autosize mah={260} offsetScrollbars>
-                  <Table striped highlightOnHover withTableBorder>
-                    <Table.Thead>
-                      <Table.Tr>
-                        <Table.Th></Table.Th>
-                        <Table.Th>ID</Table.Th>
-                        <Table.Th>Produto</Table.Th>
-                        <Table.Th>Canoas</Table.Th>
-                        <Table.Th>PF</Table.Th>
-                        <Table.Th>Total</Table.Th>
-                        <Table.Th>Onde tem</Table.Th>
-                        <Table.Th>Acoes</Table.Th>
-                      </Table.Tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                      {selectedItems.map((item) => (
-                        <Table.Tr
-                          key={item.id}
-                          onDragOver={(event) => handleDragOver(event, item.id)}
-                          onDrop={(event) => handleDrop(event, item.id)}
-                          style={{
-                            opacity: draggedItemId === item.id ? 0.45 : 1,
-                            borderTop:
-                              dragOverItemId === item.id && draggedItemId !== item.id
-                                ? "2px solid var(--mantine-color-blue-5)"
-                                : undefined,
-                          }}
-                        >
-                          <Table.Td>
-                            <span
-                              draggable
-                              onDragStart={(event) => handleDragStart(event, item.id)}
-                              onDragEnd={handleDragEnd}
-                              style={{ display: "inline-flex", cursor: "grab", userSelect: "none" }}
-                            >
-                              <ActionIcon
-                                variant="subtle"
-                                color="gray"
-                                aria-label={`Arrastar ${item.nome}`}
-                                style={{ cursor: "grab" }}
-                              >
-                                <IconGripVertical size={16} />
-                              </ActionIcon>
-                            </span>
-                          </Table.Td>
-                          <Table.Td>{item.id}</Table.Td>
-                          <Table.Td>{item.nome}</Table.Td>
-                          <Table.Td>{item.qtd_canoas}</Table.Td>
-                          <Table.Td>{item.qtd_pf}</Table.Td>
-                          <Table.Td>{item.total_stock}</Table.Td>
-                          <Table.Td>{locationLabel(item.qtd_canoas, item.qtd_pf)}</Table.Td>
-                          <Table.Td>
-                            <ActionIcon
-                              color="red"
-                              variant="light"
-                              onClick={() => removeSelectedItem(item.id)}
-                              aria-label={`Remover ${item.nome}`}
-                            >
-                              <IconTrash size={16} />
-                            </ActionIcon>
-                          </Table.Td>
-                        </Table.Tr>
-                      ))}
-                    </Table.Tbody>
-                  </Table>
-                </ScrollArea.Autosize>
-              )}
             </Stack>
           </Card>
+        </Tabs.Panel>
 
-          <Group justify="space-between" align="center">
-            <Text size="sm" c="dimmed">
-              O PDF final sempre usa os saldos atuais do sistema no momento da geracao.
-            </Text>
-            <Button
-              onClick={() => selectedStockReportMutation.mutate()}
-              loading={selectedStockReportMutation.isPending}
-              disabled={selectedItems.length === 0}
-            >
-              Gerar relatorio dos selecionados
-            </Button>
-          </Group>
-        </Stack>
-      </Card>
+        <Tabs.Panel value="vendas" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Text fw={600}>Relatorio de vendas reais</Text>
+                <Badge variant="outline" color="blue">
+                  SAIDA + OPERACAO_NORMAL
+                </Badge>
+              </Group>
+              <Text size="sm" c="dimmed">
+                Mostra apenas vendas reais. Transferencia externa, ajuste e devolucao ficam fora deste documento.
+              </Text>
+              <Group align="end" wrap="wrap">
+                <DatePickerInput
+                  label="De"
+                  value={salesDateFrom}
+                  onChange={(value) => setSalesDateFrom(value as Date | null)}
+                  w={180}
+                />
+                <DatePickerInput
+                  label="Ate"
+                  value={salesDateTo}
+                  onChange={(value) => setSalesDateTo(value as Date | null)}
+                  w={180}
+                />
+                <Select
+                  label="Escopo"
+                  data={SCOPE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+                  value={salesScope}
+                  onChange={(value) => setSalesScope((value as "AMBOS" | "CANOAS" | "PF") || "AMBOS")}
+                  allowDeselect={false}
+                  w={180}
+                />
+                <Button
+                  onClick={() => salesReportMutation.mutate()}
+                  loading={salesReportMutation.isPending}
+                  disabled={!salesDateFrom || !salesDateTo}
+                >
+                  Gerar relatorio de vendas
+                </Button>
+              </Group>
+            </Stack>
+          </Card>
+        </Tabs.Panel>
 
-      <Card withBorder>
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600}>Relatorio de vendas reais</Text>
-            <Badge variant="outline" color="blue">
-              SAIDA + OPERACAO_NORMAL
-            </Badge>
-          </Group>
-          <Text size="sm" c="dimmed">
-            Mostra apenas vendas reais. Transferencia externa, ajuste e devolucao ficam fora deste documento.
-          </Text>
-          <Group align="end" wrap="wrap">
-            <DatePickerInput
-              label="De"
-              value={salesDateFrom}
-              onChange={(value) => setSalesDateFrom(value as Date | null)}
-              w={180}
-            />
-            <DatePickerInput
-              label="Ate"
-              value={salesDateTo}
-              onChange={(value) => setSalesDateTo(value as Date | null)}
-              w={180}
-            />
-            <Select
-              label="Escopo"
-              data={SCOPE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
-              value={salesScope}
-              onChange={(value) => setSalesScope((value as "AMBOS" | "CANOAS" | "PF") || "AMBOS")}
-              allowDeselect={false}
-              w={180}
-            />
-            <Button
-              onClick={() => salesReportMutation.mutate()}
-              loading={salesReportMutation.isPending}
-              disabled={!salesDateFrom || !salesDateTo}
-            >
-              Gerar relatorio de vendas
-            </Button>
-          </Group>
-        </Stack>
-      </Card>
-
-      <Card withBorder>
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600}>Relatorio de estoque parado</Text>
-            <Badge variant="outline" color="orange">
-              Sem giro
-            </Badge>
-          </Group>
-          <Text size="sm" c="dimmed">
-            Mostra itens ativos com estoque atual e sem movimentacao no periodo definido. Bom para revisao de itens encalhados.
-          </Text>
-          <Group align="end" wrap="wrap">
-            <NumberInput
-              label="Dias sem movimentacao"
-              min={1}
-              max={365}
-              value={inactiveDays}
-              onChange={(value) => setInactiveDays(Number(value || 30))}
-              w={180}
-            />
-            <DatePickerInput
-              label="Data base"
-              value={inactiveDateTo}
-              onChange={(value) => setInactiveDateTo(value as Date | null)}
-              w={180}
-            />
-            <Select
-              label="Escopo"
-              data={SCOPE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
-              value={inactiveScope}
-              onChange={(value) => setInactiveScope((value as "AMBOS" | "CANOAS" | "PF") || "AMBOS")}
-              allowDeselect={false}
-              w={180}
-            />
-            <Button
-              onClick={() => inactiveReportMutation.mutate()}
-              loading={inactiveReportMutation.isPending}
-              disabled={!inactiveDateTo}
-            >
-              Gerar relatorio de estoque parado
-            </Button>
-          </Group>
-        </Stack>
-      </Card>
+        <Tabs.Panel value="parados" pt="md">
+          <Card withBorder>
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Text fw={600}>Relatorio de estoque parado</Text>
+                <Badge variant="outline" color="orange">
+                  Sem giro
+                </Badge>
+              </Group>
+              <Text size="sm" c="dimmed">
+                Mostra itens ativos com estoque atual e sem movimentacao no periodo definido. Bom para revisao de itens encalhados.
+              </Text>
+              <Group align="end" wrap="wrap">
+                <NumberInput
+                  label="Dias sem movimentacao"
+                  min={1}
+                  max={365}
+                  value={inactiveDays}
+                  onChange={(value) => setInactiveDays(Number(value || 30))}
+                  w={180}
+                />
+                <DatePickerInput
+                  label="Data base"
+                  value={inactiveDateTo}
+                  onChange={(value) => setInactiveDateTo(value as Date | null)}
+                  w={180}
+                />
+                <Select
+                  label="Escopo"
+                  data={SCOPE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+                  value={inactiveScope}
+                  onChange={(value) => setInactiveScope((value as "AMBOS" | "CANOAS" | "PF") || "AMBOS")}
+                  allowDeselect={false}
+                  w={180}
+                />
+                <Button
+                  onClick={() => inactiveReportMutation.mutate()}
+                  loading={inactiveReportMutation.isPending}
+                  disabled={!inactiveDateTo}
+                >
+                  Gerar relatorio de estoque parado
+                </Button>
+              </Group>
+            </Stack>
+          </Card>
+        </Tabs.Panel>
+      </Tabs>
     </Stack>
   );
 }

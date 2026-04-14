@@ -8,9 +8,12 @@ from backend.app.api.deps import get_stock_compare_service, get_stock_profile_se
 from backend.app.api.responses import ok
 from backend.app.schemas.common import SuccessResponse
 from backend.app.schemas.system import (
+    CompareServerStatusOut,
     PublishedCompareBaseOut,
     PublishedComparePublishOut,
     PublishedCompareStatusOut,
+    RemoteCompareServerIn,
+    RemoteCompareServerOut,
     StockCompareIn,
     StockCompareOut,
     StockProfileActivateIn,
@@ -115,4 +118,38 @@ def compare_against_published_snapshot(
     stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
 ) -> SuccessResponse[StockCompareOut]:
     result = stock_compare_service.compare_with_published_base(machine_label)
+    return ok(StockCompareOut(**result))
+
+
+@router.get("/comparativo-servidor/status", response_model=SuccessResponse[CompareServerStatusOut])
+def get_compare_server_status(
+    stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
+) -> SuccessResponse[CompareServerStatusOut]:
+    result = stock_compare_service.get_server_compare_status()
+    return ok(CompareServerStatusOut(**result))
+
+
+@router.post("/comparativo-servidor/publicar", response_model=SuccessResponse[PublishedComparePublishOut])
+def publish_compare_server_snapshot(
+    stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
+) -> SuccessResponse[PublishedComparePublishOut]:
+    result = stock_compare_service.publish_server_compare_snapshot()
+    return ok(PublishedComparePublishOut(**result))
+
+
+@router.get("/comparativo-servidor/remoto", response_model=SuccessResponse[RemoteCompareServerOut])
+def inspect_remote_compare_server(
+    server_url: str,
+    stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
+) -> SuccessResponse[RemoteCompareServerOut]:
+    result = stock_compare_service.inspect_remote_compare_server(server_url)
+    return ok(RemoteCompareServerOut(**result))
+
+
+@router.post("/comparativo-servidor/comparar", response_model=SuccessResponse[StockCompareOut])
+def compare_with_remote_server(
+    payload: RemoteCompareServerIn,
+    stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
+) -> SuccessResponse[StockCompareOut]:
+    result = stock_compare_service.compare_with_remote_server(payload.server_url)
     return ok(StockCompareOut(**result))
