@@ -18,6 +18,20 @@ Formato recomendado:
 
 
 
+
+## [1.6.2] - 2026-04-15
+
+### Added
+- A tela `Comparar estoques` agora preserva o ultimo resultado da analise durante a sessao do app, evitando repetir a comparacao ao trocar de aba.
+
+### Changed
+- Controle do servidor local em `Backup > Base oficial` passou a usar um `switch` on/off, com atualizacao imediata do status e confirmacao real apos ligar ou desligar.
+
+### Fixed
+- Correcao do estado compartilhado do servidor local, evitando falso `Servidor parado` e o erro de `Servidor nao confirmou inicializacao` logo apos iniciar.
+- Cards da area `Base oficial compartilhada` agora respeitam corretamente o modo escuro e nao ficam mais com fundo branco no tema dark.
+- Resultado do comparativo de estoques deixa de sumir ao sair da aba, permanecendo visivel ate reiniciar o app ou executar uma nova verificacao.
+
 ## [1.6.1] - 2026-04-14
 
 ### Added

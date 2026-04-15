@@ -67,6 +67,7 @@ class LocalShareService:
         }
 
     def start_server(self, machine_label: str, publisher_name: str, port: int) -> dict[str, Any]:
+        cls = type(self)
         normalized_port = self.normalize_port(port)
         context = {
             "machine_label": str(machine_label or "").strip() or "maquina-local",
@@ -74,13 +75,13 @@ class LocalShareService:
             "port": normalized_port,
         }
 
-        with self._server_lock:
-            if self._server is not None:
-                current_port = int(self._server_context.get("port") or self._default_port)
+        with cls._server_lock:
+            if cls._server is not None:
+                current_port = int(cls._server_context.get("port") or self._default_port)
                 if current_port != normalized_port:
                     self._stop_locked()
                 else:
-                    self._server_context = context
+                    cls._server_context = context
                     return self.get_server_status(
                         machine_label=context["machine_label"],
                         publisher_name=context["publisher_name"],
@@ -96,14 +97,14 @@ class LocalShareService:
                     f"Nao foi possivel iniciar o servidor local na porta {normalized_port}: {exc}"
                 ) from exc
 
-            self._server = httpd
-            self._server_context = context
-            self._server_thread = threading.Thread(
+            cls._server = httpd
+            cls._server_context = context
+            cls._server_thread = threading.Thread(
                 target=httpd.serve_forever,
                 name="chronos-local-share-server",
                 daemon=True,
             )
-            self._server_thread.start()
+            cls._server_thread.start()
 
         return self.get_server_status(
             machine_label=context["machine_label"],
@@ -113,17 +114,18 @@ class LocalShareService:
         )
 
     def stop_server(self) -> None:
-        with self._server_lock:
+        with type(self)._server_lock:
             self._stop_locked()
 
     def _stop_locked(self) -> None:
-        if self._server is not None:
+        cls = type(self)
+        if cls._server is not None:
             try:
-                self._server.shutdown()
+                cls._server.shutdown()
             finally:
-                self._server.server_close()
-        self._server = None
-        self._server_thread = None
+                cls._server.server_close()
+        cls._server = None
+        cls._server_thread = None
 
     def ensure_started_if_enabled(self, *, enabled: bool, machine_label: str, publisher_name: str, port: int) -> None:
         if not enabled:
@@ -132,8 +134,9 @@ class LocalShareService:
         self.start_server(machine_label=machine_label, publisher_name=publisher_name, port=port)
 
     def is_running(self) -> bool:
-        with self._server_lock:
-            return self._server is not None
+        cls = type(self)
+        with cls._server_lock:
+            return cls._server is not None
 
     def get_server_status(
         self,

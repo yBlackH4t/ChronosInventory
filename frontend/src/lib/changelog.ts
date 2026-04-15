@@ -10,6 +10,18 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.6.2",
+    "date": "2026-04-15",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: A tela Comparar estoques agora preserva o ultimo resultado da analise durante a sessao do app, evitando repetir a comparacao ao trocar de aba.",
+      "Mudanca: Controle do servidor local em Backup > Base oficial passou a usar um switch on/off, com atualizacao imediata do status e confirmacao real apos ligar ou desligar.",
+      "Correcao: Correcao do estado compartilhado do servidor local, evitando falso Servidor parado e o erro de Servidor nao confirmou inicializacao logo apos iniciar.",
+      "Correcao: Cards da area Base oficial compartilhada agora respeitam corretamente o modo escuro e nao ficam mais com fundo branco no tema dark.",
+      "Correcao: Resultado do comparativo de estoques deixa de sumir ao sair da aba, permanecendo visivel ate reiniciar o app ou executar uma nova verificacao."
+    ]
+  },
+  {
     "version": "1.6.1",
     "date": "2026-04-14",
     "title": "Melhorias e correcoes",

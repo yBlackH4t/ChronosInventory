@@ -54,6 +54,11 @@ type CompareTabState = {
   remoteServerUrl: string;
 };
 
+type CompareSessionCache = {
+  compareResult: StockCompareOut | null;
+  remoteServerInfo: RemoteCompareServerOut | null;
+};
+
 const STOCK_COMPARE_TAB_ID = "stock-compare";
 const DEFAULT_COMPARE_STATE: CompareTabState = {
   leftPath: "",
@@ -64,6 +69,11 @@ const DEFAULT_COMPARE_STATE: CompareTabState = {
   search: "",
   remoteServerUrl: "",
 };
+const DEFAULT_COMPARE_SESSION_CACHE: CompareSessionCache = {
+  compareResult: null,
+  remoteServerInfo: null,
+};
+let compareSessionCache: CompareSessionCache = DEFAULT_COMPARE_SESSION_CACHE;
 
 const FILTER_OPTIONS: { value: CompareFilter; label: string }[] = [
   { value: "DIFFERENT", label: "Somente divergentes" },
@@ -115,8 +125,12 @@ export default function StockComparePage() {
   const [filter, setFilter] = useState<CompareFilter>(persistedState.filter);
   const [search, setSearch] = useState(persistedState.search);
   const [remoteServerUrl, setRemoteServerUrl] = useState(persistedState.remoteServerUrl);
-  const [compareResult, setCompareResult] = useState<StockCompareOut | null>(null);
-  const [remoteServerInfo, setRemoteServerInfo] = useState<RemoteCompareServerOut | null>(null);
+  const [compareResult, setCompareResult] = useState<StockCompareOut | null>(
+    compareSessionCache.compareResult
+  );
+  const [remoteServerInfo, setRemoteServerInfo] = useState<RemoteCompareServerOut | null>(
+    compareSessionCache.remoteServerInfo
+  );
 
   const stockProfilesQuery = useQuery<SuccessResponse<StockProfilesStateOut>>({
     queryKey: ["stock-profiles"],
@@ -141,6 +155,13 @@ export default function StockComparePage() {
       remoteServerUrl,
     });
   }, [filter, leftLabel, leftPath, remoteServerUrl, rightLabel, rightPath, search]);
+
+  useEffect(() => {
+    compareSessionCache = {
+      compareResult,
+      remoteServerInfo,
+    };
+  }, [compareResult, remoteServerInfo]);
 
   useEffect(() => {
     const currentPath = stockProfilesQuery.data?.data?.current_database_path || "";

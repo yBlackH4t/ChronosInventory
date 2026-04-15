@@ -38,6 +38,7 @@ import type {
   BackupRestoreOut,
   BackupRestoreTestOut,
   BackupValidateOut,
+  CompareServerStatusOut,
   DownloadResponse,
   LocalShareServerOut,
   OfficialBaseApplyOut,
@@ -111,6 +112,7 @@ export default function BackupPage() {
   const [officialRemoteServerUrlInput, setOfficialRemoteServerUrlInput] = useState("");
   const [officialNotesInput, setOfficialNotesInput] = useState("");
   const [remoteOfficialStatus, setRemoteOfficialStatus] = useState<RemoteShareStatusOut | null>(null);
+  const [serverStatusRefreshUntil, setServerStatusRefreshUntil] = useState(0);
 
   const backupsQuery = useQuery<SuccessResponse<BackupListItemOut[]>>({
     queryKey: ["backup-list"],
@@ -130,6 +132,16 @@ export default function BackupPage() {
   const officialBaseStatusQuery = useQuery<SuccessResponse<OfficialBaseStatusOut>>({
     queryKey: ["official-base-status"],
     queryFn: ({ signal }) => api.officialBaseStatus({ signal }),
+    refetchInterval: (query) => {
+      if (activeSection !== "oficial") return false;
+      const response = query.state.data as SuccessResponse<OfficialBaseStatusOut> | undefined;
+      const status = response?.data;
+      const shouldPoll =
+        Boolean(status?.server_enabled) ||
+        Boolean(status?.server_running) ||
+        Date.now() < serverStatusRefreshUntil;
+      return shouldPoll ? 5_000 : false;
+    },
   });
 
   const officialBaseHistoryQuery = useQuery<SuccessResponse<OfficialBaseHistoryItemOut[]>>({
@@ -304,20 +316,87 @@ export default function BackupPage() {
     onError: (error) => notifyError(error),
   });
 
+  const patchServerStatusCache = useCallback(
+    (payload: LocalShareServerOut) => {
+      queryClient.setQueryData<SuccessResponse<OfficialBaseStatusOut>>(
+        ["official-base-status"],
+        (current) =>
+          current
+            ? {
+                ...current,
+                data: {
+                  ...current.data,
+                  server_enabled: payload.enabled,
+                  server_running: payload.running,
+                  server_port: payload.port,
+                  server_urls: payload.urls,
+                  machine_label: payload.machine_label || current.data.machine_label,
+                  publisher_name: payload.publisher_name ?? current.data.publisher_name,
+                },
+              }
+            : current
+      );
+
+      queryClient.setQueryData<SuccessResponse<CompareServerStatusOut>>(
+        ["compare-server-status"],
+        (current) =>
+          current
+            ? {
+                ...current,
+                data: {
+                  ...current.data,
+                  server_running: payload.running,
+                  server_port: payload.port,
+                  server_urls: payload.urls,
+                  machine_label: payload.machine_label || current.data.machine_label,
+                },
+              }
+            : current
+      );
+    },
+    [queryClient]
+  );
+
+  const confirmServerStatus = useCallback(
+    async (expectedRunning: boolean) => {
+      const refreshed = await officialBaseStatusQuery.refetch();
+      await queryClient.invalidateQueries({ queryKey: ["compare-server-status"] });
+      const running = Boolean(refreshed.data?.data?.server_running);
+      if (running !== expectedRunning) {
+        notifyError(
+          new Error(
+            expectedRunning
+              ? "Servidor nao confirmou inicializacao. Verifique a porta ou o firewall."
+              : "Servidor ainda aparece ativo. Aguarde alguns segundos ou verifique se o processo foi encerrado."
+          )
+        );
+        return false;
+      }
+      return true;
+    },
+    [officialBaseStatusQuery, queryClient]
+  );
+
   const officialBaseServerStartMutation = useMutation<SuccessResponse<LocalShareServerOut>, Error, void>({
     mutationFn: () => api.officialBaseServerStart(),
-    onSuccess: () => {
-      notifySuccess("Servidor local iniciado.");
-      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+    onSuccess: async (response) => {
+      patchServerStatusCache(response.data);
+      const confirmed = await confirmServerStatus(true);
+      if (confirmed) {
+        notifySuccess("Servidor local iniciado.");
+      }
     },
     onError: (error) => notifyError(error),
   });
 
   const officialBaseServerStopMutation = useMutation<SuccessResponse<LocalShareServerOut>, Error, void>({
     mutationFn: () => api.officialBaseServerStop(),
-    onSuccess: () => {
-      notifySuccess("Servidor local parado.");
-      queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
+    onSuccess: async (response) => {
+      patchServerStatusCache(response.data);
+      const confirmed = await confirmServerStatus(false);
+      if (confirmed) {
+        notifySuccess("Servidor local parado.");
+      }
     },
     onError: (error) => notifyError(error),
   });
@@ -347,6 +426,13 @@ export default function BackupPage() {
   const autoWeekday = autoWeekdayInput ?? String(autoConfig?.weekday ?? 0);
   const latestOfficialManifest = officialBaseStatus?.server_latest_manifest;
   const officialBaseHistory = officialBaseHistoryQuery.data?.data ?? [];
+  const serverToggleBusy = officialBaseServerStartMutation.isPending || officialBaseServerStopMutation.isPending;
+  const serverIsRunning = Boolean(officialBaseStatus?.server_running);
+  const serverSwitchLabel = officialBaseServerStartMutation.isPending
+    ? "Ligando servidor..."
+    : officialBaseServerStopMutation.isPending
+      ? "Desligando servidor..."
+      : "Servidor local";
 
   useEffect(() => {
     if (!officialBaseStatus) return;
@@ -440,6 +526,15 @@ export default function BackupPage() {
       remote_server_url: officialRemoteServerUrlInput.trim() || null,
       server_enabled: officialBaseStatus?.server_enabled ?? false,
     });
+  };
+
+  const toggleLocalServer = (nextChecked: boolean) => {
+    setServerStatusRefreshUntil(Date.now() + 15_000);
+    if (nextChecked) {
+      officialBaseServerStartMutation.mutate();
+      return;
+    }
+    officialBaseServerStopMutation.mutate();
   };
 
   const confirmPublishOfficialBase = () => {
@@ -623,19 +718,16 @@ export default function BackupPage() {
                 <Button onClick={saveOfficialBaseConfig} loading={officialBaseConfigMutation.isPending}>
                   Salvar configuracao
                 </Button>
-                <Button
-                  variant="light"
-                  onClick={() => {
-                    if (officialBaseStatus?.server_running) {
-                      officialBaseServerStopMutation.mutate();
-                      return;
-                    }
-                    officialBaseServerStartMutation.mutate();
-                  }}
-                  loading={officialBaseServerStartMutation.isPending || officialBaseServerStopMutation.isPending}
-                >
-                  {officialBaseStatus?.server_running ? "Parar servidor" : "Iniciar servidor"}
-                </Button>
+                <Switch
+                  label={serverSwitchLabel}
+                  description={serverIsRunning ? "Servidor ativo nesta maquina" : "Servidor parado nesta maquina"}
+                  checked={serverIsRunning}
+                  onChange={(event) => toggleLocalServer(event.currentTarget.checked)}
+                  disabled={serverToggleBusy}
+                  size="md"
+                  onLabel="ON"
+                  offLabel="OFF"
+                />
                 <Button
                   variant="light"
                   onClick={() => officialBaseTestDirectoryMutation.mutate()}
@@ -680,7 +772,7 @@ export default function BackupPage() {
                 </Alert>
               )}
 
-              <Card withBorder bg="var(--mantine-color-gray-0)">
+              <Card withBorder bg="var(--surface-muted)">
                 <Stack gap="xs">
                   <Text fw={600}>Base ativa desta maquina</Text>
                   <Text size="sm">Banco em uso: {officialBaseStatus?.current_database_path || "-"}</Text>
@@ -708,7 +800,7 @@ export default function BackupPage() {
               </Card>
 
               {latestOfficialManifest ? (
-                <Card withBorder bg="var(--mantine-color-gray-0)">
+                <Card withBorder bg="var(--surface-muted)">
                   <Stack gap="xs">
                     <Group justify="space-between" wrap="wrap">
                   <Text fw={600}>Ultima base publicada neste servidor</Text>
