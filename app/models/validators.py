@@ -1,6 +1,6 @@
-"""
-Validadores de regras de negócio para Models.
-Centraliza validações específicas de domínio.
+﻿"""
+Validadores de regras de negocio para Models.
+Centraliza validacoes especificas de dominio.
 """
 
 from core.utils.validators import Validators
@@ -22,7 +22,7 @@ class ProductValidator:
             qtd_pf: Quantidade em Passo Fundo
             
         Raises:
-            ValidationException: Se dados inválidos
+            ValidationException: Se dados invalidos
         """
         # Valida nome
         Validators.validate_required(nome, "Nome do produto")
@@ -44,7 +44,7 @@ class ProductValidator:
             nome: Nome do produto
             
         Raises:
-            ValidationException: Se nome inválido
+            ValidationException: Se nome invalido
         """
         Validators.validate_required(nome, "Nome do produto")
         Validators.validate_string_length(nome, 255, "Nome do produto")
@@ -58,13 +58,13 @@ class ProductValidator:
             quantity: Quantidade
             
         Raises:
-            ValidationException: Se quantidade inválida
+            ValidationException: Se quantidade invÃ¡lida
         """
         Validators.validate_non_negative_integer(quantity, "Quantidade")
 
 
 class StockMovementValidator:
-    """Validador para entidade StockMovement."""
+    """Validador de regras para movimentacoes de estoque."""
     
     @staticmethod
     def validate_movement_data(
@@ -74,37 +74,37 @@ class StockMovementValidator:
         transfer_direction: str = None
     ) -> None:
         """
-        Valida dados de uma movimentação.
+        Valida dados de uma movimentacao.
         
         Args:
-            operation_type: Tipo de operação
+            operation_type: Tipo de operacao
             quantity: Quantidade
-            location: Local (para entrada/saída)
-            transfer_direction: Direção (para transferência)
+            location: Local (para entrada/saida)
+            transfer_direction: Direcao (para transferencia)
             
         Raises:
-            ValidationException: Se dados inválidos
+            ValidationException: Se dados invalidos
         """
-        # Valida tipo de operação
-        Validators.validate_required(operation_type, "Tipo de operação")
+        # Valida tipo de operacao
+        Validators.validate_required(operation_type, "Tipo de operacao")
         
         valid_operations = ["ENTRADA", "SAIDA", "TRANSF", "TRANSFERENCIA"]
         if operation_type.upper() not in valid_operations:
             raise ValidationException(
-                f"Tipo de operação inválido. Use: {', '.join(valid_operations)}"
+                f"Tipo de operacao invalido. Use: {', '.join(valid_operations)}"
             )
         
         # Valida quantidade
         qty = Validators.validate_positive_integer(quantity, "Quantidade")
         Validators.validate_min_value(qty, 1, "Quantidade")
         
-        # Valida local para operações não-transferência
+        # Valida local para operacoes nao-transferencia
         if operation_type.upper() in ["ENTRADA", "SAIDA"]:
             Validators.validate_required(location, "Local")
         
-        # Valida direção para transferências
+        # Valida direÃ§Ã£o para transferencias
         if operation_type.upper() in ["TRANSF", "TRANSFERENCIA"]:
-            Validators.validate_required(transfer_direction, "Direção da transferência")
+            Validators.validate_required(transfer_direction, "Direcao da transferencia")
     
     @staticmethod
     def validate_sufficient_stock(
@@ -113,7 +113,7 @@ class StockMovementValidator:
         location: str
     ) -> None:
         """
-        Valida se há estoque suficiente para operação.
+        Valida se hÃ¡ estoque suficiente para operacao.
         
         Args:
             current_stock: Estoque atual
@@ -131,13 +131,14 @@ class StockMovementValidator:
     @staticmethod
     def validate_quantity(quantity: int) -> None:
         """
-        Valida quantidade de movimentação.
+        Valida quantidade de movimentacao.
         
         Args:
             quantity: Quantidade
             
         Raises:
-            ValidationException: Se quantidade inválida
+            ValidationException: Se quantidade invÃ¡lida
         """
         qty = Validators.validate_positive_integer(quantity, "Quantidade")
         Validators.validate_min_value(qty, 1, "Quantidade")
+

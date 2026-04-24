@@ -7,13 +7,12 @@ import pandas as pd
 from datetime import datetime
 from typing import Tuple, List, Dict, Any
 from app.models.product import Product
-from app.models.stock_movement import StockMovement
-from app.models.validators import ProductValidator, StockMovementValidator
+from app.models.validators import ProductValidator
 from core.constants import DATE_FORMAT_DB
 from core.database.repositories.movement_repository import MovementRepository
 from core.database.repositories.product_repository import ProductRepository
 from core.database.repositories.history_repository import HistoryRepository
-from core.exceptions import DatabaseException, ValidationException, InsufficientStockException
+from core.exceptions import DatabaseException, ValidationException
 
 
 class StockService:
@@ -405,63 +404,6 @@ class StockService:
         )
         
         return product.nome
-    
-    def process_stock_movement(self, movement: StockMovement) -> bool:
-        """
-        Processa movimentação de estoque.
-        
-        Args:
-            movement: Dados da movimentação
-            
-        Returns:
-            True se processado com sucesso
-            
-        Raises:
-            ValidationException: Se dados inválidos
-            InsufficientStockException: Se estoque insuficiente
-        """
-        # Valida movimentação
-        StockMovementValidator.validate_movement_data(
-            movement.operation_type,
-            movement.quantity,
-            movement.location,
-            movement.transfer_direction
-        )
-        
-        # Busca produto atual
-        product = self.get_product_by_id(movement.product_id)
-        
-        # Calcula deltas
-        delta_canoas = movement.get_delta_canoas()
-        delta_pf = movement.get_delta_pf()
-        
-        # Valida estoque suficiente para saídas/transferências
-        if delta_canoas < 0:
-            StockMovementValidator.validate_sufficient_stock(
-                product.qtd_canoas,
-                abs(delta_canoas),
-                "Canoas"
-            )
-        
-        if delta_pf < 0:
-            StockMovementValidator.validate_sufficient_stock(
-                product.qtd_pf,
-                abs(delta_pf),
-                "Passo Fundo"
-            )
-        
-        # Atualiza estoque
-        self.product_repo.update_stock(movement.product_id, delta_canoas, delta_pf)
-        
-        # Registra log
-        self.history_repo.add_log(
-            movement.operation_type.upper(),
-            movement.product_name,
-            movement.quantity,
-            movement.get_log_observation()
-        )
-        
-        return True
     
     def get_total_stock_canoas(self) -> int:
         """Retorna total de estoque em Canoas."""

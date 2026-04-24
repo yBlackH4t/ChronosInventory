@@ -1074,6 +1074,42 @@ def test_official_base_local_server_publish_and_apply(client):
         assert stopped.json()["data"]["running"] is False
 
 
+def test_official_base_local_server_status_reflects_start_and_stop(client):
+    port = _find_free_port()
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "publisher",
+            "machine_label": "PC-SERVER-STATUS",
+            "server_port": port,
+        },
+    )
+    assert configured.status_code == 200
+
+    started = client.post("/backup/base-oficial-servidor/iniciar")
+    assert started.status_code == 200
+    assert started.json()["data"]["running"] is True
+
+    status_running = client.get("/backup/base-oficial/status")
+    assert status_running.status_code == 200
+    status_running_data = status_running.json()["data"]
+    assert status_running_data["server_running"] is True
+    assert status_running_data["server_enabled"] is True
+    assert status_running_data["server_port"] == port
+
+    stopped = client.post("/backup/base-oficial-servidor/parar")
+    assert stopped.status_code == 200
+    assert stopped.json()["data"]["running"] is False
+
+    status_stopped = client.get("/backup/base-oficial/status")
+    assert status_stopped.status_code == 200
+    status_stopped_data = status_stopped.json()["data"]
+    assert status_stopped_data["server_running"] is False
+    assert status_stopped_data["server_enabled"] is False
+    assert status_stopped_data["server_port"] == port
+
+
 def test_compare_local_server_snapshot_flow(client):
     product_id = _create_product(client, "Produto Compare A", qtd_canoas=3, qtd_pf=0)
     port = _find_free_port()
@@ -1114,6 +1150,112 @@ def test_compare_local_server_snapshot_flow(client):
         compare_data = compared.json()["data"]
         assert compare_data["summary"]["divergent_items"] >= 1
         assert compare_data["right"]["label"] == "Servidor remoto - PC-COMPARE"
+    finally:
+        stopped = client.post("/backup/base-oficial-servidor/parar")
+        assert stopped.status_code == 200
+
+
+def test_compare_remote_server_inspection_exposes_port_and_latest_snapshot(client):
+    _create_product(client, "Produto Compare Remote", qtd_canoas=2, qtd_pf=0)
+    port = _find_free_port()
+    server_url = f"http://127.0.0.1:{port}"
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "consumer",
+            "machine_label": "PC-COMPARE-REMOTE",
+            "server_port": port,
+            "remote_server_url": server_url,
+        },
+    )
+    assert configured.status_code == 200
+
+    started = client.post("/backup/base-oficial-servidor/iniciar")
+    assert started.status_code == 200
+
+    try:
+        published = client.post("/sistema/comparativo-servidor/publicar")
+        assert published.status_code == 200
+
+        remote = client.get(f"/sistema/comparativo-servidor/remoto?server_url={server_url}")
+        assert remote.status_code == 200
+        remote_data = remote.json()["data"]
+        assert remote_data["reachable"] is True
+        assert remote_data["server_port"] == port
+        assert remote_data["compare_available"] is True
+        assert remote_data["compare_manifest"] is not None
+        assert remote_data["compare_manifest"]["published_at"]
+    finally:
+        stopped = client.post("/backup/base-oficial-servidor/parar")
+        assert stopped.status_code == 200
+
+
+def test_compare_local_server_snapshot_history_retention_and_delete(client):
+    product_id = _create_product(client, "Produto Compare Historico", qtd_canoas=1, qtd_pf=0)
+    port = _find_free_port()
+
+    configured = client.put(
+        "/backup/base-oficial/config",
+        json={
+            "role": "consumer",
+            "machine_label": "PC-COMPARE-HIST",
+            "server_port": port,
+        },
+    )
+    assert configured.status_code == 200
+
+    started = client.post("/backup/base-oficial-servidor/iniciar")
+    assert started.status_code == 200
+
+    try:
+        for index in range(12):
+            moved = client.post(
+                "/movimentacoes",
+                json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 1, "destino": "CANOAS"},
+            )
+            assert moved.status_code == 201
+
+            published = client.post("/sistema/comparativo-servidor/publicar")
+            assert published.status_code == 200
+
+        status = client.get("/sistema/comparativo-servidor/status")
+        assert status.status_code == 200
+        status_data = status.json()["data"]
+        assert status_data["local_snapshot_available"] is True
+        assert status_data["history_items_count"] == 10
+        assert status_data["history_retention_limit"] == 10
+
+        history = client.get("/sistema/comparativo-servidor/historico?limit=20")
+        assert history.status_code == 200
+        history_data = history.json()["data"]
+        assert len(history_data) == 10
+
+        deleted_history = client.request(
+            "DELETE",
+            "/sistema/comparativo-servidor/publicacoes",
+            json={"manifest_path": history_data[0]["manifest_path"]},
+        )
+        assert deleted_history.status_code == 200
+        assert deleted_history.json()["data"]["deleted_latest"] is False
+
+        history_after_delete = client.get("/sistema/comparativo-servidor/historico?limit=20")
+        assert history_after_delete.status_code == 200
+        assert len(history_after_delete.json()["data"]) == 9
+
+        deleted_latest = client.request(
+            "DELETE",
+            "/sistema/comparativo-servidor/publicacoes",
+            json={"delete_latest": True},
+        )
+        assert deleted_latest.status_code == 200
+        assert deleted_latest.json()["data"]["deleted_latest"] is True
+
+        final_status = client.get("/sistema/comparativo-servidor/status")
+        assert final_status.status_code == 200
+        final_status_data = final_status.json()["data"]
+        assert final_status_data["local_snapshot_available"] is False
+        assert final_status_data["history_items_count"] == 9
     finally:
         stopped = client.post("/backup/base-oficial-servidor/parar")
         assert stopped.status_code == 200

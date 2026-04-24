@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Accordion,
+  ActionIcon,
   Badge,
   Button,
   Card,
   Group,
-  Select,
   SimpleGrid,
   Stack,
   Table,
@@ -13,18 +13,19 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
+import { modals } from "@mantine/modals";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
-import DataTable from "../components/ui/DataTable";
-import EmptyState from "../components/ui/EmptyState";
-import FilterToolbar from "../components/ui/FilterToolbar";
+import StockCompareResults from "../components/compare/StockCompareResults";
 import PageHeader from "../components/ui/PageHeader";
 import type {
   CompareServerStatusOut,
+  PublishedCompareBaseOut,
+  PublishedCompareDeleteOut,
   RemoteCompareServerOut,
   StockCompareOut,
-  StockCompareRowOut,
   StockProfilesStateOut,
   SuccessResponse,
 } from "../lib/api";
@@ -57,6 +58,9 @@ type CompareTabState = {
 type CompareSessionCache = {
   compareResult: StockCompareOut | null;
   remoteServerInfo: RemoteCompareServerOut | null;
+  remoteCheckedAt: string | null;
+  remoteCheckError: string | null;
+  remoteReachable: boolean | null;
 };
 
 const STOCK_COMPARE_TAB_ID = "stock-compare";
@@ -72,30 +76,17 @@ const DEFAULT_COMPARE_STATE: CompareTabState = {
 const DEFAULT_COMPARE_SESSION_CACHE: CompareSessionCache = {
   compareResult: null,
   remoteServerInfo: null,
+  remoteCheckedAt: null,
+  remoteCheckError: null,
+  remoteReachable: null,
 };
 let compareSessionCache: CompareSessionCache = DEFAULT_COMPARE_SESSION_CACHE;
 
-const FILTER_OPTIONS: { value: CompareFilter; label: string }[] = [
-  { value: "DIFFERENT", label: "Somente divergentes" },
-  { value: "ALL", label: "Todos" },
-  { value: "CANOAS", label: "Diferenca em Canoas" },
-  { value: "PF", label: "Diferenca em PF" },
-  { value: "ONLY_LEFT", label: "So na base A" },
-  { value: "ONLY_RIGHT", label: "So na base B" },
-  { value: "NAME", label: "Nome divergente" },
-  { value: "ACTIVE", label: "Ativo/inativo divergente" },
-  { value: "IDENTICAL", label: "Somente iguais" },
-];
-
-const STATUS_META: Record<string, { label: string; color: string }> = {
-  IDENTICAL: { label: "Igual", color: "gray" },
-  CANOAS: { label: "Canoas", color: "blue" },
-  PF: { label: "PF", color: "orange" },
-  ONLY_LEFT: { label: "So A", color: "red" },
-  ONLY_RIGHT: { label: "So B", color: "green" },
-  NAME: { label: "Nome", color: "violet" },
-  ACTIVE: { label: "Status", color: "yellow" },
-};
+function remoteServerErrorMessage(serverUrl: string, error: unknown): string {
+  const fallback = error instanceof Error ? error.message : "Falha ao consultar servidor remoto.";
+  if (!serverUrl.trim()) return fallback;
+  return `${fallback} Verifique o endereco, a porta e se o servidor remoto esta ligado.`;
+}
 
 function formatBytes(size: number): string {
   if (!Number.isFinite(size) || size < 1024) return `${size || 0} B`;
@@ -103,15 +94,6 @@ function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function stockBadgeColor(value: number): string {
-  if (value === 0) return "gray";
-  return value > 0 ? "green" : "red";
-}
-
-function boolLabel(value: boolean | null | undefined): string {
-  if (value === null || value === undefined) return "-";
-  return value ? "Ativo" : "Inativo";
-}
 
 export default function StockComparePage() {
   const persistedState = useMemo(
@@ -131,6 +113,10 @@ export default function StockComparePage() {
   const [remoteServerInfo, setRemoteServerInfo] = useState<RemoteCompareServerOut | null>(
     compareSessionCache.remoteServerInfo
   );
+  const [remoteCheckedAt, setRemoteCheckedAt] = useState<string | null>(compareSessionCache.remoteCheckedAt);
+  const [remoteCheckError, setRemoteCheckError] = useState<string | null>(compareSessionCache.remoteCheckError);
+  const [remoteReachable, setRemoteReachable] = useState<boolean | null>(compareSessionCache.remoteReachable);
+  const [compareStatusRefreshUntil, setCompareStatusRefreshUntil] = useState(0);
 
   const stockProfilesQuery = useQuery<SuccessResponse<StockProfilesStateOut>>({
     queryKey: ["stock-profiles"],
@@ -141,6 +127,18 @@ export default function StockComparePage() {
   const compareServerStatusQuery = useQuery<SuccessResponse<CompareServerStatusOut>>({
     queryKey: ["compare-server-status"],
     queryFn: ({ signal }) => api.getCompareServerStatus({ signal }),
+    staleTime: 15_000,
+    refetchInterval: (query) => {
+      const response = query.state.data as SuccessResponse<CompareServerStatusOut> | undefined;
+      const status = response?.data;
+      const shouldPoll = Boolean(status?.server_running) || Date.now() < compareStatusRefreshUntil;
+      return shouldPoll ? 5_000 : false;
+    },
+  });
+
+  const compareServerHistoryQuery = useQuery<SuccessResponse<PublishedCompareBaseOut[]>>({
+    queryKey: ["compare-server-history"],
+    queryFn: ({ signal }) => api.listCompareServerHistory({ limit: 10 }, { signal }),
     staleTime: 15_000,
   });
 
@@ -160,8 +158,11 @@ export default function StockComparePage() {
     compareSessionCache = {
       compareResult,
       remoteServerInfo,
+      remoteCheckedAt,
+      remoteCheckError,
+      remoteReachable,
     };
-  }, [compareResult, remoteServerInfo]);
+  }, [compareResult, remoteCheckError, remoteCheckedAt, remoteReachable, remoteServerInfo]);
 
   useEffect(() => {
     const currentPath = stockProfilesQuery.data?.data?.current_database_path || "";
@@ -174,6 +175,15 @@ export default function StockComparePage() {
     if (!configuredRemote || remoteServerUrl.trim()) return;
     setRemoteServerUrl(configuredRemote);
   }, [compareServerStatusQuery.data?.data?.remote_server_url, remoteServerUrl]);
+
+  useEffect(() => {
+    if (!remoteServerInfo) return;
+    if (remoteServerInfo.server_url.trim() === remoteServerUrl.trim()) return;
+    setRemoteServerInfo(null);
+    setRemoteCheckedAt(null);
+    setRemoteCheckError(null);
+    setRemoteReachable(null);
+  }, [remoteServerInfo, remoteServerUrl]);
 
   const compareMutation = useMutation<SuccessResponse<StockCompareOut>, Error>({
     mutationFn: () =>
@@ -194,7 +204,9 @@ export default function StockComparePage() {
     mutationFn: () => api.publishCompareServerSnapshot(),
     onSuccess: async () => {
       notifySuccess("Snapshot local publicado para comparacao.");
+      setCompareStatusRefreshUntil(Date.now() + 15_000);
       await compareServerStatusQuery.refetch();
+      await compareServerHistoryQuery.refetch();
     },
     onError: (error) => notifyError(error),
   });
@@ -203,16 +215,62 @@ export default function StockComparePage() {
     mutationFn: () => api.inspectRemoteCompareServer(remoteServerUrl.trim()),
     onSuccess: (response) => {
       setRemoteServerInfo(response.data);
+      setRemoteCheckedAt(new Date().toISOString());
+      setRemoteCheckError(null);
+      setRemoteReachable(true);
       notifySuccess(response.data.message);
     },
-    onError: (error) => notifyError(error),
+    onError: (error) => {
+      setRemoteServerInfo(null);
+      setRemoteCheckedAt(new Date().toISOString());
+      setRemoteCheckError(remoteServerErrorMessage(remoteServerUrl, error));
+      setRemoteReachable(false);
+      notifyError(error);
+    },
   });
 
   const comparePublishedMutation = useMutation<SuccessResponse<StockCompareOut>, Error>({
     mutationFn: () => api.compareWithRemoteServer(remoteServerUrl.trim()),
     onSuccess: (response) => {
       setCompareResult(response.data);
+      setRemoteCheckedAt(new Date().toISOString());
+      setRemoteCheckError(null);
+      setRemoteReachable(true);
       notifySuccess("Comparativo com servidor remoto concluido.");
+    },
+    onError: (error) => {
+      setRemoteCheckedAt(new Date().toISOString());
+      setRemoteCheckError(remoteServerErrorMessage(remoteServerUrl, error));
+      setRemoteReachable(false);
+      notifyError(error);
+    },
+  });
+
+  const deleteLatestSnapshotMutation = useMutation<
+    SuccessResponse<PublishedCompareDeleteOut>,
+    Error,
+    void
+  >({
+    mutationFn: () => api.deleteCompareServerPublication({ delete_latest: true }),
+    onSuccess: async (response) => {
+      notifySuccess(response.data.message);
+      setCompareStatusRefreshUntil(Date.now() + 10_000);
+      await compareServerStatusQuery.refetch();
+      await compareServerHistoryQuery.refetch();
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const deleteHistorySnapshotMutation = useMutation<
+    SuccessResponse<PublishedCompareDeleteOut>,
+    Error,
+    string
+  >({
+    mutationFn: (manifestPath) => api.deleteCompareServerPublication({ manifest_path: manifestPath }),
+    onSuccess: async (response) => {
+      notifySuccess(response.data.message);
+      await compareServerHistoryQuery.refetch();
+      await compareServerStatusQuery.refetch();
     },
     onError: (error) => notifyError(error),
   });
@@ -265,6 +323,34 @@ export default function StockComparePage() {
     comparePublishedMutation.mutate();
   };
 
+  const confirmDeleteLatestSnapshot = () => {
+    modals.openConfirmModal({
+      title: "Excluir snapshot atual",
+      children: (
+        <Text size="sm">
+          Vamos excluir o snapshot de comparacao atualmente publicado nesta maquina. O historico continua preservado.
+        </Text>
+      ),
+      labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
+      confirmProps: { color: "red" },
+      onConfirm: () => deleteLatestSnapshotMutation.mutate(),
+    });
+  };
+
+  const confirmDeleteHistorySnapshot = (manifestPath: string) => {
+    modals.openConfirmModal({
+      title: "Excluir snapshot do historico",
+      children: (
+        <Text size="sm">
+          Esse snapshot historico sera removido do servidor local. A base local atual nao sera alterada.
+        </Text>
+      ),
+      labels: { confirm: "Excluir historico", cancel: "Cancelar" },
+      confirmProps: { color: "red" },
+      onConfirm: () => deleteHistorySnapshotMutation.mutate(manifestPath),
+    });
+  };
+
   const rows = useMemo(() => {
     const source = compareResult?.rows ?? [];
     const query = search.trim().toUpperCase();
@@ -293,6 +379,11 @@ export default function StockComparePage() {
   const currentDbPath = stockProfilesQuery.data?.data?.current_database_path || "";
   const activeProfileName = stockProfilesQuery.data?.data?.active_profile_name || "Atual";
   const compareServerStatus = compareServerStatusQuery.data?.data;
+  const compareServerHistory = compareServerHistoryQuery.data?.data ?? [];
+  const localStatusConfirmedAt = compareServerStatusQuery.dataUpdatedAt
+    ? dayjs(compareServerStatusQuery.dataUpdatedAt).format("DD/MM/YYYY HH:mm:ss")
+    : null;
+  const remoteStatusCheckedAt = remoteCheckedAt ? dayjs(remoteCheckedAt).format("DD/MM/YYYY HH:mm:ss") : null;
 
   return (
     <Stack gap="lg">
@@ -311,30 +402,48 @@ export default function StockComparePage() {
           <SimpleGrid cols={{ base: 1, md: 2 }}>
             <Card withBorder>
               <Stack gap={6}>
-                <Text fw={600}>Minha maquina</Text>
+                <Group justify="space-between" align="start">
+                  <Text fw={600}>Minha maquina</Text>
+                  <Group gap="xs">
+                    <Badge variant="light" color={compareServerStatus?.server_running ? "green" : "orange"}>
+                      Servidor {compareServerStatus?.server_running ? "ativo" : "parado"}
+                    </Badge>
+                    <Badge variant="light" color={compareServerStatus?.local_snapshot_available ? "blue" : "gray"}>
+                      {compareServerStatus?.local_snapshot_available ? "Snapshot publicado" : "Sem snapshot"}
+                    </Badge>
+                    {compareServerStatus?.local_snapshot_available && (
+                      <Badge variant="light" color="green">LATEST</Badge>
+                    )}
+                  </Group>
+                </Group>
                 <Text size="sm">Maquina: {compareServerStatus?.machine_label || "-"}</Text>
                 <Text size="sm">Perfil atual: {activeProfileName}</Text>
+                <Text size="sm">Porta: {compareServerStatus?.server_port || "-"}</Text>
                 <Text size="sm" c="dimmed">
                   {currentDbPath}
                 </Text>
-                <Group gap="xs" wrap="wrap">
-                  <Badge variant="light" color={compareServerStatus?.server_running ? "green" : "orange"}>
-                    Servidor {compareServerStatus?.server_running ? "ativo" : "parado"}
-                  </Badge>
-                  <Badge variant="light" color={compareServerStatus?.local_snapshot_available ? "blue" : "gray"}>
-                    {compareServerStatus?.local_snapshot_available ? "Snapshot publicado" : "Sem snapshot"}
-                  </Badge>
-                </Group>
                 {compareServerStatus?.server_urls?.length ? (
                   <Text size="sm" c="dimmed">
                     Endereco(s): {compareServerStatus.server_urls.join(" | ")}
                   </Text>
                 ) : null}
+                <Text size="sm" c="dimmed">
+                  Ultima confirmacao local: {localStatusConfirmedAt || "Aguardando"}
+                </Text>
+                <Text size="sm" c="dimmed">
+                  Historico local: {compareServerStatus?.history_items_count ?? 0} snapshot(s) | Retencao automatica:{" "}
+                  {compareServerStatus?.history_retention_limit ?? 10}
+                </Text>
                 {compareServerStatus?.local_snapshot ? (
-                  <Text size="sm" c="dimmed">
-                    Ultima publicacao:{" "}
-                    {dayjs(compareServerStatus.local_snapshot.manifest.published_at).format("DD/MM/YYYY HH:mm")}
-                  </Text>
+                  <>
+                    <Text size="sm" c="dimmed">
+                      Ultima publicacao:{" "}
+                      {dayjs(compareServerStatus.local_snapshot.manifest.published_at).format("DD/MM/YYYY HH:mm")}
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      Comparacoes remotas usam sempre este snapshot mais recente.
+                    </Text>
+                  </>
                 ) : (
                   <Text size="sm" c="dimmed">
                     Esta maquina ainda nao publicou snapshot de comparacao.
@@ -343,29 +452,61 @@ export default function StockComparePage() {
                 <Button onClick={() => publishSnapshotMutation.mutate()} loading={publishSnapshotMutation.isPending}>
                   Publicar minha base para comparacao
                 </Button>
+                <Button
+                  variant="light"
+                  color="red"
+                  onClick={confirmDeleteLatestSnapshot}
+                  disabled={!compareServerStatus?.local_snapshot_available}
+                  loading={deleteLatestSnapshotMutation.isPending}
+                >
+                  Excluir snapshot atual
+                </Button>
               </Stack>
             </Card>
 
             <Card withBorder>
               <Stack gap={6}>
-                <Text fw={600}>Servidor remoto</Text>
+                <Group justify="space-between" align="start">
+                  <Text fw={600}>Servidor remoto</Text>
+                  <Badge
+                    variant="light"
+                    color={
+                      remoteReachable === null
+                        ? "gray"
+                        : remoteReachable
+                          ? "green"
+                          : "red"
+                    }
+                  >
+                    {remoteReachable === null ? "Nao verificado" : remoteReachable ? "Online" : "Offline"}
+                  </Badge>
+                </Group>
                 <TextInput
                   label="Endereco do servidor"
                   placeholder="http://192.168.0.15:8765"
                   value={remoteServerUrl}
                   onChange={(event) => setRemoteServerUrl(event.currentTarget.value)}
                 />
+                <Text size="sm" c="dimmed">
+                  Ultima confirmacao remota: {remoteStatusCheckedAt || "Ainda nao consultado"}
+                </Text>
                 {remoteServerInfo ? (
                   <>
                     <Text size="sm">
                       Maquina: {remoteServerInfo.machine_label || "-"} | App: {remoteServerInfo.app_version || "-"}
                     </Text>
+                    <Text size="sm">Porta: {remoteServerInfo.server_port || "-"}</Text>
                     <Text size="sm">
                       Snapshot remoto:{" "}
                       {remoteServerInfo.compare_manifest
                         ? dayjs(remoteServerInfo.compare_manifest.published_at).format("DD/MM/YYYY HH:mm")
                         : "nao publicado"}
                     </Text>
+                    {remoteServerInfo.compare_manifest ? (
+                      <Badge variant="light" color="green" w="fit-content">
+                        Usando snapshot latest do servidor remoto
+                      </Badge>
+                    ) : null}
                     {remoteServerInfo.compare_manifest ? (
                       <Text size="sm">
                         Itens: {remoteServerInfo.compare_manifest.total_items} | Ativos:{" "}
@@ -379,6 +520,11 @@ export default function StockComparePage() {
                     Consulte o servidor remoto para conferir se ele ja publicou o snapshot.
                   </Text>
                 )}
+                {remoteCheckError ? (
+                  <Text size="sm" c="red">
+                    {remoteCheckError}
+                  </Text>
+                ) : null}
                 <Group>
                   <Button
                     variant="light"
@@ -399,6 +545,72 @@ export default function StockComparePage() {
               </Stack>
             </Card>
           </SimpleGrid>
+
+          <Card withBorder>
+            <Stack gap="sm">
+              <Group justify="space-between" align="start">
+                <div>
+                  <Text fw={600}>Historico local de snapshots</Text>
+                  <Text size="sm" c="dimmed">
+                    O servidor mantem automaticamente apenas os ultimos{" "}
+                    {compareServerStatus?.history_retention_limit ?? 10} snapshots.
+                  </Text>
+                </div>
+                <Button variant="subtle" size="xs" onClick={() => compareServerHistoryQuery.refetch()}>
+                  Atualizar historico
+                </Button>
+              </Group>
+
+              {compareServerHistoryQuery.isLoading ? (
+                <Text size="sm" c="dimmed">
+                  Carregando historico...
+                </Text>
+              ) : compareServerHistory.length === 0 ? (
+                <Text size="sm" c="dimmed">
+                  Ainda nao existe historico de snapshots nesta maquina.
+                </Text>
+              ) : (
+                <Table.ScrollContainer minWidth={720}>
+                  <Table striped highlightOnHover withTableBorder>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Publicado em</Table.Th>
+                        <Table.Th>Itens</Table.Th>
+                        <Table.Th>Ativos</Table.Th>
+                        <Table.Th>Com estoque</Table.Th>
+                        <Table.Th>Tamanho</Table.Th>
+                        <Table.Th>Acoes</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {compareServerHistory.map((item) => (
+                        <Table.Tr key={item.manifest_path}>
+                          <Table.Td>{dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
+                          <Table.Td>{item.manifest.total_items}</Table.Td>
+                          <Table.Td>{item.manifest.active_items}</Table.Td>
+                          <Table.Td>{item.manifest.with_stock_items}</Table.Td>
+                          <Table.Td>{formatBytes(item.manifest.file_size)}</Table.Td>
+                          <Table.Td>
+                            <ActionIcon
+                              color="red"
+                              variant="light"
+                              onClick={() => confirmDeleteHistorySnapshot(item.manifest_path)}
+                              loading={
+                                deleteHistorySnapshotMutation.isPending &&
+                                deleteHistorySnapshotMutation.variables === item.manifest_path
+                              }
+                            >
+                              <IconTrash size={16} />
+                            </ActionIcon>
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Table.ScrollContainer>
+              )}
+            </Stack>
+          </Card>
         </Stack>
       </Card>
 
@@ -472,185 +684,18 @@ export default function StockComparePage() {
         </Accordion.Item>
       </Accordion>
 
-      {compareResult ? (
-        <>
-          <SimpleGrid cols={{ base: 2, md: 5 }}>
-            <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("DIFFERENT")}>
-              <Text size="xs" c="dimmed">
-                Divergentes
-              </Text>
-              <Text fw={700} size="xl" c="red">
-                {compareResult.summary.divergent_items}
-              </Text>
-            </Card>
-            <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("CANOAS")}>
-              <Text size="xs" c="dimmed">
-                Diferencas em Canoas
-              </Text>
-              <Text fw={700} size="xl" c="blue">
-                {compareResult.summary.canoas_mismatch_items}
-              </Text>
-            </Card>
-            <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("PF")}>
-              <Text size="xs" c="dimmed">
-                Diferencas em PF
-              </Text>
-              <Text fw={700} size="xl" c="orange">
-                {compareResult.summary.pf_mismatch_items}
-              </Text>
-            </Card>
-            <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("ONLY_LEFT")}>
-              <Text size="xs" c="dimmed">
-                So na base A
-              </Text>
-              <Text fw={700} size="xl">
-                {compareResult.summary.only_left_items}
-              </Text>
-            </Card>
-            <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => setFilter("ONLY_RIGHT")}>
-              <Text size="xs" c="dimmed">
-                So na base B
-              </Text>
-              <Text fw={700} size="xl">
-                {compareResult.summary.only_right_items}
-              </Text>
-            </Card>
-          </SimpleGrid>
-
-          <SimpleGrid cols={{ base: 1, md: 2 }}>
-            <Card withBorder>
-              <Stack gap={4}>
-                <Text fw={600}>{compareResult.left.label}</Text>
-                <Text size="sm" c="dimmed">
-                  {compareResult.left.path}
-                </Text>
-                <Text size="sm">Itens: {compareResult.left.total_items}</Text>
-                <Text size="sm">Ativos: {compareResult.left.active_items}</Text>
-                <Text size="sm">Com estoque: {compareResult.left.with_stock_items}</Text>
-                <Text size="sm">Tamanho: {formatBytes(compareResult.left.file_size)}</Text>
-              </Stack>
-            </Card>
-            <Card withBorder>
-              <Stack gap={4}>
-                <Text fw={600}>{compareResult.right.label}</Text>
-                <Text size="sm" c="dimmed">
-                  {compareResult.right.path}
-                </Text>
-                <Text size="sm">Itens: {compareResult.right.total_items}</Text>
-                <Text size="sm">Ativos: {compareResult.right.active_items}</Text>
-                <Text size="sm">Com estoque: {compareResult.right.with_stock_items}</Text>
-                <Text size="sm">Tamanho: {formatBytes(compareResult.right.file_size)}</Text>
-              </Stack>
-            </Card>
-          </SimpleGrid>
-
-          <FilterToolbar>
-            <Group align="end" wrap="wrap">
-              <Select
-                label="Filtro"
-                data={FILTER_OPTIONS}
-                value={filter}
-                onChange={(value) => setFilter((value as CompareFilter) || "DIFFERENT")}
-                allowDeselect={false}
-                w={240}
-              />
-              <TextInput
-                label="Buscar item"
-                placeholder="ID ou nome"
-                value={search}
-                onChange={(event) => setSearch(event.currentTarget.value)}
-                w={280}
-              />
-              <Button
-                variant="subtle"
-                onClick={() => {
-                  setFilter("DIFFERENT");
-                  setSearch("");
-                }}
-              >
-                Limpar filtros
-              </Button>
-            </Group>
-          </FilterToolbar>
-
-          <DataTable minWidth={1500}>
-            <Table striped highlightOnHover withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>ID</Table.Th>
-                  <Table.Th>Produto</Table.Th>
-                  <Table.Th>{compareResult.left.label} Canoas</Table.Th>
-                  <Table.Th>{compareResult.right.label} Canoas</Table.Th>
-                  <Table.Th>Dif. Canoas</Table.Th>
-                  <Table.Th>{compareResult.left.label} PF</Table.Th>
-                  <Table.Th>{compareResult.right.label} PF</Table.Th>
-                  <Table.Th>Dif. PF</Table.Th>
-                  <Table.Th>{compareResult.left.label} status</Table.Th>
-                  <Table.Th>{compareResult.right.label} status</Table.Th>
-                  <Table.Th>Analise</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((row: StockCompareRowOut) => (
-                  <Table.Tr key={row.product_id}>
-                    <Table.Td>{row.product_id}</Table.Td>
-                    <Table.Td>
-                      <Stack gap={2}>
-                        <Text fw={600}>{row.display_name || "-"}</Text>
-                        {row.left_name && row.right_name && row.left_name !== row.right_name && (
-                          <Text size="xs" c="dimmed">
-                            A: {row.left_name} | B: {row.right_name}
-                          </Text>
-                        )}
-                      </Stack>
-                    </Table.Td>
-                    <Table.Td>{row.left_qtd_canoas ?? "-"}</Table.Td>
-                    <Table.Td>{row.right_qtd_canoas ?? "-"}</Table.Td>
-                    <Table.Td>
-                      <Badge color={stockBadgeColor(row.diff_canoas)} variant="light">
-                        {row.diff_canoas}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{row.left_qtd_pf ?? "-"}</Table.Td>
-                    <Table.Td>{row.right_qtd_pf ?? "-"}</Table.Td>
-                    <Table.Td>
-                      <Badge color={stockBadgeColor(row.diff_pf)} variant="light">
-                        {row.diff_pf}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{boolLabel(row.left_ativo)}</Table.Td>
-                    <Table.Td>{boolLabel(row.right_ativo)}</Table.Td>
-                    <Table.Td>
-                      <Group gap={6}>
-                        {row.statuses.map((status) => (
-                          <Badge
-                            key={`${row.product_id}-${status}`}
-                            color={STATUS_META[status]?.color || "gray"}
-                            variant="light"
-                          >
-                            {STATUS_META[status]?.label || status}
-                          </Badge>
-                        ))}
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-                {rows.length === 0 && (
-                  <Table.Tr>
-                    <Table.Td colSpan={11}>
-                      <EmptyState message="Nenhum item encontrado para o filtro atual." />
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </DataTable>
-        </>
-      ) : (
-        <Card withBorder>
-          <EmptyState message="Publique um snapshot nesta maquina ou compare duas bases manuais para iniciar a analise." />
-        </Card>
-      )}
+      <StockCompareResults
+        compareResult={compareResult}
+        rows={rows}
+        filter={filter}
+        search={search}
+        onFilterChange={setFilter}
+        onSearchChange={setSearch}
+        onResetFilters={() => {
+          setFilter("DIFFERENT");
+          setSearch("");
+        }}
+      />
     </Stack>
   );
 }

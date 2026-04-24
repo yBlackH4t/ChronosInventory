@@ -1,45 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionIcon,
   Badge,
   Button,
-  Divider,
-  Drawer,
-  FileButton,
   Group,
-  Image,
-  Loader,
-  Modal,
-  NumberInput,
-  Pagination,
-  ScrollArea,
   Select,
-  SimpleGrid,
   Stack,
-  Table,
-  Tabs,
   Text,
   TextInput,
-  Textarea,
-  Tooltip,
-  Title,
 } from "@mantine/core";
 import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { useForm } from "@mantine/form";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { IconBarcode, IconEdit, IconPlus, IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
-import DataTable from "../components/ui/DataTable";
-import EmptyState from "../components/ui/EmptyState";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import { ProductDetailsDrawer } from "../components/products/ProductDetailsDrawer";
+import { ProductFormModal } from "../components/products/ProductFormModal";
+import { ProductsListTable } from "../components/products/ProductsListTable";
+import { useProductMovement } from "../hooks/useProductMovement";
+import {
+  adjustmentReasonLabel,
+  movementColor,
+  movementNatureLabel,
+  movementNatureOptionsByType,
+  PRODUCT_ADJUSTMENT_REASON_OPTIONS,
+  PRODUCT_LOCATIONS,
+} from "../lib/productMovement";
 import { useProfileScope } from "../state/profileScope";
 import type {
-  MovementCreate,
   MovementOut,
   Product,
   ProductCreate,
@@ -68,68 +60,7 @@ const SORT_OPTIONS = [
   { value: "-qtd_pf", label: "Maior quantidade em PF" },
   { value: "qtd_pf", label: "Menor quantidade em PF" },
 ];
-
-const LOCATIONS = [
-  { value: "CANOAS", label: "Canoas" },
-  { value: "PF", label: "Passo Fundo" },
-];
-
-type MovementType = "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
-type MovementNature = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
-type AdjustmentReason =
-  | "AVARIA"
-  | "PERDA"
-  | "CORRECAO_INVENTARIO"
-  | "ERRO_OPERACIONAL"
-  | "TRANSFERENCIA";
 const MAX_IMAGES = 5;
-
-const MOVEMENT_NATURE_OPTIONS: { value: MovementNature; label: string }[] = [
-  { value: "OPERACAO_NORMAL", label: "Operacao normal" },
-  { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
-  { value: "DEVOLUCAO", label: "Devolucao" },
-  { value: "AJUSTE", label: "Ajuste" },
-];
-
-const ADJUSTMENT_REASON_OPTIONS: { value: AdjustmentReason; label: string }[] = [
-  { value: "AVARIA", label: "Avaria" },
-  { value: "PERDA", label: "Perda" },
-  { value: "CORRECAO_INVENTARIO", label: "Correcao inventario" },
-  { value: "ERRO_OPERACIONAL", label: "Erro operacional" },
-  { value: "TRANSFERENCIA", label: "Transferencia" },
-];
-
-function movementColor(tipo: MovementType) {
-  if (tipo === "ENTRADA") return "green";
-  if (tipo === "SAIDA") return "red";
-  return "yellow";
-}
-
-function movementNatureLabel(natureza: MovementNature) {
-  return MOVEMENT_NATURE_OPTIONS.find((item) => item.value === natureza)?.label ?? natureza;
-}
-
-function adjustmentReasonLabel(reason?: AdjustmentReason | null) {
-  if (!reason) return "-";
-  return ADJUSTMENT_REASON_OPTIONS.find((item) => item.value === reason)?.label ?? reason;
-}
-
-function movementNatureOptionsByType(tipo: MovementType): { value: MovementNature; label: string }[] {
-  if (tipo === "ENTRADA") {
-    return MOVEMENT_NATURE_OPTIONS.filter((item) =>
-      item.value === "OPERACAO_NORMAL" ||
-      item.value === "DEVOLUCAO" ||
-      item.value === "AJUSTE" ||
-      item.value === "TRANSFERENCIA_EXTERNA"
-    );
-  }
-  if (tipo === "SAIDA") {
-    return MOVEMENT_NATURE_OPTIONS.filter((item) =>
-      item.value === "OPERACAO_NORMAL" || item.value === "TRANSFERENCIA_EXTERNA" || item.value === "AJUSTE"
-    );
-  }
-  return MOVEMENT_NATURE_OPTIONS.filter((item) => item.value !== "DEVOLUCAO" && item.value !== "TRANSFERENCIA_EXTERNA");
-}
 
 const PRODUCTS_TAB_ID = "products";
 
@@ -422,142 +353,13 @@ export default function ProductsPage() {
     },
     onError: (error) => notifyError(error),
   });
-
-  const [action, setAction] = useState<MovementType | null>(null);
-
-  const movementForm = useForm<MovementCreate>({
-    initialValues: {
-      tipo: "ENTRADA",
-      produto_id: 0,
-      quantidade: 1,
-      origem: "CANOAS",
-      destino: "CANOAS",
-      observacao: "",
-      natureza: "OPERACAO_NORMAL",
-      local_externo: "",
-      documento: "",
-      movimento_ref_id: undefined,
-      motivo_ajuste: undefined,
-    },
-    validate: {
-      quantidade: (value) => (value <= 0 ? "Quantidade invalida" : null),
-      origem: (value, values) =>
-        values.tipo !== "ENTRADA" && !value ? "Origem obrigatoria" : null,
-      destino: (value, values) =>
-        values.tipo !== "SAIDA" && !value ? "Destino obrigatorio" : null,
-      natureza: (value, values) => {
-        if (!value) return "Natureza obrigatoria";
-        if (value === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
-          return "Devolucao so pode ser ENTRADA";
-        }
-        if (value === "TRANSFERENCIA_EXTERNA" && values.tipo !== "ENTRADA" && values.tipo !== "SAIDA") {
-          return "Transferencia externa so pode ser ENTRADA ou SAIDA";
-        }
-        return null;
-      },
-      local_externo: (value, values) =>
-        values.natureza === "TRANSFERENCIA_EXTERNA" && !(value || "").trim()
-          ? "Informe o local externo"
-          : null,
-      movimento_ref_id: (value, values) => {
-        if (values.natureza === "DEVOLUCAO" && (!value || value < 1)) {
-          return "Informe o movimento de referencia";
-        }
-        if (value !== undefined && value !== null && value < 1) {
-          return "Movimento de referencia invalido";
-        }
-        return null;
-      },
-      motivo_ajuste: (value, values) => {
-        if (values.natureza === "AJUSTE" && !value) {
-          return "Informe o motivo do ajuste";
-        }
-        return null;
-      },
-      observacao: (value, values) =>
-        values.natureza === "AJUSTE" && !(value || "").trim()
-          ? "Observacao obrigatoria para ajuste"
-          : null,
-    },
-  });
-
-  const createMovementMutation = useMutation<SuccessResponse<MovementOut>, Error, MovementCreate>({
-    mutationFn: (payload: MovementCreate) => api.createMovement(payload),
-    onSuccess: () => {
-      notifySuccess("Movimentacao registrada");
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
-      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["historico", profileScopeKey, selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["movimentacoes", profileScopeKey] });
-      queryClient.invalidateQueries({ queryKey: ["analytics", profileScopeKey] });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const selectAction = (next: MovementType) => {
-    if (action === next) {
-      setAction(null);
-      return;
-    }
-    setAction(next);
-    movementForm.setValues({
-      tipo: next,
-      produto_id: selectedId ?? 0,
-      quantidade: 1,
-      origem: next === "ENTRADA" ? undefined : "CANOAS",
-      destino: next === "SAIDA" ? undefined : "CANOAS",
-      observacao: "",
-      natureza: "OPERACAO_NORMAL",
-      local_externo: "",
-      documento: "",
-      movimento_ref_id: undefined,
-      motivo_ajuste: undefined,
-    });
-  };
-
-  const handleMovementSubmit = movementForm.onSubmit((values) => {
-    if (!selectedId) return;
-    if (values.tipo === "TRANSFERENCIA" && values.origem === values.destino) {
-      movementForm.setFieldError("destino", "Destino deve ser diferente da origem");
-      return;
-    }
-    if (values.natureza === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
-      movementForm.setFieldError("natureza", "Devolucao so pode ser ENTRADA");
-      return;
-    }
-    if (values.natureza === "TRANSFERENCIA_EXTERNA" && values.tipo !== "ENTRADA" && values.tipo !== "SAIDA") {
-      movementForm.setFieldError("natureza", "Transferencia externa so pode ser ENTRADA ou SAIDA");
-      return;
-    }
-    if (values.natureza === "TRANSFERENCIA_EXTERNA" && !(values.local_externo || "").trim()) {
-      movementForm.setFieldError("local_externo", "Informe o local externo");
-      return;
-    }
-    if (values.natureza === "DEVOLUCAO" && (!values.movimento_ref_id || values.movimento_ref_id < 1)) {
-      movementForm.setFieldError("movimento_ref_id", "Informe o movimento de referencia");
-      return;
-    }
-    if (values.natureza === "AJUSTE" && !values.motivo_ajuste) {
-      movementForm.setFieldError("motivo_ajuste", "Informe o motivo do ajuste");
-      return;
-    }
-    if (values.natureza === "AJUSTE" && !(values.observacao || "").trim()) {
-      movementForm.setFieldError("observacao", "Observacao obrigatoria para ajuste");
-      return;
-    }
-
-    createMovementMutation.mutate({
-      ...values,
-      produto_id: selectedId,
-      origem: values.tipo === "ENTRADA" ? undefined : values.origem,
-      destino: values.tipo === "SAIDA" ? undefined : values.destino,
-      motivo_ajuste: values.natureza === "AJUSTE" ? values.motivo_ajuste : undefined,
-      observacao: values.observacao?.trim() || undefined,
-      local_externo: values.local_externo?.trim() || undefined,
-      documento: values.documento?.trim() || undefined,
-      movimento_ref_id: values.movimento_ref_id || undefined,
-    });
-  });
+  const {
+    action,
+    movementForm,
+    selectAction,
+    handleMovementSubmit,
+    createMovementLoading,
+  } = useProductMovement({ selectedId, profileScopeKey });
 
   const [historyPage, setHistoryPage] = useState(persistedState.historyPage);
   const [historyPageSize, setHistoryPageSize] = useState(persistedState.historyPageSize);
@@ -758,472 +560,94 @@ export default function ProductsPage() {
         </Group>
       </FilterToolbar>
 
-      {productsQuery.isLoading ? (
-        <Group justify="center" mt="xl">
-          <Loader />
-        </Group>
-      ) : productsErrorMessage ? (
-        <EmptyState
-          message={`Falha ao carregar produtos: ${productsErrorMessage}`}
-          actionLabel="Tentar novamente"
-          onAction={() => void productsQuery.refetch()}
-        />
-      ) : (
-        <DataTable minWidth={860}>
-          <Table striped highlightOnHover withTableBorder>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>#</Table.Th>
-                <Table.Th>ID</Table.Th>
-                <Table.Th>Nome</Table.Th>
-                <Table.Th>Canoas</Table.Th>
-                <Table.Th>PF</Table.Th>
-                <Table.Th>Total</Table.Th>
-                <Table.Th>Status</Table.Th>
-                <Table.Th>Acoes</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((product: Product, index: number) => {
-                const position = (page - 1) * Number(pageSize) + index + 1;
-                const inStock = product.total_stock > 0;
-                const rowClass = `${inStock ? "row-in-stock" : "row-out-stock"} ${selectedId === product.id ? "row-selected" : ""}`;
+      <ProductsListTable
+        rows={rows}
+        page={page}
+        pageSize={pageSize}
+        selectedId={selectedId}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        loading={productsQuery.isLoading}
+        errorMessage={productsErrorMessage}
+        query={query}
+        onRetry={() => void productsQuery.refetch()}
+        onClearSearch={() => {
+          setQuery("");
+          setPage(1);
+        }}
+        onOpenDetails={openDetails}
+        onOpenSingleLabel={openSingleLabel}
+        onOpenEdit={openEdit}
+        onConfirmDelete={confirmDelete}
+        onPageChange={setPage}
+      />
 
-                return (
-                  <Table.Tr
-                    key={product.id}
-                    className={rowClass}
-                    onClick={() => openDetails(product)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <Table.Td>{position}</Table.Td>
-                    <Table.Td>{product.id}</Table.Td>
-                    <Table.Td>{product.nome}</Table.Td>
-                    <Table.Td>{product.qtd_canoas}</Table.Td>
-                    <Table.Td>{product.qtd_pf}</Table.Td>
-                    <Table.Td>
-                      <Badge variant="light">{product.total_stock}</Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color={inStock ? "green" : "red"} variant="light">
-                        {inStock ? "Em estoque" : "Sem estoque"}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs" onClick={(event) => event.stopPropagation()}>
-                        <Tooltip label="Gerar etiqueta">
-                          <ActionIcon variant="light" onClick={() => openSingleLabel(product.id)}>
-                            <IconBarcode size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <ActionIcon variant="light" onClick={() => openEdit(product)}>
-                          <IconEdit size={16} />
-                        </ActionIcon>
-                        <ActionIcon color="red" variant="light" onClick={() => confirmDelete(product)}>
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <Table.Tr>
-                  <Table.Td colSpan={8}>
-                    <EmptyState
-                      message="Nenhum produto encontrado"
-                      actionLabel={query.trim() ? "Limpar busca" : undefined}
-                      onAction={
-                        query.trim()
-                          ? () => {
-                              setQuery("");
-                              setPage(1);
-                            }
-                          : undefined
-                      }
-                    />
-                  </Table.Td>
-                </Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
-        </DataTable>
-      )}
-
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          Total: {totalItems}
-        </Text>
-        <Pagination value={page} onChange={setPage} total={totalPages} />
-      </Group>
-
-      <Modal
+      <ProductFormModal
         opened={formOpened}
         onClose={handleFormClose}
-        title={editing ? "Editar produto" : "Novo produto"}
-      >
-        {editing ? (
-          <form onSubmit={handleEditSubmit}>
-            <Stack>
-              <TextInput label="Nome" {...editForm.getInputProps("nome")} />
-              <Textarea label="Descricao" minRows={3} {...editForm.getInputProps("observacao")} />
-              <Button type="submit" loading={patchMutation.isPending}>
-                Salvar
-              </Button>
-            </Stack>
-          </form>
-        ) : (
-          <form onSubmit={handleCreateSubmit}>
-            <Stack>
-              <TextInput label="Nome" {...createForm.getInputProps("nome")} />
-              <NumberInput label="Qtd Canoas" min={0} {...createForm.getInputProps("qtd_canoas")} />
-              <NumberInput label="Qtd PF" min={0} {...createForm.getInputProps("qtd_pf")} />
-              <Button type="submit" loading={createMutation.isPending}>
-                Salvar
-              </Button>
-            </Stack>
-          </form>
-        )}
-      </Modal>
+        editing={editing}
+        createForm={createForm}
+        editForm={editForm}
+        onCreateSubmit={handleCreateSubmit}
+        onEditSubmit={handleEditSubmit}
+        createLoading={createMutation.isPending}
+        editLoading={patchMutation.isPending}
+      />
 
-      <Drawer
+      <ProductDetailsDrawer
         opened={drawerOpened}
         onClose={closeDetails}
-        title={currentProduct ? `Produto ${currentProduct.nome}` : "Detalhes do produto"}
-        position="right"
-        size="xl"
-      >
-        {detailQuery.isLoading && (
-          <Group justify="center" mt="md">
-            <Loader />
-          </Group>
-        )}
-
-        {currentProduct && (
-          <Stack gap="md">
-            <Group align="flex-start" justify="space-between" wrap="wrap">
-              <Stack gap="xs" maw={360}>
-                <Text size="sm" c="dimmed">ID</Text>
-                <Text fw={600}>{currentProduct.id}</Text>
-                <Text size="sm" c="dimmed">Canoas</Text>
-                <Text fw={600}>{currentProduct.qtd_canoas}</Text>
-                <Text size="sm" c="dimmed">PF</Text>
-                <Text fw={600}>{currentProduct.qtd_pf}</Text>
-                <Text size="sm" c="dimmed">Total</Text>
-                <Text fw={600}>{currentProduct.total_stock}</Text>
-
-                <Textarea
-                  label="Descricao"
-                  value={observacao}
-                  onChange={(event) => setObservacao(event.currentTarget.value)}
-                  minRows={3}
-                />
-                <Group gap="xs">
-                  <Button
-                    variant="light"
-                    onClick={() =>
-                      patchObservacaoMutation.mutate({
-                        id: currentProduct.id,
-                        observacao: observacao.trim(),
-                      })
-                    }
-                    loading={patchObservacaoMutation.isPending}
-                  >
-                    Salvar descricao
-                  </Button>
-                  <Button variant="subtle" onClick={descHandlers.open}>
-                    Ver descricao
-                  </Button>
-                </Group>
-              </Stack>
-
-              <Stack gap="xs" maw={420}>
-                <Group justify="space-between" align="center">
-                  <Text size="sm" c="dimmed">Imagens</Text>
-                  <Badge variant="light">
-                    {imagesQuery.data?.data?.total ?? 0}/{MAX_IMAGES}
-                  </Badge>
-                </Group>
-
-                {imagesQuery.isLoading && <Loader size="sm" />}
-
-                {!imagesQuery.isLoading && (imagesQuery.data?.data?.items?.length ?? 0) === 0 && (
-                  <Text size="sm" c="dimmed">Sem imagem cadastrada.</Text>
-                )}
-
-                {(imagesQuery.data?.data?.items?.length ?? 0) > 0 && (
-                  <SimpleGrid cols={2} spacing="sm">
-                    {(imagesQuery.data?.data?.items ?? []).map((img) => (
-                      <Stack key={img.id} gap={4}>
-                        <Image
-                          src={`data:${img.mime_type};base64,${img.image_base64}`}
-                          alt={`${currentProduct.nome} ${img.id}`}
-                          fit="cover"
-                          h={120}
-                          radius="sm"
-                        />
-                        <Group justify="space-between" wrap="nowrap">
-                          <Tooltip label={img.is_primary ? "Imagem principal" : "Definir como principal"}>
-                            <ActionIcon
-                              variant="light"
-                              color={img.is_primary ? "yellow" : "gray"}
-                              onClick={() => !img.is_primary && setPrimaryImageMutation.mutate(img.id)}
-                              loading={setPrimaryImageMutation.isPending}
-                            >
-                              {img.is_primary ? <IconStarFilled size={16} /> : <IconStar size={16} />}
-                            </ActionIcon>
-                          </Tooltip>
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            onClick={() => deleteImageMutation.mutate(img.id)}
-                            loading={deleteImageMutation.isPending}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Group>
-                      </Stack>
-                    ))}
-                  </SimpleGrid>
-                )}
-
-                <FileButton
-                  multiple
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(files) => handleAddImages((files as File[] | null) ?? null)}
-                >
-                  {(props) => (
-                    <Button
-                      {...props}
-                      variant="light"
-                      loading={uploadImagesMutation.isPending}
-                      disabled={(imagesQuery.data?.data?.total ?? 0) >= MAX_IMAGES}
-                    >
-                      Adicionar imagens
-                    </Button>
-                  )}
-                </FileButton>
-              </Stack>
-            </Group>
-
-            <Divider />
-
-            <Stack gap="sm">
-              <Title order={4}>Acoes</Title>
-              <Group gap="sm">
-                <Button
-                  variant={action === "ENTRADA" ? "filled" : "light"}
-                  onClick={() => selectAction("ENTRADA")}
-                >
-                  Dar entrada
-                </Button>
-                <Button
-                  color="red"
-                  variant={action === "SAIDA" ? "filled" : "light"}
-                  onClick={() => selectAction("SAIDA")}
-                >
-                  Dar saida
-                </Button>
-                <Button
-                  color="yellow"
-                  variant={action === "TRANSFERENCIA" ? "filled" : "light"}
-                  onClick={() => selectAction("TRANSFERENCIA")}
-                >
-                  Fazer transferencia
-                </Button>
-              </Group>
-
-              {action && (
-                <form onSubmit={handleMovementSubmit}>
-                  <Group align="end" wrap="wrap" mt="sm">
-                    <NumberInput
-                      label="Quantidade"
-                      min={1}
-                      w={140}
-                      {...movementForm.getInputProps("quantidade")}
-                    />
-                    {action !== "ENTRADA" && (
-                      <Select
-                        label="Origem"
-                        data={LOCATIONS}
-                        w={160}
-                        {...movementForm.getInputProps("origem")}
-                      />
-                    )}
-                    {action !== "SAIDA" && (
-                      <Select
-                        label="Destino"
-                        data={LOCATIONS}
-                        w={160}
-                        {...movementForm.getInputProps("destino")}
-                      />
-                    )}
-                    <Select
-                      label="Natureza"
-                      data={movementNatureOptionsByType(movementForm.values.tipo)}
-                      w={220}
-                      {...movementForm.getInputProps("natureza")}
-                    />
-                    {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
-                      <TextInput
-                        label="Local externo"
-                        w={220}
-                        placeholder="Ex: Matriz, Maringa"
-                        {...movementForm.getInputProps("local_externo")}
-                      />
-                    )}
-                    {movementForm.values.natureza === "AJUSTE" && (
-                      <Select
-                        label="Motivo do ajuste"
-                        data={ADJUSTMENT_REASON_OPTIONS}
-                        w={220}
-                        {...movementForm.getInputProps("motivo_ajuste")}
-                      />
-                    )}
-                    <TextInput
-                      label="Documento (NF)"
-                      w={180}
-                      placeholder="Ex: NF 12345"
-                      {...movementForm.getInputProps("documento")}
-                    />
-                    {movementForm.values.natureza === "DEVOLUCAO" && (
-                      <NumberInput
-                        label="Mov. referencia"
-                        min={1}
-                        w={170}
-                        {...movementForm.getInputProps("movimento_ref_id")}
-                      />
-                    )}
-                    <TextInput
-                      label="Observacao"
-                      w={240}
-                      {...movementForm.getInputProps("observacao")}
-                    />
-                    <Button type="submit" loading={createMovementMutation.isPending}>
-                      Confirmar
-                    </Button>
-                  </Group>
-                </form>
-              )}
-            </Stack>
-
-            <Divider />
-
-            <Tabs defaultValue="historico">
-              <Tabs.List>
-                <Tabs.Tab value="historico">Historico</Tabs.Tab>
-              </Tabs.List>
-
-              <Tabs.Panel value="historico" pt="md">
-                <Stack gap="sm">
-                  <Group align="end" wrap="wrap">
-                    <Select
-                      label="Por pagina"
-                      data={PAGE_SIZES}
-                      value={historyPageSize}
-                      onChange={(value) => {
-                        if (!value) return;
-                        setHistoryPageSize(value);
-                        setHistoryPage(1);
-                      }}
-                      w={120}
-                    />
-                  </Group>
-
-                  {historyQuery.isLoading ? (
-                    <Group justify="center" py="md">
-                      <Loader size="sm" />
-                    </Group>
-                  ) : historyQuery.error instanceof Error ? (
-                    <EmptyState
-                      message={`Falha ao carregar historico: ${historyQuery.error.message}`}
-                      actionLabel="Tentar novamente"
-                      onAction={() => void historyQuery.refetch()}
-                    />
-                  ) : (
-                    <>
-                      <Table striped highlightOnHover>
-                        <Table.Thead>
-                          <Table.Tr>
-                            <Table.Th>ID</Table.Th>
-                            <Table.Th>Tipo</Table.Th>
-                            <Table.Th>Natureza</Table.Th>
-                            <Table.Th>Qtd</Table.Th>
-                            <Table.Th>Origem</Table.Th>
-                            <Table.Th>Destino</Table.Th>
-                            <Table.Th>Documento</Table.Th>
-                            <Table.Th>Motivo ajuste</Table.Th>
-                            <Table.Th>Local externo</Table.Th>
-                            <Table.Th>Observacao</Table.Th>
-                            <Table.Th>Data</Table.Th>
-                          </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                          {historyQuery.data?.data?.map((mov: MovementOut) => (
-                            <Table.Tr key={mov.id}>
-                              <Table.Td>{mov.id}</Table.Td>
-                              <Table.Td>
-                                <Badge color={movementColor(mov.tipo)} variant="light">
-                                  {mov.tipo}
-                                </Badge>
-                              </Table.Td>
-                              <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
-                              <Table.Td>{mov.quantidade}</Table.Td>
-                              <Table.Td>{mov.origem || "-"}</Table.Td>
-                              <Table.Td>{mov.destino || "-"}</Table.Td>
-                              <Table.Td>{mov.documento || "-"}</Table.Td>
-                              <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste as AdjustmentReason | undefined)}</Table.Td>
-                              <Table.Td>{mov.local_externo || "-"}</Table.Td>
-                              <Table.Td>{mov.observacao || "-"}</Table.Td>
-                              <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
-                            </Table.Tr>
-                          ))}
-                          {historyQuery.data?.data?.length === 0 && (
-                            <Table.Tr>
-                              <Table.Td colSpan={11}>
-                                <Text c="dimmed" ta="center">
-                                  Sem historico
-                                </Text>
-                              </Table.Td>
-                            </Table.Tr>
-                          )}
-                        </Table.Tbody>
-                      </Table>
-
-                      <Group justify="space-between">
-                        <Text size="sm" c="dimmed">
-                          Total: {historyQuery.data?.meta?.total_items ?? 0}
-                        </Text>
-                        <Pagination
-                          value={historyPage}
-                          onChange={setHistoryPage}
-                          total={historyTotalPages}
-                        />
-                      </Group>
-                    </>
-                  )}
-                </Stack>
-              </Tabs.Panel>
-            </Tabs>
-          </Stack>
-        )}
-      </Drawer>
-
-      <Modal opened={descOpened} onClose={descHandlers.close} title="Descricao" size="lg">
-        <Stack gap="sm">
-          <ScrollArea h={260} offsetScrollbars>
-            <Text style={{ whiteSpace: "pre-wrap" }} size="md">
-              {observacao || "Sem descricao."}
-            </Text>
-          </ScrollArea>
-          <Button
-            variant="light"
-            onClick={() => navigator.clipboard.writeText(observacao || "")}
-          >
-            Copiar descricao
-          </Button>
-        </Stack>
-      </Modal>
+        currentProduct={currentProduct}
+        loading={detailQuery.isLoading}
+        observacao={observacao}
+        onObservacaoChange={setObservacao}
+        onSaveObservacao={() => {
+          if (!currentProduct) return;
+          patchObservacaoMutation.mutate({
+            id: currentProduct.id,
+            observacao: observacao.trim(),
+          });
+        }}
+        saveObservacaoLoading={patchObservacaoMutation.isPending}
+        descriptionOpened={descOpened}
+        onOpenDescription={descHandlers.open}
+        onCloseDescription={descHandlers.close}
+        imagesLoading={imagesQuery.isLoading}
+        imageItems={imagesQuery.data?.data?.items ?? []}
+        imagesTotal={imagesQuery.data?.data?.total ?? 0}
+        maxImages={MAX_IMAGES}
+        onAddImages={handleAddImages}
+        onSetPrimaryImage={(imageId) => setPrimaryImageMutation.mutate(imageId)}
+        setPrimaryImageLoading={setPrimaryImageMutation.isPending}
+        onDeleteImage={(imageId) => deleteImageMutation.mutate(imageId)}
+        deleteImageLoading={deleteImageMutation.isPending}
+        uploadImagesLoading={uploadImagesMutation.isPending}
+        action={action}
+        onSelectAction={selectAction}
+        movementForm={movementForm}
+        onSubmitMovement={handleMovementSubmit}
+        locations={PRODUCT_LOCATIONS.map((item) => ({ value: item.value, label: item.label }))}
+        adjustmentReasonOptions={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
+        movementNatureOptionsByType={movementNatureOptionsByType}
+        createMovementLoading={createMovementLoading}
+        pageSizes={PAGE_SIZES}
+        historyPageSize={historyPageSize}
+        onHistoryPageSizeChange={(value) => {
+          setHistoryPageSize(value);
+          setHistoryPage(1);
+        }}
+        historyLoading={historyQuery.isLoading}
+        historyErrorMessage={historyQuery.error instanceof Error ? historyQuery.error.message : null}
+        historyRows={historyQuery.data?.data ?? []}
+        historyTotalItems={historyQuery.data?.meta?.total_items ?? 0}
+        historyPage={historyPage}
+        historyTotalPages={historyTotalPages}
+        onHistoryPageChange={setHistoryPage}
+        movementColor={movementColor}
+        movementNatureLabel={movementNatureLabel}
+        adjustmentReasonLabel={adjustmentReasonLabel}
+        onRetryHistory={() => void historyQuery.refetch()}
+      />
     </Stack>
   );
 }

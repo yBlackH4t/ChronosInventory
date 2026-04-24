@@ -4,12 +4,8 @@ import {
   Button,
   Card,
   Group,
-  NumberInput,
-  Pagination,
   Select,
-  SimpleGrid,
   Stack,
-  Table,
   Text,
   TextInput,
   Title,
@@ -21,10 +17,9 @@ import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
 import { buildInventorySheetHtml } from "../lib/inventorySheetTemplate";
-import DataTable from "../components/ui/DataTable";
-import EmptyState from "../components/ui/EmptyState";
-import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import { InventorySessionsTable } from "../components/inventory/InventorySessionsTable";
+import { InventorySessionDetailSection } from "../components/inventory/InventorySessionDetailSection";
 import { clearTabState, loadTabState, saveTabState } from "../state/tabStateCache";
 import type {
   InventoryAdjustmentReason,
@@ -829,403 +824,84 @@ export default function InventoryPage() {
       <Card withBorder>
         <Stack>
           <Title order={4}>Sessoes de inventario</Title>
-          <DataTable minWidth={980}>
-            <Table striped highlightOnHover withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>ID</Table.Th>
-                  <Table.Th>Nome</Table.Th>
-                  <Table.Th>Local</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Itens</Table.Th>
-                  <Table.Th>Contados</Table.Th>
-                  <Table.Th>Divergentes</Table.Th>
-                  <Table.Th>Criado em</Table.Th>
-                  <Table.Th>Acoes</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {sessions.map((session) => (
-                  <Table.Tr
-                    key={session.id}
-                    className={selectedSessionId === session.id ? "row-selected" : ""}
-                  >
-                    <Table.Td>{session.id}</Table.Td>
-                    <Table.Td>{session.nome}</Table.Td>
-                    <Table.Td>{session.local}</Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={
-                          session.status === "ABERTO"
-                            ? "blue"
-                            : session.status === "FECHADO"
-                              ? "gray"
-                              : "green"
-                        }
-                        variant="light"
-                      >
-                        {session.status}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{session.total_items}</Table.Td>
-                    <Table.Td>{session.counted_items}</Table.Td>
-                    <Table.Td>{session.divergent_items}</Table.Td>
-                    <Table.Td>{dayjs(session.created_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
-                        <Button
-                          size="xs"
-                          variant={selectedSessionId === session.id ? "filled" : "light"}
-                          onClick={() => {
-                            setSelectedSessionId(session.id);
-                            setItemsPage(1);
-                            setEdits({});
-                            setCollectorInput("");
-                            setCollectorLog([]);
-                          }}
-                        >
-                          Abrir
-                        </Button>
-                        <Button
-                          size="xs"
-                          color="orange"
-                          variant="light"
-                          disabled={session.status !== "ABERTO"}
-                          loading={closeSessionMutation.isPending}
-                          onClick={() => confirmCloseSession(session)}
-                        >
-                          Fechar
-                        </Button>
-                        <Button
-                          size="xs"
-                          color="red"
-                          variant="light"
-                          disabled={session.status === "APLICADO"}
-                          loading={deleteSessionMutation.isPending}
-                          onClick={() => confirmDeleteSession(session)}
-                        >
-                          Excluir
-                        </Button>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-                {sessions.length === 0 && (
-                  <Table.Tr>
-                    <Table.Td colSpan={9}>
-                      <EmptyState message="Nenhuma sessao de inventario criada." />
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </DataTable>
-
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">
-              Total: {sessionsQuery.data?.meta?.total_items ?? 0}
-            </Text>
-            <Pagination value={sessionPage} onChange={setSessionPage} total={sessionsPages} />
-          </Group>
+          <InventorySessionsTable
+            sessions={sessions}
+            selectedSessionId={selectedSessionId}
+            totalItems={sessionsQuery.data?.meta?.total_items ?? 0}
+            page={sessionPage}
+            totalPages={sessionsPages}
+            closePending={closeSessionMutation.isPending}
+            deletePending={deleteSessionMutation.isPending}
+            onSelectSession={(session) => {
+              setSelectedSessionId(session.id);
+              setItemsPage(1);
+              setEdits({});
+              setCollectorInput("");
+              setCollectorLog([]);
+            }}
+            onConfirmClose={confirmCloseSession}
+            onConfirmDelete={confirmDeleteSession}
+            onPageChange={setSessionPage}
+          />
         </Stack>
       </Card>
 
       {selectedSession && (
-        <Card withBorder>
-          <Stack>
-            <Group justify="space-between" wrap="wrap">
-              <Stack gap={2}>
-                <Title order={4}>Contagens da sessao #{selectedSession.id}</Title>
-                <Text size="sm" c="dimmed">
-                  {selectedSession.nome} | {selectedSession.local} | Status: {selectedSession.status}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  Atalhos: Ctrl+F busca | Ctrl+B campo do bip | Ctrl+S salvar contagens
-                </Text>
-              </Stack>
-              <Group>
-                <Button
-                  variant="light"
-                  onClick={savePageCounts}
-                  loading={updateItemsMutation.isPending}
-                  disabled={selectedSession.status !== "ABERTO"}
-                >
-                  Salvar contagens
-                </Button>
-                <Button
-                  color="orange"
-                  onClick={confirmApply}
-                  loading={applyMutation.isPending}
-                  disabled={selectedSession.status !== "ABERTO"}
-                >
-                  Aplicar ajustes
-                </Button>
-              </Group>
-            </Group>
-
-            {sessionSummary && (
-              <SimpleGrid cols={{ base: 2, md: 5 }}>
-                <Card withBorder p="sm" onClick={() => { setStatusFilter("NOT_COUNTED"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
-                  <Text size="xs" c="dimmed">Nao contados</Text>
-                  <Text fw={700} size="xl">{sessionSummary.not_counted_items}</Text>
-                </Card>
-                <Card withBorder p="sm" onClick={() => { setStatusFilter("MISSING"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
-                  <Text size="xs" c="dimmed">Faltando no fisico</Text>
-                  <Text fw={700} size="xl" c="red">{sessionSummary.missing_items}</Text>
-                </Card>
-                <Card withBorder p="sm" onClick={() => { setStatusFilter("SURPLUS"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
-                  <Text size="xs" c="dimmed">Sobrando no fisico</Text>
-                  <Text fw={700} size="xl" c="green">{sessionSummary.surplus_items}</Text>
-                </Card>
-                <Card withBorder p="sm" onClick={() => { setStatusFilter("MATCHED"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
-                  <Text size="xs" c="dimmed">Conferidos OK</Text>
-                  <Text fw={700} size="xl">{sessionSummary.matched_items}</Text>
-                </Card>
-                <Card withBorder p="sm" onClick={() => { setStatusFilter("PENDING"); setItemsPage(1); }} style={{ cursor: "pointer" }}>
-                  <Text size="xs" c="dimmed">Pendentes de ajuste</Text>
-                  <Text fw={700} size="xl" c="orange">{sessionSummary.pending_items}</Text>
-                </Card>
-              </SimpleGrid>
-            )}
-
-            <FilterToolbar>
-              <Stack gap="xs">
-                <Group justify="space-between" wrap="wrap">
-                  <Text fw={600} size="sm">
-                    Coletor por etiqueta
-                  </Text>
-                  <Badge color={collectorModeActive ? "green" : "gray"} variant="light">
-                    {collectorModeActive ? "Modo bip ativo" : "Modo bip inativo"}
-                  </Badge>
-                </Group>
-                <Text size="xs" c="dimmed">
-                  Fluxo simples: iniciar modo bip (zera fisico para 0), depois so bipar item por item.
-                  O sistema compara automaticamente e mostra faltando/a mais na divergencia.
-                </Text>
-                <Group align="end" wrap="wrap">
-                  <Button
-                    color={collectorModeActive ? "gray" : "blue"}
-                    variant={collectorModeActive ? "light" : "filled"}
-                    onClick={initializeCollectorMode}
-                    loading={collectorInitializing}
-                    disabled={selectedSession.status !== "ABERTO" || collectorInitializing || collectorLoading}
-                  >
-                    Iniciar modo bip
-                  </Button>
-                  <Button
-                    variant="subtle"
-                    onClick={stopCollectorMode}
-                    disabled={!collectorModeActive || collectorInitializing || collectorLoading}
-                  >
-                    Encerrar modo bip
-                  </Button>
-                  <TextInput
-                    label="Etiqueta"
-                    placeholder="Bipe ou digite CI-123 / 4031196"
-                    value={collectorInput}
-                    onChange={(event) => setCollectorInput(event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void runCollector();
-                      }
-                    }}
-                    ref={collectorInputRef}
-                    w={320}
-                    disabled={selectedSession.status !== "ABERTO" || collectorLoading || !collectorModeActive}
-                  />
-                  <NumberInput
-                    label="Incremento"
-                    min={1}
-                    max={200}
-                    value={collectorStep}
-                    onChange={(value) => setCollectorStep(Math.max(1, Math.round(Number(value || 1))))}
-                    w={120}
-                    disabled={selectedSession.status !== "ABERTO" || collectorLoading || !collectorModeActive}
-                  />
-                  <Button
-                    onClick={() => void runCollector()}
-                    loading={collectorLoading}
-                    disabled={selectedSession.status !== "ABERTO" || !collectorModeActive}
-                  >
-                    Somar
-                  </Button>
-                  <Button
-                    variant="subtle"
-                    onClick={() => setCollectorLog([])}
-                    disabled={collectorLog.length === 0 || collectorLoading}
-                  >
-                    Limpar log
-                  </Button>
-                </Group>
-                {collectorLog.length > 0 && (
-                  <DataTable minWidth={780}>
-                    <Table withTableBorder striped>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th>Hora</Table.Th>
-                          <Table.Th>Entrada</Table.Th>
-                          <Table.Th>Status</Table.Th>
-                          <Table.Th>Mensagem</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {collectorLog.map((entry) => (
-                          <Table.Tr key={entry.id}>
-                            <Table.Td>{entry.at}</Table.Td>
-                            <Table.Td>{entry.input}</Table.Td>
-                            <Table.Td>
-                              <Badge color={entry.status === "OK" ? "green" : "red"} variant="light">
-                                {entry.status}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td>{entry.message}</Table.Td>
-                          </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </DataTable>
-                )}
-              </Stack>
-            </FilterToolbar>
-
-            <FilterToolbar>
-              <Group align="end" wrap="wrap">
-                <Select
-                  label="Filtro da contagem"
-                  data={INVENTORY_STATUS_FILTER_OPTIONS}
-                  value={statusFilter}
-                  onChange={(value) => {
-                    setStatusFilter((value as InventoryStatusFilter) || "DIVERGENT");
-                    setItemsPage(1);
-                  }}
-                  w={220}
-                  allowDeselect={false}
-                />
-                <TextInput
-                  label="Buscar item"
-                  placeholder="Nome ou ID"
-                  ref={searchInputRef}
-                  value={search}
-                  onChange={(event) => {
-                    setSearch(event.currentTarget.value);
-                    setItemsPage(1);
-                  }}
-                  w={260}
-                />
-                <Button variant="subtle" onClick={resetCurrentView} disabled={activeFilterCount === 0}>
-                  Limpar filtros
-                </Button>
-              </Group>
-            </FilterToolbar>
-
-            {itemsQuery.isLoading ? (
-              <Text c="dimmed">Carregando itens...</Text>
-            ) : (
-              <DataTable minWidth={1200}>
-                <Table striped highlightOnHover withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>ID</Table.Th>
-                      <Table.Th>Produto</Table.Th>
-                      <Table.Th>Sistema</Table.Th>
-                      <Table.Th>Fisico</Table.Th>
-                      <Table.Th>Divergencia</Table.Th>
-                      <Table.Th>Analise</Table.Th>
-                      <Table.Th>Motivo</Table.Th>
-                      <Table.Th>Observacao</Table.Th>
-                      <Table.Th>Movimento</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {items.map((item) => {
-                      const edit = edits[item.produto_id];
-                      const qtdFisico = edit?.qtd_fisico ?? item.qtd_fisico ?? item.qtd_sistema;
-                      const divergencia = qtdFisico - item.qtd_sistema;
-                      return (
-                        <Table.Tr key={item.produto_id}>
-                          <Table.Td>{item.produto_id}</Table.Td>
-                          <Table.Td>{item.produto_nome}</Table.Td>
-                          <Table.Td>{item.qtd_sistema}</Table.Td>
-                          <Table.Td>
-                            <NumberInput
-                              min={0}
-                              value={qtdFisico}
-                              onChange={(value) =>
-                                setItemEdit(item.produto_id, { qtd_fisico: Number(value ?? 0) }, item)
-                              }
-                              disabled={selectedSession.status !== "ABERTO"}
-                              w={120}
-                            />
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge color={divergencia === 0 ? "gray" : divergencia > 0 ? "green" : "red"} variant="light">
-                              {divergencia}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Badge
-                              color={divergencia === 0 ? "gray" : divergencia > 0 ? "green" : "red"}
-                              variant="light"
-                            >
-                              {divergencia === 0
-                                ? "OK"
-                                : divergencia > 0
-                                  ? `A mais: ${divergencia}`
-                                  : `Faltando: ${Math.abs(divergencia)}`}
-                            </Badge>
-                          </Table.Td>
-                          <Table.Td>
-                            <Select
-                              data={ADJUSTMENT_REASON_OPTIONS}
-                              value={(edit?.motivo_ajuste ?? item.motivo_ajuste ?? null) as string | null}
-                              onChange={(value) =>
-                                setItemEdit(
-                                  item.produto_id,
-                                  { motivo_ajuste: (value as InventoryAdjustmentReason | null) ?? null },
-                                  item
-                                )
-                              }
-                              placeholder={divergencia !== 0 ? "Obrigatorio se divergir" : "-"}
-                              disabled={selectedSession.status !== "ABERTO" || divergencia === 0}
-                              w={220}
-                            />
-                          </Table.Td>
-                          <Table.Td>
-                            <TextInput
-                              value={(edit?.observacao ?? item.observacao ?? "") || ""}
-                              onChange={(event) =>
-                                setItemEdit(item.produto_id, { observacao: event.currentTarget.value }, item)
-                              }
-                              placeholder={divergencia !== 0 ? "Obrigatorio se divergir" : "-"}
-                              disabled={selectedSession.status !== "ABERTO" || divergencia === 0}
-                              w={260}
-                            />
-                          </Table.Td>
-                          <Table.Td>{item.applied_movement_id || "-"}</Table.Td>
-                        </Table.Tr>
-                      );
-                    })}
-                    {items.length === 0 && (
-                      <Table.Tr>
-                        <Table.Td colSpan={9}>
-                          <EmptyState message="Nenhum item para o filtro selecionado." />
-                        </Table.Td>
-                      </Table.Tr>
-                    )}
-                  </Table.Tbody>
-                </Table>
-              </DataTable>
-            )}
-
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Total: {itemsQuery.data?.meta?.total_items ?? 0}
-              </Text>
-              <Pagination value={itemsPage} onChange={setItemsPage} total={itemPages} />
-            </Group>
-          </Stack>
-        </Card>
+        <InventorySessionDetailSection
+          session={selectedSession}
+          onSaveCounts={savePageCounts}
+          saveCountsLoading={updateItemsMutation.isPending}
+          onApplyAdjustments={confirmApply}
+          applyLoading={applyMutation.isPending}
+          summary={sessionSummary}
+          onSelectSummaryFilter={(nextFilter) => {
+            setStatusFilter(nextFilter);
+            setItemsPage(1);
+          }}
+          collectorModeActive={collectorModeActive}
+          collectorInitializing={collectorInitializing}
+          collectorLoading={collectorLoading}
+          collectorInput={collectorInput}
+          onCollectorInputChange={setCollectorInput}
+          onCollectorInputKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void runCollector();
+            }
+          }}
+          collectorInputRef={collectorInputRef}
+          collectorStep={collectorStep}
+          onCollectorStepChange={setCollectorStep}
+          onInitializeCollectorMode={initializeCollectorMode}
+          onStopCollectorMode={stopCollectorMode}
+          onRunCollector={() => void runCollector()}
+          collectorLog={collectorLog}
+          onClearCollectorLog={() => setCollectorLog([])}
+          statusFilter={statusFilter}
+          statusFilterOptions={INVENTORY_STATUS_FILTER_OPTIONS}
+          onStatusFilterChange={(value) => {
+            setStatusFilter(value);
+            setItemsPage(1);
+          }}
+          search={search}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setItemsPage(1);
+          }}
+          searchInputRef={searchInputRef}
+          activeFilterCount={activeFilterCount}
+          onClearFilters={resetCurrentView}
+          itemsLoading={itemsQuery.isLoading}
+          itemsErrorMessage={itemsQuery.error instanceof Error ? itemsQuery.error.message : null}
+          items={items}
+          edits={edits}
+          onSetItemEdit={setItemEdit}
+          adjustmentReasonOptions={ADJUSTMENT_REASON_OPTIONS}
+          itemsTotal={itemsQuery.data?.meta?.total_items ?? 0}
+          itemsPage={itemsPage}
+          itemsTotalPages={itemPages}
+          onItemsPageChange={setItemsPage}
+        />
       )}
     </Stack>
   );

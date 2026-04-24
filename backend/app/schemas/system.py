@@ -144,6 +144,18 @@ class PublishedComparePublishOut(BaseModel):
     history_manifest_path: str
 
 
+class PublishedCompareDeleteIn(BaseModel):
+    manifest_path: str | None = Field(default=None, max_length=2048)
+    delete_latest: bool = False
+
+
+class PublishedCompareDeleteOut(BaseModel):
+    deleted_manifest_path: str
+    deleted_zip_path: str | None = None
+    deleted_latest: bool
+    message: str
+
+
 class CompareServerStatusOut(BaseModel):
     machine_label: str
     current_database_path: str
@@ -151,6 +163,8 @@ class CompareServerStatusOut(BaseModel):
     server_port: int
     server_urls: list[str]
     remote_server_url: str | None = None
+    history_items_count: int = 0
+    history_retention_limit: int = 10
     local_snapshot_available: bool
     local_snapshot: PublishedCompareBaseOut | None = None
 
@@ -160,6 +174,7 @@ class RemoteCompareServerOut(BaseModel):
     reachable: bool
     machine_label: str | None = None
     app_version: str | None = None
+    server_port: int | None = None
     compare_available: bool = False
     compare_manifest: PublishedCompareManifestOut | None = None
     message: str

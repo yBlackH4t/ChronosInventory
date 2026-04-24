@@ -10,6 +10,21 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.6.3",
+    "date": "2026-04-24",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: A tela Comparar estoques agora exibe historico local de snapshots de comparacao, com exclusao do snapshot atual e exclusao de itens individuais do historico pela propria interface.",
+      "Novo: Comparar estoques passou a mostrar status operacional mais claro do servidor local e do servidor remoto, incluindo porta, ultima confirmacao e indicacao explicita de uso do snapshot latest.",
+      "Mudanca: Backend passou a usar lifespan no FastAPI e reorganizou servicos de base oficial, comparacao, inventario e analytics para separar melhor configuracao, publicacao, historico, validacao e aplicacao.",
+      "Mudanca: Paginas Backup, Produtos e Inventario foram fracionadas em componentes e hooks menores, reduzindo acoplamento e deixando o frontend mais seguro para evoluir.",
+      "Mudanca: Dashboard e comparativo tiveram melhor divisao de componentes/chunks pesados, deixando o build mais saudavel e a manutencao mais previsivel.",
+      "Correcao: Correcao do startup do backend local apos o refactor da base oficial, evitando o erro Servico local indisponivel ao abrir o app em desenvolvimento.",
+      "Correcao: Historico de snapshots de comparacao agora aplica retencao automatica, reduzindo acumulo de arquivos antigos e confusao operacional.",
+      "Correcao: Fluxo legado baseado em StockMovement foi removido junto com trechos mortos e textos antigos inconsistentes nos modulos refatorados."
+    ]
+  },
+  {
     "version": "1.6.2",
     "date": "2026-04-15",
     "title": "Melhorias e correcoes",

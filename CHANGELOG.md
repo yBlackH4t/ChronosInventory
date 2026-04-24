@@ -19,6 +19,23 @@ Formato recomendado:
 
 
 
+
+## [1.6.3] - 2026-04-24
+
+### Added
+- A tela `Comparar estoques` agora exibe historico local de snapshots de comparacao, com exclusao do snapshot atual e exclusao de itens individuais do historico pela propria interface.
+- `Comparar estoques` passou a mostrar status operacional mais claro do servidor local e do servidor remoto, incluindo porta, ultima confirmacao e indicacao explicita de uso do snapshot `latest`.
+
+### Changed
+- Backend passou a usar `lifespan` no FastAPI e reorganizou servicos de base oficial, comparacao, inventario e analytics para separar melhor configuracao, publicacao, historico, validacao e aplicacao.
+- Paginas `Backup`, `Produtos` e `Inventario` foram fracionadas em componentes e hooks menores, reduzindo acoplamento e deixando o frontend mais seguro para evoluir.
+- Dashboard e comparativo tiveram melhor divisao de componentes/chunks pesados, deixando o build mais saudavel e a manutencao mais previsivel.
+
+### Fixed
+- Correcao do startup do backend local apos o refactor da base oficial, evitando o erro `Servico local indisponivel` ao abrir o app em desenvolvimento.
+- Historico de snapshots de comparacao agora aplica retencao automatica, reduzindo acumulo de arquivos antigos e confusao operacional.
+- Fluxo legado baseado em `StockMovement` foi removido junto com trechos mortos e textos antigos inconsistentes nos modulos refatorados.
+
 ## [1.6.2] - 2026-04-15
 
 ### Added

@@ -1,5 +1,6 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import logging
 import os
 import time
@@ -72,7 +73,43 @@ def setup_logging() -> None:
 
 setup_logging()
 
-app = FastAPI(title="Estoque API", version=APP_VERSION)
+def startup_runtime_services() -> None:
+    db = DatabaseConnection()
+    updated, version = MigrationManager(db).check_and_run_migrations()
+    official_base_cfg = OfficialBaseService().config_store.load()
+    LOG.info(
+        "startup app_dir=%s db_path=%s db_version=%s migrated=%s",
+        FileUtils.get_app_directory(),
+        db.get_database_path(),
+        version,
+        updated,
+    )
+    if os.getenv("APP_ENV", "").lower() != "test":
+        BACKUP_SCHEDULER.start()
+        LOCAL_SHARE_SERVER.ensure_started_if_enabled(
+            enabled=bool(official_base_cfg["server_enabled"]),
+            machine_label=str(official_base_cfg["machine_label"]),
+            publisher_name=str(official_base_cfg["publisher_name"]),
+            port=int(official_base_cfg["server_port"]),
+        )
+
+
+def shutdown_runtime_services() -> None:
+    if os.getenv("APP_ENV", "").lower() != "test":
+        BACKUP_SCHEDULER.stop()
+        LOCAL_SHARE_SERVER.stop_server()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    startup_runtime_services()
+    try:
+        yield
+    finally:
+        shutdown_runtime_services()
+
+
+app = FastAPI(title="Estoque API", version=APP_VERSION, lifespan=lifespan)
 
 # Allow only local hosts (libera testserver apenas em testes)
 allowed_hosts = ["127.0.0.1", "localhost"]
@@ -115,34 +152,6 @@ app.include_router(analytics.router)
 app.include_router(inventory.router)
 app.include_router(system.router)
 
-
-@app.on_event("startup")
-def startup_log_runtime_paths() -> None:
-    db = DatabaseConnection()
-    updated, version = MigrationManager(db).check_and_run_migrations()
-    official_base_cfg = OfficialBaseService()._load_config()
-    LOG.info(
-        "startup app_dir=%s db_path=%s db_version=%s migrated=%s",
-        FileUtils.get_app_directory(),
-        db.get_database_path(),
-        version,
-        updated,
-    )
-    if os.getenv("APP_ENV", "").lower() != "test":
-        BACKUP_SCHEDULER.start()
-        LOCAL_SHARE_SERVER.ensure_started_if_enabled(
-            enabled=bool(official_base_cfg["server_enabled"]),
-            machine_label=str(official_base_cfg["machine_label"]),
-            publisher_name=str(official_base_cfg["publisher_name"]),
-            port=int(official_base_cfg["server_port"]),
-        )
-
-
-@app.on_event("shutdown")
-def shutdown_runtime_services() -> None:
-    if os.getenv("APP_ENV", "").lower() != "test":
-        BACKUP_SCHEDULER.stop()
-        LOCAL_SHARE_SERVER.stop_server()
 
 def _request_id(request: Request) -> str:
     return getattr(request.state, "request_id", "")

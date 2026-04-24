@@ -10,6 +10,8 @@ from backend.app.schemas.common import SuccessResponse
 from backend.app.schemas.system import (
     CompareServerStatusOut,
     PublishedCompareBaseOut,
+    PublishedCompareDeleteIn,
+    PublishedCompareDeleteOut,
     PublishedComparePublishOut,
     PublishedCompareStatusOut,
     RemoteCompareServerIn,
@@ -129,12 +131,33 @@ def get_compare_server_status(
     return ok(CompareServerStatusOut(**result))
 
 
+@router.get("/comparativo-servidor/historico", response_model=SuccessResponse[list[PublishedCompareBaseOut]])
+def list_compare_server_history(
+    limit: int = 10,
+    stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
+) -> SuccessResponse[list[PublishedCompareBaseOut]]:
+    items = stock_compare_service.list_server_history(limit=limit)
+    return ok([PublishedCompareBaseOut(**item) for item in items])
+
+
 @router.post("/comparativo-servidor/publicar", response_model=SuccessResponse[PublishedComparePublishOut])
 def publish_compare_server_snapshot(
     stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
 ) -> SuccessResponse[PublishedComparePublishOut]:
     result = stock_compare_service.publish_server_compare_snapshot()
     return ok(PublishedComparePublishOut(**result))
+
+
+@router.delete("/comparativo-servidor/publicacoes", response_model=SuccessResponse[PublishedCompareDeleteOut])
+def delete_compare_server_publication(
+    payload: PublishedCompareDeleteIn,
+    stock_compare_service: StockCompareService = Depends(get_stock_compare_service),
+) -> SuccessResponse[PublishedCompareDeleteOut]:
+    result = stock_compare_service.delete_server_publication(
+        manifest_path=payload.manifest_path,
+        delete_latest=payload.delete_latest,
+    )
+    return ok(PublishedCompareDeleteOut(**result))
 
 
 @router.get("/comparativo-servidor/remoto", response_model=SuccessResponse[RemoteCompareServerOut])
