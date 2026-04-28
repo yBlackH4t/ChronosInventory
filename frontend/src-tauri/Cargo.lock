@@ -280,7 +280,7 @@ dependencies = [
 
 [[package]]
 name = "chronos_inventory_desktop"
-version = "1.6.3"
+version = "1.6.4"
 dependencies = [
  "reqwest",
  "serde",

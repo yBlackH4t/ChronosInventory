@@ -49,6 +49,27 @@ def validate_synced_changelog(changelog_ts_path: Path, expected_version: str) ->
     return []
 
 
+def warn_modified_release_notes(repo_root: Path) -> None:
+    try:
+        completed = subprocess.run(
+            ["git", "status", "--porcelain", "--", "README_RELEASE.md"],
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        return
+
+    if completed.returncode != 0:
+        return
+
+    if completed.stdout.strip():
+        print(
+            "AVISO: README_RELEASE.md esta modificado. Confira se esse arquivo deve ficar fora do commit de release."
+        )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Checklist tecnico de release/update.")
     parser.add_argument("--frontend-dir", default="frontend")
@@ -89,6 +110,8 @@ def main() -> int:
             repo_root,
         ) != 0:
             return 1
+
+    warn_modified_release_notes(repo_root)
 
     print(f"OK: release doctor validou a versao {expected_version}.")
     return 0

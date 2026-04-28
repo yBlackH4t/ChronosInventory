@@ -11,6 +11,7 @@ import {
   Text,
   Title,
 } from "@mantine/core";
+import type { CSSProperties } from "react";
 import dayjs from "dayjs";
 import {
   Bar,
@@ -82,6 +83,31 @@ const SCOPE_LABELS: Record<Scope, string> = {
 const PERIOD_LABELS: Record<PeriodMode, string> = {
   week: "Semana",
   month: "Mes",
+};
+
+const CHART_TOOLTIP_CONTENT_STYLE: CSSProperties = {
+  backgroundColor: "var(--surface-muted)",
+  border: "1px solid var(--line)",
+  borderRadius: 10,
+  color: "var(--text)",
+  boxShadow: "0 14px 32px rgba(15, 23, 42, 0.22)",
+};
+
+const CHART_TOOLTIP_LABEL_STYLE: CSSProperties = {
+  color: "var(--text)",
+  fontWeight: 600,
+  marginBottom: 6,
+};
+
+const CHART_TOOLTIP_ITEM_STYLE: CSSProperties = {
+  color: "var(--text)",
+};
+
+const BAR_TOOLTIP_CURSOR = { fill: "rgba(148, 163, 184, 0.16)" };
+const LINE_TOOLTIP_CURSOR = {
+  stroke: "var(--line)",
+  strokeWidth: 1,
+  strokeDasharray: "4 4",
 };
 
 function truncateLabel(value: string, max = 15): string {
@@ -165,6 +191,10 @@ export default function DashboardVisuals({
                   <XAxis dataKey="nome_curto" interval={0} tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} />
                   <Tooltip
+                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    cursor={BAR_TOOLTIP_CURSOR}
                     formatter={(value: number | string | undefined) => [numericValue(value), "Saidas"]}
                     labelFormatter={(_, payload) => payload?.[0]?.payload?.nome ?? "-"}
                   />
@@ -212,6 +242,9 @@ export default function DashboardVisuals({
                     ))}
                   </Pie>
                   <Tooltip
+                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                     formatter={(value: number | string | undefined, name: string | undefined) => [
                       `${numericValue(value)} itens`,
                       name ?? "Local",
@@ -245,6 +278,10 @@ export default function DashboardVisuals({
                   <XAxis dataKey="period" tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} />
                   <Tooltip
+                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    cursor={LINE_TOOLTIP_CURSOR}
                     formatter={(value: number | string | undefined, name: string | undefined) => [
                       numericValue(value),
                       flowSeriesLabel(name),
@@ -279,7 +316,13 @@ export default function DashboardVisuals({
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" tick={{ fontSize: 11 }} />
                   <YAxis allowDecimals={false} />
-                  <Tooltip formatter={(value: number | string | undefined) => [numericValue(value), "Total em estoque"]} />
+                  <Tooltip
+                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
+                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                    cursor={LINE_TOOLTIP_CURSOR}
+                    formatter={(value: number | string | undefined) => [numericValue(value), "Total em estoque"]}
+                  />
                   <Legend />
                   <Line
                     type="monotone"
@@ -331,6 +374,10 @@ export default function DashboardVisuals({
                     <XAxis type="number" allowDecimals={false} />
                     <YAxis type="category" dataKey="nome_curto" width={200} tick={{ fontSize: 11 }} />
                     <Tooltip
+                      contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
+                      labelStyle={CHART_TOOLTIP_LABEL_STYLE}
+                      itemStyle={CHART_TOOLTIP_ITEM_STYLE}
+                      cursor={BAR_TOOLTIP_CURSOR}
                       formatter={(value: number | string | undefined) => [
                         numericValue(value),
                         externalTransferType === "ENTRADA" ? "Qtd entrada" : "Qtd saida",

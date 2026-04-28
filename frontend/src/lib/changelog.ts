@@ -10,6 +10,21 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "1.6.4",
+    "date": "2026-04-28",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: A tela Backup agora exibe cards de visao geral para separar melhor backup local, base oficial, servidor local e situacao operacional.",
+      "Novo: Comparar estoques ganhou secoes mais claras para comparacao por servidor e comparacao manual, com destaque explicito para o snapshot latest.",
+      "Mudanca: Movimentacoes, Relatorios e Etiquetas foram reorganizadas em componentes e hooks menores, reduzindo acoplamento e facilitando manutencao futura.",
+      "Mudanca: Servicos de backup, base oficial, comparacao, estoque e movimentacao foram divididos por responsabilidade, deixando o backend mais modular e previsivel.",
+      "Mudanca: README_RELEASE.md foi atualizado para refletir o fluxo real de release, incluindo release:doctor, sidecar e validacoes antes do push.",
+      "Correcao: Corrigidos trechos com encoding quebrado em modulos legados e arquivos de configuracao que ainda exibiam textos inconsistentes.",
+      "Correcao: Ajustado o contraste de selecao e tooltips no modo escuro do dashboard, evitando blocos brancos dificeis de ler.",
+      "Correcao: Polimentos em Backup e Comparar estoques deixaram o estado visual e a leitura operacional mais confiaveis no uso diario."
+    ]
+  },
+  {
     "version": "1.6.3",
     "date": "2026-04-24",
     "title": "Melhorias e correcoes",
@@ -232,9 +247,11 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
     "version": "1.1.5",
     "date": "2026-02-18",
-    "title": "Atualizacao de versao",
+    "title": "Melhorias e correcoes",
     "highlights": [
-      "Sem notas detalhadas para esta versao."
+      "Novo: Sem notas detalhadas para esta versao.",
+      "Mudanca: Atualizacao de versao sem mudancas funcionais relevantes registradas no changelog historico.",
+      "Correcao: Ajustes gerais de empacotamento e estabilidade sem notas tecnicas detalhadas preservadas."
     ]
   },
   {

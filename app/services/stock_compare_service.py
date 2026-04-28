@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import sqlite3
 import tempfile
@@ -11,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from app.services.backup_service import BackupService
 from app.services.compare_snapshot_service import CompareSnapshotService
 from app.services.local_share_service import LocalShareService
+from app.services.stock_compare_config_store import StockCompareConfigStore
 from core.constants import DB_NAME
 from core.database.connection import DatabaseConnection
 from core.database.migration_manager import MigrationManager
@@ -33,12 +33,15 @@ class StockCompareService:
         self.db_connection = DatabaseConnection()
         self.backup_service = BackupService()
         self.local_share_service = LocalShareService()
+        self.config_store = StockCompareConfigStore(
+            config_path=FileUtils.get_official_base_config_path(),
+            local_share_service=self.local_share_service,
+        )
         self.compare_snapshot_service = CompareSnapshotService(
             zip_filename=self._zip_filename,
             manifest_filename=self._manifest_filename,
             history_retention_limit=self._history_retention_limit,
         )
-        self.config_path = FileUtils.get_official_base_config_path()
 
     def compare_databases(
         self,
@@ -56,7 +59,7 @@ class StockCompareService:
         return self._build_compare_result(left_info, right_info)
 
     def get_published_compare_status(self) -> Dict[str, Any]:
-        config = self._load_shared_config()
+        config = self.config_store.load()
         available_bases = self.list_published_bases(include_current_machine=True)
         local_snapshot = next(
             (item for item in available_bases if item["machine_label"] == config["machine_label"]),
@@ -64,7 +67,9 @@ class StockCompareService:
         )
 
         return {
-            "compare_root_dir": self._compare_root_dir(config["official_base_dir"]) if config["official_base_dir"] else None,
+            "compare_root_dir": self.config_store.compare_root_dir(config["official_base_dir"])
+            if config["official_base_dir"]
+            else None,
             "official_base_dir": config["official_base_dir"] or None,
             "machine_label": config["machine_label"],
             "configured": bool(config["official_base_dir"]),
@@ -74,8 +79,8 @@ class StockCompareService:
         }
 
     def list_published_bases(self, include_current_machine: bool = False) -> List[Dict[str, Any]]:
-        config = self._load_shared_config()
-        compare_root = self._compare_root_dir(config["official_base_dir"])
+        config = self.config_store.load()
+        compare_root = self.config_store.compare_root_dir(config["official_base_dir"])
         if not compare_root or not os.path.isdir(compare_root):
             return []
 
@@ -113,7 +118,7 @@ class StockCompareService:
         return items
 
     def publish_current_compare_base(self) -> Dict[str, Any]:
-        config = self._load_shared_config()
+        config = self.config_store.load()
         base_dir = str(config["official_base_dir"] or "").strip()
         if not base_dir:
             raise ValidationException(
@@ -121,8 +126,9 @@ class StockCompareService:
             )
 
         machine_label = config["machine_label"]
-        latest_dir = Path(self._compare_machine_dir(base_dir, machine_label)) / self._latest_dirname
-        history_dir = Path(self._compare_machine_dir(base_dir, machine_label)) / self._history_dirname
+        machine_dir = self.config_store.compare_machine_dir(base_dir, machine_label)
+        latest_dir = Path(machine_dir) / self._latest_dirname
+        history_dir = Path(machine_dir) / self._history_dirname
         latest_zip = latest_dir / self._zip_filename
         latest_manifest = latest_dir / self._manifest_filename
 
@@ -156,7 +162,7 @@ class StockCompareService:
         }
 
     def compare_with_published_base(self, machine_label: str) -> Dict[str, Any]:
-        config = self._load_shared_config()
+        config = self.config_store.load()
         target = next(
             (
                 item
@@ -201,7 +207,7 @@ class StockCompareService:
         return result
 
     def get_server_compare_status(self) -> Dict[str, Any]:
-        config = self._load_shared_config()
+        config = self.config_store.load()
         paths = self.local_share_service.get_compare_paths()
         manifest = self.compare_snapshot_service.read_manifest(paths["latest_manifest"])
         server = self.local_share_service.get_server_status(
@@ -255,7 +261,7 @@ class StockCompareService:
         )
 
     def publish_server_compare_snapshot(self) -> Dict[str, Any]:
-        config = self._load_shared_config()
+        config = self.config_store.load()
         paths = self.local_share_service.get_compare_paths()
 
         Path(paths["latest_dir"]).mkdir(parents=True, exist_ok=True)
@@ -499,56 +505,6 @@ class StockCompareService:
 
     def _normalize_name(self, value: str) -> str:
         return str(value or "").strip().upper()
-
-    def _load_shared_config(self) -> Dict[str, str]:
-        default = {
-            "official_base_dir": "",
-            "machine_label": self._default_machine_label(),
-            "server_port": LocalShareService._default_port,
-            "remote_server_url": "",
-            "server_enabled": False,
-        }
-        if not os.path.isfile(self.config_path):
-            return default
-
-        try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception:
-            return default
-
-        official_base_dir = str(data.get("official_base_dir") or "").strip()
-        machine_label = str(data.get("machine_label") or self._default_machine_label()).strip()
-        return {
-            "official_base_dir": official_base_dir,
-            "machine_label": machine_label or self._default_machine_label(),
-            "server_port": self.local_share_service.normalize_port(data.get("server_port") or default["server_port"]),
-            "remote_server_url": self.local_share_service.normalize_server_url(data.get("remote_server_url"))
-            if str(data.get("remote_server_url") or "").strip()
-            else "",
-            "server_enabled": bool(data.get("server_enabled", default["server_enabled"])),
-        }
-
-    def _default_machine_label(self) -> str:
-        candidate = os.getenv("COMPUTERNAME") or os.getenv("HOSTNAME") or "maquina-local"
-        return str(candidate).strip()[:120]
-
-    def _compare_root_dir(self, official_base_dir: str) -> str:
-        normalized = str(official_base_dir or "").strip()
-        if not normalized:
-            return ""
-        return os.path.join(normalized, self._compare_dirname)
-
-    def _compare_machine_dir(self, official_base_dir: str, machine_label: str) -> str:
-        safe_machine = self._safe_machine_label(machine_label)
-        return os.path.join(self._compare_root_dir(official_base_dir), safe_machine)
-
-    def _safe_machine_label(self, machine_label: str) -> str:
-        value = str(machine_label or "").strip()
-        if not value:
-            return self._default_machine_label()
-        safe = "".join(ch for ch in value if ch.isalnum() or ch in {"-", "_"})
-        return safe[:120] or self._default_machine_label()
 
     def _read_remote_compare_manifest(self, data: Dict[str, Any]) -> Dict[str, Any]:
         return self.compare_snapshot_service.parse_manifest_payload(data)

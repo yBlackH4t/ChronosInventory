@@ -20,6 +20,23 @@ Formato recomendado:
 
 
 
+
+## [1.6.4] - 2026-04-28
+
+### Added
+- A tela `Backup` agora exibe cards de visao geral para separar melhor backup local, base oficial, servidor local e situacao operacional.
+- `Comparar estoques` ganhou secoes mais claras para comparacao por servidor e comparacao manual, com destaque explicito para o snapshot `latest`.
+
+### Changed
+- `Movimentacoes`, `Relatorios` e `Etiquetas` foram reorganizadas em componentes e hooks menores, reduzindo acoplamento e facilitando manutencao futura.
+- Servicos de backup, base oficial, comparacao, estoque e movimentacao foram divididos por responsabilidade, deixando o backend mais modular e previsivel.
+- `README_RELEASE.md` foi atualizado para refletir o fluxo real de release, incluindo `release:doctor`, sidecar e validacoes antes do push.
+
+### Fixed
+- Corrigidos trechos com encoding quebrado em modulos legados e arquivos de configuracao que ainda exibiam textos inconsistentes.
+- Ajustado o contraste de selecao e tooltips no modo escuro do dashboard, evitando blocos brancos dificeis de ler.
+- Polimentos em `Backup` e `Comparar estoques` deixaram o estado visual e a leitura operacional mais confiaveis no uso diario.
+
 ## [1.6.3] - 2026-04-24
 
 ### Added
@@ -265,13 +282,13 @@ Formato recomendado:
 ## [1.1.5] - 2026-02-18
 
 ### Added
-- TODO
+- Sem notas detalhadas para esta versao.
 
 ### Changed
-- TODO
+- Atualizacao de versao sem mudancas funcionais relevantes registradas no changelog historico.
 
 ### Fixed
-- TODO
+- Ajustes gerais de empacotamento e estabilidade sem notas tecnicas detalhadas preservadas.
 
 ## [1.1.4] - 2026-02-18
 

@@ -40,6 +40,19 @@ body {
   color: var(--text);
 }
 
+::selection {
+  background: rgba(59, 130, 246, 0.32);
+  color: var(--text);
+}
+
+input::selection,
+textarea::selection,
+.mantine-Input-input::selection,
+.mantine-Textarea-input::selection {
+  background: rgba(59, 130, 246, 0.36);
+  color: var(--text);
+}
+
 #root {
   min-height: 100vh;
 }

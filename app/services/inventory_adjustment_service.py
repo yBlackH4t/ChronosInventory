@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 
 from app.models.validators import StockMovementValidator
 from app.services.inventory_types import INVENTORY_STATUS_APLICADO, INVENTORY_STATUS_FECHADO
-from app.services.movement_service import MOTIVOS_AJUSTE_VALIDOS, NATUREZA_AJUSTE
+from app.services.movement_rules_service import MOTIVOS_AJUSTE_VALIDOS, NATUREZA_AJUSTE
 from core.constants import DATE_FORMAT_DB
 from core.exceptions import ValidationException
 

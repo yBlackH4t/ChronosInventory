@@ -1,48 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  ActionIcon,
   Badge,
   Button,
-  Checkbox,
   Group,
-  NumberInput,
-  Pagination,
-  SegmentedControl,
-  Select,
   Stack,
-  Table,
   Text,
-  TextInput,
-  Tooltip,
+  Loader,
+  SegmentedControl,
 } from "@mantine/core";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconBarcode, IconPrinter } from "@tabler/icons-react";
+import { IconPrinter } from "@tabler/icons-react";
 
-import NfeLabelDesignerPanel from "../components/labels/NfeLabelDesignerPanel";
-import DataTable from "../components/ui/DataTable";
-import EmptyState from "../components/ui/EmptyState";
+const NfeLabelDesignerPanel = lazy(() => import("../components/labels/NfeLabelDesignerPanel"));
+import LabelsInternalSection from "../components/labels/LabelsInternalSection";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
 import type { Product, ProductStatusFilter, SuccessResponse } from "../lib/api";
-import { ApiError } from "../lib/api";
 import { api } from "../lib/apiClient";
 import { buildLabelsPrintHtml, type LabelPrintableItem } from "../lib/labelsPrint";
 import { notifyError, notifySuccess } from "../lib/notify";
 
-const STATUS_OPTIONS = [
-  { value: "ATIVO", label: "Ativos" },
-  { value: "TODOS", label: "Todos" },
-  { value: "INATIVO", label: "Inativos" },
-];
-
-const STOCK_OPTIONS = [
-  { value: "COM_ESTOQUE", label: "Com estoque (> 0)" },
-  { value: "TODOS", label: "Todos" },
-  { value: "SEM_ESTOQUE", label: "Sem estoque (= 0)" },
-] as const;
-
-type StockFilter = (typeof STOCK_OPTIONS)[number]["value"];
+const STOCK_FILTER_VALUES = ["COM_ESTOQUE", "TODOS", "SEM_ESTOQUE"] as const;
+type StockFilter = (typeof STOCK_FILTER_VALUES)[number];
 type CopiesMode = "ONE" | "TOTAL_STOCK" | "MANUAL";
 type LabelMode = "INTERNAL" | "NFE";
 
@@ -286,13 +266,6 @@ export default function LabelsPage() {
     printLabels(batch.expanded);
   };
 
-  const loadError =
-    listQuery.error instanceof ApiError
-      ? listQuery.error.message
-      : listQuery.error instanceof Error
-        ? listQuery.error.message
-        : "Falha ao carregar itens para etiquetas.";
-
   return (
     <Stack gap="lg">
       <PageHeader
@@ -341,179 +314,47 @@ export default function LabelsPage() {
       </FilterToolbar>
 
       {labelMode === "INTERNAL" ? (
-        <>
-          <FilterToolbar>
-            <Group align="end" wrap="wrap">
-              <TextInput
-                label="Buscar"
-                placeholder="Nome ou numero"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.currentTarget.value);
-                  setPage(1);
-                }}
-                w={320}
-              />
-              <Select
-                label="Status"
-                data={STATUS_OPTIONS}
-                value={status}
-                onChange={(value) => {
-                  setStatus((value as ProductStatusFilter) || "ATIVO");
-                  setPage(1);
-                }}
-                w={180}
-              />
-              <Select
-                label="Estoque"
-                data={STOCK_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
-                value={stockFilter}
-                onChange={(value) => {
-                  setStockFilter((value as StockFilter) || "COM_ESTOQUE");
-                  setPage(1);
-                }}
-                w={220}
-              />
-              <Select
-                label="Por pagina"
-                data={["10", "20", "50", "100"]}
-                value={pageSize}
-                onChange={(value) => {
-                  if (!value) return;
-                  setPageSize(value);
-                  setPage(1);
-                }}
-                w={120}
-              />
-              <Select
-                label="Copias"
-                data={COPIES_MODE_OPTIONS}
-                value={copiesMode}
-                onChange={(value) => setCopiesMode((value as CopiesMode) || "ONE")}
-                w={210}
-              />
-              {copiesMode === "MANUAL" && (
-                <NumberInput
-                  label="Padrao manual"
-                  value={defaultManualCopies}
-                  min={1}
-                  max={MAX_COPIES_PER_ITEM}
-                  onChange={(value) =>
-                    setDefaultManualCopies(
-                      Math.max(1, Math.min(MAX_COPIES_PER_ITEM, Math.round(Number(value || 1))))
-                    )
-                  }
-                  w={160}
-                />
-              )}
-              <Button
-                variant="subtle"
-                onClick={() => {
-                  setQuery("");
-                  setStatus("ATIVO");
-                  setStockFilter("COM_ESTOQUE");
-                  setPage(1);
-                  setSelectedIds([]);
-                  setManualCopiesById({});
-                }}
-              >
-                Limpar filtros
-              </Button>
-            </Group>
-          </FilterToolbar>
-
-          <DataTable minWidth={980}>
-            <Table striped highlightOnHover withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>
-                    <Checkbox
-                      checked={allVisibleSelected}
-                      indeterminate={selectedVisibleCount > 0 && !allVisibleSelected}
-                      onChange={(event) => toggleSelectAllVisible(event.currentTarget.checked)}
-                    />
-                  </Table.Th>
-                  <Table.Th>ID</Table.Th>
-                  <Table.Th>Nome</Table.Th>
-                  <Table.Th>Canoas</Table.Th>
-                  <Table.Th>PF</Table.Th>
-                  <Table.Th>Total</Table.Th>
-                  <Table.Th>Copias</Table.Th>
-                  <Table.Th>Acoes</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((product) => {
-                  const checked = selectedSet.has(product.id);
-                  return (
-                    <Table.Tr key={product.id}>
-                      <Table.Td>
-                        <Checkbox
-                          checked={checked}
-                          onChange={(event) => toggleRow(product.id, event.currentTarget.checked)}
-                        />
-                      </Table.Td>
-                      <Table.Td>{product.id}</Table.Td>
-                      <Table.Td>{product.nome}</Table.Td>
-                      <Table.Td>{product.qtd_canoas}</Table.Td>
-                      <Table.Td>{product.qtd_pf}</Table.Td>
-                      <Table.Td>{product.total_stock}</Table.Td>
-                      <Table.Td>
-                        {copiesMode === "MANUAL" ? (
-                          <NumberInput
-                            min={1}
-                            max={MAX_COPIES_PER_ITEM}
-                            value={resolveManualCopies(product.id)}
-                            onChange={(value) => setManualCopies(product.id, Number(value || 1))}
-                            w={110}
-                          />
-                        ) : (
-                          <Badge variant="light">{resolveCopies(product)}</Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Tooltip label="Gerar etiqueta deste item">
-                          <ActionIcon
-                            variant="light"
-                            onClick={() => runPrintSingle(product)}
-                            aria-label={`Gerar etiqueta do item ${product.id}`}
-                          >
-                            <IconBarcode size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-                {listQuery.isError && (
-                  <Table.Tr>
-                    <Table.Td colSpan={8}>
-                      <EmptyState message={loadError} actionLabel="Tentar novamente" onAction={() => void listQuery.refetch()} />
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-                {!listQuery.isError && rows.length === 0 && (
-                  <Table.Tr>
-                    <Table.Td colSpan={8}>
-                      <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </DataTable>
-
-          <Group justify="space-between">
-            <Text size="sm" c="dimmed">
-              Total: {listQuery.data?.meta?.total_items ?? 0}
-            </Text>
-            <Pagination value={page} onChange={setPage} total={totalPages} />
-          </Group>
-        </>
+        <LabelsInternalSection
+          query={query}
+          setQuery={setQuery}
+          status={status}
+          setStatus={setStatus}
+          stockFilter={stockFilter}
+          setStockFilter={setStockFilter}
+          page={page}
+          setPage={setPage}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          copiesMode={copiesMode}
+          setCopiesMode={setCopiesMode}
+          defaultManualCopies={defaultManualCopies}
+          setDefaultManualCopies={setDefaultManualCopies}
+          setSelectedIds={setSelectedIds}
+          setManualCopiesById={setManualCopiesById}
+          rows={rows}
+          totalPages={totalPages}
+          selectedSet={selectedSet}
+          allVisibleSelected={allVisibleSelected}
+          selectedVisibleCount={selectedVisibleCount}
+          listQuery={listQuery}
+          toggleSelectAllVisible={toggleSelectAllVisible}
+          toggleRow={toggleRow}
+          resolveManualCopies={resolveManualCopies}
+          resolveCopies={resolveCopies}
+          setManualCopies={setManualCopies}
+          runPrintSingle={runPrintSingle}
+        />
       ) : (
-        <NfeLabelDesignerPanel />
+        <Suspense
+          fallback={
+            <Group justify="center" py="xl">
+              <Loader size="sm" />
+            </Group>
+          }
+        >
+          <NfeLabelDesignerPanel />
+        </Suspense>
       )}
     </Stack>
   );
 }
-

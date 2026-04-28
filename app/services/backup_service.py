@@ -6,20 +6,17 @@ restaurar backups com fallback e exportar pacote de diagnostico.
 
 from __future__ import annotations
 
-import io
-import json
 import os
-import platform
 import sqlite3
 import tempfile
-import zipfile
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
-from core.constants import DATE_FORMAT_FILE, APP_VERSION
+from app.services.backup_diagnostics_service import BackupDiagnosticsService
+from core.constants import DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
 from core.database.repositories.product_repository import ProductRepository
 from core.exceptions import FileOperationException, ValidationException
@@ -37,6 +34,12 @@ class BackupService:
         self.product_repo = ProductRepository()
         self.db_connection = DatabaseConnection()
         self.backups_dir = FileUtils.get_backups_directory()
+        self.diagnostics = BackupDiagnosticsService(
+            db_connection=self.db_connection,
+            list_backups_metadata=self.list_backups_metadata,
+            validate_backup=self.validate_backup,
+            get_auto_backup_config=self.get_auto_backup_config,
+        )
         self._default_auto_hour = 18
         self._default_auto_minute = 0
         self._default_retention_days = 15
@@ -236,45 +239,7 @@ class BackupService:
         """
         Gera pacote de diagnostico (zip) para suporte.
         """
-        db_path = self.db_connection.get_database_path()
-        db_validation = self.validate_backup()
-        backups = self.list_backups_metadata()[:30]
-
-        backend_log = self._read_log_tail(Path("backend") / "logs" / "backend.log")
-        tauri_log = self._read_log_tail(self._tauri_log_path())
-
-        summary = {
-            "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "app_version": APP_VERSION,
-            "python_version": platform.python_version(),
-            "platform": platform.platform(),
-            "database": {
-                "path": db_path,
-                "exists": os.path.exists(db_path),
-                "integrity_ok": bool(db_validation["ok"]),
-                "integrity_result": db_validation["result"],
-            },
-            "backups": [
-                {
-                    "name": item["name"],
-                    "path": item["path"],
-                    "size": item["size"],
-                    "created_at": item["created_at"].isoformat(),
-                }
-                for item in backups
-            ],
-            "auto_backup_config": self.get_auto_backup_config(),
-        }
-
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("summary.json", json.dumps(summary, ensure_ascii=False, indent=2))
-            zf.writestr("logs/backend.log.tail.txt", backend_log or "Sem log backend.")
-            zf.writestr("logs/tauri.log.tail.txt", tauri_log or "Sem log tauri.")
-
-        timestamp = datetime.now().strftime(DATE_FORMAT_FILE)
-        filename = f"diagnostico_{timestamp}.zip"
-        return filename, buf.getvalue()
+        return self.diagnostics.export_archive()
 
     def get_auto_backup_config(self) -> Dict[str, object]:
         schedule_mode = self._normalize_schedule_mode(
@@ -560,19 +525,3 @@ class BackupService:
                 dst_conn.close()
             if src_conn is not None:
                 src_conn.close()
-
-    def _read_log_tail(self, path: Path, max_lines: int = 300) -> str:
-        if not path.exists():
-            return ""
-        try:
-            with path.open("r", encoding="utf-8", errors="replace") as f:
-                lines = f.readlines()
-            return "".join(lines[-max_lines:])
-        except Exception:
-            return ""
-
-    def _tauri_log_path(self) -> Path:
-        local_app_data = os.getenv("LOCALAPPDATA")
-        if not local_app_data:
-            return Path(os.getenv("TEMP", ".")) / "chronos_inventory_tauri.log"
-        return Path(local_app_data) / "ChronosInventory" / "logs" / "tauri.log"
