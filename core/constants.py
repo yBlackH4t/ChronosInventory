@@ -68,13 +68,16 @@ OPERATION_TYPES = {
     "EXCLUSAO": "EXCLUSAO",
 }
 
-# Stock locations
+# Stock locations (LEGACY - v1.x hardcoded values)
+# v2.0.0+: Locations are now configurable in database via inventory_locations table
+# This is kept for backward compatibility only
 STOCK_LOCATIONS = {
     "CANOAS": "Canoas",
     "PASSO_FUNDO": "Passo Fundo",
 }
 
-# Transfer directions
+# Transfer directions (LEGACY - v1.x hardcoded values)
+# v2.0.0+: Transfers are dynamic based on active inventory_locations
 TRANSFER_DIRECTIONS = {
     "CANOAS_TO_PF": "Canoas -> PF",
     "PF_TO_CANOAS": "PF -> Canoas",
