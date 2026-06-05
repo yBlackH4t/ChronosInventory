@@ -43,6 +43,7 @@ from backend.app.api.routers import (
     analytics,
     inventory,
     system,
+    inventory_locations,
 )
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.common import SuccessResponse
@@ -150,6 +151,7 @@ app.include_router(imports.router)
 app.include_router(dashboard.router)
 app.include_router(analytics.router)
 app.include_router(inventory.router)
+app.include_router(inventory_locations.router)
 app.include_router(system.router)
 
 
