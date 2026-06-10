@@ -19,8 +19,7 @@
     ],
     "windows": {
       "webviewInstallMode": {
-        "type": "fixedRuntime",
-        "path": "webview2"
+        "type": "downloadBootstrapper"
       }
     },
     "createUpdaterArtifacts": "v1Compatible"
