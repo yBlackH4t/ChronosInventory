@@ -89,7 +89,8 @@ export default function LocationsPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (force: boolean) => api.deleteLocation(locToDelete!.id, force),
+    mutationFn: ({ force, hard }: { force: boolean; hard: boolean }) =>
+      api.deleteLocation(locToDelete!.id, force, hard),
     onSuccess: () => {
       notifySuccess("Local removido com sucesso");
       queryClient.invalidateQueries({ queryKey: ["locations"] });
@@ -132,6 +133,15 @@ export default function LocationsPage() {
       />
 
       <Card withBorder p="md">
+        <Group justify="flex-end" mb="md">
+          <Switch
+            label="Mostrar locais inativos"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.currentTarget.checked)}
+            size="sm"
+          />
+        </Group>
+
         {isLoading ? (
           <Text>Carregando locais...</Text>
         ) : displayLocations.length === 0 ? (
@@ -142,14 +152,6 @@ export default function LocationsPage() {
           />
         ) : (
           <Stack gap="md">
-            <Group justify="flex-end">
-              <Switch
-                label="Mostrar locais inativos"
-                checked={showInactive}
-                onChange={(e) => setShowInactive(e.currentTarget.checked)}
-                size="sm"
-              />
-            </Group>
             <Table.ScrollContainer minWidth={500}>
               <Table verticalSpacing="sm">
                 <Table.Thead>
@@ -233,63 +235,83 @@ export default function LocationsPage() {
         </Stack>
       </Modal>
 
-      <Modal
-        opened={deleteModalOpened}
-        onClose={closeDeleteModal}
-        title="Remover Local"
-      >
-        <Stack gap="md">
-          {!deleteHasStock ? (
-            <>
-              <Text>
-                Tem certeza que deseja remover o local{" "}
-                <strong>{locToDelete?.label || locToDelete?.name}</strong>?
-              </Text>
-              <Group justify="flex-end" mt="md">
-                <Button variant="subtle" onClick={closeDeleteModal}>
-                  Cancelar
-                </Button>
-                <Button
-                  color="red"
-                  onClick={() => deleteMutation.mutate(false)}
-                  loading={deleteMutation.isPending}
-                >
-                  Remover
-                </Button>
-              </Group>
-            </>
-          ) : (
-            <>
-              <Alert
-                icon={<IconAlertTriangle size={16} />}
-                title="Este local possui estoque ativo!"
-                color="orange"
-              >
-                Nao e possivel deletar permanentemente um local que ainda possui
-                produtos associados.
-              </Alert>
-              <Text size="sm" mt="sm">
-                Voce pode transferir o estoque para outro local primeiro, ou
-                voce pode inativar este local. Ao inativar (soft-delete), o
-                local some das listas de operacao, e seu estoque nao contara
-                mais no total ativo, mas o historico sera mantido.
-              </Text>
-              <Group justify="flex-end" mt="md">
-                <Button variant="subtle" onClick={closeDeleteModal}>
-                  Cancelar
-                </Button>
-                <Button
+        <Modal
+          opened={deleteModalOpened}
+          onClose={closeDeleteModal}
+          title="Remover Local"
+          centered
+        >
+          <Stack>
+            {locToDelete?.ativo === false ? (
+              <>
+                <Text size="sm">
+                  Este local já está inativo. Deseja excluí-lo permanentemente do
+                  banco de dados? Esta ação não pode ser desfeita.
+                </Text>
+                <Group justify="flex-end" mt="md">
+                  <Button variant="subtle" onClick={closeDeleteModal}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    color="red"
+                    onClick={() => deleteMutation.mutate({ force: false, hard: true })}
+                    loading={deleteMutation.isPending}
+                  >
+                    Excluir Permanentemente
+                  </Button>
+                </Group>
+              </>
+            ) : !deleteHasStock ? (
+              <>
+                <Text size="sm">
+                  Tem certeza que deseja remover o local{" "}
+                  <strong>{locToDelete?.label || locToDelete?.name}</strong>?
+                </Text>
+                <Group justify="flex-end" mt="md">
+                  <Button variant="subtle" onClick={closeDeleteModal}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    color="red"
+                    onClick={() => deleteMutation.mutate({ force: false, hard: false })}
+                    loading={deleteMutation.isPending}
+                  >
+                    Remover
+                  </Button>
+                </Group>
+              </>
+            ) : (
+              <>
+                <Alert
+                  icon={<IconAlertTriangle size={16} />}
+                  title="Este local possui estoque ativo!"
                   color="orange"
-                  onClick={() => deleteMutation.mutate(true)}
-                  loading={deleteMutation.isPending}
                 >
-                  Inativar local (Soft-delete)
-                </Button>
-              </Group>
-            </>
-          )}
-        </Stack>
-      </Modal>
+                  Nao e possivel deletar permanentemente um local que ainda possui
+                  produtos associados.
+                </Alert>
+                <Text size="sm" mt="sm">
+                  Voce pode transferir o estoque para outro local primeiro, ou
+                  voce pode inativar este local. Ao inativar (soft-delete), o
+                  local some das listas de operacao, e seu estoque nao contara
+                  mais no total ativo, mas o historico sera mantido.
+                </Text>
+                <Group justify="flex-end" mt="md">
+                  <Button variant="subtle" onClick={closeDeleteModal}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    color="orange"
+                    onClick={() => deleteMutation.mutate({ force: true, hard: false })}
+                    loading={deleteMutation.isPending}
+                  >
+                    Inativar local (Soft-delete)
+                  </Button>
+                </Group>
+              </>
+            )}
+          </Stack>
+        </Modal>
     </Stack>
   );
 }

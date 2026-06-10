@@ -164,6 +164,14 @@ class InventoryLocationRepository(BaseRepository):
         self.connection.commit()
         return cursor.rowcount > 0
     
+    def hard_delete(self, location_id: int) -> bool:
+        """
+        Exclui permanentemente um location.
+        """
+        cursor = self.connection.execute("DELETE FROM locais WHERE id = ?", (location_id,))
+        self.connection.commit()
+        return cursor.rowcount > 0
+    
     def reactivate(self, location_id: int) -> bool:
         """
         Reativa um location desativado.

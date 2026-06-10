@@ -325,10 +325,11 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     async deleteLocation(
       id: number,
       force: boolean = false,
+      hard: boolean = false,
       options: RequestInit = {},
     ) {
       return request<void>(
-        `/inventory-locations/${id}?force=${force ? "true" : "false"}`,
+        `/inventory-locations/${id}?force=${force ? "true" : "false"}&hard=${hard ? "true" : "false"}`,
         {
           method: "DELETE",
           ...options,

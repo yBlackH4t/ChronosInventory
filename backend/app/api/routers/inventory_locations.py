@@ -100,15 +100,15 @@ async def update_location(
 async def delete_location(
     location_id: int,
     force: bool = Query(False, description="Se True, zera estoque e desativa mesmo com estoque"),
+    hard: bool = Query(False, description="Se True, deleta o local permanentemente"),
     service: InventoryLocationService = Depends(get_inventory_location_service),
 ):
     """
-    Desativa um location (soft delete).
-
-    Se o location possui estoque e force=False, retorna 409 com detalhes
-    do estoque para o frontend mostrar confirmação.
-    Se force=True, zera estoque e desativa.
+    Desativa um location (soft delete) ou exclui permanentemente (hard delete).
     """
+    if hard:
+        service.hard_delete(location_id)
+        return ok(data=None)
     location = service.soft_delete(location_id, force=force)
     return ok(data=_to_out(location))
 

@@ -153,23 +153,21 @@ class InventoryLocationService:
         """
         Desativa um location (soft delete).
         
-        Dados são preservados, apenas marcado como inativo.
-        Se possuir estoque, requer force=True para desativar e zerar o estoque.
-        
         Args:
-            location_id: ID do location a desativar
-            force: Se True, zera o estoque antes de desativar
-            
+            location_id: ID do location
+            force: Se True, zera estoque e desativa mesmo com itens.
+                   Se False, falha caso haja itens em estoque.
+                   
         Returns:
             InventoryLocation desativado
             
         Raises:
             NotFoundException: Se location não existe
-            LocationHasStockException: Se possuir estoque e force=False
+            LocationHasStockException: Se houver estoque (e force=False)
         """
-        location = self.get_by_id(location_id)  # Valida existência
+        location = self.get_by_id(location_id)
         
-        # Check stock
+        # Verificar se possui estoque associado
         cursor = self.repository.connection.execute(
             "SELECT COUNT(produto_id), SUM(quantidade) FROM produto_estoque WHERE local_id = ? AND quantidade > 0", 
             (location_id,)
@@ -191,9 +189,17 @@ class InventoryLocationService:
         # Soft delete location
         if not self.repository.soft_delete(location_id):
             raise NotFoundException(f"Falha ao desativar location {location_id}")
-        
-        location.ativo = False
-        return location
+            
+        return self.get_by_id(location_id)
+
+    def hard_delete(self, location_id: int) -> None:
+        """
+        Exclui permanentemente o location.
+        """
+        self.get_by_id(location_id) # Valida se existe
+        self.repository.connection.execute("DELETE FROM produto_estoque WHERE local_id = ?", (location_id,))
+        if not self.repository.hard_delete(location_id):
+            raise NotFoundException(f"Falha ao excluir permanentemente location {location_id}")
     
     def reactivate(self, location_id: int) -> InventoryLocation:
         """
