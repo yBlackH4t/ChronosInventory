@@ -11,7 +11,12 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import PageHeader from "../components/ui/PageHeader";
 import FilterToolbar from "../components/ui/FilterToolbar";
@@ -19,9 +24,14 @@ import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
 import { api } from "../lib/apiClient";
 import { ApiError } from "../lib/api";
-import type { Product, ProductStatusFilter, ProductStatusBulkIn, SuccessResponse } from "../lib/api";
+import type {
+  Product,
+  ProductStatusFilter,
+  ProductStatusBulkIn,
+  SuccessResponse,
+} from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
-
+import { useLocations } from "../hooks/useLocations";
 
 const STATUS_OPTIONS = [
   { value: "TODOS", label: "Todos" },
@@ -35,7 +45,6 @@ const STOCK_OPTIONS = [
 ] as const;
 type StockFilter = (typeof STOCK_OPTIONS)[number]["value"];
 
-
 export default function ProductStatusPage() {
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -44,6 +53,7 @@ export default function ProductStatusPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState("20");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const { locations } = useLocations();
 
   const listQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["produtos-status", query, status, stockFilter, page, pageSize],
@@ -58,7 +68,7 @@ export default function ProductStatusPage() {
           page_size: Number(pageSize),
           sort: "nome",
         },
-        { signal }
+        { signal },
       ),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -72,7 +82,7 @@ export default function ProductStatusPage() {
     mutationFn: (payload) => api.bulkUpdateProductStatus(payload),
     onSuccess: (response, variables) => {
       notifySuccess(
-        `${response.data.updated} item(ns) ${variables.ativo ? "reativado(s)" : "inativado(s)"} com sucesso.`
+        `${response.data.updated} item(ns) ${variables.ativo ? "reativado(s)" : "inativado(s)"} com sucesso.`,
       );
       setSelectedIds([]);
       queryClient.invalidateQueries({ queryKey: ["produtos-status"] });
@@ -96,9 +106,10 @@ export default function ProductStatusPage() {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedVisibleCount = useMemo(
     () => visibleIds.filter((id) => selectedSet.has(id)).length,
-    [visibleIds, selectedSet]
+    [visibleIds, selectedSet],
   );
-  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+  const allVisibleSelected =
+    visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
 
   const toggleSelectAllVisible = (checked: boolean) => {
     setSelectedIds((current) => {
@@ -132,7 +143,7 @@ export default function ProductStatusPage() {
       <PageHeader
         title="Ativar/Inativar Itens"
         subtitle="Painel rapido para gerenciar status de muitos itens ao mesmo tempo."
-        actions={(
+        actions={
           <>
             <Badge variant="light">Selecionados: {selectedIds.length}</Badge>
             <Button
@@ -154,7 +165,7 @@ export default function ProductStatusPage() {
               Reativar
             </Button>
           </>
-        )}
+        }
       />
 
       <FilterToolbar>
@@ -181,7 +192,10 @@ export default function ProductStatusPage() {
           />
           <Select
             label="Estoque"
-            data={STOCK_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+            data={STOCK_OPTIONS.map((item) => ({
+              value: item.value,
+              label: item.label,
+            }))}
             value={stockFilter}
             onChange={(value) => {
               setStockFilter((value as StockFilter) || "TODOS");
@@ -222,14 +236,19 @@ export default function ProductStatusPage() {
               <Table.Th>
                 <Checkbox
                   checked={allVisibleSelected}
-                  indeterminate={selectedVisibleCount > 0 && !allVisibleSelected}
-                  onChange={(event) => toggleSelectAllVisible(event.currentTarget.checked)}
+                  indeterminate={
+                    selectedVisibleCount > 0 && !allVisibleSelected
+                  }
+                  onChange={(event) =>
+                    toggleSelectAllVisible(event.currentTarget.checked)
+                  }
                 />
               </Table.Th>
               <Table.Th>ID</Table.Th>
               <Table.Th>Nome</Table.Th>
-              <Table.Th>Canoas</Table.Th>
-              <Table.Th>PF</Table.Th>
+              {locations.map((loc) => (
+                <Table.Th key={loc.id}>{loc.label || loc.name}</Table.Th>
+              ))}
               <Table.Th>Total</Table.Th>
               <Table.Th>Status</Table.Th>
             </Table.Tr>
@@ -242,16 +261,24 @@ export default function ProductStatusPage() {
                   <Table.Td>
                     <Checkbox
                       checked={checked}
-                      onChange={(event) => toggleRow(product.id, event.currentTarget.checked)}
+                      onChange={(event) =>
+                        toggleRow(product.id, event.currentTarget.checked)
+                      }
                     />
                   </Table.Td>
                   <Table.Td>{product.id}</Table.Td>
                   <Table.Td>{product.nome}</Table.Td>
-                  <Table.Td>{product.qtd_canoas}</Table.Td>
-                  <Table.Td>{product.qtd_pf}</Table.Td>
+                  {locations.map((loc) => (
+                    <Table.Td key={loc.id}>
+                      {product.inventories?.[loc.id] ?? 0}
+                    </Table.Td>
+                  ))}
                   <Table.Td>{product.total_stock}</Table.Td>
                   <Table.Td>
-                    <Badge color={product.ativo ? "green" : "gray"} variant="light">
+                    <Badge
+                      color={product.ativo ? "green" : "gray"}
+                      variant="light"
+                    >
                       {product.ativo ? "ATIVO" : "INATIVO"}
                     </Badge>
                   </Table.Td>
@@ -260,7 +287,7 @@ export default function ProductStatusPage() {
             })}
             {listQuery.isError && (
               <Table.Tr>
-                <Table.Td colSpan={7}>
+                <Table.Td colSpan={5 + locations.length}>
                   <EmptyState
                     message={`${loadError} Verifique se o backend esta atualizado para 1.2.0+.`}
                     actionLabel="Tentar novamente"
@@ -271,7 +298,7 @@ export default function ProductStatusPage() {
             )}
             {!listQuery.isError && rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={7}>
+                <Table.Td colSpan={5 + locations.length}>
                   <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
                 </Table.Td>
               </Table.Tr>

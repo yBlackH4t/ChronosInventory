@@ -1,10 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
-Location = Literal["CANOAS", "PF"]
 MovementType = Literal["ENTRADA", "SAIDA", "TRANSFERENCIA"]
 MovementNature = Literal["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE"]
 AdjustmentReason = Literal[
@@ -22,8 +21,8 @@ class MovementCreate(BaseModel):
     tipo: MovementType
     produto_id: int = Field(ge=1)
     quantidade: int = Field(ge=1)
-    origem: Optional[Location] = None
-    destino: Optional[Location] = None
+    origem_location_id: Optional[int] = Field(default=None, ge=1)
+    destino_location_id: Optional[int] = Field(default=None, ge=1)
     observacao: Optional[str] = Field(default=None, max_length=200)
     natureza: Optional[MovementNature] = None
     motivo_ajuste: Optional[AdjustmentReason] = None
@@ -39,8 +38,10 @@ class MovementOut(BaseModel):
     produto_nome: Optional[str] = None
     tipo: MovementType
     quantidade: int
-    origem: Optional[Location] = None
-    destino: Optional[Location] = None
+    origem: Optional[str] = None               # location label for display
+    destino: Optional[str] = None              # location label for display
+    origem_location_id: Optional[int] = None
+    destino_location_id: Optional[int] = None
     observacao: Optional[str] = None
     natureza: MovementNature = "OPERACAO_NORMAL"
     motivo_ajuste: Optional[AdjustmentReason] = None

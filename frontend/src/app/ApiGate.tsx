@@ -15,7 +15,10 @@ function parseSemver(value: string): VersionTuple | null {
   return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
 
-function isBackendOutdatedForApp(backendVersion: string, appVersion: string): boolean {
+function isBackendOutdatedForApp(
+  backendVersion: string,
+  appVersion: string,
+): boolean {
   const backend = parseSemver(backendVersion);
   const app = parseSemver(appVersion);
   if (!backend || !app) return false;
@@ -25,7 +28,11 @@ function isBackendOutdatedForApp(backendVersion: string, appVersion: string): bo
   return backend[1] < app[1];
 }
 
-export function ApiGate({ children }: { children: (health: HealthOut) => ReactNode }) {
+export function ApiGate({
+  children,
+}: {
+  children: (health: HealthOut) => ReactNode;
+}) {
   const [health, setHealth] = useState<HealthOut | null>(null);
   const [failed, setFailed] = useState(false);
   const [incompatible, setIncompatible] = useState<{
@@ -90,12 +97,16 @@ export function ApiGate({ children }: { children: (health: HealthOut) => ReactNo
             O backend local esta desatualizado para esta versao do app.
           </Text>
           <Text c="dimmed" ta="center">
-            App: v{incompatible.appVersion} | Backend: v{incompatible.backendVersion}
+            App: v{incompatible.appVersion} | Backend: v
+            {incompatible.backendVersion}
           </Text>
           <Text c="dimmed" ta="center">
-            Reinstale a versao mais recente do Chronos Inventory para sincronizar os componentes.
+            Reinstale a versao mais recente do Chronos Inventory para
+            sincronizar os componentes.
           </Text>
-          <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+          <Button onClick={() => window.location.reload()}>
+            Tentar novamente
+          </Button>
         </Stack>
       </Center>
     );
@@ -107,9 +118,12 @@ export function ApiGate({ children }: { children: (health: HealthOut) => ReactNo
         <Stack gap="md" align="center" maw={420}>
           <Title order={2}>Servico local indisponivel</Title>
           <Text c="dimmed" ta="center">
-            Verifique se o backend esta rodando em 127.0.0.1:8000 e tente novamente.
+            Verifique se o backend esta rodando em 127.0.0.1:8000 e tente
+            novamente.
           </Text>
-          <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
+          <Button onClick={() => window.location.reload()}>
+            Tentar novamente
+          </Button>
         </Stack>
       </Center>
     );

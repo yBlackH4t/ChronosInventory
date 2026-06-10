@@ -59,7 +59,7 @@ def create_inventory_session(
 ) -> SuccessResponse[InventorySessionOut]:
     session = inventory_service.create_session(
         nome=payload.nome,
-        local=payload.local,
+        location_id=payload.location_id,
         observacao=payload.observacao,
     )
     return ok(_to_session_out(session), status_code=201)

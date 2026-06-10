@@ -25,8 +25,11 @@ DEPOIS (Estrutura Dinâmica):
     └── produto_id: 1, inventory_location_id: 2, quantidade: 30
 """
 
+import logging
 import sqlite3
 from typing import Callable, Optional
+
+logger = logging.getLogger(__name__)
 
 MigrationHandler = Callable[[sqlite3.Connection], None]
 
@@ -45,7 +48,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 1: Criar tabela de locations (CONFIGURÁVEL)
     # ============================================================
-    print("[Migration v2.0.0] Step 1: Creating inventory_locations table...")
+    logger.info("[Migration v2.0.0] Step 1: Creating inventory_locations table...")
     
     conn.execute("""
         CREATE TABLE IF NOT EXISTS inventory_locations (
@@ -63,7 +66,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 2: Inserir locations padrão (Canoas e Passo Fundo)
     # ============================================================
-    print("[Migration v2.0.0] Step 2: Inserting default locations...")
+    logger.info("[Migration v2.0.0] Step 2: Inserting default locations...")
     
     # Verificar se locations já existem
     existing_locations = conn.execute(
@@ -82,7 +85,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 3: Criar tabela de relação produto-inventory (M:N)
     # ============================================================
-    print("[Migration v2.0.0] Step 3: Creating product_inventory table...")
+    logger.info("[Migration v2.0.0] Step 3: Creating product_inventory table...")
     
     conn.execute("""
         CREATE TABLE IF NOT EXISTS product_inventory (
@@ -101,7 +104,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 4: Copiar dados: qtd_canoas, qtd_pf → product_inventory
     # ============================================================
-    print("[Migration v2.0.0] Step 4: Migrating stock data...")
+    logger.info("[Migration v2.0.0] Step 4: Migrating stock data...")
     
     # Verificar se já migrou (evitar duplicação em reruns)
     existing_inventory = conn.execute(
@@ -125,33 +128,55 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
             )
         
         # Migrar qtd_canoas para product_inventory
-        print("  → Migrating qtd_canoas to product_inventory...")
-        conn.execute(f"""
-            INSERT INTO product_inventory (produto_id, inventory_location_id, quantidade, atualizado_em)
-            SELECT 
-                id,
-                {canoas_id},
-                COALESCE(qtd_canoas, 0),
-                CURRENT_TIMESTAMP
-            FROM produtos
-            WHERE COALESCE(qtd_canoas, 0) > 0 OR id IN (SELECT produto_id FROM product_inventory)
-        """)
+        if _column_exists(conn, "produtos", "qtd_canoas"):
+            logger.info("  → Migrating qtd_canoas to product_inventory...")
+            conn.execute(f"""
+                INSERT INTO product_inventory (produto_id, inventory_location_id, quantidade, atualizado_em)
+                SELECT 
+                    id,
+                    {canoas_id},
+                    COALESCE(qtd_canoas, 0),
+                    CURRENT_TIMESTAMP
+                FROM produtos
+                WHERE COALESCE(qtd_canoas, 0) > 0 OR id IN (SELECT produto_id FROM product_inventory)
+            """)
         
         # Migrar qtd_pf para product_inventory
-        print("  → Migrating qtd_pf to product_inventory...")
-        conn.execute(f"""
-            INSERT INTO product_inventory (produto_id, inventory_location_id, quantidade, atualizado_em)
-            SELECT 
-                id,
-                {pf_id},
-                COALESCE(qtd_pf, 0),
-                CURRENT_TIMESTAMP
-            FROM produtos
-            WHERE COALESCE(qtd_pf, 0) > 0
-        """)
+        if _column_exists(conn, "produtos", "qtd_pf"):
+            logger.info("  → Migrating qtd_pf to product_inventory...")
+            conn.execute(f"""
+                INSERT INTO product_inventory (produto_id, inventory_location_id, quantidade, atualizado_em)
+                SELECT 
+                    id,
+                    {pf_id},
+                    COALESCE(qtd_pf, 0),
+                    CURRENT_TIMESTAMP
+                FROM produtos
+                WHERE COALESCE(qtd_pf, 0) > 0
+            """)
+
+        # Caso alternativo: banco estava no esquema intermediário com produto_estoque
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='produto_estoque'")
+        if cursor.fetchone():
+            logger.info("  → Migrating from intermediate produto_estoque table...")
+            # Copia os dados do produto_estoque diretamente
+            # Mapeamento do local_id (1=Canoas, 2=PF no schema intermediário)
+            conn.execute(f"""
+                INSERT OR IGNORE INTO product_inventory (produto_id, inventory_location_id, quantidade, atualizado_em)
+                SELECT 
+                    produto_id,
+                    CASE 
+                        WHEN local_id = 1 THEN {canoas_id}
+                        WHEN local_id = 2 THEN {pf_id}
+                        ELSE local_id 
+                    END,
+                    quantidade,
+                    CURRENT_TIMESTAMP
+                FROM produto_estoque
+            """)
         
         # Para produtos sem estoque em nenhuma location, criar registros com 0
-        print("  → Adding zero-quantity records for completeness...")
+        logger.info("  → Adding zero-quantity records for completeness...")
         conn.execute(f"""
             INSERT OR IGNORE INTO product_inventory (produto_id, inventory_location_id, quantidade)
             SELECT p.id, l.id, 0
@@ -166,7 +191,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 5: Adicionar colunas de rastreamento a movimentacoes
     # ============================================================
-    print("[Migration v2.0.0] Step 5: Adding location tracking to movements...")
+    logger.info("[Migration v2.0.0] Step 5: Adding location tracking to movements...")
     
     if not _column_exists(conn, "movimentacoes", "origem_location_id"):
         conn.execute("""
@@ -183,7 +208,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 6: Preencher location_ids nos movimentos existentes
     # ============================================================
-    print("[Migration v2.0.0] Step 6: Populating location_ids in existing movements...")
+    logger.info("[Migration v2.0.0] Step 6: Populating location_ids in existing movements...")
     
     # Obter IDs das locations
     locations = conn.execute(
@@ -196,7 +221,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
         pf_id = location_ids.get('PF')
         
         # Para ENTRADA: origem_location_id é NULL, destino_location_id vem de destino
-        print("  → Setting location_ids for ENTRADA movements...")
+        logger.info("  → Setting location_ids for ENTRADA movements...")
         if canoas_id:
             conn.execute(f"""
                 UPDATE movimentacoes 
@@ -211,7 +236,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
             """)
         
         # Para SAIDA: origem_location_id vem de origem, destino_location_id é NULL
-        print("  → Setting location_ids for SAIDA movements...")
+        logger.info("  → Setting location_ids for SAIDA movements...")
         if canoas_id:
             conn.execute(f"""
                 UPDATE movimentacoes 
@@ -226,7 +251,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
             """)
         
         # Para TRANSFERENCIA: ambas os location_ids
-        print("  → Setting location_ids for TRANSFERENCIA movements...")
+        logger.info("  → Setting location_ids for TRANSFERENCIA movements...")
         if canoas_id and pf_id:
             conn.execute(f"""
                 UPDATE movimentacoes 
@@ -247,7 +272,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 7: Atualizar inventory_sessions para usar location_id
     # ============================================================
-    print("[Migration v2.0.0] Step 7: Updating inventory_sessions...")
+    logger.info("[Migration v2.0.0] Step 7: Updating inventory_sessions...")
     
     if not _column_exists(conn, "inventory_sessions", "inventory_location_id"):
         conn.execute("""
@@ -271,7 +296,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 8: Criar tabela de configuração de aplicação
     # ============================================================
-    print("[Migration v2.0.0] Step 8: Creating app_config table...")
+    logger.info("[Migration v2.0.0] Step 8: Creating app_config table...")
     
     conn.execute("""
         CREATE TABLE IF NOT EXISTS app_config (
@@ -297,7 +322,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 9: Criar índices para performance
     # ============================================================
-    print("[Migration v2.0.0] Step 9: Creating indexes...")
+    logger.info("[Migration v2.0.0] Step 9: Creating indexes...")
     
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_product_inventory_produto ON product_inventory(produto_id);"
@@ -324,7 +349,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
     # ============================================================
     # STEP 10: Verificação de integridade
     # ============================================================
-    print("[Migration v2.0.0] Step 10: Verifying data integrity...")
+    logger.info("[Migration v2.0.0] Step 10: Verifying data integrity...")
     
     # Verificar se qtd_canoas e qtd_pf conferem com product_inventory
     products_count = conn.execute(
@@ -335,8 +360,8 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
         "SELECT COUNT(DISTINCT produto_id) FROM product_inventory"
     ).fetchone()[0]
     
-    print(f"  ✓ Produtos ativos: {products_count}")
-    print(f"  ✓ Produtos com inventário: {inventory_products}")
+    logger.info(f"  ✓ Produtos ativos: {products_count}")
+    logger.info(f"  ✓ Produtos com inventário: {inventory_products}")
     
     # Verificar movimentacoes
     movements_total = conn.execute(
@@ -347,17 +372,17 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
         "SELECT COUNT(*) FROM movimentacoes WHERE origem_location_id IS NOT NULL OR destino_location_id IS NOT NULL"
     ).fetchone()[0]
     
-    print(f"  ✓ Total de movimentações: {movements_total}")
-    print(f"  ✓ Movimentações com location_ids: {movements_with_location_ids}")
+    logger.info(f"  ✓ Total de movimentações: {movements_total}")
+    logger.info(f"  ✓ Movimentações com location_ids: {movements_with_location_ids}")
     
     # Verificar locations
     locations_count = conn.execute(
         "SELECT COUNT(*) FROM inventory_locations WHERE ativo = 1"
     ).fetchone()[0]
     
-    print(f"  ✓ Locations ativas: {locations_count}")
+    logger.info(f"  ✓ Locations ativas: {locations_count}")
     
-    print("[Migration v2.0.0] ✅ Migration completed successfully!")
+    logger.info("[Migration v2.0.0] ✅ Migration completed successfully!")
 
 
 def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
@@ -376,10 +401,10 @@ def create_rollback_migration() -> MigrationHandler:
     """
     
     def rollback_white_label(conn: sqlite3.Connection) -> None:
-        print("[Migration v2.0.0 Rollback] Starting rollback...")
+        logger.info("[Migration v2.0.0 Rollback] Starting rollback...")
         
         # Copiar dados de volta para qtd_canoas/qtd_pf
-        print("  → Restoring qtd_canoas and qtd_pf...")
+        logger.info("  → Restoring qtd_canoas and qtd_pf...")
         locations = conn.execute(
             "SELECT id, name FROM inventory_locations"
         ).fetchall()
@@ -387,7 +412,7 @@ def create_rollback_migration() -> MigrationHandler:
         canoas_id = location_ids.get('CANOAS')
         pf_id = location_ids.get('PF')
         
-        if canoas_id:
+        if canoas_id and _column_exists(conn, "produtos", "qtd_canoas"):
             conn.execute(f"""
                 UPDATE produtos 
                 SET qtd_canoas = COALESCE((
@@ -396,7 +421,7 @@ def create_rollback_migration() -> MigrationHandler:
                 ), 0)
             """)
         
-        if pf_id:
+        if pf_id and _column_exists(conn, "produtos", "qtd_pf"):
             conn.execute(f"""
                 UPDATE produtos 
                 SET qtd_pf = COALESCE((
@@ -406,11 +431,11 @@ def create_rollback_migration() -> MigrationHandler:
             """)
         
         # Remover tabelas novas
-        print("  → Dropping new tables...")
+        logger.info("  → Dropping new tables...")
         conn.execute("DROP TABLE IF EXISTS product_inventory")
         conn.execute("DROP TABLE IF EXISTS inventory_locations")
         conn.execute("DROP TABLE IF EXISTS app_config")
         
-        print("[Migration v2.0.0 Rollback] ✅ Rollback completed successfully!")
+        logger.info("[Migration v2.0.0 Rollback] ✅ Rollback completed successfully!")
     
     return rollback_white_label

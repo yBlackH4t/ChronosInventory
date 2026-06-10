@@ -24,21 +24,32 @@ type BackupSection = "locais" | "oficial" | "diagnostico";
 
 export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   const queryClient = useQueryClient();
-  const [officialRoleInput, setOfficialRoleInput] = useState<OfficialBaseRole>("consumer");
-  const [officialMachineLabelInput, setOfficialMachineLabelInput] = useState("");
-  const [officialPublisherNameInput, setOfficialPublisherNameInput] = useState("");
-  const [officialServerPortInput, setOfficialServerPortInput] = useState<number | null>(8765);
-  const [officialRemoteServerUrlInput, setOfficialRemoteServerUrlInput] = useState("");
+  const [officialRoleInput, setOfficialRoleInput] =
+    useState<OfficialBaseRole>("consumer");
+  const [officialMachineLabelInput, setOfficialMachineLabelInput] =
+    useState("");
+  const [officialPublisherNameInput, setOfficialPublisherNameInput] =
+    useState("");
+  const [officialServerPortInput, setOfficialServerPortInput] = useState<
+    number | null
+  >(8765);
+  const [officialRemoteServerUrlInput, setOfficialRemoteServerUrlInput] =
+    useState("");
   const [officialNotesInput, setOfficialNotesInput] = useState("");
-  const [remoteOfficialStatus, setRemoteOfficialStatus] = useState<RemoteShareStatusOut | null>(null);
+  const [remoteOfficialStatus, setRemoteOfficialStatus] =
+    useState<RemoteShareStatusOut | null>(null);
   const [serverStatusRefreshUntil, setServerStatusRefreshUntil] = useState(0);
 
-  const officialBaseStatusQuery = useQuery<SuccessResponse<OfficialBaseStatusOut>>({
+  const officialBaseStatusQuery = useQuery<
+    SuccessResponse<OfficialBaseStatusOut>
+  >({
     queryKey: ["official-base-status"],
     queryFn: ({ signal }) => api.officialBaseStatus({ signal }),
     refetchInterval: (query) => {
       if (activeSection !== "oficial") return false;
-      const response = query.state.data as SuccessResponse<OfficialBaseStatusOut> | undefined;
+      const response = query.state.data as
+        | SuccessResponse<OfficialBaseStatusOut>
+        | undefined;
       const status = response?.data;
       const shouldPoll =
         Boolean(status?.server_enabled) ||
@@ -48,9 +59,12 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     },
   });
 
-  const officialBaseHistoryQuery = useQuery<SuccessResponse<OfficialBaseHistoryItemOut[]>>({
+  const officialBaseHistoryQuery = useQuery<
+    SuccessResponse<OfficialBaseHistoryItemOut[]>
+  >({
     queryKey: ["official-base-server-history"],
-    queryFn: ({ signal }) => api.officialBaseServerHistory({ limit: 8 }, { signal }),
+    queryFn: ({ signal }) =>
+      api.officialBaseServerHistory({ limit: 8 }, { signal }),
     staleTime: 30_000,
   });
 
@@ -63,7 +77,9 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     onSuccess: (response) => {
       notifySuccess("Configuracao da base oficial salva.");
       queryClient.setQueryData(["official-base-status"], response);
-      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
+      queryClient.invalidateQueries({
+        queryKey: ["official-base-server-history"],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -74,7 +90,9 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     void
   >({
     mutationFn: () =>
-      api.officialBaseServerRemoteStatus({ server_url: officialRemoteServerUrlInput.trim() || undefined }),
+      api.officialBaseServerRemoteStatus({
+        server_url: officialRemoteServerUrlInput.trim() || undefined,
+      }),
     onSuccess: (response) => {
       setRemoteOfficialStatus(response.data);
       notifySuccess(response.data.message);
@@ -89,10 +107,14 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   >({
     mutationFn: (payload) => api.officialBaseServerPublish(payload),
     onSuccess: (response) => {
-      notifySuccess(`Base oficial publicada em ${dayjs(response.data.published_at).format("DD/MM/YYYY HH:mm")}.`);
+      notifySuccess(
+        `Base oficial publicada em ${dayjs(response.data.published_at).format("DD/MM/YYYY HH:mm")}.`,
+      );
       setOfficialNotesInput("");
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
-      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
+      queryClient.invalidateQueries({
+        queryKey: ["official-base-server-history"],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -110,18 +132,28 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     onSuccess: (response) => {
       notifySuccess(response.data.message);
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
-      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
+      queryClient.invalidateQueries({
+        queryKey: ["official-base-server-history"],
+      });
     },
     onError: (error) => notifyError(error),
   });
 
-  const officialBaseApplyMutation = useMutation<SuccessResponse<OfficialBaseApplyOut>, Error, void>({
+  const officialBaseApplyMutation = useMutation<
+    SuccessResponse<OfficialBaseApplyOut>,
+    Error,
+    void
+  >({
     mutationFn: () =>
-      api.officialBaseServerApply({ server_url: officialRemoteServerUrlInput.trim() || undefined }),
+      api.officialBaseServerApply({
+        server_url: officialRemoteServerUrlInput.trim() || undefined,
+      }),
     onSuccess: async (response) => {
       notifySuccess("Base oficial aplicada com sucesso.");
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
-      queryClient.invalidateQueries({ queryKey: ["official-base-server-history"] });
+      queryClient.invalidateQueries({
+        queryKey: ["official-base-server-history"],
+      });
       queryClient.invalidateQueries({ queryKey: ["backup-list"] });
       queryClient.invalidateQueries({ queryKey: ["backup-validate-current"] });
       if (!response.data.restart_required) return;
@@ -129,7 +161,10 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
       try {
         await restartApplication();
       } catch (error) {
-        notifyError(error, "Base aplicada. Reinicie o aplicativo manualmente para concluir.");
+        notifyError(
+          error,
+          "Base aplicada. Reinicie o aplicativo manualmente para concluir.",
+        );
       }
     },
     onError: (error) => notifyError(error),
@@ -149,11 +184,13 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
                   server_running: payload.running,
                   server_port: payload.port,
                   server_urls: payload.urls,
-                  machine_label: payload.machine_label || current.data.machine_label,
-                  publisher_name: payload.publisher_name ?? current.data.publisher_name,
+                  machine_label:
+                    payload.machine_label || current.data.machine_label,
+                  publisher_name:
+                    payload.publisher_name ?? current.data.publisher_name,
                 },
               }
-            : current
+            : current,
       );
 
       queryClient.setQueryData<SuccessResponse<CompareServerStatusOut>>(
@@ -167,36 +204,43 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
                   server_running: payload.running,
                   server_port: payload.port,
                   server_urls: payload.urls,
-                  machine_label: payload.machine_label || current.data.machine_label,
+                  machine_label:
+                    payload.machine_label || current.data.machine_label,
                 },
               }
-            : current
+            : current,
       );
     },
-    [queryClient]
+    [queryClient],
   );
 
   const confirmServerStatus = useCallback(
     async (expectedRunning: boolean) => {
       const refreshed = await officialBaseStatusQuery.refetch();
-      await queryClient.invalidateQueries({ queryKey: ["compare-server-status"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["compare-server-status"],
+      });
       const running = Boolean(refreshed.data?.data?.server_running);
       if (running !== expectedRunning) {
         notifyError(
           new Error(
             expectedRunning
               ? `Servidor nao confirmou inicializacao. Verifique se a porta ${refreshed.data?.data?.server_port ?? officialServerPortInput ?? 8765} esta livre e se o firewall permitiu o acesso local.`
-              : "Servidor ainda aparece ativo. Aguarde alguns segundos e, se persistir, verifique se o processo foi encerrado corretamente."
-          )
+              : "Servidor ainda aparece ativo. Aguarde alguns segundos e, se persistir, verifique se o processo foi encerrado corretamente.",
+          ),
         );
         return false;
       }
       return true;
     },
-    [officialBaseStatusQuery, officialServerPortInput, queryClient]
+    [officialBaseStatusQuery, officialServerPortInput, queryClient],
   );
 
-  const officialBaseServerStartMutation = useMutation<SuccessResponse<LocalShareServerOut>, Error, void>({
+  const officialBaseServerStartMutation = useMutation<
+    SuccessResponse<LocalShareServerOut>,
+    Error,
+    void
+  >({
     mutationFn: () => api.officialBaseServerStart(),
     onSuccess: async (response) => {
       patchServerStatusCache(response.data);
@@ -208,7 +252,11 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     onError: (error) => notifyError(error),
   });
 
-  const officialBaseServerStopMutation = useMutation<SuccessResponse<LocalShareServerOut>, Error, void>({
+  const officialBaseServerStopMutation = useMutation<
+    SuccessResponse<LocalShareServerOut>,
+    Error,
+    void
+  >({
     mutationFn: () => api.officialBaseServerStop(),
     onSuccess: async (response) => {
       patchServerStatusCache(response.data);
@@ -222,7 +270,9 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
 
   const officialBaseStatus = officialBaseStatusQuery.data?.data;
   const officialBaseHistory = officialBaseHistoryQuery.data?.data ?? [];
-  const serverToggleBusy = officialBaseServerStartMutation.isPending || officialBaseServerStopMutation.isPending;
+  const serverToggleBusy =
+    officialBaseServerStartMutation.isPending ||
+    officialBaseServerStopMutation.isPending;
   const serverIsRunning = Boolean(officialBaseStatus?.server_running);
   const serverSwitchLabel = officialBaseServerStartMutation.isPending
     ? "Ligando servidor..."
@@ -275,13 +325,14 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
       }
       officialBaseServerStopMutation.mutate();
     },
-    [officialBaseServerStartMutation, officialBaseServerStopMutation]
+    [officialBaseServerStartMutation, officialBaseServerStopMutation],
   );
 
   const confirmPublishOfficialBase = useCallback(() => {
     modals.openConfirmModal({
       title: "Publicar base oficial",
-      children: "Esta operacao vai gerar uma copia oficial da base atual e deixar essa base disponivel no servidor local desta maquina. Use isso somente na maquina que representa a fonte oficial do estoque.",
+      children:
+        "Esta operacao vai gerar uma copia oficial da base atual e deixar essa base disponivel no servidor local desta maquina. Use isso somente na maquina que representa a fonte oficial do estoque.",
       labels: { confirm: "Publicar agora", cancel: "Cancelar" },
       onConfirm: () =>
         officialBasePublishMutation.mutate({
@@ -308,7 +359,8 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         "Isso vai remover a base oficial mais recente publicada neste servidor local. Os snapshots do historico continuam existentes, mas os outros computadores nao vao mais encontrar uma base atual para baixar.",
       labels: { confirm: "Excluir base atual", cancel: "Cancelar" },
       confirmProps: { color: "red" },
-      onConfirm: () => officialBaseDeleteMutation.mutate({ deleteLatest: true }),
+      onConfirm: () =>
+        officialBaseDeleteMutation.mutate({ deleteLatest: true }),
     });
   }, [officialBaseDeleteMutation]);
 
@@ -319,10 +371,13 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         children: `Isso vai remover este snapshot do historico publicado em ${dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}. Essa acao nao altera a base local ativa.`,
         labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
         confirmProps: { color: "red" },
-        onConfirm: () => officialBaseDeleteMutation.mutate({ manifestPath: item.manifest_path }),
+        onConfirm: () =>
+          officialBaseDeleteMutation.mutate({
+            manifestPath: item.manifest_path,
+          }),
       });
     },
-    [officialBaseDeleteMutation]
+    [officialBaseDeleteMutation],
   );
 
   return {
@@ -331,7 +386,9 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     officialBaseStatus,
     officialBaseStatusLoading: officialBaseStatusQuery.isLoading,
     officialBaseStatusErrorMessage:
-      officialBaseStatusQuery.error instanceof Error ? officialBaseStatusQuery.error.message : null,
+      officialBaseStatusQuery.error instanceof Error
+        ? officialBaseStatusQuery.error.message
+        : null,
     officialNotesInput,
     officialPublisherNameInput,
     officialRemoteServerUrlInput,

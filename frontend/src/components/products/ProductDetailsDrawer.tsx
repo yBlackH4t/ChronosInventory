@@ -1,4 +1,4 @@
-import type { FormEventHandler } from "react";
+import React, { type FormEventHandler } from "react";
 import {
   ActionIcon,
   Badge,
@@ -25,11 +25,20 @@ import {
 import type { UseFormReturnType } from "@mantine/form";
 import { IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
 
-import type { MovementCreate, MovementOut, Product, ProductImageItem } from "../../lib/api";
+import type {
+  MovementCreate,
+  MovementOut,
+  Product,
+  ProductImageItem,
+} from "../../lib/api";
 import { ProductHistoryTable } from "./ProductHistoryTable";
 
 type MovementType = "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
-type MovementNature = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE";
+type MovementNature =
+  | "OPERACAO_NORMAL"
+  | "TRANSFERENCIA_EXTERNA"
+  | "DEVOLUCAO"
+  | "AJUSTE";
 type AdjustmentReason =
   | "AVARIA"
   | "PERDA"
@@ -65,7 +74,9 @@ type ProductDetailsDrawerProps = {
   onSubmitMovement: FormEventHandler<HTMLFormElement>;
   locations: { value: string; label: string }[];
   adjustmentReasonOptions: { value: AdjustmentReason; label: string }[];
-  movementNatureOptionsByType: (tipo: MovementType) => { value: MovementNature; label: string }[];
+  movementNatureOptionsByType: (
+    tipo: MovementType,
+  ) => { value: MovementNature; label: string }[];
   createMovementLoading: boolean;
   pageSizes: { value: string; label: string }[];
   historyPageSize: string;
@@ -133,7 +144,11 @@ export function ProductDetailsDrawer({
       <Drawer
         opened={opened}
         onClose={onClose}
-        title={currentProduct ? `Produto ${currentProduct.nome}` : "Detalhes do produto"}
+        title={
+          currentProduct
+            ? `Produto ${currentProduct.nome}`
+            : "Detalhes do produto"
+        }
         position="right"
         size="xl"
       >
@@ -151,14 +166,16 @@ export function ProductDetailsDrawer({
                   ID
                 </Text>
                 <Text fw={600}>{currentProduct.id}</Text>
-                <Text size="sm" c="dimmed">
-                  Canoas
-                </Text>
-                <Text fw={600}>{currentProduct.qtd_canoas}</Text>
-                <Text size="sm" c="dimmed">
-                  PF
-                </Text>
-                <Text fw={600}>{currentProduct.qtd_pf}</Text>
+                {locations.map((loc) => (
+                  <React.Fragment key={loc.value}>
+                    <Text size="sm" c="dimmed">
+                      {loc.label}
+                    </Text>
+                    <Text fw={600}>
+                      {currentProduct.inventories?.[Number(loc.value)] ?? 0}
+                    </Text>
+                  </React.Fragment>
+                ))}
                 <Text size="sm" c="dimmed">
                   Total
                 </Text>
@@ -167,7 +184,9 @@ export function ProductDetailsDrawer({
                 <Textarea
                   label="Descricao"
                   value={observacao}
-                  onChange={(event) => onObservacaoChange(event.currentTarget.value)}
+                  onChange={(event) =>
+                    onObservacaoChange(event.currentTarget.value)
+                  }
                   minRows={3}
                 />
                 <Group gap="xs">
@@ -214,14 +233,26 @@ export function ProductDetailsDrawer({
                           radius="sm"
                         />
                         <Group justify="space-between" wrap="nowrap">
-                          <Tooltip label={img.is_primary ? "Imagem principal" : "Definir como principal"}>
+                          <Tooltip
+                            label={
+                              img.is_primary
+                                ? "Imagem principal"
+                                : "Definir como principal"
+                            }
+                          >
                             <ActionIcon
                               variant="light"
                               color={img.is_primary ? "yellow" : "gray"}
-                              onClick={() => !img.is_primary && onSetPrimaryImage(img.id)}
+                              onClick={() =>
+                                !img.is_primary && onSetPrimaryImage(img.id)
+                              }
                               loading={setPrimaryImageLoading}
                             >
-                              {img.is_primary ? <IconStarFilled size={16} /> : <IconStar size={16} />}
+                              {img.is_primary ? (
+                                <IconStarFilled size={16} />
+                              ) : (
+                                <IconStar size={16} />
+                              )}
                             </ActionIcon>
                           </Tooltip>
                           <ActionIcon
@@ -241,7 +272,9 @@ export function ProductDetailsDrawer({
                 <FileButton
                   multiple
                   accept="image/png,image/jpeg,image/webp"
-                  onChange={(files) => onAddImages((files as File[] | null) ?? null)}
+                  onChange={(files) =>
+                    onAddImages((files as File[] | null) ?? null)
+                  }
                 >
                   {(props) => (
                     <Button
@@ -262,10 +295,17 @@ export function ProductDetailsDrawer({
             <Stack gap="sm">
               <Title order={4}>Acoes</Title>
               <Group gap="sm">
-                <Button variant={action === "ENTRADA" ? "filled" : "light"} onClick={() => onSelectAction("ENTRADA")}>
+                <Button
+                  variant={action === "ENTRADA" ? "filled" : "light"}
+                  onClick={() => onSelectAction("ENTRADA")}
+                >
                   Dar entrada
                 </Button>
-                <Button color="red" variant={action === "SAIDA" ? "filled" : "light"} onClick={() => onSelectAction("SAIDA")}>
+                <Button
+                  color="red"
+                  variant={action === "SAIDA" ? "filled" : "light"}
+                  onClick={() => onSelectAction("SAIDA")}
+                >
                   Dar saida
                 </Button>
                 <Button
@@ -280,20 +320,38 @@ export function ProductDetailsDrawer({
               {action && (
                 <form onSubmit={onSubmitMovement}>
                   <Group align="end" wrap="wrap" mt="sm">
-                    <NumberInput label="Quantidade" min={1} w={140} {...movementForm.getInputProps("quantidade")} />
+                    <NumberInput
+                      label="Quantidade"
+                      min={1}
+                      w={140}
+                      {...movementForm.getInputProps("quantidade")}
+                    />
                     {action !== "ENTRADA" && (
-                      <Select label="Origem" data={locations} w={160} {...movementForm.getInputProps("origem")} />
+                      <Select
+                        label="Origem"
+                        data={locations}
+                        w={160}
+                        {...movementForm.getInputProps("origem_location_id")}
+                      />
                     )}
                     {action !== "SAIDA" && (
-                      <Select label="Destino" data={locations} w={160} {...movementForm.getInputProps("destino")} />
+                      <Select
+                        label="Destino"
+                        data={locations}
+                        w={160}
+                        {...movementForm.getInputProps("destino_location_id")}
+                      />
                     )}
                     <Select
                       label="Natureza"
-                      data={movementNatureOptionsByType(movementForm.values.tipo as MovementType)}
+                      data={movementNatureOptionsByType(
+                        movementForm.values.tipo as MovementType,
+                      )}
                       w={220}
                       {...movementForm.getInputProps("natureza")}
                     />
-                    {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
+                    {movementForm.values.natureza ===
+                      "TRANSFERENCIA_EXTERNA" && (
                       <TextInput
                         label="Local externo"
                         w={220}
@@ -323,7 +381,11 @@ export function ProductDetailsDrawer({
                         {...movementForm.getInputProps("movimento_ref_id")}
                       />
                     )}
-                    <TextInput label="Observacao" w={240} {...movementForm.getInputProps("observacao")} />
+                    <TextInput
+                      label="Observacao"
+                      w={240}
+                      {...movementForm.getInputProps("observacao")}
+                    />
                     <Button type="submit" loading={createMovementLoading}>
                       Confirmar
                     </Button>
@@ -364,7 +426,11 @@ export function ProductDetailsDrawer({
                     onPageChange={onHistoryPageChange}
                     movementColor={movementColor}
                     movementNatureLabel={movementNatureLabel}
-                    adjustmentReasonLabel={(reason) => adjustmentReasonLabel(reason as AdjustmentReason | null | undefined)}
+                    adjustmentReasonLabel={(reason) =>
+                      adjustmentReasonLabel(
+                        reason as AdjustmentReason | null | undefined,
+                      )
+                    }
                     onRetry={onRetryHistory}
                   />
                 </Stack>
@@ -374,14 +440,22 @@ export function ProductDetailsDrawer({
         )}
       </Drawer>
 
-      <Modal opened={descriptionOpened} onClose={onCloseDescription} title="Descricao" size="lg">
+      <Modal
+        opened={descriptionOpened}
+        onClose={onCloseDescription}
+        title="Descricao"
+        size="lg"
+      >
         <Stack gap="sm">
           <ScrollArea h={260} offsetScrollbars>
             <Text style={{ whiteSpace: "pre-wrap" }} size="md">
               {observacao || "Sem descricao."}
             </Text>
           </ScrollArea>
-          <Button variant="light" onClick={() => navigator.clipboard.writeText(observacao || "")}>
+          <Button
+            variant="light"
+            onClick={() => navigator.clipboard.writeText(observacao || "")}
+          >
             Copiar descricao
           </Button>
         </Stack>

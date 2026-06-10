@@ -23,7 +23,10 @@ export type ShippingLabelFieldToken =
   | "pesoKg"
   | "volumeInfo";
 
-export const SHIPPING_LABEL_FIELD_TOKEN_OPTIONS: { value: ShippingLabelFieldToken; label: string }[] = [
+export const SHIPPING_LABEL_FIELD_TOKEN_OPTIONS: {
+  value: ShippingLabelFieldToken;
+  label: string;
+}[] = [
   { value: "cliente", label: "Cliente" },
   { value: "cidade", label: "Cidade" },
   { value: "estado", label: "Estado" },
@@ -160,15 +163,16 @@ const DEFAULT_DESIGNER_ITEMS: ShippingLabelDesignerItem[] = [
   },
 ];
 
-export const DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT: ShippingLabelDesignerLayout = {
-  name: "Modelo visual",
-  widthPx: 760,
-  heightPx: 225,
-  pxPerMm: 4,
-  fontFamily: 'Calibri, "Segoe UI", Tahoma, sans-serif',
-  showBorder: true,
-  items: DEFAULT_DESIGNER_ITEMS,
-};
+export const DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT: ShippingLabelDesignerLayout =
+  {
+    name: "Modelo visual",
+    widthPx: 760,
+    heightPx: 225,
+    pxPerMm: 4,
+    fontFamily: 'Calibri, "Segoe UI", Tahoma, sans-serif',
+    showBorder: true,
+    items: DEFAULT_DESIGNER_ITEMS,
+  };
 
 function escapeHtml(value: string): string {
   return value
@@ -337,25 +341,31 @@ function clampDesigner(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function normalizeDesignerItem(raw: unknown, fallbackId: string): ShippingLabelDesignerItem {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+function normalizeDesignerItem(
+  raw: unknown,
+  fallbackId: string,
+): ShippingLabelDesignerItem {
+  const source =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const kindRaw = source.kind;
   const kind: "text" | "token" | "image" =
     kindRaw === "token" ? "token" : kindRaw === "image" ? "image" : "text";
   const token = source.token;
-  const normalizedToken: ShippingLabelFieldToken | undefined = SHIPPING_LABEL_FIELD_TOKEN_OPTIONS.some(
-    (item) => item.value === token
-  )
-    ? (token as ShippingLabelFieldToken)
-    : kind === "token"
-      ? "cliente"
-      : undefined;
+  const normalizedToken: ShippingLabelFieldToken | undefined =
+    SHIPPING_LABEL_FIELD_TOKEN_OPTIONS.some((item) => item.value === token)
+      ? (token as ShippingLabelFieldToken)
+      : kind === "token"
+        ? "cliente"
+        : undefined;
   const weightRaw = Number(source.fontWeight);
   const alignRaw = source.align;
   const objectFitRaw = source.objectFit;
 
   return {
-    id: typeof source.id === "string" && source.id.trim() ? source.id : fallbackId,
+    id:
+      typeof source.id === "string" && source.id.trim()
+        ? source.id
+        : fallbackId,
     kind,
     text: typeof source.text === "string" ? source.text : "",
     token: normalizedToken,
@@ -368,12 +378,17 @@ function normalizeDesignerItem(raw: unknown, fallbackId: string): ShippingLabelD
     fontWeight: weightRaw >= 700 ? 700 : 400,
     align: alignRaw === "center" || alignRaw === "right" ? alignRaw : "left",
     objectFit:
-      objectFitRaw === "cover" || objectFitRaw === "fill" ? objectFitRaw : "contain",
+      objectFitRaw === "cover" || objectFitRaw === "fill"
+        ? objectFitRaw
+        : "contain",
   };
 }
 
-export function normalizeShippingLabelDesignerLayout(raw: unknown): ShippingLabelDesignerLayout {
-  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+export function normalizeShippingLabelDesignerLayout(
+  raw: unknown,
+): ShippingLabelDesignerLayout {
+  const source =
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const itemsRaw = Array.isArray(source.items) ? source.items : [];
   const items = itemsRaw.length
     ? itemsRaw
@@ -389,26 +404,32 @@ export function normalizeShippingLabelDesignerLayout(raw: unknown): ShippingLabe
     widthPx: clampDesigner(
       Number(source.widthPx) || DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT.widthPx,
       300,
-      2200
+      2200,
     ),
     heightPx: clampDesigner(
-      Number(source.heightPx) || DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT.heightPx,
+      Number(source.heightPx) ||
+        DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT.heightPx,
       120,
-      2200
+      2200,
     ),
-    pxPerMm: clampDesigner(Number(source.pxPerMm) || DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT.pxPerMm, 2, 12),
+    pxPerMm: clampDesigner(
+      Number(source.pxPerMm) || DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT.pxPerMm,
+      2,
+      12,
+    ),
     fontFamily:
       typeof source.fontFamily === "string" && source.fontFamily.trim()
         ? source.fontFamily.trim()
         : DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT.fontFamily,
-    showBorder: typeof source.showBorder === "boolean" ? source.showBorder : true,
+    showBorder:
+      typeof source.showBorder === "boolean" ? source.showBorder : true,
     items,
   };
 }
 
 export function resolveShippingLabelDesignerItemText(
   item: ShippingLabelDesignerItem,
-  data: ShippingLabelPrintableItem
+  data: ShippingLabelPrintableItem,
 ): string {
   if (item.kind === "text") return item.text;
   const prefix = item.text?.trim() ? `${item.text.trim()} ` : "";
@@ -435,7 +456,7 @@ export function resolveShippingLabelDesignerItemText(
 
 export function buildShippingLabelsDesignerPrintHtml(
   dataItems: ShippingLabelPrintableItem[],
-  rawLayout: ShippingLabelDesignerLayout
+  rawLayout: ShippingLabelDesignerLayout,
 ): string {
   const layout = normalizeShippingLabelDesignerLayout(rawLayout);
   const pxPerMm = layout.pxPerMm;
@@ -454,12 +475,11 @@ export function buildShippingLabelsDesignerPrintHtml(
           const isImage = item.kind === "image";
           const safeTopMm = isImage ? topMm : Math.max(0, topMm - 0.2);
           const safeHeightMm = isImage ? heightMm : heightMm + 0.9;
-          const content =
-            isImage
-              ? item.src
-                ? `<img class="designer-image" src="${escapeHtml(item.src)}" alt="" style="object-fit:${item.objectFit};" />`
-                : `<div class="designer-image-placeholder">Imagem</div>`
-              : escapeHtml(resolveShippingLabelDesignerItemText(item, data));
+          const content = isImage
+            ? item.src
+              ? `<img class="designer-image" src="${escapeHtml(item.src)}" alt="" style="object-fit:${item.objectFit};" />`
+              : `<div class="designer-image-placeholder">Imagem</div>`
+            : escapeHtml(resolveShippingLabelDesignerItemText(item, data));
           return `
           <div
             class="designer-block"

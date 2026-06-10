@@ -1,9 +1,30 @@
-import { ActionIcon, Button, Card, Group, Loader, ScrollArea, Stack, Table, Text, TextInput, Badge } from "@mantine/core";
-import { IconArrowDown, IconArrowUp, IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  ActionIcon,
+  Button,
+  Card,
+  Group,
+  Loader,
+  ScrollArea,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+  Badge,
+} from "@mantine/core";
+import {
+  IconArrowDown,
+  IconArrowUp,
+  IconPlus,
+  IconTrash,
+} from "@tabler/icons-react";
 
 import type { Product } from "../../lib/api";
+import { useLocations } from "../../hooks/useLocations";
 
-type SelectedReportProduct = Pick<Product, "id" | "nome" | "qtd_canoas" | "qtd_pf" | "total_stock">;
+type SelectedReportProduct = Pick<
+  Product,
+  "id" | "nome" | "inventories" | "total_stock"
+>;
 
 type Props = {
   selectedItems: SelectedReportProduct[];
@@ -17,7 +38,7 @@ type Props = {
   removeSelectedItem: (productId: number) => void;
   moveSelectedItem: (itemId: number, direction: "up" | "down") => void;
   clearSelectedItems: () => void;
-  locationLabel: (qtdCanoas: number, qtdPf: number) => string;
+  locationLabel: (inventories: Record<number, number>) => string;
   loadingGenerate: boolean;
   generateSelectedReport: () => void;
 };
@@ -38,6 +59,8 @@ export default function ReportsSelectedItemsSection({
   loadingGenerate,
   generateSelectedReport,
 }: Props) {
+  const { locations } = useLocations();
+
   return (
     <Card withBorder>
       <Stack gap="md">
@@ -45,7 +68,8 @@ export default function ReportsSelectedItemsSection({
           <Stack gap={4}>
             <Text fw={600}>Relatorio de itens selecionados</Text>
             <Text size="sm" c="dimmed">
-              Busque os itens, selecione os desejados e gere um PDF mostrando quantidade em Canoas, PF, total e onde tem saldo.
+              Busque os itens, selecione os desejados e gere um PDF mostrando
+              quantidade por local, total e onde tem saldo.
             </Text>
           </Stack>
           <Badge variant="outline" color="grape">
@@ -64,12 +88,15 @@ export default function ReportsSelectedItemsSection({
           <Stack gap="xs">
             <Group justify="space-between">
               <Text fw={500}>Resultados da busca</Text>
-              {loadingSearch && selectedSearch.trim().length >= 2 ? <Loader size="xs" /> : null}
+              {loadingSearch && selectedSearch.trim().length >= 2 ? (
+                <Loader size="xs" />
+              ) : null}
             </Group>
 
             {selectedSearch.trim().length < 2 ? (
               <Text size="sm" c="dimmed">
-                Digite ao menos 2 letras para localizar produtos e adicionar ao relatorio.
+                Digite ao menos 2 letras para localizar produtos e adicionar ao
+                relatorio.
               </Text>
             ) : lookupErrorMessage ? (
               <Text size="sm" c="red">
@@ -86,8 +113,9 @@ export default function ReportsSelectedItemsSection({
                     <Table.Tr>
                       <Table.Th>ID</Table.Th>
                       <Table.Th>Produto</Table.Th>
-                      <Table.Th>Canoas</Table.Th>
-                      <Table.Th>PF</Table.Th>
+                      {locations.map((loc) => (
+                        <Table.Th key={loc.id}>{loc.name}</Table.Th>
+                      ))}
                       <Table.Th>Total</Table.Th>
                       <Table.Th>Acoes</Table.Th>
                     </Table.Tr>
@@ -99,8 +127,11 @@ export default function ReportsSelectedItemsSection({
                         <Table.Tr key={product.id}>
                           <Table.Td>{product.id}</Table.Td>
                           <Table.Td>{product.nome}</Table.Td>
-                          <Table.Td>{product.qtd_canoas}</Table.Td>
-                          <Table.Td>{product.qtd_pf}</Table.Td>
+                          {locations.map((loc) => (
+                            <Table.Td key={loc.id}>
+                              {product.inventories?.[loc.id] ?? 0}
+                            </Table.Td>
+                          ))}
                           <Table.Td>{product.total_stock}</Table.Td>
                           <Table.Td>
                             <Button
@@ -127,17 +158,24 @@ export default function ReportsSelectedItemsSection({
           <Stack gap="xs">
             <Group justify="space-between">
               <Text fw={500}>Itens escolhidos para o relatorio</Text>
-              <Button variant="subtle" size="xs" onClick={clearSelectedItems} disabled={selectedItems.length === 0}>
+              <Button
+                variant="subtle"
+                size="xs"
+                onClick={clearSelectedItems}
+                disabled={selectedItems.length === 0}
+              >
                 Limpar selecionados
               </Button>
             </Group>
             <Text size="sm" c="dimmed">
-              Use os botoes de subir e descer para ajustar a ordem exata em que os itens vao aparecer no PDF.
+              Use os botoes de subir e descer para ajustar a ordem exata em que
+              os itens vao aparecer no PDF.
             </Text>
 
             {selectedItems.length === 0 ? (
               <Text size="sm" c="dimmed">
-                Nenhum item selecionado ainda. Busque acima e clique em Selecionar.
+                Nenhum item selecionado ainda. Busque acima e clique em
+                Selecionar.
               </Text>
             ) : (
               <ScrollArea.Autosize mah={260} offsetScrollbars>
@@ -146,8 +184,9 @@ export default function ReportsSelectedItemsSection({
                     <Table.Tr>
                       <Table.Th>ID</Table.Th>
                       <Table.Th>Produto</Table.Th>
-                      <Table.Th>Canoas</Table.Th>
-                      <Table.Th>PF</Table.Th>
+                      {locations.map((loc) => (
+                        <Table.Th key={loc.id}>{loc.name}</Table.Th>
+                      ))}
                       <Table.Th>Total</Table.Th>
                       <Table.Th>Onde tem</Table.Th>
                       <Table.Th>Ordem</Table.Th>
@@ -159,10 +198,15 @@ export default function ReportsSelectedItemsSection({
                       <Table.Tr key={item.id}>
                         <Table.Td>{item.id}</Table.Td>
                         <Table.Td>{item.nome}</Table.Td>
-                        <Table.Td>{item.qtd_canoas}</Table.Td>
-                        <Table.Td>{item.qtd_pf}</Table.Td>
+                        {locations.map((loc) => (
+                          <Table.Td key={loc.id}>
+                            {item.inventories?.[loc.id] ?? 0}
+                          </Table.Td>
+                        ))}
                         <Table.Td>{item.total_stock}</Table.Td>
-                        <Table.Td>{locationLabel(item.qtd_canoas, item.qtd_pf)}</Table.Td>
+                        <Table.Td>
+                          {locationLabel(item.inventories ?? {})}
+                        </Table.Td>
                         <Table.Td>
                           <Group gap={4} wrap="nowrap">
                             <ActionIcon
@@ -206,9 +250,14 @@ export default function ReportsSelectedItemsSection({
 
         <Group justify="space-between" align="center">
           <Text size="sm" c="dimmed">
-            O PDF final sempre usa os saldos atuais do sistema no momento da geracao.
+            O PDF final sempre usa os saldos atuais do sistema no momento da
+            geracao.
           </Text>
-          <Button onClick={generateSelectedReport} loading={loadingGenerate} disabled={selectedItems.length === 0}>
+          <Button
+            onClick={generateSelectedReport}
+            loading={loadingGenerate}
+            disabled={selectedItems.length === 0}
+          >
             Gerar relatorio dos selecionados
           </Button>
         </Group>

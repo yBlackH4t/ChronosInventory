@@ -1,7 +1,16 @@
-import { Badge, Button, Card, Group, NumberInput, Select, Stack, Text } from "@mantine/core";
+import {
+  Badge,
+  Button,
+  Card,
+  Group,
+  NumberInput,
+  Select,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 
-type Scope = "AMBOS" | "CANOAS" | "PF";
+type Scope = string;
 
 type Props = {
   inactiveDays: number;
@@ -36,7 +45,8 @@ export default function ReportsInactiveSection({
           </Badge>
         </Group>
         <Text size="sm" c="dimmed">
-          Mostra itens ativos com estoque atual e sem movimentacao no periodo definido. Bom para revisao de itens encalhados.
+          Mostra itens ativos com estoque atual e sem movimentacao no periodo
+          definido. Bom para revisao de itens encalhados.
         </Text>
         <Group align="end" wrap="wrap">
           <NumberInput
@@ -61,7 +71,11 @@ export default function ReportsInactiveSection({
             allowDeselect={false}
             w={180}
           />
-          <Button onClick={onGenerate} loading={loading} disabled={!inactiveDateTo}>
+          <Button
+            onClick={onGenerate}
+            loading={loading}
+            disabled={!inactiveDateTo}
+          >
             Gerar relatorio de estoque parado
           </Button>
         </Group>

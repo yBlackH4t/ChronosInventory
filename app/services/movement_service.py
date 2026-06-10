@@ -37,6 +37,8 @@ class MovementRecord:
     produto_nome: Optional[str]
     tipo: str
     quantidade: int
+    origem_location_id: Optional[int]
+    destino_location_id: Optional[int]
     origem: Optional[str]
     destino: Optional[str]
     observacao: Optional[str]
@@ -52,29 +54,35 @@ class MovementService:
     """Servico para criar/listar movimentacoes com transacao."""
 
     def __init__(self) -> None:
+        from core.database.repositories.inventory_location_repository import InventoryLocationRepository
+        from core.database.connection import DatabaseConnection
         self.repo = MovementRepository()
         self.product_repo = ProductRepository()
         self.rules = MovementRulesService()
-        self.analytics = MovementAnalyticsService(repo=self.repo, normalize_location=self.rules.normalize_location)
+        self.analytics = MovementAnalyticsService(
+            repo=self.repo,
+            normalize_location=self.rules.normalize_location,
+            location_repo=InventoryLocationRepository(DatabaseConnection().get_connection())
+        )
 
     def create_movement(
         self,
         tipo: str,
         produto_id: int,
         quantidade: int,
-        origem: Optional[str],
-        destino: Optional[str],
-        observacao: Optional[str],
-        natureza: Optional[str],
-        motivo_ajuste: Optional[str],
-        local_externo: Optional[str],
-        documento: Optional[str],
-        movimento_ref_id: Optional[int],
-        data: Optional[datetime],
+        origem_location_id: Optional[int] = None,
+        destino_location_id: Optional[int] = None,
+        observacao: Optional[str] = None,
+        natureza: Optional[str] = None,
+        motivo_ajuste: Optional[str] = None,
+        local_externo: Optional[str] = None,
+        documento: Optional[str] = None,
+        movimento_ref_id: Optional[int] = None,
+        data: Optional[datetime] = None,
     ) -> MovementRecord:
         tipo = tipo.upper()
-        origem = self.rules.normalize_location(origem)
-        destino = self.rules.normalize_location(destino)
+        origem = self.rules.normalize_location(origem_location_id)
+        destino = self.rules.normalize_location(destino_location_id)
         natureza = self.rules.normalize_natureza(natureza)
         motivo_ajuste = self.rules.normalize_motivo_ajuste(motivo_ajuste)
         observacao = observacao.strip() if observacao else None
@@ -119,9 +127,16 @@ class MovementService:
         try:
             conn.execute("BEGIN")
 
-            product = self.repo.get_product_by_id(conn, produto_id)
-            if not product:
+            # Load product
+            product_row = self.repo.get_product_by_id(conn, produto_id)
+            if not product_row:
                 raise ProductNotFoundException(f"Produto com ID {produto_id} nao encontrado.")
+            
+            product = dict(product_row)
+            cursor = conn.cursor()
+            cursor.execute("SELECT local_id, quantidade FROM produto_estoque WHERE produto_id = ?", (produto_id,))
+            product["inventories"] = {row["local_id"]: row["quantidade"] for row in cursor.fetchall()}
+            
             if int(product.get("ativo") or 0) != 1:
                 raise ValidationException("Produto inativo. Reative o item para registrar movimentacoes.")
 
@@ -144,35 +159,24 @@ class MovementService:
                         "Quantidade de devolucao excede saldo disponivel da saida referenciada."
                     )
 
-            delta_canoas, delta_pf = self.rules.compute_deltas(tipo, quantidade, origem, destino)
+            deltas_by_location_id = self.rules.compute_deltas(tipo, quantidade, origem_location_id, destino_location_id)
 
-            if delta_canoas < 0:
-                StockMovementValidator.validate_sufficient_stock(product["qtd_canoas"], abs(delta_canoas), "Canoas")
-            if delta_pf < 0:
-                StockMovementValidator.validate_sufficient_stock(product["qtd_pf"], abs(delta_pf), "Passo Fundo")
+            # Validate sufficient stock
+            inventories = product.get("inventories", {})
+            for loc_id, delta in deltas_by_location_id.items():
+                if delta < 0:
+                    current_stock = inventories.get(loc_id, 0)
+                    StockMovementValidator.validate_sufficient_stock(current_stock, abs(delta), str(loc_id))
 
-            self.repo.update_stock(conn, produto_id, delta_canoas, delta_pf)
-
-            history_obs = self.rules.build_history_observation(
-                tipo=tipo,
-                origem=origem,
-                destino=destino,
-                observacao=observacao,
-                natureza=natureza,
-                motivo_ajuste=motivo_ajuste,
-                local_externo=local_externo,
-                documento=documento,
-                movimento_ref_id=movimento_ref_id,
-            )
-            self.repo.insert_history(conn, tipo, product["nome"], quantidade, history_obs, data_hora)
+            self.repo.update_stock(conn, produto_id, deltas_by_location_id)
 
             movement_id = self.repo.insert_movement(
                 conn,
                 tipo,
                 produto_id,
                 quantidade,
-                origem,
-                destino,
+                origem_location_id,
+                destino_location_id,
                 observacao,
                 natureza,
                 motivo_ajuste,
@@ -189,8 +193,10 @@ class MovementService:
                 produto_nome=product["nome"],
                 tipo=tipo,
                 quantidade=quantidade,
-                origem=origem,
-                destino=destino,
+                origem_location_id=origem_location_id,
+                destino_location_id=destino_location_id,
+                origem=self.rules.to_human(origem_location_id),
+                destino=self.rules.to_human(destino_location_id),
                 observacao=observacao,
                 natureza=natureza,
                 motivo_ajuste=motivo_ajuste,
@@ -213,8 +219,8 @@ class MovementService:
         produto_id: Optional[int],
         tipo: Optional[str],
         natureza: Optional[str],
-        origem: Optional[str],
-        destino: Optional[str],
+        origem_location_id: Optional[int],
+        destino_location_id: Optional[int],
         date_from: Optional[datetime],
         date_to: Optional[datetime],
         sort_column: str,
@@ -229,8 +235,8 @@ class MovementService:
             produto_id=produto_id,
             tipo=tipo,
             natureza=natureza,
-            origem=origem,
-            destino=destino,
+            origem_local_id=origem_location_id,
+            destino_local_id=destino_location_id,
             date_from=df,
             date_to=dt,
             sort_column=sort_column,
@@ -242,8 +248,8 @@ class MovementService:
             produto_id=produto_id,
             tipo=tipo,
             natureza=natureza,
-            origem=origem,
-            destino=destino,
+            origem_local_id=origem_location_id,
+            destino_local_id=destino_location_id,
             date_from=df,
             date_to=dt,
         )
@@ -255,8 +261,10 @@ class MovementService:
                 produto_nome=row.get("produto_nome"),
                 tipo=row["tipo"],
                 quantidade=row["quantidade"],
-                origem=row["origem"],
-                destino=row["destino"],
+                origem_location_id=row["origem_local_id"],
+                destino_location_id=row["destino_local_id"],
+                origem=self.rules.to_human(row["origem_local_id"]),
+                destino=self.rules.to_human(row["destino_local_id"]),
                 observacao=row.get("observacao"),
                 natureza=row.get("natureza") or NATUREZA_OPERACAO_NORMAL,
                 motivo_ajuste=row.get("motivo_ajuste"),
@@ -278,19 +286,19 @@ class MovementService:
         self,
         date_from: date,
         date_to: date,
-        origem: Optional[str],
+        scope: Optional[int | str] = None,
         limit: int = 5,
     ) -> List[dict]:
-        return self.analytics.get_top_saidas(date_from, date_to, origem, limit)
+        return self.analytics.get_top_saidas(date_from, date_to, scope, limit)
 
     def get_saidas_timeseries(
         self,
         date_from: date,
         date_to: date,
         bucket: str,
-        origem: Optional[str],
+        scope: Optional[int | str] = None,
     ) -> List[dict]:
-        return self.analytics.get_saidas_timeseries(date_from, date_to, bucket, origem)
+        return self.analytics.get_saidas_timeseries(date_from, date_to, bucket, scope)
 
     def get_flow_timeseries(
         self,

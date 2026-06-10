@@ -1,9 +1,20 @@
-import { Badge, Button, Collapse, Group, Loader, Select, Stack, Switch, Text, TextInput } from "@mantine/core";
+import {
+  Badge,
+  Button,
+  Collapse,
+  Group,
+  Loader,
+  Select,
+  Stack,
+  Switch,
+  Text,
+  TextInput,
+} from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 
 import FilterToolbar from "../ui/FilterToolbar";
+import { useLocations } from "../../hooks/useLocations";
 import {
-  LOCATIONS,
   MOVEMENT_NATURES,
   MOVEMENT_TYPES,
   TABLE_VIEW_MODE_OPTIONS,
@@ -23,17 +34,24 @@ type Props = {
   productSearch: string;
   onProductSearchChange: (value: string) => void;
   filters: MovementFilters;
-  setFilterValue: <K extends keyof MovementFilters>(field: K, value: MovementFilters[K]) => void;
+  setFilterValue: <K extends keyof MovementFilters>(
+    field: K,
+    value: MovementFilters[K],
+  ) => void;
   pageSize: string;
   setPageSize: (value: string) => void;
   sort: string;
   setSort: (value: string) => void;
   showAdvancedFilters: boolean;
-  setShowAdvancedFilters: (value: boolean | ((current: boolean) => boolean)) => void;
+  setShowAdvancedFilters: (
+    value: boolean | ((current: boolean) => boolean),
+  ) => void;
   showProductId: boolean;
   setShowProductId: (value: boolean) => void;
   tablePreferences: MovementsTablePreferences;
-  setTablePreferences: (updater: (current: MovementsTablePreferences) => MovementsTablePreferences) => void;
+  setTablePreferences: (
+    updater: (current: MovementsTablePreferences) => MovementsTablePreferences,
+  ) => void;
 };
 
 export default function MovementsFiltersSection({
@@ -54,6 +72,12 @@ export default function MovementsFiltersSection({
   tablePreferences,
   setTablePreferences,
 }: Props) {
+  const { locations } = useLocations();
+  const locationOptions = locations.map((loc) => ({
+    value: String(loc.id),
+    label: loc.name,
+  }));
+
   return (
     <FilterToolbar>
       <Stack gap="sm">
@@ -70,16 +94,22 @@ export default function MovementsFiltersSection({
             searchValue={productSearch}
             onSearchChange={onProductSearchChange}
             nothingFoundMessage={
-              productSearch.trim().length < 2 ? "Digite ao menos 2 letras" : "Nenhum produto"
+              productSearch.trim().length < 2
+                ? "Digite ao menos 2 letras"
+                : "Nenhum produto"
             }
-            rightSection={productLookupLoading ? <Loader size="xs" /> : undefined}
+            rightSection={
+              productLookupLoading ? <Loader size="xs" /> : undefined
+            }
           />
           <Select
             label="Tipo"
             data={MOVEMENT_TYPES}
             clearable
             value={filters.tipo || null}
-            onChange={(value) => setFilterValue("tipo", (value as MovementFilters["tipo"]) ?? "")}
+            onChange={(value) =>
+              setFilterValue("tipo", (value as MovementFilters["tipo"]) ?? "")
+            }
             w={180}
           />
           <Select
@@ -87,19 +117,28 @@ export default function MovementsFiltersSection({
             data={MOVEMENT_NATURES}
             clearable
             value={filters.natureza || null}
-            onChange={(value) => setFilterValue("natureza", (value as MovementFilters["natureza"]) ?? "")}
+            onChange={(value) =>
+              setFilterValue(
+                "natureza",
+                (value as MovementFilters["natureza"]) ?? "",
+              )
+            }
             w={220}
           />
           <DatePickerInput
             label="De"
             value={filters.date_from}
-            onChange={(value) => setFilterValue("date_from", value as Date | null)}
+            onChange={(value) =>
+              setFilterValue("date_from", value as Date | null)
+            }
             w={170}
           />
           <DatePickerInput
             label="Ate"
             value={filters.date_to}
-            onChange={(value) => setFilterValue("date_to", value as Date | null)}
+            onChange={(value) =>
+              setFilterValue("date_to", value as Date | null)
+            }
             w={170}
           />
           <Select
@@ -131,7 +170,9 @@ export default function MovementsFiltersSection({
             variant="default"
             onClick={() => setShowAdvancedFilters((value) => !value)}
           >
-            {showAdvancedFilters ? "Ocultar filtros avancados" : "Mostrar filtros avancados"}
+            {showAdvancedFilters
+              ? "Ocultar filtros avancados"
+              : "Mostrar filtros avancados"}
           </Button>
         </Group>
 
@@ -156,32 +197,55 @@ export default function MovementsFiltersSection({
             <Switch
               label="Buscar por ID"
               checked={showProductId}
-              onChange={(event) => setShowProductId(event.currentTarget.checked)}
+              onChange={(event) =>
+                setShowProductId(event.currentTarget.checked)
+              }
             />
             {showProductId && (
               <TextInput
                 label="Produto ID"
                 value={filters.produto_id}
                 onChange={(event) =>
-                  setFilterValue("produto_id", event.currentTarget.value.replace(/\D/g, ""))
+                  setFilterValue(
+                    "produto_id",
+                    event.currentTarget.value.replace(/\D/g, ""),
+                  )
                 }
                 w={140}
               />
             )}
             <Select
               label="Origem"
-              data={LOCATIONS}
+              data={locationOptions}
               clearable
-              value={filters.origem || null}
-              onChange={(value) => setFilterValue("origem", (value as MovementFilters["origem"]) ?? "")}
+              value={
+                filters.origem_location_id
+                  ? String(filters.origem_location_id)
+                  : null
+              }
+              onChange={(value) =>
+                setFilterValue(
+                  "origem_location_id",
+                  value ? Number(value) : null,
+                )
+              }
               w={140}
             />
             <Select
               label="Destino"
-              data={LOCATIONS}
+              data={locationOptions}
               clearable
-              value={filters.destino || null}
-              onChange={(value) => setFilterValue("destino", (value as MovementFilters["destino"]) ?? "")}
+              value={
+                filters.destino_location_id
+                  ? String(filters.destino_location_id)
+                  : null
+              }
+              onChange={(value) =>
+                setFilterValue(
+                  "destino_location_id",
+                  value ? Number(value) : null,
+                )
+              }
               w={140}
             />
           </Group>

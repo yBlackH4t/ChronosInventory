@@ -51,13 +51,26 @@ export function InventorySessionsTable({
           </Table.Thead>
           <Table.Tbody>
             {sessions.map((session) => (
-              <Table.Tr key={session.id} className={selectedSessionId === session.id ? "row-selected" : ""}>
+              <Table.Tr
+                key={session.id}
+                className={
+                  selectedSessionId === session.id ? "row-selected" : ""
+                }
+              >
                 <Table.Td>{session.id}</Table.Td>
                 <Table.Td>{session.nome}</Table.Td>
-                <Table.Td>{session.local}</Table.Td>
+                <Table.Td>
+                  {session.local_label ?? `Local #${session.location_id}`}
+                </Table.Td>
                 <Table.Td>
                   <Badge
-                    color={session.status === "ABERTO" ? "blue" : session.status === "FECHADO" ? "gray" : "green"}
+                    color={
+                      session.status === "ABERTO"
+                        ? "blue"
+                        : session.status === "FECHADO"
+                          ? "gray"
+                          : "green"
+                    }
                     variant="light"
                   >
                     {session.status}
@@ -66,12 +79,16 @@ export function InventorySessionsTable({
                 <Table.Td>{session.total_items}</Table.Td>
                 <Table.Td>{session.counted_items}</Table.Td>
                 <Table.Td>{session.divergent_items}</Table.Td>
-                <Table.Td>{dayjs(session.created_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
+                <Table.Td>
+                  {dayjs(session.created_at).format("DD/MM/YYYY HH:mm")}
+                </Table.Td>
                 <Table.Td>
                   <Group gap="xs">
                     <Button
                       size="xs"
-                      variant={selectedSessionId === session.id ? "filled" : "light"}
+                      variant={
+                        selectedSessionId === session.id ? "filled" : "light"
+                      }
                       onClick={() => onSelectSession(session)}
                     >
                       Abrir

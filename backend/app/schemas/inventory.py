@@ -6,7 +6,6 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
-InventoryLocal = Literal["CANOAS", "PF"]
 InventoryStatus = Literal["ABERTO", "FECHADO", "APLICADO"]
 AdjustmentReason = Literal[
     "AVARIA",
@@ -31,14 +30,15 @@ class InventorySessionCreateIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nome: str = Field(min_length=1, max_length=120)
-    local: InventoryLocal
+    location_id: int = Field(ge=1)
     observacao: Optional[str] = Field(default=None, max_length=200)
 
 
 class InventorySessionOut(BaseModel):
     id: int
     nome: str
-    local: InventoryLocal
+    local: str                    # location label for display
+    location_id: Optional[int] = None
     status: InventoryStatus
     observacao: Optional[str] = None
     created_at: datetime

@@ -1,4 +1,12 @@
-import { Badge, Button, Group, Loader, Pagination, Table, Text } from "@mantine/core";
+import {
+  Badge,
+  Button,
+  Group,
+  Loader,
+  Pagination,
+  Table,
+  Text,
+} from "@mantine/core";
 import dayjs from "dayjs";
 
 import type { MovementOut } from "../../lib/api";
@@ -10,6 +18,7 @@ import {
 } from "../../lib/movements";
 import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
+import { useLocations } from "../../hooks/useLocations";
 
 type Props = {
   loading: boolean;
@@ -42,6 +51,8 @@ export default function MovementsTableSection({
   totalPages,
   openHistory,
 }: Props) {
+  const { locations } = useLocations();
+
   return (
     <>
       {loading ? (
@@ -67,8 +78,12 @@ export default function MovementsTableSection({
                 <Table.Th>Origem</Table.Th>
                 <Table.Th>Destino</Table.Th>
                 <Table.Th>Documento</Table.Th>
-                {tableLayout.showExtraColumns && <Table.Th>Motivo ajuste</Table.Th>}
-                {tableLayout.showExtraColumns && <Table.Th>Local externo</Table.Th>}
+                {tableLayout.showExtraColumns && (
+                  <Table.Th>Motivo ajuste</Table.Th>
+                )}
+                {tableLayout.showExtraColumns && (
+                  <Table.Th>Local externo</Table.Th>
+                )}
                 <Table.Th>Observacao</Table.Th>
                 <Table.Th>Data</Table.Th>
                 <Table.Th>Acoes</Table.Th>
@@ -83,7 +98,11 @@ export default function MovementsTableSection({
                       size="sm"
                       title={mov.produto_nome || `ID ${mov.produto_id}`}
                       maw={tableLayout.productMaxWidth}
-                      style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
                     >
                       {mov.produto_nome || `ID ${mov.produto_id}`}
                     </Text>
@@ -95,26 +114,46 @@ export default function MovementsTableSection({
                   </Table.Td>
                   <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
                   <Table.Td>{mov.quantidade}</Table.Td>
-                  <Table.Td>{mov.origem || "-"}</Table.Td>
-                  <Table.Td>{mov.destino || "-"}</Table.Td>
+                  <Table.Td>
+                    {locations.find((l) => l.id === mov.origem_location_id)
+                      ?.name || "-"}
+                  </Table.Td>
+                  <Table.Td>
+                    {locations.find((l) => l.id === mov.destino_location_id)
+                      ?.name || "-"}
+                  </Table.Td>
                   <Table.Td>{mov.documento || "-"}</Table.Td>
                   {tableLayout.showExtraColumns && (
-                    <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste)}</Table.Td>
+                    <Table.Td>
+                      {adjustmentReasonLabel(mov.motivo_ajuste)}
+                    </Table.Td>
                   )}
-                  {tableLayout.showExtraColumns && <Table.Td>{mov.local_externo || "-"}</Table.Td>}
+                  {tableLayout.showExtraColumns && (
+                    <Table.Td>{mov.local_externo || "-"}</Table.Td>
+                  )}
                   <Table.Td>
                     <Text
                       size="sm"
                       title={String(mov.observacao || "-")}
                       maw={tableLayout.observationMaxWidth}
-                      style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
                     >
                       {String(mov.observacao || "-")}
                     </Text>
                   </Table.Td>
-                  <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
                   <Table.Td>
-                    <Button size="xs" variant="light" onClick={() => openHistory(mov.produto_id)}>
+                    {dayjs(mov.data).format("DD/MM/YYYY HH:mm")}
+                  </Table.Td>
+                  <Table.Td>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => openHistory(mov.produto_id)}
+                    >
                       Ver historico
                     </Button>
                   </Table.Td>
@@ -125,7 +164,9 @@ export default function MovementsTableSection({
                   <Table.Td colSpan={tableColumnCount}>
                     <EmptyState
                       message="Nenhuma movimentacao encontrada"
-                      actionLabel={activeViewCount > 0 ? "Limpar filtros" : undefined}
+                      actionLabel={
+                        activeViewCount > 0 ? "Limpar filtros" : undefined
+                      }
                       onAction={activeViewCount > 0 ? clearFilters : undefined}
                     />
                   </Table.Td>

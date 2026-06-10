@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
-import { ActionIcon, Badge, Button, Group, Text, Tooltip, useMantineColorScheme } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Group,
+  Text,
+  Tooltip,
+  useMantineColorScheme,
+} from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { IconCircleFilled, IconMoonStars, IconRefresh, IconSun } from "@tabler/icons-react";
+import {
+  IconCircleFilled,
+  IconMoonStars,
+  IconRefresh,
+  IconSun,
+} from "@tabler/icons-react";
 import { Link } from "react-router-dom";
 import type { HealthOut } from "../lib/api";
 import { api } from "../lib/apiClient";
@@ -12,7 +25,12 @@ import { getReleaseNotesFromManifest } from "../lib/updaterNotes";
 import { getLatestReleaseEntry, getReleaseEntry } from "../lib/changelog";
 
 export default function HeaderBar({ health }: { health: HealthOut }) {
-  const { activeProfileName, activeProfileId, restartRequired, backendSupportsProfiles } = useProfileScope();
+  const {
+    activeProfileName,
+    activeProfileId,
+    restartRequired,
+    backendSupportsProfiles,
+  } = useProfileScope();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState(health.version);
@@ -90,7 +108,9 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
       }
 
       const version = update.manifest?.version ?? "nova";
-      const notes = getReleaseNotesFromManifest(update.manifest as { body?: string; notes?: string });
+      const notes = getReleaseNotesFromManifest(
+        update.manifest as { body?: string; notes?: string },
+      );
 
       modals.openConfirmModal({
         title: `Nova versao ${version} disponivel`,
@@ -98,7 +118,11 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
           <Text
             size="sm"
             c="dimmed"
-            style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" }}
+            style={{
+              whiteSpace: "pre-wrap",
+              maxHeight: 260,
+              overflowY: "auto",
+            }}
           >
             {notes}
           </Text>
@@ -111,7 +135,10 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
             backupCreated = true;
             notifySuccess("Backup pre-update criado.");
           } catch (error) {
-            notifyError(error, "Falha ao criar backup pre-update. Atualizacao cancelada.");
+            notifyError(
+              error,
+              "Falha ao criar backup pre-update. Atualizacao cancelada.",
+            );
             return;
           }
 
@@ -126,7 +153,8 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
                 title: "Restaurar dados pre-update?",
                 children: (
                   <Text size="sm">
-                    A instalacao falhou. Deseja restaurar automaticamente o ultimo backup pre-update?
+                    A instalacao falhou. Deseja restaurar automaticamente o
+                    ultimo backup pre-update?
                   </Text>
                 ),
                 labels: { confirm: "Restaurar", cancel: "Depois" },
@@ -136,7 +164,10 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
                     await api.backupRestorePreUpdate();
                     notifySuccess("Backup pre-update restaurado com sucesso.");
                   } catch (restoreError) {
-                    notifyError(restoreError, "Falha ao restaurar backup pre-update.");
+                    notifyError(
+                      restoreError,
+                      "Falha ao restaurar backup pre-update.",
+                    );
                   }
                 },
               });
@@ -158,22 +189,25 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
           {activeProfileName} ({activeProfileId})
         </Badge>
       )}
-      <Tooltip label={colorScheme === "dark" ? "Usar tema claro" : "Usar tema escuro"}>
+      <Tooltip
+        label={colorScheme === "dark" ? "Usar tema claro" : "Usar tema escuro"}
+      >
         <ActionIcon
           size="md"
           variant="light"
           aria-label="Alternar tema"
-          onClick={() => setColorScheme(colorScheme === "dark" ? "light" : "dark")}
+          onClick={() =>
+            setColorScheme(colorScheme === "dark" ? "light" : "dark")
+          }
         >
-          {colorScheme === "dark" ? <IconSun size={16} /> : <IconMoonStars size={16} />}
+          {colorScheme === "dark" ? (
+            <IconSun size={16} />
+          ) : (
+            <IconMoonStars size={16} />
+          )}
         </ActionIcon>
       </Tooltip>
-      <Button
-        size="xs"
-        variant="subtle"
-        component={Link}
-        to="/novidades"
-      >
+      <Button size="xs" variant="subtle" component={Link} to="/novidades">
         Novidades
       </Button>
       {!import.meta.env.DEV && isTauri() && (
@@ -188,7 +222,11 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
           Verificar update
         </Button>
       )}
-      <Badge color="green" leftSection={<IconCircleFilled size={10} />} className="header-status-badge">
+      <Badge
+        color="green"
+        leftSection={<IconCircleFilled size={10} />}
+        className="header-status-badge"
+      >
         API OK
       </Badge>
       <Badge variant="outline" color="gray" className="header-version-badge">

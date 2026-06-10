@@ -9,82 +9,102 @@ from datetime import date, datetime, time, timedelta
 from typing import Callable, List, Optional
 
 from core.constants import DATE_FORMAT_DB
+from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 
 
 class MovementAnalyticsService:
-    def __init__(self, *, repo, normalize_location: Callable[[Optional[str]], Optional[str]]) -> None:
+    def __init__(
+        self,
+        *,
+        repo,
+        normalize_location: Callable[[Optional[int | str]], Optional[int]],
+        location_repo: InventoryLocationRepository | None = None,
+    ) -> None:
         self.repo = repo
         self.normalize_location = normalize_location
+        self.location_repo = location_repo
 
-    def get_stock_summary(self, scope: str = "AMBOS") -> dict:
-        return self.repo.get_stock_summary(scope=scope)
-
-    def get_stock_distribution(self, scope: str = "AMBOS") -> dict:
-        summary = self.repo.get_stock_summary(scope=scope)
-        total = summary["total_geral"] or 0
-        if scope == "CANOAS":
-            return {
-                "items": [{"local": "CANOAS", "quantidade": summary["total_canoas"], "percentual": 100.0 if total > 0 else 0.0}],
-                "total": total,
-            }
-        if scope == "PF":
-            return {
-                "items": [{"local": "PF", "quantidade": summary["total_pf"], "percentual": 100.0 if total > 0 else 0.0}],
-                "total": total,
-            }
-        if total == 0:
-            return {
-                "items": [
-                    {"local": "CANOAS", "quantidade": 0, "percentual": 0.0},
-                    {"local": "PF", "quantidade": 0, "percentual": 0.0},
-                ],
-                "total": 0,
-            }
-
-        canoas = summary["total_canoas"]
-        pf = summary["total_pf"]
+    def get_stock_summary(self, scope: Optional[int | str] = None) -> dict:
+        summary = self.repo.get_stock_summary(location_id=self.normalize_location(scope))
+        locations_db = self.location_repo.get_all() if self.location_repo else []
+        
+        # Build the 'locations' list for StockSummaryOut
+        locations_list = []
+        loc_totals = summary.get("location_totals", {})
+        
+        for loc in locations_db:
+            loc_id = loc.id
+            locations_list.append({
+                "location_id": loc_id,
+                "location_name": loc.name,
+                "location_label": loc.label or loc.name,
+                "color": loc.color or "#3b82f6",
+                "total": loc_totals.get(loc_id, 0)
+            })
+            
         return {
-            "items": [
-                {"local": "CANOAS", "quantidade": canoas, "percentual": round((canoas / total) * 100, 2)},
-                {"local": "PF", "quantidade": pf, "percentual": round((pf / total) * 100, 2)},
-            ],
+            "locations": locations_list,
+            "total_geral": summary["total_geral"],
+            "zerados": summary["zerados"]
+        }
+
+    def get_stock_distribution(self, scope: Optional[int | str] = None) -> dict:
+        summary = self.repo.get_stock_summary(location_id=self.normalize_location(scope))
+        total = summary.get("total_geral", 0)
+        
+        locations_db = self.location_repo.get_all() if self.location_repo else []
+        loc_totals = summary.get("location_totals", {})
+        
+        items = []
+        for loc in locations_db:
+            loc_id = loc.id
+            qtd = loc_totals.get(loc_id, 0)
+            percentual = round((qtd / total) * 100, 2) if total > 0 else 0.0
+            items.append({
+                "local": loc.name,
+                "quantidade": qtd,
+                "percentual": percentual
+            })
+            
+        return {
+            "items": items,
             "total": total,
         }
 
-    def get_top_saidas(self, date_from: date, date_to: date, origem: Optional[str], limit: int = 5) -> List[dict]:
+    def get_top_saidas(self, date_from: date, date_to: date, scope: Optional[int | str] = None, limit: int = 5) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        origem = self.normalize_location(origem) if origem else None
+        origem = self.normalize_location(scope)
         rows = self.repo.get_top_saidas(df, dt, origem, limit)
         return [{"produto_id": row["produto_id"], "nome": row["nome"], "total_saida": int(row["total_saida"] or 0)} for row in rows]
 
-    def get_saidas_timeseries(self, date_from: date, date_to: date, bucket: str, origem: Optional[str]) -> List[dict]:
+    def get_saidas_timeseries(self, date_from: date, date_to: date, bucket: str, scope: Optional[int | str] = None) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        origem = self.normalize_location(origem) if origem else None
-        rows = self.repo.get_saidas_timeseries(df, dt, bucket=bucket, origem=origem)
+        origem = self.normalize_location(scope)
+        rows = self.repo.get_saidas_timeseries(df, dt, bucket=bucket, origem_local_id=origem)
         return [{"period": row["periodo"], "total_saida": int(row.get("total_saida") or 0)} for row in rows]
 
-    def get_flow_timeseries(self, date_from: date, date_to: date, bucket: str, scope: str) -> List[dict]:
+    def get_flow_timeseries(self, date_from: date, date_to: date, bucket: str, scope: Optional[int | str] = None) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.get_flow_timeseries(df, dt, bucket=bucket, scope=scope)
+        rows = self.repo.get_flow_timeseries(df, dt, bucket=bucket, location_id=self.normalize_location(scope))
         return [
             {"period": row["periodo"], "entradas": int(row.get("entradas") or 0), "saidas": int(row.get("saidas") or 0)}
             for row in rows
         ]
 
-    def get_stock_evolution_series(self, date_from: date, date_to: date, bucket: str, scope: str = "AMBOS") -> List[dict]:
+    def get_stock_evolution_series(self, date_from: date, date_to: date, bucket: str, scope: Optional[int | str] = None) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.get_stock_evolution(df, dt, bucket=bucket, scope=scope)
+        rows = self.repo.get_stock_evolution(df, dt, bucket=bucket, location_id=self.normalize_location(scope))
         return [{"period": row["periodo"], "total_stock": int(row["total_stock"] or 0)} for row in rows]
 
-    def get_top_sem_mov(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
+    def get_top_sem_mov(self, days: int, date_to: date, limit: int = 5, scope: Optional[int | str] = None) -> List[dict]:
         cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
         cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
         date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.get_top_sem_mov(cutoff, date_to_limit, limit=limit, scope=scope)
+        rows = self.repo.get_top_sem_mov(cutoff, date_to_limit, limit=limit, location_id=self.normalize_location(scope))
         items: List[dict] = []
         for row in rows:
             last = row.get("last_movement")
@@ -98,11 +118,11 @@ class MovementAnalyticsService:
             items.append({"produto_id": row["produto_id"], "nome": row["nome"], "last_movement": last, "dias_sem_mov": dias})
         return items
 
-    def get_recent_stockouts(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
+    def get_recent_stockouts(self, days: int, date_to: date, limit: int = 5, scope: Optional[int | str] = None) -> List[dict]:
         cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
         cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
         date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.get_recent_stockouts(cutoff, date_to_limit, limit=limit, scope=scope)
+        rows = self.repo.get_recent_stockouts(cutoff, date_to_limit, limit=limit, location_id=self.normalize_location(scope))
         return [
             {
                 "produto_id": int(row["produto_id"]),
@@ -118,12 +138,12 @@ class MovementAnalyticsService:
         date_from: date,
         date_to: date,
         tipo: str,
-        scope: str = "AMBOS",
+        scope: Optional[int | str] = None,
         limit: int = 15,
     ) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.get_external_transfer_totals(df, dt, tipo=tipo.upper(), scope=scope, limit=limit)
+        rows = self.repo.get_external_transfer_totals(df, dt, tipo=tipo.upper(), location_id=self.normalize_location(scope), limit=limit)
         return [
             {
                 "produto_id": int(row["produto_id"]),
@@ -135,11 +155,11 @@ class MovementAnalyticsService:
             for row in rows
         ]
 
-    def list_real_sales(self, date_from: date, date_to: date, scope: str = "AMBOS") -> List[dict]:
+    def list_real_sales(self, date_from: date, date_to: date, scope: Optional[int | str] = None) -> List[dict]:
         df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        origem = None if scope == "AMBOS" else self.normalize_location(scope)
-        rows = self.repo.list_real_sales(df, dt, origem=origem)
+        origem = self.normalize_location(scope)
+        rows = self.repo.list_real_sales(df, dt, origem_local_id=origem)
         return [
             {
                 "movement_id": int(row["id"]),
@@ -147,18 +167,18 @@ class MovementAnalyticsService:
                 "produto_id": int(row["produto_id"]),
                 "produto_nome": str(row["produto_nome"]),
                 "quantidade": int(row["quantidade"] or 0),
-                "origem": row["origem"],
+                "origem": row["origem"] if "origem" in row else None,
                 "documento": row.get("documento"),
                 "observacao": row.get("observacao"),
             }
             for row in rows
         ]
 
-    def list_inactive_products_report(self, days: int, date_to: date, scope: str = "AMBOS") -> List[dict]:
+    def list_inactive_products_report(self, days: int, date_to: date, scope: Optional[int | str] = None) -> List[dict]:
         cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days)
         cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
         date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
-        rows = self.repo.list_inactive_products_report(cutoff, date_to_limit, scope=scope)
+        rows = self.repo.list_inactive_products_report(cutoff, date_to_limit, location_id=self.normalize_location(scope))
         items: List[dict] = []
         for row in rows:
             last = row.get("last_movement")

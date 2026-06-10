@@ -1,4 +1,4 @@
-﻿"""
+"""
 Serviço de exportação (Excel) para API.
 Responsabilidade: gerar arquivo de produtos para download.
 """
@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Tuple
+from typing import Tuple, List
 
-import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -17,24 +16,66 @@ from openpyxl.utils import get_column_letter
 from app.services.stock_service import StockService
 from core.constants import DATE_FORMAT_FILE
 from core.utils.file_utils import FileUtils
-
+from core.database.connection import DatabaseConnection
+from core.database.repositories.inventory_location_repository import InventoryLocationRepository
+from app.models.inventory_location import InventoryLocation
 
 class ExportService:
     def __init__(self) -> None:
         self.stock_service = StockService()
 
+    def _get_active_locations(self) -> List[InventoryLocation]:
+        conn = DatabaseConnection().get_connection()
+        try:
+            repo = InventoryLocationRepository(conn)
+            return repo.get_all_active()
+        finally:
+            conn.close()
+
     def export_products_excel(self) -> Tuple[str, int]:
-        products_df = self.stock_service.get_products_as_dataframe()
+        products = self.stock_service.get_all_products()
+        active_locations = self._get_active_locations()
+        
         temp_dir = FileUtils.get_temp_directory()
         timestamp = datetime.now().strftime(DATE_FORMAT_FILE)
         filename = f"export_produtos_{timestamp}.xlsx"
         path = os.path.join(temp_dir, filename)
 
-        products_df.to_excel(path, index=False)
-        return path, len(products_df)
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Produtos"
+
+        headers = ["ID", "Produto"]
+        for loc in active_locations:
+            headers.append(f"Estoque {loc.label}")
+        headers.extend(["Total", "Onde tem"])
+
+        ws.append(headers)
+
+        for product in products:
+            row = [product.id, product.nome]
+            total = 0
+            has_stock_locs = []
+            for loc in active_locations:
+                qty = product.inventories.get(loc.id, 0)
+                row.append(qty)
+                total += qty
+                if qty > 0:
+                    has_stock_locs.append(loc.label)
+            row.append(total)
+            
+            where = " / ".join(has_stock_locs) if has_stock_locs else "Sem saldo"
+            row.append(where)
+            
+            ws.append(row)
+
+        wb.save(path)
+        return path, len(products)
 
     def export_stock_overview_excel(self) -> Tuple[str, int]:
-        products_df = self.stock_service.get_products_as_dataframe()
+        products = self.stock_service.get_all_products()
+        active_locations = self._get_active_locations()
+        
         temp_dir = FileUtils.get_temp_directory()
         timestamp = datetime.now().strftime(DATE_FORMAT_FILE)
         filename = f"estoque_resumo_{timestamp}.xlsx"
@@ -45,11 +86,21 @@ class ExportService:
         ws_summary.title = "Resumo"
         ws_stock = wb.create_sheet("Estoque")
 
-        total_items = int(len(products_df.index))
-        total_canoas = int(products_df["Canoas"].sum()) if not products_df.empty else 0
-        total_pf = int(products_df["PF"].sum()) if not products_df.empty else 0
-        total_global = total_canoas + total_pf
-        items_with_stock = int(((products_df["Canoas"] + products_df["PF"]) > 0).sum()) if not products_df.empty else 0
+        total_items = len(products)
+        items_with_stock = 0
+        total_global = 0
+        
+        loc_totals = {loc.id: 0 for loc in active_locations}
+        
+        for product in products:
+            prod_total = 0
+            for loc in active_locations:
+                qty = product.inventories.get(loc.id, 0)
+                loc_totals[loc.id] += qty
+                prod_total += qty
+            total_global += prod_total
+            if prod_total > 0:
+                items_with_stock += 1
 
         title_fill = PatternFill("solid", fgColor="1D4ED8")
         subtitle_fill = PatternFill("solid", fgColor="DBEAFE")
@@ -77,10 +128,12 @@ class ExportService:
         summary_rows = [
             ("Total de produtos ativos", total_items),
             ("Itens com estoque", items_with_stock),
-            ("Total de pecas em Canoas", total_canoas),
-            ("Total de pecas em Passo Fundo", total_pf),
-            ("Total global de pecas", total_global),
         ]
+        
+        for loc in active_locations:
+            summary_rows.append((f"Total de pecas em {loc.label}", loc_totals[loc.id]))
+            
+        summary_rows.append(("Total global de pecas", total_global))
 
         start_row = 4
         for index, (label, value) in enumerate(summary_rows, start=start_row):
@@ -92,21 +145,27 @@ class ExportService:
             ws_summary[f"B{index}"].font = Font(bold=True, color="0F172A")
             ws_summary[f"B{index}"].border = border
 
-        ws_summary["A11"] = "Leitura rapida"
-        ws_summary["A11"].font = Font(bold=True, color="1E3A8A")
-        ws_summary["A11"].fill = header_fill
-        ws_summary["A11"].border = border
-        ws_summary["A12"] = "Use a aba Estoque para ver item por item, com Canoas, PF, total e onde existe saldo."
-        ws_summary["A12"].alignment = Alignment(wrap_text=True)
-        ws_summary["A12"].border = border
-        ws_summary.merge_cells("A12:D12")
+        info_row_start = start_row + len(summary_rows) + 2
+        
+        ws_summary[f"A{info_row_start}"] = "Leitura rapida"
+        ws_summary[f"A{info_row_start}"].font = Font(bold=True, color="1E3A8A")
+        ws_summary[f"A{info_row_start}"].fill = header_fill
+        ws_summary[f"A{info_row_start}"].border = border
+        ws_summary[f"A{info_row_start+1}"] = "Use a aba Estoque para ver item por item, com os estoques de cada local, total e onde existe saldo."
+        ws_summary[f"A{info_row_start+1}"].alignment = Alignment(wrap_text=True)
+        ws_summary[f"A{info_row_start+1}"].border = border
+        ws_summary.merge_cells(f"A{info_row_start+1}:D{info_row_start+1}")
 
         ws_summary.column_dimensions["A"].width = 30
         ws_summary.column_dimensions["B"].width = 18
         ws_summary.column_dimensions["C"].width = 18
         ws_summary.column_dimensions["D"].width = 18
 
-        stock_headers = ["ID", "Produto", "Estoque Canoas", "Estoque PF", "Total", "Onde tem"]
+        stock_headers = ["ID", "Produto"]
+        for loc in active_locations:
+            stock_headers.append(f"Estoque {loc.label}")
+        stock_headers.extend(["Total", "Onde tem"])
+        
         for col_index, header in enumerate(stock_headers, start=1):
             cell = ws_stock.cell(row=1, column=col_index)
             cell.value = header
@@ -115,44 +174,45 @@ class ExportService:
             cell.border = border
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
-        for row_index, product in enumerate(products_df.itertuples(index=False), start=2):
-            total = int(product.Canoas) + int(product.PF)
-            where = self._location_summary(int(product.Canoas), int(product.PF))
-            values = [int(product.ID), str(product.Produto), int(product.Canoas), int(product.PF), total, where]
+        for row_index, product in enumerate(products, start=2):
+            total = 0
+            has_stock_locs = []
+            loc_values = []
+            
+            for loc in active_locations:
+                qty = product.inventories.get(loc.id, 0)
+                loc_values.append(qty)
+                total += qty
+                if qty > 0:
+                    has_stock_locs.append(loc.label)
+                    
+            where = " / ".join(has_stock_locs) if has_stock_locs else "Sem saldo"
+            
+            values = [product.id, product.nome] + loc_values + [total, where]
+            
             for col_index, value in enumerate(values, start=1):
                 cell = ws_stock.cell(row=row_index, column=col_index)
                 cell.value = value
                 cell.border = border
                 cell.alignment = Alignment(vertical="center")
-                if col_index in {3, 4, 5}:
+                if col_index > 2 and col_index < len(values):
                     cell.alignment = Alignment(horizontal="center", vertical="center")
             if row_index % 2 == 0:
                 for col_index in range(1, len(stock_headers) + 1):
                     ws_stock.cell(row=row_index, column=col_index).fill = PatternFill("solid", fgColor="F8FAFC")
 
         ws_stock.freeze_panes = "A2"
-        ws_stock.auto_filter.ref = f"A1:F{max(len(products_df.index) + 1, 2)}"
+        ws_stock.auto_filter.ref = f"A1:{get_column_letter(len(stock_headers))}{max(len(products) + 1, 2)}"
 
-        widths = {
-            1: 10,
-            2: 42,
-            3: 16,
-            4: 14,
-            5: 10,
-            6: 18,
-        }
-        for col_index, width in widths.items():
-            ws_stock.column_dimensions[get_column_letter(col_index)].width = width
+        ws_stock.column_dimensions["A"].width = 10
+        ws_stock.column_dimensions["B"].width = 42
+        
+        for i in range(len(active_locations)):
+            ws_stock.column_dimensions[get_column_letter(3 + i)].width = 16
+            
+        ws_stock.column_dimensions[get_column_letter(3 + len(active_locations))].width = 10
+        ws_stock.column_dimensions[get_column_letter(4 + len(active_locations))].width = 18
 
         wb.save(path)
         return path, total_items
 
-    @staticmethod
-    def _location_summary(qtd_canoas: int, qtd_pf: int) -> str:
-        if qtd_canoas > 0 and qtd_pf > 0:
-            return "Canoas / PF"
-        if qtd_canoas > 0:
-            return "Canoas"
-        if qtd_pf > 0:
-            return "Passo Fundo"
-        return "Sem saldo"

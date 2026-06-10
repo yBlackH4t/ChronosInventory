@@ -19,12 +19,17 @@ class ReportApiService:
         self.movement_service = MovementService()
 
     def generate_stock_report_pdf(self) -> bytes:
-        products_df = self.stock_service.get_products_as_dataframe()
-        return self.report_service.generate_stock_report_bytes(products_df)
+        products = self.stock_service.get_all_products()
+        return self.report_service.generate_stock_report_bytes(products)
 
     def generate_selected_stock_report_pdf(self, product_ids: list[int]) -> bytes:
-        products_df = self.stock_service.get_products_by_ids_as_dataframe(product_ids)
-        return self.report_service.generate_selected_stock_report_bytes(products_df)
+        products = []
+        for pid in product_ids:
+            try:
+                products.append(self.stock_service.get_product_by_id(pid))
+            except Exception:
+                pass
+        return self.report_service.generate_selected_stock_report_bytes(products)
 
     def generate_real_sales_report_pdf(
         self,

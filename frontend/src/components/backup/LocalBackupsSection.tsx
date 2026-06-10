@@ -1,7 +1,23 @@
-import { Badge, Button, Card, Group, Loader, NumberInput, Select, Stack, Switch, Text, Title } from "@mantine/core";
+import {
+  Badge,
+  Button,
+  Card,
+  Group,
+  Loader,
+  NumberInput,
+  Select,
+  Stack,
+  Switch,
+  Text,
+  Title,
+} from "@mantine/core";
 import dayjs from "dayjs";
 
-import type { BackupAutoConfigOut, BackupListItemOut, BackupValidateOut } from "../../lib/api";
+import type {
+  BackupAutoConfigOut,
+  BackupListItemOut,
+  BackupValidateOut,
+} from "../../lib/api";
 import { BackupFilesTable } from "./BackupFilesTable";
 
 type Option = { value: string; label: string };
@@ -88,13 +104,19 @@ export function LocalBackupsSection({
                 <Switch
                   label="Ativar backup automatico"
                   checked={autoEnabled}
-                  onChange={(event) => onAutoEnabledChange(event.currentTarget.checked)}
+                  onChange={(event) =>
+                    onAutoEnabledChange(event.currentTarget.checked)
+                  }
                 />
                 <Select
                   label="Frequencia"
                   data={scheduleOptions}
                   value={autoScheduleMode}
-                  onChange={(value) => onAutoScheduleModeChange((value as "DAILY" | "WEEKLY") || "DAILY")}
+                  onChange={(value) =>
+                    onAutoScheduleModeChange(
+                      (value as "DAILY" | "WEEKLY") || "DAILY",
+                    )
+                  }
                   w={150}
                   allowDeselect={false}
                 />
@@ -134,20 +156,25 @@ export function LocalBackupsSection({
                   onChange={(value) => onAutoRetentionChange(value || "15")}
                   w={140}
                 />
-                <Button onClick={onSaveAutoConfig} loading={saveAutoConfigLoading}>
+                <Button
+                  onClick={onSaveAutoConfig}
+                  loading={saveAutoConfigLoading}
+                >
                   Salvar agendamento
                 </Button>
               </Group>
 
               {autoConfig && (
                 <Text size="sm" c="dimmed">
-                  Frequencia: {autoConfig.schedule_mode === "WEEKLY" ? "semanal" : "diaria"}
+                  Frequencia:{" "}
+                  {autoConfig.schedule_mode === "WEEKLY" ? "semanal" : "diaria"}
                   {autoConfig.schedule_mode === "WEEKLY"
                     ? ` (${weekdayOptions[autoConfig.weekday]?.label || "Segunda-feira"})`
                     : ""}
                   {" | "}
-                  Ultima execucao: {autoConfig.last_run_date || "nunca"} | Resultado: {autoConfig.last_result || "sem execucoes"} | Ultimo arquivo:{" "}
-                  {autoConfig.last_backup_name || "-"}
+                  Ultima execucao: {autoConfig.last_run_date || "nunca"} |
+                  Resultado: {autoConfig.last_result || "sem execucoes"} |
+                  Ultimo arquivo: {autoConfig.last_backup_name || "-"}
                 </Text>
               )}
             </>
@@ -164,7 +191,11 @@ export function LocalBackupsSection({
             <>
               <Select
                 label="Backup"
-                placeholder={backupOptions.length > 0 ? "Selecione o backup" : "Nenhum backup disponivel"}
+                placeholder={
+                  backupOptions.length > 0
+                    ? "Selecione o backup"
+                    : "Nenhum backup disponivel"
+                }
                 data={backupOptions}
                 value={selectedBackupName}
                 onChange={onSelectedBackupChange}
@@ -172,27 +203,46 @@ export function LocalBackupsSection({
               />
 
               <Group>
-                <Button variant="light" disabled={!selectedBackupName} loading={validateSelectedLoading} onClick={onValidateSelected}>
+                <Button
+                  variant="light"
+                  disabled={!selectedBackupName}
+                  loading={validateSelectedLoading}
+                  onClick={onValidateSelected}
+                >
                   Validar backup selecionado
                 </Button>
-                <Button variant="light" disabled={!selectedBackupName} loading={restoreTestLoading} onClick={onTestRestore}>
+                <Button
+                  variant="light"
+                  disabled={!selectedBackupName}
+                  loading={restoreTestLoading}
+                  onClick={onTestRestore}
+                >
                   Testar restauracao
                 </Button>
-                <Button color="red" disabled={!selectedBackupName} loading={restoreLoading} onClick={onRestore}>
+                <Button
+                  color="red"
+                  disabled={!selectedBackupName}
+                  loading={restoreLoading}
+                  onClick={onRestore}
+                >
                   Restaurar backup
                 </Button>
               </Group>
 
               {selectedBackup && (
                 <Text size="sm" c="dimmed">
-                  Selecionado: {selectedBackup.name} | {formatBytes(selectedBackup.size)} |{" "}
+                  Selecionado: {selectedBackup.name} |{" "}
+                  {formatBytes(selectedBackup.size)} |{" "}
                   {dayjs(selectedBackup.created_at).format("DD/MM/YYYY HH:mm")}
                 </Text>
               )}
 
               {selectedValidation && (
                 <Group>
-                  <Badge color={selectedValidation.ok ? "green" : "red"} variant="light">
+                  <Badge
+                    color={selectedValidation.ok ? "green" : "red"}
+                    variant="light"
+                  >
                     {selectedValidation.ok ? "VALIDO" : "INVALIDO"}
                   </Badge>
                   <Text size="sm" c="dimmed">

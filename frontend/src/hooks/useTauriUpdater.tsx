@@ -40,7 +40,9 @@ export function useTauriUpdater() {
         }
 
         const version = update.manifest?.version ?? "nova";
-        const notes = getReleaseNotesFromManifest(update.manifest as { body?: string; notes?: string });
+        const notes = getReleaseNotesFromManifest(
+          update.manifest as { body?: string; notes?: string },
+        );
         const notesPreview = getReleaseNotesPreview(notes);
 
         const installNow = async (notificationId: string) => {
@@ -58,7 +60,8 @@ export function useTauriUpdater() {
             await updater.installUpdate();
             await process.relaunch();
           } catch (err) {
-            const message = err instanceof Error ? err.message : "Erro inesperado";
+            const message =
+              err instanceof Error ? err.message : "Erro inesperado";
             notifications.update({
               id: notificationId,
               title: "Falha ao atualizar",
@@ -72,7 +75,8 @@ export function useTauriUpdater() {
                 title: "Restaurar dados pre-update?",
                 children: (
                   <Text size="sm">
-                    A instalacao falhou. Deseja restaurar automaticamente o backup pre-update?
+                    A instalacao falhou. Deseja restaurar automaticamente o
+                    backup pre-update?
                   </Text>
                 ),
                 labels: { confirm: "Restaurar", cancel: "Depois" },
@@ -87,7 +91,9 @@ export function useTauriUpdater() {
                     });
                   } catch (restoreError) {
                     const restoreMessage =
-                      restoreError instanceof Error ? restoreError.message : "Erro inesperado";
+                      restoreError instanceof Error
+                        ? restoreError.message
+                        : "Erro inesperado";
                     notifications.show({
                       title: "Falha ao restaurar",
                       message: restoreMessage,
@@ -104,7 +110,9 @@ export function useTauriUpdater() {
           title: "Nova versao disponivel",
           message: (
             <Group gap="xs" wrap="wrap">
-              <Text size="sm">Atualizacao {version} disponivel. {notesPreview}</Text>
+              <Text size="sm">
+                Atualizacao {version} disponivel. {notesPreview}
+              </Text>
               <Button
                 size="xs"
                 variant="default"
@@ -113,8 +121,18 @@ export function useTauriUpdater() {
                     title: `Nova versao ${version}`,
                     children: (
                       <Stack gap="xs">
-                        <Text size="sm">Deseja instalar esta atualizacao agora?</Text>
-                        <Text size="xs" c="dimmed" style={{ whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" }}>
+                        <Text size="sm">
+                          Deseja instalar esta atualizacao agora?
+                        </Text>
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          style={{
+                            whiteSpace: "pre-wrap",
+                            maxHeight: 260,
+                            overflowY: "auto",
+                          }}
+                        >
                           {notes}
                         </Text>
                       </Stack>

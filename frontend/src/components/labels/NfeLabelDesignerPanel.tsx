@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import {
   Alert,
   Badge,
@@ -15,7 +21,13 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconDownload, IconFileImport, IconPlus, IconPrinter, IconTrash } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconFileImport,
+  IconPlus,
+  IconPrinter,
+  IconTrash,
+} from "@tabler/icons-react";
 
 import EmptyState from "../ui/EmptyState";
 import FilterToolbar from "../ui/FilterToolbar";
@@ -30,7 +42,10 @@ import {
   type ShippingLabelFieldToken,
   type ShippingLabelPrintableItem,
 } from "../../lib/labelsPrint";
-import { type NfeShippingData, parseNfeShippingData } from "../../lib/nfeShippingLabel";
+import {
+  type NfeShippingData,
+  parseNfeShippingData,
+} from "../../lib/nfeShippingLabel";
 import { notifyError, notifySuccess } from "../../lib/notify";
 
 const MAX_NFE_LABELS_PER_PRINT = 400;
@@ -85,7 +100,8 @@ function snap(value: number): number {
 }
 
 function loadLayoutFromStorage(): ShippingLabelDesignerLayout {
-  if (typeof window === "undefined") return DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT;
+  if (typeof window === "undefined")
+    return DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT;
@@ -136,7 +152,12 @@ function printHtml(html: string) {
 function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false;
   const tag = element.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || element.isContentEditable;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    element.isContentEditable
+  );
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -149,7 +170,8 @@ function readFileAsDataUrl(file: File): Promise<string> {
       }
       reject(new Error("Nao foi possivel ler a imagem selecionada."));
     };
-    reader.onerror = () => reject(reader.error ?? new Error("Falha ao ler imagem."));
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Falha ao ler imagem."));
     reader.readAsDataURL(file);
   });
 }
@@ -157,7 +179,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 function measureTextBlockHeight(
   text: string,
   item: ShippingLabelDesignerItem,
-  fontFamily: string
+  fontFamily: string,
 ): number {
   if (typeof document === "undefined") {
     return Math.max(24, snap(item.fontSize * 1.8));
@@ -219,7 +241,7 @@ async function detectFontOptions(): Promise<string[]> {
 
 const SAMPLE_DATA: ShippingLabelPrintableItem = {
   cliente: "CLIENTE EXEMPLO LTDA",
-  cidade: "CANOAS",
+  cidade: "EXEMPLO",
   estado: "RS",
   transportadora: "TRANSPORTADORA EXEMPLO",
   numeroNota: "123456",
@@ -232,12 +254,18 @@ export default function NfeLabelDesignerPanel() {
   const [nfeData, setNfeData] = useState<NfeShippingData | null>(null);
   const [nfeFileName, setNfeFileName] = useState("");
   const [printing, setPrinting] = useState(false);
-  const [layout, setLayout] = useState<ShippingLabelDesignerLayout>(() => loadLayoutFromStorage());
+  const [layout, setLayout] = useState<ShippingLabelDesignerLayout>(() =>
+    loadLayoutFromStorage(),
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeInteractionId, setActiveInteractionId] = useState<string | null>(null);
-  const [tokenToAdd, setTokenToAdd] = useState<ShippingLabelFieldToken>("cliente");
+  const [activeInteractionId, setActiveInteractionId] = useState<string | null>(
+    null,
+  );
+  const [tokenToAdd, setTokenToAdd] =
+    useState<ShippingLabelFieldToken>("cliente");
   const [importedLayoutName, setImportedLayoutName] = useState("");
-  const [fontOptions, setFontOptions] = useState<string[]>(COMMON_WINDOWS_FONTS);
+  const [fontOptions, setFontOptions] =
+    useState<string[]>(COMMON_WINDOWS_FONTS);
 
   const interactionRef = useRef<InteractionRef>(null);
 
@@ -263,7 +291,10 @@ export default function NfeLabelDesignerPanel() {
 
   const nfePrintItems = useMemo<ShippingLabelPrintableItem[]>(() => {
     if (!nfeData) return [];
-    const cappedTotal = Math.max(1, Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT));
+    const cappedTotal = Math.max(
+      1,
+      Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT),
+    );
     return Array.from({ length: cappedTotal }, (_, index) => ({
       cliente: nfeData.cliente,
       cidade: nfeData.cidade,
@@ -280,10 +311,13 @@ export default function NfeLabelDesignerPanel() {
 
   const selectedItem = useMemo(
     () => layout.items.find((item) => item.id === selectedId) ?? null,
-    [layout.items, selectedId]
+    [layout.items, selectedId],
   );
 
-  const updateItem = (id: string, patch: Partial<ShippingLabelDesignerItem>) => {
+  const updateItem = (
+    id: string,
+    patch: Partial<ShippingLabelDesignerItem>,
+  ) => {
     setLayout((current) => {
       const items = current.items.map((item) => {
         if (item.id !== id) return item;
@@ -291,7 +325,11 @@ export default function NfeLabelDesignerPanel() {
         return {
           ...next,
           x: clamp(snap(next.x), 0, Math.max(0, current.widthPx - next.width)),
-          y: clamp(snap(next.y), 0, Math.max(0, current.heightPx - next.height)),
+          y: clamp(
+            snap(next.y),
+            0,
+            Math.max(0, current.heightPx - next.height),
+          ),
           width: clamp(snap(next.width), 40, current.widthPx),
           height: clamp(snap(next.height), 18, current.heightPx),
         };
@@ -302,7 +340,10 @@ export default function NfeLabelDesignerPanel() {
 
   const removeSelectedItem = () => {
     if (!selectedId) return;
-    setLayout((current) => ({ ...current, items: current.items.filter((item) => item.id !== selectedId) }));
+    setLayout((current) => ({
+      ...current,
+      items: current.items.filter((item) => item.id !== selectedId),
+    }));
     setSelectedId(null);
   };
 
@@ -332,13 +373,19 @@ export default function NfeLabelDesignerPanel() {
           case "left":
             return { ...item, x: 0 };
           case "center":
-            return { ...item, x: snap(Math.max(0, (current.widthPx - item.width) / 2)) };
+            return {
+              ...item,
+              x: snap(Math.max(0, (current.widthPx - item.width) / 2)),
+            };
           case "right":
             return { ...item, x: Math.max(0, current.widthPx - item.width) };
           case "top":
             return { ...item, y: 0 };
           case "middle":
-            return { ...item, y: snap(Math.max(0, (current.heightPx - item.height) / 2)) };
+            return {
+              ...item,
+              y: snap(Math.max(0, (current.heightPx - item.height) / 2)),
+            };
           case "bottom":
             return { ...item, y: Math.max(0, current.heightPx - item.height) };
           default:
@@ -362,7 +409,10 @@ export default function NfeLabelDesignerPanel() {
 
       if (event.key === "Delete" || event.key === "Backspace") {
         event.preventDefault();
-        setLayout((current) => ({ ...current, items: current.items.filter((item) => item.id !== selectedId) }));
+        setLayout((current) => ({
+          ...current,
+          items: current.items.filter((item) => item.id !== selectedId),
+        }));
         setSelectedId(null);
         return;
       }
@@ -421,7 +471,9 @@ export default function NfeLabelDesignerPanel() {
       const parsed = parseNfeShippingData(xmlText);
       setNfeData(parsed);
       setNfeFileName(file.name);
-      notifySuccess(`XML carregado com sucesso. Volumes detectados: ${parsed.volumes}.`);
+      notifySuccess(
+        `XML carregado com sucesso. Volumes detectados: ${parsed.volumes}.`,
+      );
     } catch (error) {
       setNfeData(null);
       setNfeFileName("");
@@ -453,7 +505,10 @@ export default function NfeLabelDesignerPanel() {
   };
 
   const addTokenItem = () => {
-    const label = SHIPPING_LABEL_FIELD_TOKEN_OPTIONS.find((item) => item.value === tokenToAdd)?.label || "Campo";
+    const label =
+      SHIPPING_LABEL_FIELD_TOKEN_OPTIONS.find(
+        (item) => item.value === tokenToAdd,
+      )?.label || "Campo";
     const next: ShippingLabelDesignerItem = {
       id: makeId(),
       kind: "token",
@@ -514,7 +569,7 @@ export default function NfeLabelDesignerPanel() {
     const measuredHeight = measureTextBlockHeight(
       resolveShippingLabelDesignerItemText(selectedItem, previewData),
       selectedItem,
-      layout.fontFamily
+      layout.fontFamily,
     );
     updateItem(selectedItem.id, { height: measuredHeight });
     notifySuccess("Altura do bloco ajustada ao texto.");
@@ -531,7 +586,9 @@ export default function NfeLabelDesignerPanel() {
     if (!file) return;
     try {
       const text = await file.text();
-      const normalized = normalizeShippingLabelDesignerLayout(JSON.parse(text) as unknown);
+      const normalized = normalizeShippingLabelDesignerLayout(
+        JSON.parse(text) as unknown,
+      );
       setLayout(normalized);
       setSelectedId(null);
       setImportedLayoutName(file.name);
@@ -542,7 +599,8 @@ export default function NfeLabelDesignerPanel() {
   };
 
   const exportLayout = () => {
-    if (typeof document === "undefined" || typeof window === "undefined") return;
+    if (typeof document === "undefined" || typeof window === "undefined")
+      return;
     const blob = new Blob([JSON.stringify(layout, null, 2)], {
       type: "application/json;charset=utf-8",
     });
@@ -560,7 +618,7 @@ export default function NfeLabelDesignerPanel() {
   const startInteraction = (
     event: ReactPointerEvent<HTMLDivElement>,
     id: string,
-    mode: "move" | "resize"
+    mode: "move" | "resize",
   ) => {
     event.preventDefault();
     event.stopPropagation();
@@ -576,10 +634,14 @@ export default function NfeLabelDesignerPanel() {
     setSelectedId(id);
   };
 
-  const moveInteraction = (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
+  const moveInteraction = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    id: string,
+  ) => {
     const interaction = interactionRef.current;
     if (!interaction) return;
-    if (interaction.id !== id || interaction.pointerId !== event.pointerId) return;
+    if (interaction.id !== id || interaction.pointerId !== event.pointerId)
+      return;
 
     const dx = event.clientX - interaction.lastX;
     const dy = event.clientY - interaction.lastY;
@@ -597,8 +659,16 @@ export default function NfeLabelDesignerPanel() {
             y: clamp(snap(item.y + dy), 0, maxY),
           };
         }
-        const nextWidth = clamp(snap(item.width + dx), 40, Math.max(40, current.widthPx - item.x));
-        const nextHeight = clamp(snap(item.height + dy), 18, Math.max(18, current.heightPx - item.y));
+        const nextWidth = clamp(
+          snap(item.width + dx),
+          40,
+          Math.max(40, current.widthPx - item.x),
+        );
+        const nextHeight = clamp(
+          snap(item.height + dy),
+          18,
+          Math.max(18, current.heightPx - item.y),
+        );
         return {
           ...item,
           width: nextWidth,
@@ -615,17 +685,23 @@ export default function NfeLabelDesignerPanel() {
     };
   };
 
-  const endInteraction = (event: ReactPointerEvent<HTMLDivElement>, id: string) => {
+  const endInteraction = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    id: string,
+  ) => {
     const interaction = interactionRef.current;
     if (!interaction) return;
-    if (interaction.id !== id || interaction.pointerId !== event.pointerId) return;
+    if (interaction.id !== id || interaction.pointerId !== event.pointerId)
+      return;
     interactionRef.current = null;
     setActiveInteractionId(null);
   };
 
   const runPrint = () => {
     if (!nfeData || nfePrintItems.length === 0) {
-      notifyError(new Error("Carregue um XML valido antes de gerar etiquetas."));
+      notifyError(
+        new Error("Carregue um XML valido antes de gerar etiquetas."),
+      );
       return;
     }
     setPrinting(true);
@@ -633,8 +709,8 @@ export default function NfeLabelDesignerPanel() {
       if (nfeData.volumes > MAX_NFE_LABELS_PER_PRINT) {
         notifyError(
           new Error(
-            `XML com ${nfeData.volumes} volumes. Limitado a ${MAX_NFE_LABELS_PER_PRINT} etiquetas por impressao.`
-          )
+            `XML com ${nfeData.volumes} volumes. Limitado a ${MAX_NFE_LABELS_PER_PRINT} etiquetas por impressao.`,
+          ),
         );
       }
       const html = buildShippingLabelsDesignerPrintHtml(nfePrintItems, layout);
@@ -670,41 +746,80 @@ export default function NfeLabelDesignerPanel() {
             </Button>
             <Badge variant="light">XML: {nfeFileName || "nenhum"}</Badge>
             <Badge variant="light">
-              Etiquetas: {nfeData ? Math.max(1, Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT)) : 0}
+              Etiquetas:{" "}
+              {nfeData
+                ? Math.max(
+                    1,
+                    Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT),
+                  )
+                : 0}
             </Badge>
-            <Button leftSection={<IconPrinter size={16} />} onClick={runPrint} loading={printing} disabled={!nfeData}>
+            <Button
+              leftSection={<IconPrinter size={16} />}
+              onClick={runPrint}
+              loading={printing}
+              disabled={!nfeData}
+            >
               3. Gerar etiquetas
             </Button>
           </Group>
 
           <Group align="center" wrap="wrap">
-            <Button leftSection={<IconPlus size={16} />} onClick={addTextItem} variant="light">
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={addTextItem}
+              variant="light"
+            >
               Texto livre
             </Button>
             <Select
               data={SHIPPING_LABEL_FIELD_TOKEN_OPTIONS}
               value={tokenToAdd}
-              onChange={(value) => setTokenToAdd((value as ShippingLabelFieldToken) || "cliente")}
+              onChange={(value) =>
+                setTokenToAdd((value as ShippingLabelFieldToken) || "cliente")
+              }
               w={220}
             />
-            <Button leftSection={<IconPlus size={16} />} onClick={addTokenItem} variant="light">
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={addTokenItem}
+              variant="light"
+            >
               Campo dinamico
             </Button>
-            <FileButton onChange={(file) => void addImageItem(file)} accept="image/png,image/jpeg,image/webp,image/svg+xml">
+            <FileButton
+              onChange={(file) => void addImageItem(file)}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            >
               {(props) => (
-                <Button {...props} variant="light" leftSection={<IconPlus size={16} />}>
+                <Button
+                  {...props}
+                  variant="light"
+                  leftSection={<IconPlus size={16} />}
+                >
                   Adicionar imagem
                 </Button>
               )}
             </FileButton>
-            <FileButton onChange={(file) => void importLayout(file)} accept=".json,application/json,text/json">
+            <FileButton
+              onChange={(file) => void importLayout(file)}
+              accept=".json,application/json,text/json"
+            >
               {(props) => (
-                <Button {...props} variant="light" leftSection={<IconFileImport size={16} />}>
+                <Button
+                  {...props}
+                  variant="light"
+                  leftSection={<IconFileImport size={16} />}
+                >
                   Importar layout
                 </Button>
               )}
             </FileButton>
-            <Button variant="light" leftSection={<IconDownload size={16} />} onClick={exportLayout}>
+            <Button
+              variant="light"
+              leftSection={<IconDownload size={16} />}
+              onClick={exportLayout}
+            >
               Exportar layout
             </Button>
             <Button variant="subtle" color="gray" onClick={resetLayout}>
@@ -712,16 +827,25 @@ export default function NfeLabelDesignerPanel() {
             </Button>
           </Group>
 
-          <Alert variant="light" color="blue" title="2. Monte a etiqueta no canvas">
-            Arraste para mover. Puxe o canto inferior direito para redimensionar. Use Del para excluir.
-            Setas movem o bloco. Shift + setas move mais rapido. Ctrl + Shift + L/C/R/T/M/B alinha
-            o bloco no canvas.
+          <Alert
+            variant="light"
+            color="blue"
+            title="2. Monte a etiqueta no canvas"
+          >
+            Arraste para mover. Puxe o canto inferior direito para
+            redimensionar. Use Del para excluir. Setas movem o bloco. Shift +
+            setas move mais rapido. Ctrl + Shift + L/C/R/T/M/B alinha o bloco no
+            canvas.
           </Alert>
 
           {importedLayoutName ? (
-            <Badge variant="light">Layout importado: {importedLayoutName}</Badge>
+            <Badge variant="light">
+              Layout importado: {importedLayoutName}
+            </Badge>
           ) : (
-            <Badge variant="light">Layout salvo automaticamente neste computador</Badge>
+            <Badge variant="light">
+              Layout salvo automaticamente neste computador
+            </Badge>
           )}
         </Stack>
       </FilterToolbar>
@@ -737,7 +861,8 @@ export default function NfeLabelDesignerPanel() {
                 <div>
                   <Text fw={600}>Editor visual</Text>
                   <Text size="xs" c="dimmed">
-                    Selecione um bloco, mova com o mouse e redimensione pela alca no canto.
+                    Selecione um bloco, mova com o mouse e redimensione pela
+                    alca no canto.
                   </Text>
                 </div>
                 <Badge variant="light">Grade de {GRID_SIZE}px</Badge>
@@ -747,7 +872,9 @@ export default function NfeLabelDesignerPanel() {
                   width: layout.widthPx,
                   maxWidth: "100%",
                   height: layout.heightPx,
-                  border: layout.showBorder ? "1px solid #868e96" : "1px dashed #adb5bd",
+                  border: layout.showBorder
+                    ? "1px solid #868e96"
+                    : "1px dashed #adb5bd",
                   borderRadius: 8,
                   position: "relative",
                   overflow: "hidden",
@@ -765,14 +892,21 @@ export default function NfeLabelDesignerPanel() {
                 {layout.items.map((item) => {
                   const isSelected = item.id === selectedId;
                   const isActive = item.id === activeInteractionId;
-                  const text = resolveShippingLabelDesignerItemText(item, previewData);
+                  const text = resolveShippingLabelDesignerItemText(
+                    item,
+                    previewData,
+                  );
                   return (
                     <div
                       key={item.id}
-                      onPointerDown={(event) => startInteraction(event, item.id, "move")}
+                      onPointerDown={(event) =>
+                        startInteraction(event, item.id, "move")
+                      }
                       onPointerMove={(event) => moveInteraction(event, item.id)}
                       onPointerUp={(event) => endInteraction(event, item.id)}
-                      onPointerCancel={(event) => endInteraction(event, item.id)}
+                      onPointerCancel={(event) =>
+                        endInteraction(event, item.id)
+                      }
                       style={{
                         position: "absolute",
                         left: item.x,
@@ -787,12 +921,22 @@ export default function NfeLabelDesignerPanel() {
                         whiteSpace: "pre-wrap",
                         overflow: item.kind === "image" ? "hidden" : "visible",
                         lineHeight: 1.05,
-                        border: isSelected ? "1px solid #228be6" : "1px dashed transparent",
+                        border: isSelected
+                          ? "1px solid #228be6"
+                          : "1px dashed transparent",
                         borderRadius: 4,
-                        cursor: isActive ? (interactionRef.current?.mode === "resize" ? "nwse-resize" : "grabbing") : "grab",
+                        cursor: isActive
+                          ? interactionRef.current?.mode === "resize"
+                            ? "nwse-resize"
+                            : "grabbing"
+                          : "grab",
                         userSelect: "none",
-                        backgroundColor: isSelected ? "rgba(34,139,230,0.06)" : "transparent",
-                        boxShadow: isSelected ? "0 0 0 1px rgba(34,139,230,0.08) inset" : "none",
+                        backgroundColor: isSelected
+                          ? "rgba(34,139,230,0.06)"
+                          : "transparent",
+                        boxShadow: isSelected
+                          ? "0 0 0 1px rgba(34,139,230,0.08) inset"
+                          : "none",
                       }}
                     >
                       {item.kind === "image" ? (
@@ -832,10 +976,18 @@ export default function NfeLabelDesignerPanel() {
 
                       {isSelected && (
                         <div
-                          onPointerDown={(event) => startInteraction(event, item.id, "resize")}
-                          onPointerMove={(event) => moveInteraction(event, item.id)}
-                          onPointerUp={(event) => endInteraction(event, item.id)}
-                          onPointerCancel={(event) => endInteraction(event, item.id)}
+                          onPointerDown={(event) =>
+                            startInteraction(event, item.id, "resize")
+                          }
+                          onPointerMove={(event) =>
+                            moveInteraction(event, item.id)
+                          }
+                          onPointerUp={(event) =>
+                            endInteraction(event, item.id)
+                          }
+                          onPointerCancel={(event) =>
+                            endInteraction(event, item.id)
+                          }
                           style={{
                             position: "absolute",
                             right: 0,
@@ -862,7 +1014,12 @@ export default function NfeLabelDesignerPanel() {
               <TextInput
                 label="Nome do layout"
                 value={layout.name}
-                onChange={(event) => setLayout((current) => ({ ...current, name: event.currentTarget.value }))}
+                onChange={(event) =>
+                  setLayout((current) => ({
+                    ...current,
+                    name: event.currentTarget.value,
+                  }))
+                }
               />
               <Group grow>
                 <NumberInput
@@ -873,7 +1030,11 @@ export default function NfeLabelDesignerPanel() {
                   onChange={(value) =>
                     setLayout((current) => ({
                       ...current,
-                      widthPx: clamp(Number(value || current.widthPx), 300, 2200),
+                      widthPx: clamp(
+                        Number(value || current.widthPx),
+                        300,
+                        2200,
+                      ),
                     }))
                   }
                 />
@@ -885,7 +1046,11 @@ export default function NfeLabelDesignerPanel() {
                   onChange={(value) =>
                     setLayout((current) => ({
                       ...current,
-                      heightPx: clamp(Number(value || current.heightPx), 120, 2200),
+                      heightPx: clamp(
+                        Number(value || current.heightPx),
+                        120,
+                        2200,
+                      ),
                     }))
                   }
                 />
@@ -910,7 +1075,10 @@ export default function NfeLabelDesignerPanel() {
                 label="Mostrar borda da etiqueta"
                 checked={layout.showBorder}
                 onChange={(event) =>
-                  setLayout((current) => ({ ...current, showBorder: event.currentTarget.checked }))
+                  setLayout((current) => ({
+                    ...current,
+                    showBorder: event.currentTarget.checked,
+                  }))
                 }
               />
 
@@ -923,28 +1091,53 @@ export default function NfeLabelDesignerPanel() {
               ) : (
                 <Stack gap="xs">
                   <Badge variant="light">
-                    Selecionado: {selectedItem.kind === "image" ? "Imagem" : selectedItem.id}
+                    Selecionado:{" "}
+                    {selectedItem.kind === "image" ? "Imagem" : selectedItem.id}
                   </Badge>
 
                   <Group grow>
-                    <Button size="xs" variant="light" onClick={() => alignSelectedItem("left")}>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => alignSelectedItem("left")}
+                    >
                       Esq
                     </Button>
-                    <Button size="xs" variant="light" onClick={() => alignSelectedItem("center")}>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => alignSelectedItem("center")}
+                    >
                       Centro
                     </Button>
-                    <Button size="xs" variant="light" onClick={() => alignSelectedItem("right")}>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => alignSelectedItem("right")}
+                    >
                       Dir
                     </Button>
                   </Group>
                   <Group grow>
-                    <Button size="xs" variant="light" onClick={() => alignSelectedItem("top")}>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => alignSelectedItem("top")}
+                    >
                       Topo
                     </Button>
-                    <Button size="xs" variant="light" onClick={() => alignSelectedItem("middle")}>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => alignSelectedItem("middle")}
+                    >
                       Meio
                     </Button>
-                    <Button size="xs" variant="light" onClick={() => alignSelectedItem("bottom")}>
+                    <Button
+                      size="xs"
+                      variant="light"
+                      onClick={() => alignSelectedItem("bottom")}
+                    >
                       Base
                     </Button>
                   </Group>
@@ -958,13 +1151,24 @@ export default function NfeLabelDesignerPanel() {
                     ]}
                     value={selectedItem.kind}
                     onChange={(value) => {
-                      const nextKind = (value as ShippingLabelDesignerItem["kind"]) || "text";
+                      const nextKind =
+                        (value as ShippingLabelDesignerItem["kind"]) || "text";
                       updateItem(selectedItem.id, {
                         kind: nextKind,
-                        token: nextKind === "token" ? selectedItem.token || "cliente" : undefined,
-                        src: nextKind === "image" ? selectedItem.src : undefined,
-                        width: nextKind === "image" ? Math.max(selectedItem.width, 120) : selectedItem.width,
-                        height: nextKind === "image" ? Math.max(selectedItem.height, 60) : selectedItem.height,
+                        token:
+                          nextKind === "token"
+                            ? selectedItem.token || "cliente"
+                            : undefined,
+                        src:
+                          nextKind === "image" ? selectedItem.src : undefined,
+                        width:
+                          nextKind === "image"
+                            ? Math.max(selectedItem.width, 120)
+                            : selectedItem.width,
+                        height:
+                          nextKind === "image"
+                            ? Math.max(selectedItem.height, 60)
+                            : selectedItem.height,
                       });
                     }}
                   />
@@ -974,14 +1178,22 @@ export default function NfeLabelDesignerPanel() {
                       <TextInput
                         label="Nome interno"
                         value={selectedItem.text}
-                        onChange={(event) => updateItem(selectedItem.id, { text: event.currentTarget.value })}
+                        onChange={(event) =>
+                          updateItem(selectedItem.id, {
+                            text: event.currentTarget.value,
+                          })
+                        }
                       />
                       <FileButton
                         onChange={(file) => void replaceSelectedImage(file)}
                         accept="image/png,image/jpeg,image/webp,image/svg+xml"
                       >
                         {(props) => (
-                          <Button {...props} variant="light" leftSection={<IconFileImport size={16} />}>
+                          <Button
+                            {...props}
+                            variant="light"
+                            leftSection={<IconFileImport size={16} />}
+                          >
                             Trocar imagem
                           </Button>
                         )}
@@ -996,7 +1208,9 @@ export default function NfeLabelDesignerPanel() {
                         value={selectedItem.objectFit}
                         onChange={(value) =>
                           updateItem(selectedItem.id, {
-                            objectFit: (value as ShippingLabelDesignerItem["objectFit"]) || "contain",
+                            objectFit:
+                              (value as ShippingLabelDesignerItem["objectFit"]) ||
+                              "contain",
                           })
                         }
                       />
@@ -1004,9 +1218,17 @@ export default function NfeLabelDesignerPanel() {
                   ) : (
                     <>
                       <TextInput
-                        label={selectedItem.kind === "token" ? "Prefixo (ex.: CLIENTE:)" : "Texto"}
+                        label={
+                          selectedItem.kind === "token"
+                            ? "Prefixo (ex.: CLIENTE:)"
+                            : "Texto"
+                        }
                         value={selectedItem.text}
-                        onChange={(event) => updateItem(selectedItem.id, { text: event.currentTarget.value })}
+                        onChange={(event) =>
+                          updateItem(selectedItem.id, {
+                            text: event.currentTarget.value,
+                          })
+                        }
                       />
                       {selectedItem.kind === "token" && (
                         <Select
@@ -1014,7 +1236,10 @@ export default function NfeLabelDesignerPanel() {
                           data={SHIPPING_LABEL_FIELD_TOKEN_OPTIONS}
                           value={selectedItem.token || "cliente"}
                           onChange={(value) =>
-                            updateItem(selectedItem.id, { token: (value as ShippingLabelFieldToken) || "cliente" })
+                            updateItem(selectedItem.id, {
+                              token:
+                                (value as ShippingLabelFieldToken) || "cliente",
+                            })
                           }
                         />
                       )}
@@ -1031,7 +1256,11 @@ export default function NfeLabelDesignerPanel() {
                       max={Math.max(0, layout.widthPx - selectedItem.width)}
                       onChange={(value) =>
                         updateItem(selectedItem.id, {
-                          x: clamp(Number(value || selectedItem.x), 0, Math.max(0, layout.widthPx - selectedItem.width)),
+                          x: clamp(
+                            Number(value || selectedItem.x),
+                            0,
+                            Math.max(0, layout.widthPx - selectedItem.width),
+                          ),
                         })
                       }
                     />
@@ -1042,7 +1271,11 @@ export default function NfeLabelDesignerPanel() {
                       max={Math.max(0, layout.heightPx - selectedItem.height)}
                       onChange={(value) =>
                         updateItem(selectedItem.id, {
-                          y: clamp(Number(value || selectedItem.y), 0, Math.max(0, layout.heightPx - selectedItem.height)),
+                          y: clamp(
+                            Number(value || selectedItem.y),
+                            0,
+                            Math.max(0, layout.heightPx - selectedItem.height),
+                          ),
                         })
                       }
                     />
@@ -1055,7 +1288,11 @@ export default function NfeLabelDesignerPanel() {
                       max={layout.widthPx}
                       onChange={(value) =>
                         updateItem(selectedItem.id, {
-                          width: clamp(Number(value || selectedItem.width), 40, layout.widthPx),
+                          width: clamp(
+                            Number(value || selectedItem.width),
+                            40,
+                            layout.widthPx,
+                          ),
                         })
                       }
                     />
@@ -1066,7 +1303,11 @@ export default function NfeLabelDesignerPanel() {
                       max={layout.heightPx}
                       onChange={(value) =>
                         updateItem(selectedItem.id, {
-                          height: clamp(Number(value || selectedItem.height), 18, layout.heightPx),
+                          height: clamp(
+                            Number(value || selectedItem.height),
+                            18,
+                            layout.heightPx,
+                          ),
                         })
                       }
                     />
@@ -1082,7 +1323,11 @@ export default function NfeLabelDesignerPanel() {
                           max={64}
                           onChange={(value) =>
                             updateItem(selectedItem.id, {
-                              fontSize: clamp(Number(value || selectedItem.fontSize), 8, 64),
+                              fontSize: clamp(
+                                Number(value || selectedItem.fontSize),
+                                8,
+                                64,
+                              ),
                             })
                           }
                         />
@@ -1096,7 +1341,9 @@ export default function NfeLabelDesignerPanel() {
                           value={selectedItem.align}
                           onChange={(value) =>
                             updateItem(selectedItem.id, {
-                              align: (value as "left" | "center" | "right") || "left",
+                              align:
+                                (value as "left" | "center" | "right") ||
+                                "left",
                             })
                           }
                         />
@@ -1105,13 +1352,20 @@ export default function NfeLabelDesignerPanel() {
                         label="Negrito"
                         checked={selectedItem.fontWeight >= 700}
                         onChange={(event) =>
-                          updateItem(selectedItem.id, { fontWeight: event.currentTarget.checked ? 700 : 400 })
+                          updateItem(selectedItem.id, {
+                            fontWeight: event.currentTarget.checked ? 700 : 400,
+                          })
                         }
                       />
                     </>
                   )}
 
-                  <Button color="red" variant="light" leftSection={<IconTrash size={16} />} onClick={removeSelectedItem}>
+                  <Button
+                    color="red"
+                    variant="light"
+                    leftSection={<IconTrash size={16} />}
+                    onClick={removeSelectedItem}
+                  >
                     Excluir bloco
                   </Button>
                 </Stack>

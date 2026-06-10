@@ -21,6 +21,7 @@ from backend.app.schemas.product import (
     ProductImageSetPrimaryOut,
     ProductImageUploadOut,
     ProductImagesUploadOut,
+    LocationStock,
     ProductOut,
     ProductPatch,
     ProductStatusBulkIn,
@@ -28,6 +29,8 @@ from backend.app.schemas.product import (
     ProductStatusFilter,
     ProductPut,
 )
+from core.database.connection import DatabaseConnection
+from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 from core.exceptions import ValidationException
 
 
@@ -37,19 +40,6 @@ _MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
-def _to_product_out(product: Product) -> ProductOut:
-    return ProductOut(
-        id=product.id or 0,
-        nome=product.nome,
-        qtd_canoas=product.qtd_canoas,
-        qtd_pf=product.qtd_pf,
-        total_stock=product.total_stock,
-        observacao=product.observacao,
-        ativo=bool(product.ativo),
-        inativado_em=product.inativado_em,
-        motivo_inativacao=product.motivo_inativacao,
-    )
-
 
 def _parse_sort(sort: str | None) -> tuple[str, str]:
     if not sort:
@@ -58,7 +48,7 @@ def _parse_sort(sort: str | None) -> tuple[str, str]:
     direction = "DESC" if sort.startswith("-") else "ASC"
     field = sort.lstrip("-").lower()
 
-    allowed = {"id", "nome", "qtd_canoas", "qtd_pf", "total_stock"}
+    allowed = {"id", "nome", "total_stock"}
     if field not in allowed:
         raise ValidationException("Parametro 'sort' invalido.")
 
@@ -116,7 +106,7 @@ def list_products(
         total_pages=total_pages,
         has_next=has_next,
     )
-    return ok([_to_product_out(p) for p in products], meta)
+    return ok([p.to_dict() for p in products], meta)
 
 
 @router.get("/gestao-status", response_model=SuccessResponse[list[ProductOut]])
@@ -151,7 +141,7 @@ def list_products_status(
         total_pages=total_pages,
         has_next=has_next,
     )
-    return ok([_to_product_out(p) for p in products], meta)
+    return ok([p.to_dict() for p in products], meta)
 
 
 @router.put("/status-lote", response_model=SuccessResponse[ProductStatusBulkOut])
@@ -173,7 +163,7 @@ def get_product(
     stock_service: StockService = Depends(get_stock_service),
 ) -> SuccessResponse[ProductOut]:
     product = stock_service.get_product_by_id(product_id)
-    return ok(_to_product_out(product))
+    return ok(product.to_dict())
 
 
 @router.post("", response_model=SuccessResponse[ProductOut], status_code=201)
@@ -183,11 +173,10 @@ def create_product(
 ) -> SuccessResponse[ProductOut]:
     product = stock_service.add_product(
         payload.nome,
-        payload.qtd_canoas,
-        payload.qtd_pf,
+        payload.inventories,
         payload.observacao,
     )
-    return ok(_to_product_out(product), status_code=201)
+    return ok(product.to_dict(), status_code=201)
 
 
 @router.put("/{product_id}", response_model=SuccessResponse[ProductOut])
@@ -199,11 +188,10 @@ def replace_product(
     product = stock_service.update_product(
         product_id=product_id,
         nome=payload.nome,
-        qtd_canoas=payload.qtd_canoas,
-        qtd_pf=payload.qtd_pf,
+        inventories=payload.inventories,
         observacao=payload.observacao,
     )
-    return ok(_to_product_out(product))
+    return ok(product.to_dict())
 
 
 @router.patch("/{product_id}", response_model=SuccessResponse[ProductOut])
@@ -214,8 +202,7 @@ def update_product(
 ) -> SuccessResponse[ProductOut]:
     if (
         payload.nome is None
-        and payload.qtd_canoas is None
-        and payload.qtd_pf is None
+        and payload.inventories is None
         and payload.observacao is None
     ):
         raise ValidationException("Pelo menos um campo deve ser informado.")
@@ -223,11 +210,10 @@ def update_product(
     product = stock_service.update_product(
         product_id=product_id,
         nome=payload.nome,
-        qtd_canoas=payload.qtd_canoas,
-        qtd_pf=payload.qtd_pf,
+        inventories=payload.inventories,
         observacao=payload.observacao,
     )
-    return ok(_to_product_out(product))
+    return ok(product.to_dict())
 
 
 @router.delete("/{product_id}", response_model=SuccessResponse[ProductDeleteOut])
@@ -387,8 +373,8 @@ def get_product_history(
         produto_id=product_id,
         tipo=None,
         natureza=None,
-        origem=None,
-        destino=None,
+        origem_location_id=None,
+        destino_location_id=None,
         date_from=None,
         date_to=None,
         sort_column=sort_column,
@@ -417,6 +403,8 @@ def get_product_history(
             quantidade=record.quantidade,
             origem=record.origem,
             destino=record.destino,
+            origem_location_id=getattr(record, 'origem_location_id', None),
+            destino_location_id=getattr(record, 'destino_location_id', None),
             observacao=record.observacao,
             natureza=record.natureza,
             motivo_ajuste=record.motivo_ajuste,

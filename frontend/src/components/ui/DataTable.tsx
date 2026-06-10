@@ -6,7 +6,10 @@ type DataTableProps = {
   minWidth?: number;
 };
 
-export default function DataTable({ children, minWidth = 860 }: DataTableProps) {
+export default function DataTable({
+  children,
+  minWidth = 860,
+}: DataTableProps) {
   return (
     <Card className="table-shell" p="xs">
       <Table.ScrollContainer minWidth={minWidth}>

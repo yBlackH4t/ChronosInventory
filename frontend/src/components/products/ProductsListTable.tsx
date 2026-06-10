@@ -10,7 +10,7 @@ import {
 } from "@mantine/core";
 import { IconBarcode, IconEdit, IconTrash } from "@tabler/icons-react";
 
-import type { Product } from "../../lib/api";
+import type { InventoryLocation, Product } from "../../lib/api";
 import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 
@@ -31,6 +31,7 @@ type ProductsListTableProps = {
   onOpenEdit: (product: Product) => void;
   onConfirmDelete: (product: Product) => void;
   onPageChange: (page: number) => void;
+  locations?: InventoryLocation[];
 };
 
 export function ProductsListTable({
@@ -50,6 +51,7 @@ export function ProductsListTable({
   onOpenEdit,
   onConfirmDelete,
   onPageChange,
+  locations = [],
 }: ProductsListTableProps) {
   if (loading) {
     return (
@@ -78,8 +80,9 @@ export function ProductsListTable({
               <Table.Th>#</Table.Th>
               <Table.Th>ID</Table.Th>
               <Table.Th>Nome</Table.Th>
-              <Table.Th>Canoas</Table.Th>
-              <Table.Th>PF</Table.Th>
+              {locations.map((loc) => (
+                <Table.Th key={loc.id}>{loc.label || loc.name}</Table.Th>
+              ))}
               <Table.Th>Total</Table.Th>
               <Table.Th>Status</Table.Th>
               <Table.Th>Acoes</Table.Th>
@@ -101,8 +104,11 @@ export function ProductsListTable({
                   <Table.Td>{position}</Table.Td>
                   <Table.Td>{product.id}</Table.Td>
                   <Table.Td>{product.nome}</Table.Td>
-                  <Table.Td>{product.qtd_canoas}</Table.Td>
-                  <Table.Td>{product.qtd_pf}</Table.Td>
+                  {locations.map((loc) => (
+                    <Table.Td key={loc.id}>
+                      {product.inventories?.[loc.id] ?? 0}
+                    </Table.Td>
+                  ))}
                   <Table.Td>
                     <Badge variant="light">{product.total_stock}</Badge>
                   </Table.Td>
@@ -112,16 +118,29 @@ export function ProductsListTable({
                     </Badge>
                   </Table.Td>
                   <Table.Td>
-                    <Group gap="xs" onClick={(event) => event.stopPropagation()}>
+                    <Group
+                      gap="xs"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <Tooltip label="Gerar etiqueta">
-                        <ActionIcon variant="light" onClick={() => onOpenSingleLabel(product.id)}>
+                        <ActionIcon
+                          variant="light"
+                          onClick={() => onOpenSingleLabel(product.id)}
+                        >
                           <IconBarcode size={16} />
                         </ActionIcon>
                       </Tooltip>
-                      <ActionIcon variant="light" onClick={() => onOpenEdit(product)}>
+                      <ActionIcon
+                        variant="light"
+                        onClick={() => onOpenEdit(product)}
+                      >
                         <IconEdit size={16} />
                       </ActionIcon>
-                      <ActionIcon color="red" variant="light" onClick={() => onConfirmDelete(product)}>
+                      <ActionIcon
+                        color="red"
+                        variant="light"
+                        onClick={() => onConfirmDelete(product)}
+                      >
                         <IconTrash size={16} />
                       </ActionIcon>
                     </Group>
@@ -131,7 +150,7 @@ export function ProductsListTable({
             })}
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={8}>
+                <Table.Td colSpan={5 + locations.length}>
                   <EmptyState
                     message="Nenhum produto encontrado"
                     actionLabel={query.trim() ? "Limpar busca" : undefined}

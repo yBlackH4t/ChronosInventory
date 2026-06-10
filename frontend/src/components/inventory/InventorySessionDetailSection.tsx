@@ -1,5 +1,14 @@
 import type { KeyboardEvent, RefObject } from "react";
-import { Button, Group, Select, Stack, Text, TextInput, Title, Card } from "@mantine/core";
+import {
+  Button,
+  Group,
+  Select,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+  Card,
+} from "@mantine/core";
 
 import type {
   InventoryAdjustmentReason,
@@ -28,7 +37,9 @@ type InventorySessionDetailSectionProps = {
   onApplyAdjustments: () => void;
   applyLoading: boolean;
   summary: InventorySessionSummaryOut | null | undefined;
-  onSelectSummaryFilter: (filter: "NOT_COUNTED" | "MISSING" | "SURPLUS" | "MATCHED" | "PENDING") => void;
+  onSelectSummaryFilter: (
+    filter: "NOT_COUNTED" | "MISSING" | "SURPLUS" | "MATCHED" | "PENDING",
+  ) => void;
   collectorModeActive: boolean;
   collectorInitializing: boolean;
   collectorLoading: boolean;
@@ -69,9 +80,12 @@ type InventorySessionDetailSectionProps = {
       motivo_ajuste?: InventoryAdjustmentReason | null;
       observacao?: string | null;
     },
-    item: InventoryCountOut
+    item: InventoryCountOut,
   ) => void;
-  adjustmentReasonOptions: { value: InventoryAdjustmentReason; label: string }[];
+  adjustmentReasonOptions: {
+    value: InventoryAdjustmentReason;
+    label: string;
+  }[];
   itemsTotal: number;
   itemsPage: number;
   itemsTotalPages: number;
@@ -126,10 +140,13 @@ export function InventorySessionDetailSection({
           <Stack gap={2}>
             <Title order={4}>Contagens da sessao #{session.id}</Title>
             <Text size="sm" c="dimmed">
-              {session.nome} | {session.local} | Status: {session.status}
+              {session.nome} |{" "}
+              {session.local_label ?? `Local #${session.location_id}`} | Status:{" "}
+              {session.status}
             </Text>
             <Text size="xs" c="dimmed">
-              Atalhos: Ctrl+F busca | Ctrl+B campo do bip | Ctrl+S salvar contagens
+              Atalhos: Ctrl+F busca | Ctrl+B campo do bip | Ctrl+S salvar
+              contagens
             </Text>
           </Stack>
           <Group>
@@ -152,7 +169,12 @@ export function InventorySessionDetailSection({
           </Group>
         </Group>
 
-        {summary && <InventorySummaryCards summary={summary} onSelectFilter={onSelectSummaryFilter} />}
+        {summary && (
+          <InventorySummaryCards
+            summary={summary}
+            onSelectFilter={onSelectSummaryFilter}
+          />
+        )}
 
         <InventoryCollectorPanel
           active={collectorModeActive}
@@ -178,7 +200,11 @@ export function InventorySessionDetailSection({
               label="Filtro da contagem"
               data={statusFilterOptions}
               value={statusFilter}
-              onChange={(value) => onStatusFilterChange((value as InventoryStatusFilter) || "DIVERGENT")}
+              onChange={(value) =>
+                onStatusFilterChange(
+                  (value as InventoryStatusFilter) || "DIVERGENT",
+                )
+              }
               w={220}
               allowDeselect={false}
             />
@@ -190,7 +216,11 @@ export function InventorySessionDetailSection({
               onChange={(event) => onSearchChange(event.currentTarget.value)}
               w={260}
             />
-            <Button variant="subtle" onClick={onClearFilters} disabled={activeFilterCount === 0}>
+            <Button
+              variant="subtle"
+              onClick={onClearFilters}
+              disabled={activeFilterCount === 0}
+            >
               Limpar filtros
             </Button>
           </Group>

@@ -1,6 +1,18 @@
-import { Badge, NumberInput, Pagination, Select, Table, Text, TextInput, Group } from "@mantine/core";
+import {
+  Badge,
+  NumberInput,
+  Pagination,
+  Select,
+  Table,
+  Text,
+  TextInput,
+  Group,
+} from "@mantine/core";
 
-import type { InventoryAdjustmentReason, InventoryCountOut } from "../../lib/api";
+import type {
+  InventoryAdjustmentReason,
+  InventoryCountOut,
+} from "../../lib/api";
 import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 
@@ -24,9 +36,12 @@ type InventoryCountsTableProps = {
       motivo_ajuste?: InventoryAdjustmentReason | null;
       observacao?: string | null;
     },
-    item: InventoryCountOut
+    item: InventoryCountOut,
   ) => void;
-  adjustmentReasonOptions: { value: InventoryAdjustmentReason; label: string }[];
+  adjustmentReasonOptions: {
+    value: InventoryAdjustmentReason;
+    label: string;
+  }[];
   totalItems: number;
   page: number;
   totalPages: number;
@@ -78,7 +93,8 @@ export function InventoryCountsTable({
           <Table.Tbody>
             {items.map((item) => {
               const edit = edits[item.produto_id];
-              const qtdFisico = edit?.qtd_fisico ?? item.qtd_fisico ?? item.qtd_sistema;
+              const qtdFisico =
+                edit?.qtd_fisico ?? item.qtd_fisico ?? item.qtd_sistema;
               const divergencia = qtdFisico - item.qtd_sistema;
 
               return (
@@ -91,34 +107,70 @@ export function InventoryCountsTable({
                       min={0}
                       value={qtdFisico}
                       onChange={(value) =>
-                        onSetItemEdit(item.produto_id, { qtd_fisico: Number(value ?? 0) }, item)
+                        onSetItemEdit(
+                          item.produto_id,
+                          { qtd_fisico: Number(value ?? 0) },
+                          item,
+                        )
                       }
                       disabled={sessionStatus !== "ABERTO"}
                       w={120}
                     />
                   </Table.Td>
                   <Table.Td>
-                    <Badge color={divergencia === 0 ? "gray" : divergencia > 0 ? "green" : "red"} variant="light">
+                    <Badge
+                      color={
+                        divergencia === 0
+                          ? "gray"
+                          : divergencia > 0
+                            ? "green"
+                            : "red"
+                      }
+                      variant="light"
+                    >
                       {divergencia}
                     </Badge>
                   </Table.Td>
                   <Table.Td>
-                    <Badge color={divergencia === 0 ? "gray" : divergencia > 0 ? "green" : "red"} variant="light">
-                      {divergencia === 0 ? "OK" : divergencia > 0 ? `A mais: ${divergencia}` : `Faltando: ${Math.abs(divergencia)}`}
+                    <Badge
+                      color={
+                        divergencia === 0
+                          ? "gray"
+                          : divergencia > 0
+                            ? "green"
+                            : "red"
+                      }
+                      variant="light"
+                    >
+                      {divergencia === 0
+                        ? "OK"
+                        : divergencia > 0
+                          ? `A mais: ${divergencia}`
+                          : `Faltando: ${Math.abs(divergencia)}`}
                     </Badge>
                   </Table.Td>
                   <Table.Td>
                     <Select
                       data={adjustmentReasonOptions}
-                      value={(edit?.motivo_ajuste ?? item.motivo_ajuste ?? null) as string | null}
+                      value={
+                        (edit?.motivo_ajuste ?? item.motivo_ajuste ?? null) as
+                          | string
+                          | null
+                      }
                       onChange={(value) =>
                         onSetItemEdit(
                           item.produto_id,
-                          { motivo_ajuste: (value as InventoryAdjustmentReason | null) ?? null },
-                          item
+                          {
+                            motivo_ajuste:
+                              (value as InventoryAdjustmentReason | null) ??
+                              null,
+                          },
+                          item,
                         )
                       }
-                      placeholder={divergencia !== 0 ? "Obrigatorio se divergir" : "-"}
+                      placeholder={
+                        divergencia !== 0 ? "Obrigatorio se divergir" : "-"
+                      }
                       disabled={sessionStatus !== "ABERTO" || divergencia === 0}
                       w={220}
                     />
@@ -127,9 +179,15 @@ export function InventoryCountsTable({
                     <TextInput
                       value={(edit?.observacao ?? item.observacao ?? "") || ""}
                       onChange={(event) =>
-                        onSetItemEdit(item.produto_id, { observacao: event.currentTarget.value }, item)
+                        onSetItemEdit(
+                          item.produto_id,
+                          { observacao: event.currentTarget.value },
+                          item,
+                        )
                       }
-                      placeholder={divergencia !== 0 ? "Obrigatorio se divergir" : "-"}
+                      placeholder={
+                        divergencia !== 0 ? "Obrigatorio se divergir" : "-"
+                      }
                       disabled={sessionStatus !== "ABERTO" || divergencia === 0}
                       w={260}
                     />

@@ -16,7 +16,8 @@ export default function ReportsStockSection({ loading, onGenerate }: Props) {
           </Badge>
         </Group>
         <Text size="sm" c="dimmed">
-          Lista os itens ativos com saldo atual por local. Ideal para conferencia rapida do estoque visivel no sistema.
+          Lista os itens ativos com saldo atual por local. Ideal para
+          conferencia rapida do estoque visivel no sistema.
         </Text>
         <Button onClick={onGenerate} loading={loading}>
           Gerar relatorio de estoque

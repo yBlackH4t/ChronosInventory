@@ -1,6 +1,11 @@
 :root {
   color-scheme: light;
-  --app-bg: radial-gradient(circle at top right, #f2f6ff 0%, #eef2f8 45%, #e9edf4 100%);
+  --app-bg: radial-gradient(
+    circle at top right,
+    #f2f6ff 0%,
+    #eef2f8 45%,
+    #e9edf4 100%
+  );
   --surface: #ffffff;
   --surface-muted: #f8fafc;
   --line: #d6dceb;
@@ -15,7 +20,12 @@
 
 :root[data-mantine-color-scheme="dark"] {
   color-scheme: dark;
-  --app-bg: radial-gradient(circle at top right, #111827 0%, #0f172a 48%, #0b1220 100%);
+  --app-bg: radial-gradient(
+    circle at top right,
+    #111827 0%,
+    #0f172a 48%,
+    #0b1220 100%
+  );
   --surface: #111827;
   --surface-muted: #172133;
   --line: #334155;

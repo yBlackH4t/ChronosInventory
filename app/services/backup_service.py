@@ -440,8 +440,10 @@ class BackupService:
         required_tables = [
             "produtos",
             "movimentacoes",
-            "historico",
             "system_info",
+            "locais",
+            "produto_estoque",
+            "product_images",
         ]
         conn = None
         try:

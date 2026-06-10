@@ -40,7 +40,9 @@ import type {
   TopSaidaItem,
 } from "../../lib/api";
 
-type Scope = "AMBOS" | "CANOAS" | "PF";
+import { useLocations } from "../../hooks/useLocations";
+
+type Scope = number | null;
 type PeriodMode = "week" | "month";
 type ExternalTransferType = "ENTRADA" | "SAIDA";
 
@@ -68,16 +70,9 @@ type DashboardVisualsProps = {
 };
 
 const COLORS = {
-  canoas: "#1f77b4",
-  pf: "#f39c12",
   total: "#2ecc71",
   zerado: "#e03131",
-};
-
-const SCOPE_LABELS: Record<Scope, string> = {
-  AMBOS: "Ambos",
-  CANOAS: "Canoas",
-  PF: "Passo Fundo",
+  locs: ["#1f77b4", "#f39c12", "#9b59b6", "#e67e22", "#34495e"],
 };
 
 const PERIOD_LABELS: Record<PeriodMode, string> = {
@@ -151,22 +146,33 @@ export default function DashboardVisuals({
   recentStockouts,
   recentStockoutsLoading,
 }: DashboardVisualsProps) {
+  const { locations } = useLocations();
+  const getScopeLabel = (s: Scope) => {
+    if (s === null) return "Todos os locais";
+    return locations.find((l) => l.id === s)?.name ?? `Local #${s}`;
+  };
+
   const hasTopSaidasData = topSaidas.some((item) => item.total_saida > 0);
   const topSaidasChartData = topSaidas.map((item) => ({
     ...item,
     nome_curto: truncateLabel(item.nome),
   }));
-  const externalTransfersChartData = externalTransfers.slice(0, 8).map((item) => ({
-    ...item,
-    nome_curto: truncateLabel(item.nome, 26),
-  }));
+  const externalTransfersChartData = externalTransfers
+    .slice(0, 8)
+    .map((item) => ({
+      ...item,
+      nome_curto: truncateLabel(item.nome, 26),
+    }));
   const externalTransfersVisibleRows = showAllExternalTransfers
     ? externalTransfers
     : externalTransfers.slice(0, 8);
-  const externalTransfersChartHeight = Math.max(280, externalTransfersChartData.length * 34);
-  const periodContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
-  const evolutionContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
-  const externalTransfersContext = `${PERIOD_LABELS[periodMode]} | ${SCOPE_LABELS[scope]} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+  const externalTransfersChartHeight = Math.max(
+    280,
+    externalTransfersChartData.length * 34,
+  );
+  const periodContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+  const evolutionContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+  const externalTransfersContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
 
   return (
     <Grid>
@@ -186,20 +192,41 @@ export default function DashboardVisuals({
           ) : (
             <div style={{ width: "100%", height: 280 }}>
               <ResponsiveContainer>
-                <BarChart data={topSaidasChartData} margin={{ top: 22, right: 8, left: 0, bottom: 8 }}>
+                <BarChart
+                  data={topSaidasChartData}
+                  margin={{ top: 22, right: 8, left: 0, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="nome_curto" interval={0} tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="nome_curto"
+                    interval={0}
+                    tick={{ fontSize: 11 }}
+                  />
                   <YAxis allowDecimals={false} />
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
                     itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                     cursor={BAR_TOOLTIP_CURSOR}
-                    formatter={(value: number | string | undefined) => [numericValue(value), "Saidas"]}
-                    labelFormatter={(_, payload) => payload?.[0]?.payload?.nome ?? "-"}
+                    formatter={(value: number | string | undefined) => [
+                      numericValue(value),
+                      "Saidas",
+                    ]}
+                    labelFormatter={(_, payload) =>
+                      payload?.[0]?.payload?.nome ?? "-"
+                    }
                   />
-                  <Bar dataKey="total_saida" name="Saidas" fill={COLORS.zerado} radius={[4, 4, 0, 0]}>
-                    <LabelList dataKey="total_saida" position="top" fontSize={11} />
+                  <Bar
+                    dataKey="total_saida"
+                    name="Saidas"
+                    fill={COLORS.zerado}
+                    radius={[4, 4, 0, 0]}
+                  >
+                    <LabelList
+                      dataKey="total_saida"
+                      position="top"
+                      fontSize={11}
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -211,10 +238,12 @@ export default function DashboardVisuals({
       <Grid.Col span={{ base: 12, lg: 6 }}>
         <Card withBorder>
           <Title order={4} mb="sm">
-            {scope === "AMBOS" ? "Distribuicao atual de estoque" : `Estoque atual em ${SCOPE_LABELS[scope]}`}
+            {scope === null
+              ? "Distribuicao atual de estoque"
+              : `Estoque atual em ${getScopeLabel(scope)}`}
           </Title>
           <Text size="xs" c="dimmed" mb="sm">
-            {scope === "AMBOS"
+            {scope === null
               ? `Base atual por filial | Total: ${distribution?.total ?? 0} itens`
               : `Base atual no escopo | Total: ${distribution?.total ?? 0} itens`}
           </Text>
@@ -233,24 +262,34 @@ export default function DashboardVisuals({
                     cx="50%"
                     cy="50%"
                     outerRadius={95}
-                    label={(entry: { name?: string; value?: number | string; percent?: number }) =>
+                    label={(entry: {
+                      name?: string;
+                      value?: number | string;
+                      percent?: number;
+                    }) =>
                       `${entry.name ?? "-"}: ${numericValue(entry.value)} (${((entry.percent ?? 0) * 100).toFixed(1)}%)`
                     }
                   >
-                    {distribution.items.map((entry) => (
-                      <Cell key={entry.local} fill={entry.local === "CANOAS" ? COLORS.canoas : COLORS.pf} />
+                    {distribution.items.map((entry, idx) => (
+                      <Cell
+                        key={entry.local}
+                        fill={
+                          COLORS.locs?.[idx % COLORS.locs?.length] ||
+                          COLORS.total
+                        }
+                      />
                     ))}
                   </Pie>
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
                     itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                    formatter={(value: number | string | undefined, name: string | undefined) => [
-                      `${numericValue(value)} itens`,
-                      name ?? "Local",
-                    ]}
+                    formatter={(
+                      value: number | string | undefined,
+                      name: string | undefined,
+                    ) => [`${numericValue(value)} itens`, name ?? "Local"]}
                   />
-                  <Legend formatter={(value: string) => (value === "CANOAS" ? "Canoas" : "Passo Fundo")} />
+                  <Legend />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -282,14 +321,28 @@ export default function DashboardVisuals({
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
                     itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                     cursor={LINE_TOOLTIP_CURSOR}
-                    formatter={(value: number | string | undefined, name: string | undefined) => [
-                      numericValue(value),
-                      flowSeriesLabel(name),
-                    ]}
+                    formatter={(
+                      value: number | string | undefined,
+                      name: string | undefined,
+                    ) => [numericValue(value), flowSeriesLabel(name)]}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="entradas" name="Entradas" stroke={COLORS.total} strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="saidas" name="Saidas" stroke={COLORS.zerado} strokeWidth={2} dot={false} />
+                  <Line
+                    type="monotone"
+                    dataKey="entradas"
+                    name="Entradas"
+                    stroke={COLORS.total}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="saidas"
+                    name="Saidas"
+                    stroke={COLORS.zerado}
+                    strokeWidth={2}
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -321,14 +374,17 @@ export default function DashboardVisuals({
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
                     itemStyle={CHART_TOOLTIP_ITEM_STYLE}
                     cursor={LINE_TOOLTIP_CURSOR}
-                    formatter={(value: number | string | undefined) => [numericValue(value), "Total em estoque"]}
+                    formatter={(value: number | string | undefined) => [
+                      numericValue(value),
+                      "Total em estoque",
+                    ]}
                   />
                   <Legend />
                   <Line
                     type="monotone"
                     dataKey="total_stock"
                     name="Total em estoque"
-                    stroke={scope === "PF" ? COLORS.pf : COLORS.canoas}
+                    stroke={COLORS.locs?.[0] || COLORS.locs[0]}
                     strokeWidth={2}
                     dot={false}
                   />
@@ -350,7 +406,9 @@ export default function DashboardVisuals({
             </div>
             <SegmentedControl
               value={externalTransferType}
-              onChange={(value) => onExternalTransferTypeChange(value as ExternalTransferType)}
+              onChange={(value) =>
+                onExternalTransferTypeChange(value as ExternalTransferType)
+              }
               data={[
                 { value: "SAIDA", label: "Saidas externas" },
                 { value: "ENTRADA", label: "Entradas externas" },
@@ -363,7 +421,9 @@ export default function DashboardVisuals({
             <EmptyState message="Sem transferencias externas no recorte atual." />
           ) : (
             <Stack gap="md">
-              <div style={{ width: "100%", height: externalTransfersChartHeight }}>
+              <div
+                style={{ width: "100%", height: externalTransfersChartHeight }}
+              >
                 <ResponsiveContainer>
                   <BarChart
                     data={externalTransfersChartData}
@@ -372,7 +432,12 @@ export default function DashboardVisuals({
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis type="number" allowDecimals={false} />
-                    <YAxis type="category" dataKey="nome_curto" width={200} tick={{ fontSize: 11 }} />
+                    <YAxis
+                      type="category"
+                      dataKey="nome_curto"
+                      width={200}
+                      tick={{ fontSize: 11 }}
+                    />
                     <Tooltip
                       contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                       labelStyle={CHART_TOOLTIP_LABEL_STYLE}
@@ -380,16 +445,28 @@ export default function DashboardVisuals({
                       cursor={BAR_TOOLTIP_CURSOR}
                       formatter={(value: number | string | undefined) => [
                         numericValue(value),
-                        externalTransferType === "ENTRADA" ? "Qtd entrada" : "Qtd saida",
+                        externalTransferType === "ENTRADA"
+                          ? "Qtd entrada"
+                          : "Qtd saida",
                       ]}
-                      labelFormatter={(_, payload) => payload?.[0]?.payload?.nome ?? "-"}
+                      labelFormatter={(_, payload) =>
+                        payload?.[0]?.payload?.nome ?? "-"
+                      }
                     />
                     <Bar
                       dataKey="total_quantidade"
-                      fill={externalTransferType === "ENTRADA" ? COLORS.total : COLORS.zerado}
+                      fill={
+                        externalTransferType === "ENTRADA"
+                          ? COLORS.total
+                          : COLORS.zerado
+                      }
                       radius={[0, 4, 4, 0]}
                     >
-                      <LabelList dataKey="total_quantidade" position="right" fontSize={11} />
+                      <LabelList
+                        dataKey="total_quantidade"
+                        position="right"
+                        fontSize={11}
+                      />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -408,14 +485,18 @@ export default function DashboardVisuals({
                   </Table.Thead>
                   <Table.Tbody>
                     {externalTransfersVisibleRows.map((item) => (
-                      <Table.Tr key={`${externalTransferType}-${item.produto_id}`}>
+                      <Table.Tr
+                        key={`${externalTransferType}-${item.produto_id}`}
+                      >
                         <Table.Td>{item.produto_id}</Table.Td>
                         <Table.Td>{item.nome}</Table.Td>
                         <Table.Td>{item.total_quantidade}</Table.Td>
                         <Table.Td>{item.total_movimentacoes}</Table.Td>
                         <Table.Td>
                           {item.ultima_transferencia
-                            ? dayjs(item.ultima_transferencia).format("DD/MM/YYYY HH:mm")
+                            ? dayjs(item.ultima_transferencia).format(
+                                "DD/MM/YYYY HH:mm",
+                              )
                             : "Sem historico"}
                         </Table.Td>
                       </Table.Tr>
@@ -427,9 +508,14 @@ export default function DashboardVisuals({
               {externalTransfers.length > 8 ? (
                 <Group justify="space-between" align="center">
                   <Text size="xs" c="dimmed">
-                    Mostrando {externalTransfersVisibleRows.length} de {externalTransfers.length} itens.
+                    Mostrando {externalTransfersVisibleRows.length} de{" "}
+                    {externalTransfers.length} itens.
                   </Text>
-                  <Button variant="subtle" size="xs" onClick={onToggleAllExternalTransfers}>
+                  <Button
+                    variant="subtle"
+                    size="xs"
+                    onClick={onToggleAllExternalTransfers}
+                  >
                     {showAllExternalTransfers ? "Ver menos" : "Ver mais"}
                   </Button>
                 </Group>
@@ -445,7 +531,8 @@ export default function DashboardVisuals({
             Zerados com venda recente
           </Title>
           <Text size="xs" c="dimmed" mb="sm">
-            Referencia: ate {dayjs(dateTo).format("DD/MM/YYYY")} | Escopo: {SCOPE_LABELS[scope]} | Janela: 30 dias
+            Referencia: ate {dayjs(dateTo).format("DD/MM/YYYY")} | Escopo:{" "}
+            {getScopeLabel(scope)} | Janela: 30 dias
           </Text>
           {recentStockoutsLoading ? (
             <Loader size="sm" />
@@ -468,7 +555,11 @@ export default function DashboardVisuals({
                       <Table.Td>{item.produto_id}</Table.Td>
                       <Table.Td>{item.nome}</Table.Td>
                       <Table.Td>{item.total_saida_recente}</Table.Td>
-                      <Table.Td>{item.last_sale ? dayjs(item.last_sale).format("DD/MM/YYYY HH:mm") : "Sem historico"}</Table.Td>
+                      <Table.Td>
+                        {item.last_sale
+                          ? dayjs(item.last_sale).format("DD/MM/YYYY HH:mm")
+                          : "Sem historico"}
+                      </Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>

@@ -22,7 +22,7 @@ type QueryValue = string | number | boolean | null | undefined;
 type RequestFn = <T>(
   input: string,
   init: RequestInit | undefined,
-  baseUrl: string
+  baseUrl: string,
 ) => Promise<SuccessResponse<T>>;
 
 type BuildQueryFn = (params: Record<string, QueryValue>) => string;
@@ -36,10 +36,17 @@ type ApiContext = {
 export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
   return {
     async listStockProfiles(options: RequestInit = {}) {
-      return request<StockProfilesStateOut>(`/sistema/estoques`, { method: "GET", ...options }, baseUrl);
+      return request<StockProfilesStateOut>(
+        `/sistema/estoques`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
     },
 
-    async createStockProfile(payload: StockProfileCreateIn, options: RequestInit = {}) {
+    async createStockProfile(
+      payload: StockProfileCreateIn,
+      options: RequestInit = {},
+    ) {
       return request<StockProfileOut>(
         `/sistema/estoques`,
         {
@@ -47,11 +54,14 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
           body: JSON.stringify(payload),
           ...options,
         },
-        baseUrl
+        baseUrl,
       );
     },
 
-    async activateStockProfile(payload: StockProfileActivateIn, options: RequestInit = {}) {
+    async activateStockProfile(
+      payload: StockProfileActivateIn,
+      options: RequestInit = {},
+    ) {
       return request<StockProfileActivateOut>(
         `/sistema/estoques/ativo`,
         {
@@ -59,7 +69,7 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
           body: JSON.stringify(payload),
           ...options,
         },
-        baseUrl
+        baseUrl,
       );
     },
 
@@ -67,11 +77,14 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
       return request<StockProfileDeleteOut>(
         `/sistema/estoques/${encodeURIComponent(profileId)}`,
         { method: "DELETE", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
-    async compareStockDatabases(payload: StockCompareIn, options: RequestInit = {}) {
+    async compareStockDatabases(
+      payload: StockCompareIn,
+      options: RequestInit = {},
+    ) {
       return request<StockCompareOut>(
         `/sistema/comparar-bases`,
         {
@@ -79,7 +92,7 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
           body: JSON.stringify(payload),
           ...options,
         },
-        baseUrl
+        baseUrl,
       );
     },
 
@@ -87,7 +100,7 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
       return request<PublishedCompareStatusOut>(
         `/sistema/comparativo-publicado/status`,
         { method: "GET", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
@@ -95,15 +108,18 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
       return request<PublishedComparePublishOut>(
         `/sistema/comparativo-publicado/publicar`,
         { method: "POST", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
-    async compareWithPublishedSnapshot(machineLabel: string, options: RequestInit = {}) {
+    async compareWithPublishedSnapshot(
+      machineLabel: string,
+      options: RequestInit = {},
+    ) {
       return request<StockCompareOut>(
         `/sistema/comparativo-publicado/${encodeURIComponent(machineLabel)}/comparar`,
         { method: "POST", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
@@ -111,19 +127,19 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
       return request<CompareServerStatusOut>(
         `/sistema/comparativo-servidor/status`,
         { method: "GET", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
     async listCompareServerHistory(
       params: { limit?: number } = {},
-      options: RequestInit = {}
+      options: RequestInit = {},
     ) {
       const query = buildQuery(params);
       return request<PublishedCompareBaseOut[]>(
         `/sistema/comparativo-servidor/historico${query}`,
         { method: "GET", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
@@ -131,13 +147,13 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
       return request<PublishedComparePublishOut>(
         `/sistema/comparativo-servidor/publicar`,
         { method: "POST", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
     async deleteCompareServerPublication(
       payload: PublishedCompareDeleteIn,
-      options: RequestInit = {}
+      options: RequestInit = {},
     ) {
       return request<PublishedCompareDeleteOut>(
         `/sistema/comparativo-servidor/publicacoes`,
@@ -146,20 +162,26 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
           body: JSON.stringify(payload),
           ...options,
         },
-        baseUrl
+        baseUrl,
       );
     },
 
-    async inspectRemoteCompareServer(serverUrl: string, options: RequestInit = {}) {
+    async inspectRemoteCompareServer(
+      serverUrl: string,
+      options: RequestInit = {},
+    ) {
       const query = buildQuery({ server_url: serverUrl });
       return request<RemoteCompareServerOut>(
         `/sistema/comparativo-servidor/remoto${query}`,
         { method: "GET", ...options },
-        baseUrl
+        baseUrl,
       );
     },
 
-    async compareWithRemoteServer(serverUrl: string, options: RequestInit = {}) {
+    async compareWithRemoteServer(
+      serverUrl: string,
+      options: RequestInit = {},
+    ) {
       return request<StockCompareOut>(
         `/sistema/comparativo-servidor/comparar`,
         {
@@ -167,7 +189,7 @@ export function createSystemApi({ baseUrl, request, buildQuery }: ApiContext) {
           body: JSON.stringify({ server_url: serverUrl }),
           ...options,
         },
-        baseUrl
+        baseUrl,
       );
     },
   };

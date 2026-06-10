@@ -1,7 +1,9 @@
-﻿"""
+"""
 Validadores de regras de negocio para Models.
 Centraliza validacoes especificas de dominio.
 """
+
+from typing import Dict
 
 from core.utils.validators import Validators
 from core.exceptions import ValidationException, InsufficientStockException
@@ -12,14 +14,13 @@ class ProductValidator:
     """Validador para entidade Product."""
     
     @staticmethod
-    def validate_product_data(nome: str, qtd_canoas: int, qtd_pf: int) -> None:
+    def validate_product_data(nome: str, inventories: Dict[int, int]) -> None:
         """
         Valida dados de um produto.
         
         Args:
             nome: Nome do produto
-            qtd_canoas: Quantidade em Canoas
-            qtd_pf: Quantidade em Passo Fundo
+            inventories: Dict {location_id: quantidade} com estoques por local
             
         Raises:
             ValidationException: Se dados invalidos
@@ -27,13 +28,16 @@ class ProductValidator:
         # Valida nome
         Validators.validate_required(nome, "Nome do produto")
         
-        # Valida quantidades
-        qtd_c = Validators.validate_non_negative_integer(qtd_canoas, "Quantidade em Canoas")
-        qtd_p = Validators.validate_non_negative_integer(qtd_pf, "Quantidade em Passo Fundo")
+        # Valida cada quantidade no dict de inventories
+        total = 0
+        for location_id, qty in inventories.items():
+            validated_qty = Validators.validate_non_negative_integer(
+                qty, f"Quantidade no local {location_id}"
+            )
+            total += validated_qty
         
-        # Valida que ao menos uma quantidade seja maior que zero
-        if qtd_c + qtd_p <= 0:
-            raise ValidationException(MESSAGES["MIN_STOCK_REQUIRED"])
+        # Permitir que produtos sejam criados com estoque zerado
+        # Especialmente útil para importação de planilhas.
     
     @staticmethod
     def validate_product_name(nome: str) -> None:

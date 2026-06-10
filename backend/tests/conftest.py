@@ -35,5 +35,19 @@ def client(tmp_path, monkeypatch):
     from backend.app import main as main_module
 
     importlib.reload(main_module)
+    
+    # Seed default locations expected by tests
+    db = DatabaseConnection().get_connection()
+    try:
+        # Canoas
+        db.execute("INSERT OR REPLACE INTO locais (id, nome, label, color, ordem, ativo) VALUES (?, ?, ?, ?, ?, ?)", 
+                   (11, 'CANOAS', 'Canoas', '#1f538d', 1, 1))
+        # Passo Fundo
+        db.execute("INSERT OR REPLACE INTO locais (id, nome, label, color, ordem, ativo) VALUES (?, ?, ?, ?, ?, ?)", 
+                   (12, 'PF', 'Passo Fundo', '#e74c3c', 2, 1))
+        db.commit()
+    finally:
+        db.close()
+
     return TestClient(main_module.app)
 

@@ -8,12 +8,12 @@ from datetime import datetime
 from typing import Tuple, List, Dict, Any
 from app.models.product import Product
 from app.models.validators import ProductValidator
-from app.services.stock_dataframe_service import StockDataFrameService
+
 from core.constants import DATE_FORMAT_DB
 from core.database.repositories.movement_repository import MovementRepository
 from core.database.repositories.product_repository import ProductRepository
-from core.database.repositories.history_repository import HistoryRepository
-from core.exceptions import DatabaseException, ValidationException
+from core.database.repositories.inventory_location_repository import InventoryLocationRepository
+from core.exceptions import DatabaseException, ValidationException, NotFoundException, ProductNotFoundException
 
 
 class StockService:
@@ -25,8 +25,7 @@ class StockService:
     def __init__(self):
         self.product_repo = ProductRepository()
         self.movement_repo = MovementRepository()
-        self.history_repo = HistoryRepository()
-        self.dataframe_service = StockDataFrameService()
+
     
     def get_all_products(self, search_term: str = "") -> List[Product]:
         """
@@ -100,27 +99,7 @@ class StockService:
         )
         return [Product.from_dict(data) for data in products_data], total
     
-    def get_products_as_dataframe(self, search_term: str = "") -> pd.DataFrame:
-        """
-        Retorna produtos como DataFrame (compatibilidade com UI antiga).
-        
-        Args:
-            search_term: Termo de busca (opcional)
-            
-        Returns:
-            DataFrame com produtos
-        """
-        products = self.get_all_products(search_term)
-        
-        return self.dataframe_service.products_to_dataframe(products)
 
-    def get_products_by_ids_as_dataframe(self, product_ids: List[int]) -> pd.DataFrame:
-        """
-        Retorna produtos selecionados como DataFrame, preservando a ordem enviada.
-        """
-        products_data = self.product_repo.get_by_ids(product_ids)
-        return self.dataframe_service.selected_products_to_dataframe(product_ids, products_data)
-    
     def get_product_by_id(self, product_id: int) -> Product:
         """
         Retorna produto por ID.
@@ -136,117 +115,87 @@ class StockService:
         """
         product_data = self.product_repo.get_by_id(product_id)
         if not product_data:
-            from core.exceptions import ProductNotFoundException
-            raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
-        
+            raise ProductNotFoundException(f"Produto {product_id} nao encontrado.")
         return Product.from_dict(product_data)
+
+    def get_product_by_name(self, product_name: str) -> Product:
+        """
+        Retorna um produto pelo seu nome exato (case-insensitive).
+        
+        Args:
+            product_name: Nome do produto
+            
+        Returns:
+            Product
+            
+        Raises:
+            NotFoundException: Se não encontrar.
+        """
+        # A simple solution is to get_all with search_term, then filter exactly
+        products_data = self.product_repo.get_all(search_term=product_name, status="ATIVO")
+        for data in products_data:
+            if str(data.get("nome", "")).strip().lower() == product_name.strip().lower():
+                return Product.from_dict(data)
+                
+        raise NotFoundException(f"Produto com nome '{product_name}' não encontrado.")
     
-    def add_product(self, nome: str, qtd_canoas: int, qtd_pf: int, observacao: str | None = None) -> Product:
+    def add_product(self, nome: str, inventories: Dict[int, int], observacao: str | None = None, product_id: int | None = None) -> Product:
         """
         Adiciona novo produto.
         
         Args:
             nome: Nome do produto
-            qtd_canoas: Quantidade em Canoas
-            qtd_pf: Quantidade em Passo Fundo
+            inventories: Dict {local_id: quantidade}
+            observacao: Opcional
+            product_id: Opcional
             
         Returns:
-            Produto criado
-            
-        Raises:
-            ValidationException: Se dados inválidos
+            Product recém-criado
         """
-        # Valida dados
-        ProductValidator.validate_product_data(nome, qtd_canoas, qtd_pf)
+        from app.models.validators import ProductValidator
+        ProductValidator.validate_product_data(nome, inventories)
+        nome_norm = nome.strip().upper()
         
-        # Normaliza nome
-        nome_normalizado = nome.strip().upper()
+        new_id = self.product_repo.add(nome_norm, inventories, observacao, product_id)
         
+        # Cria movimentos de entrada para o saldo inicial
         data_hora = datetime.now().strftime(DATE_FORMAT_DB)
         movement_obs = "Estoque inicial gerado no cadastro do produto."
-        conn = self.product_repo.db.get_connection()
-
+        conn = self.movement_repo.db.get_connection()
         try:
             conn.execute("BEGIN")
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO produtos (nome, qtd_canoas, qtd_pf, observacao, ativo)
-                VALUES (?, ?, ?, ?, 1)
-                """,
-                (nome_normalizado, qtd_canoas, qtd_pf, observacao),
-            )
-            product_id = int(cursor.lastrowid)
-
-            self.movement_repo.insert_history(
-                conn,
-                "CADASTRO",
-                nome_normalizado,
-                0,
-                f"Inicial: C={qtd_canoas}/P={qtd_pf}",
-                data_hora,
-            )
-
-            if qtd_canoas > 0:
-                self.movement_repo.insert_movement(
-                    conn,
-                    "ENTRADA",
-                    product_id,
-                    qtd_canoas,
-                    None,
-                    "CANOAS",
-                    movement_obs,
-                    "OPERACAO_NORMAL",
-                    None,
-                    None,
-                    "CADASTRO_INICIAL",
-                    None,
-                    data_hora,
-                )
-
-            if qtd_pf > 0:
-                self.movement_repo.insert_movement(
-                    conn,
-                    "ENTRADA",
-                    product_id,
-                    qtd_pf,
-                    None,
-                    "PF",
-                    movement_obs,
-                    "OPERACAO_NORMAL",
-                    None,
-                    None,
-                    "CADASTRO_INICIAL",
-                    None,
-                    data_hora,
-                )
-
+            for loc_id, qty in inventories.items():
+                if qty > 0:
+                    self.movement_repo.insert_movement(
+                        conn=conn,
+                        tipo="ENTRADA",
+                        produto_id=new_id,
+                        quantidade=qty,
+                        origem_local_id=None,
+                        destino_local_id=loc_id,
+                        observacao=movement_obs,
+                        natureza="OPERACAO_NORMAL",
+                        motivo_ajuste=None,
+                        local_externo=None,
+                        documento="CADASTRO_INICIAL",
+                        movimento_ref_id=None,
+                        data_hora=data_hora,
+                    )
             conn.commit()
-        except ValidationException:
+        except Exception:
             conn.rollback()
             raise
-        except Exception as exc:
-            conn.rollback()
-            raise DatabaseException(f"Erro ao cadastrar produto: {exc}") from exc
         finally:
             conn.close()
         
-        # Retorna produto criado
-        return Product(
-            id=product_id,
-            nome=nome_normalizado,
-            qtd_canoas=qtd_canoas,
-            qtd_pf=qtd_pf,
-            observacao=observacao or "",
-            ativo=True,
-        )
+        # Recupera para retornar o modelo completo
+        return self.get_product_by_id(new_id)
 
     def update_product(
         self,
         product_id: int,
         nome: str | None = None,
-        qtd_canoas: int | None = None,
-        qtd_pf: int | None = None,
+        inventories: Dict[int, int] | None = None,
         observacao: str | None = None
     ) -> Product:
         """
@@ -255,8 +204,7 @@ class StockService:
         Args:
             product_id: ID do produto
             nome: Nome do produto (opcional)
-            qtd_canoas: Quantidade em Canoas (opcional)
-            qtd_pf: Quantidade em Passo Fundo (opcional)
+            inventories: Novo mapeamento de estoques (opcional)
             
         Returns:
             Produto atualizado
@@ -270,34 +218,32 @@ class StockService:
         
         # Valida e normaliza nome se fornecido
         if nome is not None:
+            from app.models.validators import ProductValidator
             ProductValidator.validate_product_name(nome)
             nome_normalizado = nome.strip().upper()
         else:
             nome_normalizado = current.nome
         
         # Valida quantidades se fornecidas
-        if qtd_canoas is not None:
-            ProductValidator.validate_stock_quantity(qtd_canoas)
+        if inventories is not None:
+            for loc_id, qty in inventories.items():
+                from app.models.validators import ProductValidator
+                ProductValidator.validate_stock_quantity(qty)
+            merged_inventories = inventories
         else:
-            qtd_canoas = current.qtd_canoas
-        
-        if qtd_pf is not None:
-            ProductValidator.validate_stock_quantity(qtd_pf)
-        else:
-            qtd_pf = current.qtd_pf
+            merged_inventories = current.inventories
         
         # Observacao
         if observacao is None:
             observacao = current.observacao
 
         # Atualiza no banco
-        self.product_repo.update_details(product_id, nome_normalizado, qtd_canoas, qtd_pf, observacao)
+        self.product_repo.update_details(product_id, nome_normalizado, merged_inventories, observacao)
         
         return Product(
             id=product_id,
             nome=nome_normalizado,
-            qtd_canoas=qtd_canoas,
-            qtd_pf=qtd_pf,
+            inventories=merged_inventories,
             observacao=observacao or "",
             ativo=current.ativo,
             inativado_em=current.inativado_em,
@@ -323,13 +269,7 @@ class StockService:
         motivo = (motivo_inativacao or "").strip() or None
         updated = self.product_repo.bulk_set_active(valid_ids, ativo=ativo, motivo_inativacao=motivo)
 
-        self.history_repo.add_log(
-            "ATIVACAO" if ativo else "INATIVACAO",
-            "LOTE",
-            updated,
-            f"Atualizacao em lote de status | ids={','.join(str(pid) for pid in valid_ids)}"
-            + (f" | motivo={motivo}" if motivo else ""),
-        )
+
         return updated
     
     def delete_product(self, product_id: int) -> str:
@@ -352,12 +292,7 @@ class StockService:
         self.product_repo.delete(product_id)
         
         # Registra log
-        self.history_repo.add_log(
-            "EXCLUSAO",
-            product.nome,
-            0,
-            "Item removido do sistema"
-        )
+        pass
         
         return product.nome
     
@@ -371,7 +306,7 @@ class StockService:
     
     def get_history_logs(self) -> List[Dict[str, Any]]:
         """Retorna todos os logs de histórico."""
-        return self.history_repo.get_all_logs()
+        return []
     
     def get_exit_counts_for_abc(self) -> Dict[str, int]:
         """
@@ -380,20 +315,42 @@ class StockService:
         Returns:
             Dicionário {produto_nome: quantidade_saidas}
         """
-        return self.history_repo.get_exit_count_by_product()
+        return {}
 
-    def get_dashboard_summary(self) -> Dict[str, int]:
+    def get_dashboard_summary(self) -> Dict[str, Any]:
         """
         Retorna resumo para dashboard.
         """
-        total_canoas = self.product_repo.get_total_stock_canoas()
-        total_pf = self.product_repo.get_total_stock_pf()
+        totals_by_loc = self.product_repo.get_stock_totals_by_location()
         itens_distintos = self.product_repo.count_products()
         zerados = self.product_repo.count_out_of_stock()
+        
+        locations_summary = []
+        total_geral = 0
+        
+        conn = self.product_repo.db.get_connection()
+        try:
+            loc_repo = InventoryLocationRepository(conn)
+            all_locs = loc_repo.get_all()
+        finally:
+            conn.close()
+        
+        for loc in all_locs:
+            if not loc.ativo:
+                continue
+            total = totals_by_loc.get(loc.id, 0)
+            total_geral += total
+            locations_summary.append({
+                "location_id": loc.id,
+                "location_name": loc.name,
+                "location_label": loc.label or loc.name,
+                "color": loc.color,
+                "total": total
+            })
+
         return {
-            "total_canoas": int(total_canoas or 0),
-            "total_pf": int(total_pf or 0),
-            "total_geral": int((total_canoas or 0) + (total_pf or 0)),
+            "locations": locations_summary,
+            "total_geral": total_geral,
             "itens_distintos": int(itens_distintos or 0),
             "zerados": int(zerados or 0),
         }

@@ -6,7 +6,11 @@ type EmptyStateProps = {
   onAction?: () => void;
 };
 
-export default function EmptyState({ message, actionLabel, onAction }: EmptyStateProps) {
+export default function EmptyState({
+  message,
+  actionLabel,
+  onAction,
+}: EmptyStateProps) {
   return (
     <Stack gap="xs" align="center" py="sm">
       <Text className="empty-state" ta="center">

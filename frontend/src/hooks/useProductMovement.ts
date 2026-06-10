@@ -16,24 +16,38 @@ import {
 type UseProductMovementOptions = {
   selectedId: number | null;
   profileScopeKey: string;
+  defaultLocationId: number;
 };
 
-export function useProductMovement({ selectedId, profileScopeKey }: UseProductMovementOptions) {
+export function useProductMovement({
+  selectedId,
+  profileScopeKey,
+  defaultLocationId,
+}: UseProductMovementOptions) {
   const queryClient = useQueryClient();
   const [action, setAction] = useState<ProductMovementType | null>(null);
 
   const movementForm = useForm<MovementCreate>({
-    initialValues: createInitialMovementValues(),
+    initialValues: createInitialMovementValues(
+      selectedId ?? 0,
+      defaultLocationId,
+    ),
     validate: {
       quantidade: (value) => (value <= 0 ? "Quantidade invalida" : null),
-      origem: (value, values) => (values.tipo !== "ENTRADA" && !value ? "Origem obrigatoria" : null),
-      destino: (value, values) => (values.tipo !== "SAIDA" && !value ? "Destino obrigatorio" : null),
+      origem_location_id: (value, values) =>
+        values.tipo !== "ENTRADA" && !value ? "Origem obrigatoria" : null,
+      destino_location_id: (value, values) =>
+        values.tipo !== "SAIDA" && !value ? "Destino obrigatorio" : null,
       natureza: (value, values) => {
         if (!value) return "Natureza obrigatoria";
         if (value === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
           return "Devolucao so pode ser ENTRADA";
         }
-        if (value === "TRANSFERENCIA_EXTERNA" && values.tipo !== "ENTRADA" && values.tipo !== "SAIDA") {
+        if (
+          value === "TRANSFERENCIA_EXTERNA" &&
+          values.tipo !== "ENTRADA" &&
+          values.tipo !== "SAIDA"
+        ) {
           return "Transferencia externa so pode ser ENTRADA ou SAIDA";
         }
         return null;
@@ -64,15 +78,29 @@ export function useProductMovement({ selectedId, profileScopeKey }: UseProductMo
     },
   });
 
-  const createMovementMutation = useMutation<SuccessResponse<MovementOut>, Error, MovementCreate>({
+  const createMovementMutation = useMutation<
+    SuccessResponse<MovementOut>,
+    Error,
+    MovementCreate
+  >({
     mutationFn: (payload) => api.createMovement(payload),
     onSuccess: () => {
       notifySuccess("Movimentacao registrada");
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
-      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["historico", profileScopeKey, selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["movimentacoes", profileScopeKey] });
-      queryClient.invalidateQueries({ queryKey: ["analytics", profileScopeKey] });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["produto", profileScopeKey, selectedId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["historico", profileScopeKey, selectedId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["movimentacoes", profileScopeKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["analytics", profileScopeKey],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -83,20 +111,29 @@ export function useProductMovement({ selectedId, profileScopeKey }: UseProductMo
       return;
     }
     setAction(next);
-    movementForm.setValues(createActionMovementValues(next, selectedId ?? 0));
+    movementForm.setValues(
+      createActionMovementValues(next, selectedId ?? 0, defaultLocationId),
+    );
   };
 
-  const handleMovementSubmit = movementForm.onSubmit((values) => {
-    if (!selectedId) return;
+  const handleMovementSubmit = movementForm.onSubmit(
+    (values: MovementCreate) => {
+      if (!selectedId) return;
 
-    const validationError = validateMovementSubmission(values);
-    if (validationError) {
-      movementForm.setFieldError(validationError.field, validationError.message);
-      return;
-    }
+      const validationError = validateMovementSubmission(values);
+      if (validationError) {
+        movementForm.setFieldError(
+          validationError.field,
+          validationError.message,
+        );
+        return;
+      }
 
-    createMovementMutation.mutate(normalizeMovementPayload(values, selectedId));
-  });
+      createMovementMutation.mutate(
+        normalizeMovementPayload(values, selectedId),
+      );
+    },
+  );
 
   return {
     action,

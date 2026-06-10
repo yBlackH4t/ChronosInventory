@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime
 from math import ceil
@@ -30,13 +30,7 @@ def _parse_sort(sort: str | None) -> tuple[str, str]:
     return field, direction
 
 
-def _validate_location(loc: str | None) -> str | None:
-    if loc is None:
-        return None
-    loc = loc.upper()
-    if loc not in {"CANOAS", "PF"}:
-        raise ValidationException("Local invalido. Use CANOAS ou PF.")
-    return loc
+
 
 
 def _validate_natureza(natureza: str | None) -> str | None:
@@ -58,8 +52,8 @@ def create_movement(
         tipo=payload.tipo,
         produto_id=payload.produto_id,
         quantidade=payload.quantidade,
-        origem=payload.origem,
-        destino=payload.destino,
+        origem_location_id=payload.origem_location_id,
+        destino_location_id=payload.destino_location_id,
         observacao=payload.observacao,
         natureza=payload.natureza,
         motivo_ajuste=payload.motivo_ajuste,
@@ -77,6 +71,8 @@ def create_movement(
         quantidade=record.quantidade,
         origem=record.origem,
         destino=record.destino,
+        origem_location_id=getattr(record, 'origem_location_id', None),
+        destino_location_id=getattr(record, 'destino_location_id', None),
         observacao=record.observacao,
         natureza=record.natureza,
         motivo_ajuste=record.motivo_ajuste,
@@ -92,8 +88,8 @@ def list_movements(
     produto_id: int | None = None,
     tipo: str | None = None,
     natureza: str | None = None,
-    origem: str | None = None,
-    destino: str | None = None,
+    origem_location_id: int | None = None,
+    destino_location_id: int | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     page: int = Query(1, ge=1),
@@ -108,16 +104,14 @@ def list_movements(
         raise ValidationException("Tipo invalido.")
 
     natureza = _validate_natureza(natureza)
-    origem = _validate_location(origem)
-    destino = _validate_location(destino)
 
     start = (page - 1) * page_size
     records, total_items = movement_service.list_movements(
         produto_id=produto_id,
         tipo=tipo,
         natureza=natureza,
-        origem=origem,
-        destino=destino,
+        origem_location_id=origem_location_id,
+        destino_location_id=destino_location_id,
         date_from=date_from,
         date_to=date_to,
         sort_column=sort_column,
@@ -146,6 +140,8 @@ def list_movements(
             quantidade=record.quantidade,
             origem=record.origem,
             destino=record.destino,
+            origem_location_id=getattr(record, 'origem_location_id', None),
+            destino_location_id=getattr(record, 'destino_location_id', None),
             observacao=record.observacao,
             natureza=record.natureza,
             motivo_ajuste=record.motivo_ajuste,

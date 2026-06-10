@@ -23,17 +23,12 @@ export const ADJUSTMENT_REASON_LABELS: Record<string, string> = {
   TRANSFERENCIA: "Transferencia",
 };
 
-export const LOCATIONS = [
-  { value: "CANOAS", label: "Canoas" },
-  { value: "PF", label: "Passo Fundo" },
-];
-
 export type MovementFilters = {
   produto_id: string;
   tipo: "" | MovementCreate["tipo"];
   natureza: "" | NonNullable<MovementCreate["natureza"]>;
-  origem: "" | "CANOAS" | "PF";
-  destino: "" | "CANOAS" | "PF";
+  origem_location_id: number | null;
+  destino_location_id: number | null;
   date_from: Date | null;
   date_to: Date | null;
 };
@@ -42,8 +37,8 @@ export type SerializedMovementFilters = {
   produto_id: string;
   tipo: "" | MovementCreate["tipo"];
   natureza: "" | NonNullable<MovementCreate["natureza"]>;
-  origem: "" | "CANOAS" | "PF";
-  destino: "" | "CANOAS" | "PF";
+  origem_location_id: string | null;
+  destino_location_id: string | null;
   date_from: string | null;
   date_to: string | null;
 };
@@ -76,7 +71,10 @@ export type MovementsTabState = {
 export const MOVEMENTS_TAB_ID = "movements";
 export const MOVEMENTS_TABLE_PREFS_KEY = "chronos.movements.table_prefs.v1";
 
-export const TABLE_VIEW_MODE_OPTIONS: { value: MovementTableViewMode; label: string }[] = [
+export const TABLE_VIEW_MODE_OPTIONS: {
+  value: MovementTableViewMode;
+  label: string;
+}[] = [
   { value: "AUTO", label: "Auto" },
   { value: "COMPACTO", label: "Compacto" },
   { value: "DETALHADO", label: "Detalhado" },
@@ -90,8 +88,8 @@ export const DEFAULT_MOVEMENT_FILTERS: MovementFilters = {
   produto_id: "",
   tipo: "",
   natureza: "",
-  origem: "",
-  destino: "",
+  origem_location_id: null,
+  destino_location_id: null,
   date_from: null,
   date_to: null,
 };
@@ -106,8 +104,8 @@ export const DEFAULT_MOVEMENTS_TAB_STATE: MovementsTabState = {
     produto_id: "",
     tipo: "",
     natureza: "",
-    origem: "",
-    destino: "",
+    origem_location_id: null,
+    destino_location_id: null,
     date_from: null,
     date_to: null,
   },
@@ -116,20 +114,38 @@ export const DEFAULT_MOVEMENTS_TAB_STATE: MovementsTabState = {
   scrollY: 0,
 };
 
-export function serializeFilters(filters: MovementFilters): SerializedMovementFilters {
+export function serializeFilters(
+  filters: MovementFilters,
+): SerializedMovementFilters {
   return {
     ...filters,
-    date_from: filters.date_from ? dayjs(filters.date_from).format("YYYY-MM-DD") : null,
-    date_to: filters.date_to ? dayjs(filters.date_to).format("YYYY-MM-DD") : null,
+    origem_location_id: filters.origem_location_id
+      ? String(filters.origem_location_id)
+      : null,
+    destino_location_id: filters.destino_location_id
+      ? String(filters.destino_location_id)
+      : null,
+    date_from: filters.date_from
+      ? dayjs(filters.date_from).format("YYYY-MM-DD")
+      : null,
+    date_to: filters.date_to
+      ? dayjs(filters.date_to).format("YYYY-MM-DD")
+      : null,
   };
 }
 
 export function deserializeFilters(
-  filters: SerializedMovementFilters | undefined
+  filters: SerializedMovementFilters | undefined,
 ): MovementFilters {
   if (!filters) return { ...DEFAULT_MOVEMENT_FILTERS };
   return {
     ...filters,
+    origem_location_id: filters.origem_location_id
+      ? Number(filters.origem_location_id)
+      : null,
+    destino_location_id: filters.destino_location_id
+      ? Number(filters.destino_location_id)
+      : null,
     date_from: filters.date_from ? dayjs(filters.date_from).toDate() : null,
     date_to: filters.date_to ? dayjs(filters.date_to).toDate() : null,
   };
@@ -142,7 +158,9 @@ export function movementColor(tipo: MovementOut["tipo"]) {
 }
 
 export function movementNatureLabel(natureza: MovementOut["natureza"]) {
-  return MOVEMENT_NATURES.find((item) => item.value === natureza)?.label ?? natureza;
+  return (
+    MOVEMENT_NATURES.find((item) => item.value === natureza)?.label ?? natureza
+  );
 }
 
 export function adjustmentReasonLabel(reason?: string | null) {
@@ -183,7 +201,9 @@ export function loadTablePreferences(): MovementsTablePreferences {
   }
 }
 
-export function saveTablePreferences(preferences: MovementsTablePreferences): void {
+export function saveTablePreferences(
+  preferences: MovementsTablePreferences,
+): void {
   const storage = getLocalStorageSafe();
   if (!storage) return;
   try {
@@ -195,7 +215,7 @@ export function saveTablePreferences(preferences: MovementsTablePreferences): vo
 
 export function resolveMovementTableLayout(
   viewMode: MovementTableViewMode,
-  viewportWidth: number
+  viewportWidth: number,
 ): ResolvedMovementTableLayout {
   if (viewMode === "COMPACTO") {
     return {

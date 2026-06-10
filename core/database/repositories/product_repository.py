@@ -1,26 +1,33 @@
 """
 Repository para operacoes com produtos.
 Responsabilidade unica: acesso a dados de produtos.
+
+v3.0.0: Estoques via product_inventory (locais dinâmicos).
+- Queries fazem JOIN com product_inventory + inventory_locations
+- Removidos get_total_stock_canoas/get_total_stock_pf
+- Adicionado get_stock_totals_by_location()
+- create/update escrevem em product_inventory
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from core.database.repositories.base_repository import BaseRepository
 from core.exceptions import DatabaseException, ProductNotFoundException
+
+logger = logging.getLogger(__name__)
 
 
 class ProductRepository(BaseRepository):
     """Repository para gerenciar produtos no banco de dados."""
 
     _ALLOWED_SORT_COLUMNS = {
-        "id": "id",
-        "nome": "nome",
-        "qtd_canoas": "qtd_canoas",
-        "qtd_pf": "qtd_pf",
-        "total_stock": "(COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0))",
-        "ativo": "ativo",
+        "id": "p.id",
+        "nome": "p.nome",
+        "total_stock": "total_stock",
+        "ativo": "p.ativo",
     }
 
     @staticmethod
@@ -32,22 +39,76 @@ class ProductRepository(BaseRepository):
         if term.startswith("#"):
             id_term = term[1:].strip()
             if id_term.isdigit():
-                where_clauses.append("id = ?")
+                where_clauses.append("p.id = ?")
                 params.append(int(id_term))
             else:
                 where_clauses.append("1 = 0")
             return
 
-        where_clauses.append("nome LIKE ?")
+        where_clauses.append("p.nome LIKE ?")
         params.append(f"%{term}%")
+
+    # ------------------------------------------------------------------
+    # Internal helpers: attach inventories to product dicts
+    # ------------------------------------------------------------------
+
+    def _attach_inventories(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Dado uma lista de dicts de produto, carrega inventories do
+        product_inventory e injeta como campo 'inventories': {loc_id: qty}.
+        """
+        if not products:
+            return products
+
+        product_ids = [p["id"] for p in products]
+        placeholders = ",".join("?" for _ in product_ids)
+        rows = self._execute_query(
+            f"""
+            SELECT e.produto_id, e.local_id, e.quantidade
+            FROM produto_estoque e
+            INNER JOIN locais l ON e.local_id = l.id
+            WHERE e.produto_id IN ({placeholders}) AND l.ativo = 1
+            """,
+            tuple(product_ids),
+        )
+
+        # Build map: {produto_id: {location_id: quantidade}}
+        inv_map: Dict[int, Dict[int, int]] = {}
+        for row in rows:
+            pid = row["produto_id"]
+            lid = row["local_id"]
+            qty = int(row["quantidade"] or 0)
+            inv_map.setdefault(pid, {})[lid] = qty
+
+        for product in products:
+            product["inventories"] = inv_map.get(product["id"], {})
+
+        return products
+
+    def _attach_inventories_single(self, product: Dict[str, Any]) -> Dict[str, Any]:
+        """Attach inventories to a single product dict."""
+        if not product:
+            return product
+        result = self._attach_inventories([product])
+        return result[0]
+
+    # ------------------------------------------------------------------
+    # Read operations
+    # ------------------------------------------------------------------
 
     def get_all(self, search_term: str = "", status: str = "ATIVO") -> List[Dict[str, Any]]:
         where_clauses: List[str] = ["1=1"]
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
         self._append_search_filter(search_term, where_clauses, params)
-        query = f"SELECT * FROM produtos WHERE {' AND '.join(where_clauses)} ORDER BY nome"
-        return self._execute_query(query, tuple(params))
+        query = f"""
+            SELECT p.*
+            FROM produtos p
+            WHERE {' AND '.join(where_clauses)}
+            ORDER BY p.nome
+        """
+        products = self._execute_query(query, tuple(params))
+        return self._attach_inventories(products)
 
     def get_all_paginated(
         self,
@@ -59,20 +120,35 @@ class ProductRepository(BaseRepository):
         status: str = "ATIVO",
         has_stock: Optional[bool] = None,
     ) -> List[Dict[str, Any]]:
-        sort_col = self._ALLOWED_SORT_COLUMNS.get(sort_column, "nome")
+        sort_col = self._ALLOWED_SORT_COLUMNS.get(sort_column, "p.nome")
         sort_dir = "DESC" if str(sort_direction).upper() == "DESC" else "ASC"
 
         where_clauses: List[str] = ["1=1"]
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
-        self._append_stock_filter(has_stock, where_clauses)
         self._append_search_filter(search_term, where_clauses, params)
-        query = (
-            f"SELECT * FROM produtos WHERE {' AND '.join(where_clauses)} "
-            f"ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
-        )
+
+        # Build HAVING clause for stock filter
+        having_clause = ""
+        if has_stock is True:
+            having_clause = "HAVING total_stock > 0"
+        elif has_stock is False:
+            having_clause = "HAVING total_stock = 0"
+
+        query = f"""
+            SELECT p.*,
+                   COALESCE(SUM(pi.quantidade), 0) AS total_stock
+            FROM produtos p
+            LEFT JOIN produto_estoque pi ON pi.produto_id = p.id
+            WHERE {' AND '.join(where_clauses)}
+            GROUP BY p.id
+            {having_clause}
+            ORDER BY {sort_col} {sort_dir}
+            LIMIT ? OFFSET ?
+        """
         params.extend([limit, offset])
-        return self._execute_query(query, tuple(params))
+        products = self._execute_query(query, tuple(params))
+        return self._attach_inventories(products)
 
     def count_filtered(
         self,
@@ -83,89 +159,275 @@ class ProductRepository(BaseRepository):
         where_clauses: List[str] = ["1=1"]
         params: List[Any] = []
         self._append_status_filter(status, where_clauses, params)
-        self._append_stock_filter(has_stock, where_clauses)
         self._append_search_filter(search_term, where_clauses, params)
+
+        having_clause = ""
+        if has_stock is True:
+            having_clause = "HAVING COALESCE(SUM(pi.quantidade), 0) > 0"
+        elif has_stock is False:
+            having_clause = "HAVING COALESCE(SUM(pi.quantidade), 0) = 0"
+
         result = self._execute_query(
-            f"SELECT COUNT(*) as total FROM produtos WHERE {' AND '.join(where_clauses)}",
+            f"""
+            SELECT COUNT(*) as total FROM (
+                SELECT p.id
+                FROM produtos p
+                LEFT JOIN produto_estoque pi ON pi.produto_id = p.id
+                WHERE {' AND '.join(where_clauses)}
+                GROUP BY p.id
+                {having_clause}
+            )
+            """,
             tuple(params),
         )
         return result[0]["total"] if result else 0
 
     def get_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
         results = self._execute_query("SELECT * FROM produtos WHERE id = ?", (product_id,))
-        return results[0] if results else None
+        if not results:
+            return None
+        return self._attach_inventories_single(results[0])
 
     def get_by_ids(self, product_ids: List[int]) -> List[Dict[str, Any]]:
         if not product_ids:
             return []
         placeholders = ",".join("?" for _ in product_ids)
         query = f"SELECT * FROM produtos WHERE id IN ({placeholders})"
-        return self._execute_query(query, tuple(product_ids))
+        products = self._execute_query(query, tuple(product_ids))
+        return self._attach_inventories(products)
 
-    def add(self, nome: str, qtd_canoas: int, qtd_pf: int, observacao: str | None = None) -> int:
-        command = """
-            INSERT INTO produtos (nome, qtd_canoas, qtd_pf, observacao, ativo)
-            VALUES (?, ?, ?, ?, 1)
+    # ------------------------------------------------------------------
+    # Write operations
+    # ------------------------------------------------------------------
+
+    def add(self, nome: str, inventories: Dict[int, int], observacao: str | None = None, product_id: int | None = None) -> int:
+        """
+        Insere novo produto e seus estoques por location.
+
+        Args:
+            nome: Nome do produto (já normalizado)
+            inventories: {local_id: quantidade}
+            observacao: Observação opcional
+
+        Returns:
+            ID do produto criado
         """
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            cursor.execute(command, (nome, qtd_canoas, qtd_pf, observacao))
+            conn.execute("BEGIN")
+            if product_id is not None:
+                cursor.execute(
+                    """
+                    INSERT INTO produtos (id, nome, observacao, ativo)
+                    VALUES (?, ?, ?, 1)
+                    """,
+                    (product_id, nome, observacao),
+                )
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO produtos (nome, observacao, ativo)
+                    VALUES (?, ?, 1)
+                    """,
+                    (nome, observacao),
+                )
+                product_id = int(cursor.lastrowid)
+
+            # Insere estoque por location
+            for location_id, qty in inventories.items():
+                cursor.execute(
+                    """
+                    INSERT INTO produto_estoque (produto_id, local_id, quantidade, atualizado_em)
+                    VALUES (?, ?, ?, datetime('now'))
+                    """,
+                    (product_id, location_id, qty),
+                )
+
             conn.commit()
-            return int(cursor.lastrowid)
+            logger.info("Produto criado: id=%d, nome=%s, inventories=%s", product_id, nome, inventories)
+            return product_id
         except Exception as exc:
             conn.rollback()
             raise DatabaseException(f"Erro ao executar comando: {exc}")
         finally:
             conn.close()
 
-    def update_stock(self, product_id: int, delta_canoas: int, delta_pf: int) -> bool:
-        command = """
-            UPDATE produtos
-            SET qtd_canoas = qtd_canoas + ?,
-                qtd_pf = qtd_pf + ?
-            WHERE id = ?
+    def update_stock(self, product_id: int, deltas: Dict[int, int]) -> bool:
         """
-        rows_affected = self._execute_command(command, (delta_canoas, delta_pf, product_id))
-        if rows_affected == 0:
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
-        return True
+        Aplica deltas de estoque por location no produto_estoque.
 
-    def set_stock(self, product_id: int, qtd_canoas: int, qtd_pf: int) -> bool:
-        command = """
-            UPDATE produtos
-            SET qtd_canoas = ?,
-                qtd_pf = ?
-            WHERE id = ?
+        Args:
+            product_id: ID do produto
+            deltas: {local_id: delta} — positivo ou negativo
+
+        Returns:
+            True se atualizado com sucesso
         """
-        rows_affected = self._execute_command(command, (qtd_canoas, qtd_pf, product_id))
-        if rows_affected == 0:
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
-        return True
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            for location_id, delta in deltas.items():
+                if delta == 0:
+                    continue
+                # Tenta atualizar registro existente
+                cursor.execute(
+                    """
+                    UPDATE produto_estoque
+                    SET quantidade = quantidade + ?,
+                        atualizado_em = datetime('now')
+                    WHERE produto_id = ? AND local_id = ?
+                    """,
+                    (delta, product_id, location_id),
+                )
+                if cursor.rowcount == 0:
+                    # Se não existia, insere (delta deve ser >= 0)
+                    if delta < 0:
+                        raise DatabaseException(
+                            f"Não existe estoque no local {location_id} para produto {product_id}."
+                        )
+                    cursor.execute(
+                        """
+                        INSERT INTO produto_estoque
+                            (produto_id, local_id, quantidade, atualizado_em)
+                        VALUES (?, ?, ?, datetime('now'))
+                        """,
+                        (product_id, location_id, delta),
+                    )
+            conn.commit()
+            return True
+        except Exception as exc:
+            conn.rollback()
+            if isinstance(exc, DatabaseException):
+                raise
+            raise DatabaseException(f"Erro ao atualizar estoque: {exc}")
+        finally:
+            conn.close()
+
+    def set_stock(self, product_id: int, inventories: Dict[int, int]) -> bool:
+        """
+        Define estoque absoluto por location (UPSERT).
+
+        Args:
+            product_id: ID do produto
+            inventories: {local_id: quantidade}
+
+        Returns:
+            True se atualizado com sucesso
+        """
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            for location_id, qty in inventories.items():
+                cursor.execute(
+                    """
+                    UPDATE produto_estoque
+                    SET quantidade = ?, atualizado_em = datetime('now')
+                    WHERE produto_id = ? AND local_id = ?
+                    """,
+                    (qty, product_id, location_id),
+                )
+                if cursor.rowcount == 0:
+                    cursor.execute(
+                        """
+                        INSERT INTO produto_estoque
+                            (produto_id, local_id, quantidade, atualizado_em)
+                        VALUES (?, ?, ?, datetime('now'))
+                        """,
+                        (product_id, location_id, qty),
+                    )
+            conn.commit()
+            return True
+        except Exception as exc:
+            conn.rollback()
+            raise DatabaseException(f"Erro ao definir estoque: {exc}")
+        finally:
+            conn.close()
 
     def update_details(
         self,
         product_id: int,
         nome: str,
-        qtd_canoas: int,
-        qtd_pf: int,
+        inventories: Dict[int, int],
         observacao: str | None = None,
     ) -> bool:
-        command = """
-            UPDATE produtos
-            SET nome = ?, qtd_canoas = ?, qtd_pf = ?, observacao = ?
-            WHERE id = ?
         """
-        rows_affected = self._execute_command(command, (nome, qtd_canoas, qtd_pf, observacao, product_id))
-        if rows_affected == 0:
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
-        return True
+        Atualiza dados do produto (nome, observacao) e estoques por location.
+
+        Args:
+            product_id: ID do produto
+            nome: Nome atualizado
+            inventories: {local_id: quantidade} completo
+            observacao: Observação
+
+        Returns:
+            True se atualizado com sucesso
+        """
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            cursor.execute(
+                "UPDATE produtos SET nome = ?, observacao = ? WHERE id = ?",
+                (nome, observacao, product_id),
+            )
+            if cursor.rowcount == 0:
+                raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+
+            # Upsert each location's stock
+            for location_id, qty in inventories.items():
+                cursor.execute(
+                    """
+                    UPDATE produto_estoque
+                    SET quantidade = ?, atualizado_em = datetime('now')
+                    WHERE produto_id = ? AND local_id = ?
+                    """,
+                    (qty, product_id, location_id),
+                )
+                if cursor.rowcount == 0:
+                    cursor.execute(
+                        """
+                        INSERT INTO produto_estoque
+                            (produto_id, local_id, quantidade, atualizado_em)
+                        VALUES (?, ?, ?, datetime('now'))
+                        """,
+                        (product_id, location_id, qty),
+                    )
+
+            conn.commit()
+            return True
+        except ProductNotFoundException:
+            conn.rollback()
+            raise
+        except Exception as exc:
+            conn.rollback()
+            raise DatabaseException(f"Erro ao atualizar produto: {exc}")
+        finally:
+            conn.close()
 
     def delete(self, product_id: int) -> bool:
-        rows_affected = self._execute_command("DELETE FROM produtos WHERE id = ?", (product_id,))
-        if rows_affected == 0:
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
-        return True
+        """Remove produto e seus registros de estoque."""
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            # produto_estoque has ON DELETE CASCADE, but be explicit
+            cursor.execute("DELETE FROM produto_estoque WHERE produto_id = ?", (product_id,))
+            cursor.execute("DELETE FROM produtos WHERE id = ?", (product_id,))
+            if cursor.rowcount == 0:
+                raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+            conn.commit()
+            return True
+        except ProductNotFoundException:
+            conn.rollback()
+            raise
+        except Exception as exc:
+            conn.rollback()
+            raise DatabaseException(f"Erro ao remover produto: {exc}")
+        finally:
+            conn.close()
 
     def exists(self, product_id: int) -> bool:
         return self._exists("produtos", "id = ?", (product_id,))
@@ -211,23 +473,95 @@ class ProductRepository(BaseRepository):
         finally:
             conn.close()
 
-    def get_total_stock_canoas(self) -> int:
-        result = self._execute_query("SELECT SUM(qtd_canoas) as total FROM produtos WHERE ativo = 1")
-        return result[0]["total"] if result and result[0]["total"] else 0
+    # ------------------------------------------------------------------
+    # Stock aggregation (dynamic locations)
+    # ------------------------------------------------------------------
 
-    def get_total_stock_pf(self) -> int:
-        result = self._execute_query("SELECT SUM(qtd_pf) as total FROM produtos WHERE ativo = 1")
-        return result[0]["total"] if result and result[0]["total"] else 0
+    def get_stock_totals_by_location(self) -> Dict[int, int]:
+        """
+        Retorna total de estoque por location para produtos ativos.
+
+        Returns:
+            Dict {local_id: total_quantidade}
+        """
+        rows = self._execute_query(
+            """
+            SELECT pi.local_id, COALESCE(SUM(pi.quantidade), 0) as total
+            FROM produto_estoque pi
+            JOIN produtos p ON p.id = pi.produto_id
+            WHERE p.ativo = 1
+            GROUP BY pi.local_id
+            """
+        )
+        return {row["local_id"]: int(row["total"] or 0) for row in rows}
+
+    def get_stock_by_location(self, location_id: int) -> int:
+        """Retorna total de estoque em um location específico (produtos ativos)."""
+        result = self._execute_query(
+            """
+            SELECT COALESCE(SUM(pi.quantidade), 0) as total
+            FROM produto_estoque pi
+            JOIN produtos p ON p.id = pi.produto_id
+            WHERE p.ativo = 1 AND pi.local_id = ?
+            """,
+            (location_id,),
+        )
+        return int(result[0]["total"]) if result else 0
 
     def count_products(self) -> int:
         return self._count("produtos", "ativo = 1")
 
+    def count_out_of_stock(self) -> int:
+        """Conta produtos ativos que não possuem estoque em nenhum location."""
+        result = self._execute_query(
+            """
+            SELECT COUNT(*) as total
+            FROM produtos p
+            WHERE p.ativo = 1
+              AND COALESCE((
+                  SELECT SUM(pi.quantidade)
+                  FROM produto_estoque pi
+                  WHERE pi.produto_id = p.id
+              ), 0) = 0
+            """
+        )
+        return int(result[0]["total"] if result else 0)
+
     def bulk_insert(self, products: List[tuple]) -> int:
-        command = """
-            INSERT OR REPLACE INTO produtos (id, nome, qtd_canoas, qtd_pf)
-            VALUES (?, ?, ?, ?)
         """
-        return self._execute_many(command, products)
+        Bulk insert/replace de produtos.
+        Cada tupla: (id, nome, inventories_dict)
+        Nota: inventories_dict é {local_id: qty}
+        """
+        conn = self.db.get_connection()
+        cursor = conn.cursor()
+        try:
+            conn.execute("BEGIN")
+            count = 0
+            for product_tuple in products:
+                pid, nome = product_tuple[0], product_tuple[1]
+                inventories = product_tuple[2] if len(product_tuple) > 2 else {}
+                cursor.execute(
+                    "INSERT OR REPLACE INTO produtos (id, nome) VALUES (?, ?)",
+                    (pid, nome),
+                )
+                for location_id, qty in inventories.items():
+                    cursor.execute(
+                        """
+                        INSERT OR REPLACE INTO produto_estoque
+                            (produto_id, local_id, quantidade, atualizado_em)
+                        VALUES (?, ?, ?, datetime('now'))
+                        """,
+                        (pid, location_id, qty),
+                    )
+                count += 1
+            conn.commit()
+            return count
+        except Exception as exc:
+            conn.rollback()
+            raise DatabaseException(f"Erro ao executar comando em lote: {exc}")
+        finally:
+            conn.close()
 
     # ---------------------------------------------------------------------
     # Imagens (novo modelo: tabela product_images)
@@ -374,8 +708,10 @@ class ProductRepository(BaseRepository):
 
     def clear_product_images(self, product_id: int) -> int:
         rows = self._execute_command("DELETE FROM product_images WHERE product_id = ?", (product_id,))
-        # Mantem compatibilidade com campo legado.
-        self._execute_command("UPDATE produtos SET imagem = NULL WHERE id = ?", (product_id,))
+        try:
+            self._execute_command("UPDATE produtos SET imagem = NULL WHERE id = ?", (product_id,))
+        except Exception:
+            pass
         return rows
 
     def replace_primary_product_image(self, product_id: int, image_bytes: bytes, mime_type: str) -> int:
@@ -417,8 +753,11 @@ class ProductRepository(BaseRepository):
                 )
                 image_id = int(cursor.lastrowid)
 
-            # Campo legado mantido para compatibilidade com tela antiga.
-            cursor.execute("UPDATE produtos SET imagem = ? WHERE id = ?", (image_bytes, product_id))
+            # Campo legado mantido para compatibilidade com tela antiga se a coluna existir.
+            try:
+                cursor.execute("UPDATE produtos SET imagem = ? WHERE id = ?", (image_bytes, product_id))
+            except Exception:
+                pass
             conn.commit()
             return image_id
         except Exception as exc:
@@ -436,9 +775,12 @@ class ProductRepository(BaseRepository):
             return primary["image_data"]
 
         # Fallback para banco legado sem migracao.
-        result = self._execute_query("SELECT imagem FROM produtos WHERE id = ?", (product_id,))
-        if result and result[0].get("imagem"):
-            return result[0]["imagem"]
+        try:
+            result = self._execute_query("SELECT imagem FROM produtos WHERE id = ?", (product_id,))
+            if result and result[0].get("imagem"):
+                return result[0]["imagem"]
+        except Exception:
+            pass
         return None
 
     def update_product_image(self, product_id: int, image_bytes: Optional[bytes]) -> bool:
@@ -459,28 +801,20 @@ class ProductRepository(BaseRepository):
         )
         return int(result[0]["total"] if result else 0)
 
-    def count_out_of_stock(self) -> int:
-        result = self._execute_query(
-            "SELECT COUNT(*) as total FROM produtos WHERE ativo = 1 AND (qtd_canoas + qtd_pf) = 0"
-        )
-        return int(result[0]["total"] if result else 0)
-
     def _append_status_filter(self, status: str, where_clauses: List[str], params: List[Any]) -> None:
         normalized = str(status or "ATIVO").upper()
         if normalized == "ATIVO":
-            where_clauses.append("ativo = 1")
+            where_clauses.append("p.ativo = 1")
             return
         if normalized == "INATIVO":
-            where_clauses.append("ativo = 0")
+            where_clauses.append("p.ativo = 0")
             return
         if normalized == "TODOS":
             return
         raise DatabaseException("Filtro de status invalido. Use ATIVO, INATIVO ou TODOS.")
 
     def _append_stock_filter(self, has_stock: Optional[bool], where_clauses: List[str]) -> None:
+        """Deprecated: stock filtering now handled via HAVING clause in paginated queries."""
         if has_stock is None:
             return
-        if has_stock:
-            where_clauses.append("(COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0)) > 0")
-            return
-        where_clauses.append("(COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0)) = 0")
+        logger.warning("_append_stock_filter is deprecated; use HAVING clause instead.")

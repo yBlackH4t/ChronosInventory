@@ -4,30 +4,23 @@ API Router para Inventory Locations (v2.0.0 white-label)
 Endpoints para gerenciar locations configuráveis de estoque
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from fastapi import APIRouter, Depends, Query
 
 from app.models.inventory_location import InventoryLocation
 from app.services.inventory_location_service import InventoryLocationService
-from backend.app.api.deps import get_db_connection
+from backend.app.api.deps import get_inventory_location_service
 from backend.app.api.responses import ok
 from backend.app.schemas.white_label import (
     InventoryLocationOut,
     InventoryLocationCreate,
     InventoryLocationUpdate,
 )
-from core.exceptions import DuplicateException, NotFoundException, ValidationException
 
 
 router = APIRouter(prefix="/inventory-locations", tags=["inventory-locations"])
 
 
-def get_inventory_location_service(connection = Depends(get_db_connection)) -> InventoryLocationService:
-    """Dependency para InventoryLocationService."""
-    return InventoryLocationService(connection)
-
-
-def _to_inventory_location_out(location: InventoryLocation) -> InventoryLocationOut:
+def _to_out(location: InventoryLocation) -> InventoryLocationOut:
     """Converte modelo para schema de saída."""
     return InventoryLocationOut(
         id=location.id or 0,
@@ -39,214 +32,92 @@ def _to_inventory_location_out(location: InventoryLocation) -> InventoryLocation
     )
 
 
-@router.get("", response_model=ok[List[InventoryLocationOut]])
+@router.get("")
 async def list_locations(
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[List[InventoryLocationOut]]:
-    """
-    Retorna todas as locations (ativas e inativas).
-    
-    Returns:
-        Lista de locations
-    """
-    try:
-        locations = service.get_all()
-        return ok(data=[_to_inventory_location_out(loc) for loc in locations])
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao listar locations: {str(e)}"
-        )
+):
+    """Retorna todas as locations (ativas e inativas)."""
+    locations = service.get_all()
+    return ok(data=[_to_out(loc) for loc in locations])
 
 
-@router.get("/active", response_model=ok[List[InventoryLocationOut]])
+@router.get("/active")
 async def list_active_locations(
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[List[InventoryLocationOut]]:
-    """
-    Retorna apenas locations ativas.
-    
-    Útil para dropdowns e formulários.
-    
-    Returns:
-        Lista de locations ativas
-    """
-    try:
-        locations = service.get_all_active()
-        return ok(data=[_to_inventory_location_out(loc) for loc in locations])
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao listar locations ativas: {str(e)}"
-        )
+):
+    """Retorna apenas locations ativas (para dropdowns/formulários)."""
+    locations = service.get_all_active()
+    return ok(data=[_to_out(loc) for loc in locations])
 
 
-@router.get("/{location_id}", response_model=ok[InventoryLocationOut])
+@router.get("/{location_id}")
 async def get_location(
     location_id: int,
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[InventoryLocationOut]:
-    """
-    Retorna um location específico pelo ID.
-    
-    Args:
-        location_id: ID do location
-        
-    Returns:
-        Location detalhes
-    """
-    try:
-        location = service.get_by_id(location_id)
-        return ok(data=_to_inventory_location_out(location))
-    except NotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao recuperar location: {str(e)}"
-        )
+):
+    """Retorna um location específico pelo ID."""
+    location = service.get_by_id(location_id)
+    return ok(data=_to_out(location))
 
 
-@router.post("", response_model=ok[InventoryLocationOut], status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=201)
 async def create_location(
     payload: InventoryLocationCreate,
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[InventoryLocationOut]:
+):
     """
     Cria novo location.
-    
-    Args:
-        payload: Dados do novo location
-        
-    Returns:
-        Location criado com ID
+
+    Limite: máximo de 5 locations ativas.
     """
-    try:
-        location = service.create(
-            name=payload.name,
-            label=payload.label,
-            color=payload.color,
-            ordem=payload.ordem,
-        )
-        return ok(data=_to_inventory_location_out(location))
-    except DuplicateException as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(e)
-        )
-    except (ValueError, ValidationException) as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao criar location: {str(e)}"
-        )
+    location = service.create(
+        name=payload.name,
+        label=payload.label,
+        color=payload.color,
+        ordem=payload.ordem,
+    )
+    return ok(data=_to_out(location), status_code=201)
 
 
-@router.put("/{location_id}", response_model=ok[InventoryLocationOut])
+@router.put("/{location_id}")
 async def update_location(
     location_id: int,
     payload: InventoryLocationUpdate,
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[InventoryLocationOut]:
-    """
-    Atualiza um location existente.
-    
-    Note: 'name' não pode ser alterado (é a chave única).
-    
-    Args:
-        location_id: ID do location
-        payload: Dados a atualizar
-        
-    Returns:
-        Location atualizado
-    """
-    try:
-        location = service.update(
-            location_id,
-            label=payload.label,
-            color=payload.color,
-            ordem=payload.ordem,
-        )
-        return ok(data=_to_inventory_location_out(location))
-    except NotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except (ValueError, ValidationException) as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao atualizar location: {str(e)}"
-        )
+):
+    """Atualiza um location existente. 'name' não pode ser alterado."""
+    location = service.update(
+        location_id,
+        label=payload.label,
+        color=payload.color,
+        ordem=payload.ordem,
+        ativo=payload.ativo,
+    )
+    return ok(data=_to_out(location))
 
 
-@router.delete("/{location_id}", response_model=ok[InventoryLocationOut])
+@router.delete("/{location_id}")
 async def delete_location(
     location_id: int,
+    force: bool = Query(False, description="Se True, zera estoque e desativa mesmo com estoque"),
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[InventoryLocationOut]:
+):
     """
     Desativa um location (soft delete).
-    
-    Dados são preservados, apenas marcado como inativo.
-    
-    Args:
-        location_id: ID do location
-        
-    Returns:
-        Location desativado
+
+    Se o location possui estoque e force=False, retorna 409 com detalhes
+    do estoque para o frontend mostrar confirmação.
+    Se force=True, zera estoque e desativa.
     """
-    try:
-        location = service.soft_delete(location_id)
-        return ok(data=_to_inventory_location_out(location))
-    except NotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao deletar location: {str(e)}"
-        )
+    location = service.soft_delete(location_id, force=force)
+    return ok(data=_to_out(location))
 
 
-@router.post("/{location_id}/reactivate", response_model=ok[InventoryLocationOut])
+@router.post("/{location_id}/reactivate")
 async def reactivate_location(
     location_id: int,
     service: InventoryLocationService = Depends(get_inventory_location_service),
-) -> ok[InventoryLocationOut]:
-    """
-    Reativa um location que foi desativado.
-    
-    Args:
-        location_id: ID do location
-        
-    Returns:
-        Location reativado
-    """
-    try:
-        location = service.reactivate(location_id)
-        return ok(data=_to_inventory_location_out(location))
-    except NotFoundException as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro ao reativar location: {str(e)}"
-        )
+):
+    """Reativa um location que foi desativado."""
+    location = service.reactivate(location_id)
+    return ok(data=_to_out(location))

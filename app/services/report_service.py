@@ -10,7 +10,6 @@ from io import BytesIO
 from typing import Any, Dict, Iterable, List
 from tkinter import filedialog
 
-import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -20,8 +19,11 @@ from core.constants import (
     ABC_CLASSIFICATION,
     APP_VERSION,
     REPORT_COLUMN_WIDTHS_ABC,
-    REPORT_COLUMN_WIDTHS_STOCK,
 )
+
+from app.models.product import Product
+from core.database.connection import DatabaseConnection
+from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 
 
 class ReportService:
@@ -44,7 +46,7 @@ class ReportService:
             leading=11,
         )
 
-    def generate_stock_report(self, products_df: pd.DataFrame) -> bool:
+    def generate_stock_report(self, products: List[Product]) -> bool:
         save_path = filedialog.asksaveasfilename(
             defaultextension=".pdf",
             initialfile="Relatorio_Estoque.pdf",
@@ -53,50 +55,103 @@ class ReportService:
         if not save_path:
             return False
 
-        pdf_bytes = self.generate_stock_report_bytes(products_df)
+        pdf_bytes = self.generate_stock_report_bytes(products)
         with open(save_path, "wb") as output:
             output.write(pdf_bytes)
         os.startfile(save_path)
         return True
 
-    def generate_stock_report_bytes(self, products_df: pd.DataFrame) -> bytes:
-        data: List[List[Any]] = [["ID", "Produto", "Canoas", "PF"]]
-        for _, row in products_df.iterrows():
-            canoas = int(row.iloc[2] or 0)
-            pf = int(row.iloc[3] or 0)
-            if canoas + pf <= 0:
+    def generate_stock_report_bytes(self, products: List[Product]) -> bytes:
+        conn = DatabaseConnection().get_connection()
+        try:
+            repo = InventoryLocationRepository(conn)
+            active_locations = repo.get_all_active()
+        finally:
+            conn.close()
+
+        headers = ["ID", "Produto"]
+        for loc in active_locations:
+            headers.append(loc.label)
+
+        data: List[List[Any]] = [headers]
+        for product in products:
+            if product.total_stock <= 0:
                 continue
-            data.append(
-                [
-                    str(int(row.iloc[0])),
-                    self._paragraph(str(row.iloc[1])),
-                    str(canoas),
-                    str(pf),
-                ]
-            )
+                
+            row = [
+                str(product.id),
+                self._paragraph(str(product.nome)),
+            ]
+            for loc in active_locations:
+                qty = product.inventories.get(loc.id, 0)
+                row.append(str(qty))
+            
+            data.append(row)
+
+        usable_width = 531
+        id_width = 45
+        loc_width = 55
+        locations_width = len(active_locations) * loc_width
+        prod_width = max(100, usable_width - id_width - locations_width)
+        
+        col_widths = [id_width, prod_width] + [loc_width] * len(active_locations)
 
         return self._build_pdf_bytes(
             title=f"Relatorio de Estoque - Chronos Inventory v{APP_VERSION}",
             subtitles=["Itens ativos com saldo atual por local."],
             data=data,
-            col_widths=REPORT_COLUMN_WIDTHS_STOCK,
+            col_widths=col_widths,
             left_align_column=1,
             empty_message="Nenhum item com estoque disponivel para este relatorio.",
         )
 
-    def generate_selected_stock_report_bytes(self, products_df: pd.DataFrame) -> bytes:
-        data: List[List[Any]] = [["ID", "Produto", "Canoas", "PF", "Total", "Onde tem"]]
-        for _, row in products_df.iterrows():
-            data.append(
-                [
-                    str(int(row["ID"])),
-                    self._paragraph(str(row["Produto"] or "-")),
-                    str(int(row["Canoas"] or 0)),
-                    str(int(row["PF"] or 0)),
-                    str(int(row["Total"] or 0)),
-                    self._paragraph(str(row["Onde tem"] or "-")),
-                ]
-            )
+    def generate_selected_stock_report_bytes(self, products: List[Product]) -> bytes:
+        conn = DatabaseConnection().get_connection()
+        try:
+            repo = InventoryLocationRepository(conn)
+            active_locations = repo.get_all_active()
+        finally:
+            conn.close()
+
+        headers = ["ID", "Produto"]
+        for loc in active_locations:
+            headers.append(loc.label)
+        headers.extend(["Total", "Onde tem"])
+
+        data: List[List[Any]] = [headers]
+        
+        for product in products:
+            row = [
+                str(product.id),
+                self._paragraph(str(product.nome)),
+            ]
+            
+            total = 0
+            has_stock_locs = []
+            for loc in active_locations:
+                qty = product.inventories.get(loc.id, 0)
+                row.append(str(qty))
+                total += qty
+                if qty > 0:
+                    has_stock_locs.append(loc.label)
+                    
+            row.append(str(total))
+            
+            where = " / ".join(has_stock_locs) if has_stock_locs else "-"
+            row.append(self._paragraph(where))
+            
+            data.append(row)
+
+        usable_width = 531
+        id_width = 40
+        total_width = 45
+        where_width = 90
+        loc_width = 48
+        
+        locations_width = len(active_locations) * loc_width
+        prod_width = max(80, usable_width - id_width - total_width - where_width - locations_width)
+        
+        col_widths = [id_width, prod_width] + [loc_width] * len(active_locations) + [total_width, where_width]
 
         return self._build_pdf_bytes(
             title="Relatorio de itens selecionados",
@@ -105,7 +160,7 @@ class ReportService:
                 "Inclui saldo atual por local, total consolidado e onde o item possui estoque.",
             ],
             data=data,
-            col_widths=[42, 205, 48, 48, 48, 92],
+            col_widths=col_widths,
             left_align_column=1,
             empty_message="Nenhum item selecionado para este relatorio.",
         )
@@ -179,7 +234,7 @@ class ReportService:
 
     def generate_abc_report(
         self,
-        products_df: pd.DataFrame,
+        products: List[Product],
         exit_counts: Dict[str, int],
     ) -> bool:
         save_path = filedialog.asksaveasfilename(
@@ -191,10 +246,10 @@ class ReportService:
             return False
 
         data: List[List[Any]] = [["Produto", "Saidas", "Classe"]]
-        for product_name in products_df.iloc[:, 1]:
-            exits = exit_counts.get(str(product_name), 0)
+        for product in products:
+            exits = exit_counts.get(product.nome, 0)
             classification = self._classify_abc(exits)
-            data.append([self._paragraph(str(product_name)), str(exits), classification])
+            data.append([self._paragraph(str(product.nome)), str(exits), classification])
 
         pdf_bytes = self._build_pdf_bytes(
             title=f"Relatorio de Giro (Curva ABC) - Chronos Inventory v{APP_VERSION}",

@@ -42,7 +42,11 @@ export default function StockProfilesPage() {
     staleTime: 30_000,
   });
 
-  const createMutation = useMutation<SuccessResponse<StockProfileOut>, Error, { name: string; profile_id?: string }>({
+  const createMutation = useMutation<
+    SuccessResponse<StockProfileOut>,
+    Error,
+    { name: string; profile_id?: string }
+  >({
     mutationFn: (payload) => api.createStockProfile(payload),
     onSuccess: () => {
       notifySuccess("Novo estoque criado.");
@@ -53,7 +57,9 @@ export default function StockProfilesPage() {
     onError: (error) => {
       if (error instanceof Error && (error as ApiError).status === 404) {
         notifyError(
-          new Error("Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.")
+          new Error(
+            "Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.",
+          ),
         );
         return;
       }
@@ -61,8 +67,13 @@ export default function StockProfilesPage() {
     },
   });
 
-  const activateMutation = useMutation<SuccessResponse<StockProfileActivateOut>, Error, string>({
-    mutationFn: (profileId) => api.activateStockProfile({ profile_id: profileId }),
+  const activateMutation = useMutation<
+    SuccessResponse<StockProfileActivateOut>,
+    Error,
+    string
+  >({
+    mutationFn: (profileId) =>
+      api.activateStockProfile({ profile_id: profileId }),
     onSuccess: async (response) => {
       notifySuccess(response.data.message);
       queryClient.invalidateQueries({ queryKey: ["stock-profiles"] });
@@ -77,21 +88,26 @@ export default function StockProfilesPage() {
       try {
         await restartApplication();
       } catch (error) {
-        notifyError(error, "Nao foi possivel reiniciar automaticamente. Reinicie manualmente.");
+        notifyError(
+          error,
+          "Nao foi possivel reiniciar automaticamente. Reinicie manualmente.",
+        );
       }
     },
     onError: (error) => {
       if (error instanceof Error && (error as ApiError).status === 404) {
         notifyError(
-          new Error("Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.")
+          new Error(
+            "Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.",
+          ),
         );
         return;
       }
       if (error instanceof Error && /id reservado/i.test(error.message)) {
         notifyError(
           new Error(
-            "Seu backend atual nao possui a correcao para reativar o estoque Principal/default. Recompile o sidecar e reinicie o app."
-          )
+            "Seu backend atual nao possui a correcao para reativar o estoque Principal/default. Recompile o sidecar e reinicie o app.",
+          ),
         );
         return;
       }
@@ -99,7 +115,11 @@ export default function StockProfilesPage() {
     },
   });
 
-  const deleteMutation = useMutation<SuccessResponse<StockProfileDeleteOut>, Error, StockProfileOut>({
+  const deleteMutation = useMutation<
+    SuccessResponse<StockProfileDeleteOut>,
+    Error,
+    StockProfileOut
+  >({
     mutationFn: (profile) => api.deleteStockProfile(profile.id),
     onSuccess: (response) => {
       notifySuccess(response.data.message);
@@ -109,7 +129,9 @@ export default function StockProfilesPage() {
     onError: (error) => {
       if (error instanceof Error && (error as ApiError).status === 404) {
         notifyError(
-          new Error("Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.")
+          new Error(
+            "Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.",
+          ),
         );
         return;
       }
@@ -135,8 +157,8 @@ export default function StockProfilesPage() {
       title: "Remover estoque",
       children: (
         <Text size="sm">
-          O estoque <b>{profile.name}</b> sera removido da lista junto com a pasta local desse perfil.
-          Essa acao nao pode ser desfeita.
+          O estoque <b>{profile.name}</b> sera removido da lista junto com a
+          pasta local desse perfil. Essa acao nao pode ser desfeita.
         </Text>
       ),
       labels: { confirm: "Remover estoque", cancel: "Cancelar" },
@@ -148,7 +170,8 @@ export default function StockProfilesPage() {
   const state = profilesQuery.data?.data;
   const profiles = state?.profiles ?? [];
   const profilesLoadError =
-    profilesQuery.error instanceof Error && (profilesQuery.error as ApiError).status === 404
+    profilesQuery.error instanceof Error &&
+    (profilesQuery.error as ApiError).status === 404
       ? "Backend desatualizado para tela de Estoques. Recompile o sidecar e reinicie o app."
       : profilesQuery.error instanceof Error
         ? profilesQuery.error.message
@@ -175,7 +198,8 @@ export default function StockProfilesPage() {
           ) : (
             <>
               <Text size="sm">
-                <b>{state?.active_profile_name || "Principal"}</b> ({state?.active_profile_id || "default"})
+                <b>{state?.active_profile_name || "Principal"}</b> (
+                {state?.active_profile_id || "default"})
               </Text>
               <Text size="sm" c="dimmed">
                 Banco atual: {state?.current_database_path || "-"}
@@ -245,13 +269,19 @@ export default function StockProfilesPage() {
                       <Table.Td>{profile.name}</Table.Td>
                       <Table.Td>{profile.id}</Table.Td>
                       <Table.Td>
-                        <Badge color={profile.db_exists ? "green" : "orange"} variant="light">
+                        <Badge
+                          color={profile.db_exists ? "green" : "orange"}
+                          variant="light"
+                        >
                           {profile.db_exists ? "Criado" : "Ainda vazio"}
                         </Badge>
                       </Table.Td>
                       <Table.Td>{profile.path}</Table.Td>
                       <Table.Td>
-                        <Badge color={profile.is_active ? "blue" : "gray"} variant="light">
+                        <Badge
+                          color={profile.is_active ? "blue" : "gray"}
+                          variant="light"
+                        >
                           {profile.is_active ? "ATIVO" : "INATIVO"}
                         </Badge>
                       </Table.Td>
@@ -270,7 +300,9 @@ export default function StockProfilesPage() {
                             size="xs"
                             color="red"
                             variant="light"
-                            disabled={profile.is_active || profile.id === "default"}
+                            disabled={
+                              profile.is_active || profile.id === "default"
+                            }
                             loading={deleteMutation.isPending}
                             onClick={() => confirmDeleteProfile(profile)}
                           >

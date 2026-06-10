@@ -31,18 +31,26 @@ function buildRows(totalRows: number): string {
         <td class="col-code"></td>
         <td class="col-tally"></td>
         <td class="col-qty"></td>
-      </tr>`
+      </tr>`,
     );
     remaining -= 1;
   }
   return rows.join("\n");
 }
 
-export function buildInventorySheetHtml(input: InventorySheetTemplateInput = {}): string {
+export function buildInventorySheetHtml(
+  input: InventorySheetTemplateInput = {},
+): string {
   const generatedAt = input.generatedAt ?? new Date();
-  const sessionName = escapeHtml((input.sessionName || "").trim() || "Sessao manual");
-  const local = escapeHtml((input.local || "").trim() || "CANOAS");
-  const totalRows = Number.isFinite(input.totalRows) ? Math.max(20, Number(input.totalRows)) : 56;
+  const sessionName = escapeHtml(
+    (input.sessionName || "").trim() || "Sessao manual",
+  );
+  const local = escapeHtml(
+    (input.local || "").trim() || "Local nao especificado",
+  );
+  const totalRows = Number.isFinite(input.totalRows)
+    ? Math.max(20, Number(input.totalRows))
+    : 56;
 
   return `<!doctype html>
 <html lang="pt-BR">

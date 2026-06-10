@@ -17,4 +17,3 @@ export async function restartApplication(): Promise<void> {
     window.location.reload();
   }
 }
-

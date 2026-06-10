@@ -1,4 +1,14 @@
-import { Accordion, Badge, Button, Card, Group, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import {
+  Accordion,
+  Badge,
+  Button,
+  Card,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+} from "@mantine/core";
 
 type Props = {
   leftLabel: string;
@@ -40,7 +50,8 @@ export default function StockCompareManualSection({
         <Accordion.Panel>
           <Stack gap="md">
             <Text size="sm" c="dimmed">
-              Use apenas quando precisar comparar dois arquivos especificos sem depender do servidor local.
+              Use apenas quando precisar comparar dois arquivos especificos sem
+              depender do servidor local.
             </Text>
             <SimpleGrid cols={{ base: 1, md: 2 }}>
               <Card withBorder>
@@ -49,20 +60,28 @@ export default function StockCompareManualSection({
                   <TextInput
                     label="Nome da base"
                     value={leftLabel}
-                    onChange={(event) => onLeftLabelChange(event.currentTarget.value)}
+                    onChange={(event) =>
+                      onLeftLabelChange(event.currentTarget.value)
+                    }
                     placeholder="Ex: Minha base"
                   />
                   <TextInput
                     label="Caminho do arquivo"
                     value={leftPath}
-                    onChange={(event) => onLeftPathChange(event.currentTarget.value)}
+                    onChange={(event) =>
+                      onLeftPathChange(event.currentTarget.value)
+                    }
                     placeholder="Ex: C:\\Bases\\estoque.db"
                   />
                   <Group>
                     <Button variant="light" onClick={onChooseLeftFile}>
                       Escolher arquivo
                     </Button>
-                    <Button variant="subtle" onClick={onUseCurrentDatabase} disabled={!currentDbPath}>
+                    <Button
+                      variant="subtle"
+                      onClick={onUseCurrentDatabase}
+                      disabled={!currentDbPath}
+                    >
                       Usar base atual
                     </Button>
                   </Group>
@@ -75,13 +94,17 @@ export default function StockCompareManualSection({
                   <TextInput
                     label="Nome da base"
                     value={rightLabel}
-                    onChange={(event) => onRightLabelChange(event.currentTarget.value)}
+                    onChange={(event) =>
+                      onRightLabelChange(event.currentTarget.value)
+                    }
                     placeholder="Ex: Base colega"
                   />
                   <TextInput
                     label="Caminho do arquivo"
                     value={rightPath}
-                    onChange={(event) => onRightPathChange(event.currentTarget.value)}
+                    onChange={(event) =>
+                      onRightPathChange(event.currentTarget.value)
+                    }
                     placeholder="Ex: C:\\Bases\\colega\\estoque.db"
                   />
                   <Group>

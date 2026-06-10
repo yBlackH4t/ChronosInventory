@@ -1,10 +1,28 @@
-import { ActionIcon, Badge, Button, Checkbox, Group, NumberInput, Pagination, Select, Table, Text, TextInput, Tooltip } from "@mantine/core";
+import {
+  ActionIcon,
+  Badge,
+  Button,
+  Checkbox,
+  Group,
+  NumberInput,
+  Pagination,
+  Select,
+  Table,
+  Text,
+  TextInput,
+  Tooltip,
+} from "@mantine/core";
 import { IconBarcode } from "@tabler/icons-react";
 
 import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 import FilterToolbar from "../ui/FilterToolbar";
-import type { Product, ProductStatusFilter, SuccessResponse } from "../../lib/api";
+import type {
+  Product,
+  ProductStatusFilter,
+  SuccessResponse,
+} from "../../lib/api";
+import { useLocations } from "../../hooks/useLocations";
 
 const STATUS_OPTIONS = [
   { value: "ATIVO", label: "Ativos" },
@@ -100,6 +118,8 @@ export default function LabelsInternalSection({
       ? listQuery.error.message
       : "Falha ao carregar itens para etiquetas.";
 
+  const { locations } = useLocations();
+
   return (
     <>
       <FilterToolbar>
@@ -126,7 +146,10 @@ export default function LabelsInternalSection({
           />
           <Select
             label="Estoque"
-            data={STOCK_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+            data={STOCK_OPTIONS.map((item) => ({
+              value: item.value,
+              label: item.label,
+            }))}
             value={stockFilter}
             onChange={(value) => {
               setStockFilter((value as StockFilter) || "COM_ESTOQUE");
@@ -160,7 +183,13 @@ export default function LabelsInternalSection({
               max={MAX_COPIES_PER_ITEM}
               onChange={(value) =>
                 setDefaultManualCopies(
-                  Math.max(1, Math.min(MAX_COPIES_PER_ITEM, Math.round(Number(value || 1))))
+                  Math.max(
+                    1,
+                    Math.min(
+                      MAX_COPIES_PER_ITEM,
+                      Math.round(Number(value || 1)),
+                    ),
+                  ),
                 )
               }
               w={160}
@@ -189,14 +218,19 @@ export default function LabelsInternalSection({
               <Table.Th>
                 <Checkbox
                   checked={allVisibleSelected}
-                  indeterminate={selectedVisibleCount > 0 && !allVisibleSelected}
-                  onChange={(event) => toggleSelectAllVisible(event.currentTarget.checked)}
+                  indeterminate={
+                    selectedVisibleCount > 0 && !allVisibleSelected
+                  }
+                  onChange={(event) =>
+                    toggleSelectAllVisible(event.currentTarget.checked)
+                  }
                 />
               </Table.Th>
               <Table.Th>ID</Table.Th>
               <Table.Th>Nome</Table.Th>
-              <Table.Th>Canoas</Table.Th>
-              <Table.Th>PF</Table.Th>
+              {locations.map((loc) => (
+                <Table.Th key={loc.id}>{loc.name}</Table.Th>
+              ))}
               <Table.Th>Total</Table.Th>
               <Table.Th>Copias</Table.Th>
               <Table.Th>Acoes</Table.Th>
@@ -210,13 +244,18 @@ export default function LabelsInternalSection({
                   <Table.Td>
                     <Checkbox
                       checked={checked}
-                      onChange={(event) => toggleRow(product.id, event.currentTarget.checked)}
+                      onChange={(event) =>
+                        toggleRow(product.id, event.currentTarget.checked)
+                      }
                     />
                   </Table.Td>
                   <Table.Td>{product.id}</Table.Td>
                   <Table.Td>{product.nome}</Table.Td>
-                  <Table.Td>{product.qtd_canoas}</Table.Td>
-                  <Table.Td>{product.qtd_pf}</Table.Td>
+                  {locations.map((loc) => (
+                    <Table.Td key={loc.id}>
+                      {product.inventories?.[loc.id] ?? 0}
+                    </Table.Td>
+                  ))}
                   <Table.Td>{product.total_stock}</Table.Td>
                   <Table.Td>
                     {copiesMode === "MANUAL" ? (
@@ -224,7 +263,9 @@ export default function LabelsInternalSection({
                         min={1}
                         max={MAX_COPIES_PER_ITEM}
                         value={resolveManualCopies(product.id)}
-                        onChange={(value) => setManualCopies(product.id, Number(value || 1))}
+                        onChange={(value) =>
+                          setManualCopies(product.id, Number(value || 1))
+                        }
                         w={110}
                       />
                     ) : (
@@ -247,14 +288,18 @@ export default function LabelsInternalSection({
             })}
             {listQuery.isError && (
               <Table.Tr>
-                <Table.Td colSpan={8}>
-                  <EmptyState message={loadError} actionLabel="Tentar novamente" onAction={() => void listQuery.refetch()} />
+                <Table.Td colSpan={5 + locations.length}>
+                  <EmptyState
+                    message={loadError}
+                    actionLabel="Tentar novamente"
+                    onAction={() => void listQuery.refetch()}
+                  />
                 </Table.Td>
               </Table.Tr>
             )}
             {!listQuery.isError && rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={8}>
+                <Table.Td colSpan={5 + locations.length}>
                   <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
                 </Table.Td>
               </Table.Tr>

@@ -17,35 +17,55 @@ import {
 } from "../lib/movements";
 import { useMovementsTablePreferences } from "./useMovementsTablePreferences";
 import { useProfileScope } from "../state/profileScope";
-import { clearTabState, loadTabState, saveTabState } from "../state/tabStateCache";
+import {
+  clearTabState,
+  loadTabState,
+  saveTabState,
+} from "../state/tabStateCache";
 
 export function useMovementsPageState() {
   const { profileScopeKey } = useProfileScope();
   const persistedState = useMemo(
-    () => loadTabState<MovementsTabState>(MOVEMENTS_TAB_ID) ?? DEFAULT_MOVEMENTS_TAB_STATE,
-    []
+    () =>
+      loadTabState<MovementsTabState>(MOVEMENTS_TAB_ID) ??
+      DEFAULT_MOVEMENTS_TAB_STATE,
+    [],
   );
   const persistedFilters = useMemo(
     () => deserializeFilters(persistedState.filters),
-    [persistedState.filters]
+    [persistedState.filters],
   );
 
   const [page, setPage] = useState(persistedState.page);
   const [pageSize, setPageSize] = useState(persistedState.pageSize);
   const [sort, setSort] = useState<string>(persistedState.sort);
-  const [productSearch, setProductSearch] = useState(persistedState.productSearch);
-  const [showProductId, setShowProductId] = useState(persistedState.showProductId);
+  const [productSearch, setProductSearch] = useState(
+    persistedState.productSearch,
+  );
+  const [showProductId, setShowProductId] = useState(
+    persistedState.showProductId,
+  );
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(
-    Boolean(persistedState.showProductId || persistedFilters.origem || persistedFilters.destino)
+    Boolean(
+      persistedState.showProductId ||
+      persistedFilters.origem_location_id ||
+      persistedFilters.destino_location_id,
+    ),
   );
   const [historyProductId, setHistoryProductId] = useState<number | null>(
-    persistedState.historyProductId
+    persistedState.historyProductId,
   );
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
   const [debouncedProductSearch] = useDebouncedValue(productSearch, 300);
-  const [historyOpened, historyHandlers] = useDisclosure(persistedState.historyOpened);
-  const { tablePreferences, setTablePreferences, tableLayout, resetTablePreferences } =
-    useMovementsTablePreferences();
+  const [historyOpened, historyHandlers] = useDisclosure(
+    persistedState.historyOpened,
+  );
+  const {
+    tablePreferences,
+    setTablePreferences,
+    tableLayout,
+    resetTablePreferences,
+  } = useMovementsTablePreferences();
 
   const filtersForm = useForm<MovementFilters>({
     initialValues: persistedFilters,
@@ -53,11 +73,15 @@ export function useMovementsPageState() {
 
   const serializedFilters = useMemo(
     () => serializeFilters(filtersForm.values),
-    [filtersForm.values]
+    [filtersForm.values],
   );
 
   const productLookupQuery = useQuery<SuccessResponse<Product[]>>({
-    queryKey: ["movimentacoes-product-lookup", profileScopeKey, debouncedProductSearch],
+    queryKey: [
+      "movimentacoes-product-lookup",
+      profileScopeKey,
+      debouncedProductSearch,
+    ],
     queryFn: ({ signal }) =>
       api.listProducts(
         {
@@ -66,7 +90,7 @@ export function useMovementsPageState() {
           page_size: 20,
           sort: "nome",
         },
-        { signal }
+        { signal },
       ),
     enabled: debouncedProductSearch.trim().length >= 2,
     staleTime: 30_000,
@@ -85,26 +109,43 @@ export function useMovementsPageState() {
   }, [filtersForm.values.produto_id, productLookupQuery.data?.data]);
 
   const listQuery = useQuery<SuccessResponse<MovementOut[]>>({
-    queryKey: ["movimentacoes", profileScopeKey, page, pageSize, sort, serializedFilters],
+    queryKey: [
+      "movimentacoes",
+      profileScopeKey,
+      page,
+      pageSize,
+      sort,
+      serializedFilters,
+    ],
     queryFn: ({ signal }) =>
       api.listMovements(
         {
-          produto_id: serializedFilters.produto_id ? Number(serializedFilters.produto_id) : undefined,
+          produto_id: serializedFilters.produto_id
+            ? Number(serializedFilters.produto_id)
+            : undefined,
           tipo: serializedFilters.tipo || undefined,
           natureza: serializedFilters.natureza || undefined,
-          origem: serializedFilters.origem || undefined,
-          destino: serializedFilters.destino || undefined,
+          origem_location_id: serializedFilters.origem_location_id
+            ? Number(serializedFilters.origem_location_id)
+            : undefined,
+          destino_location_id: serializedFilters.destino_location_id
+            ? Number(serializedFilters.destino_location_id)
+            : undefined,
           date_from: serializedFilters.date_from
-            ? dayjs(serializedFilters.date_from).startOf("day").format("YYYY-MM-DDTHH:mm:ss")
+            ? dayjs(serializedFilters.date_from)
+                .startOf("day")
+                .format("YYYY-MM-DDTHH:mm:ss")
             : undefined,
           date_to: serializedFilters.date_to
-            ? dayjs(serializedFilters.date_to).endOf("day").format("YYYY-MM-DDTHH:mm:ss")
+            ? dayjs(serializedFilters.date_to)
+                .endOf("day")
+                .format("YYYY-MM-DDTHH:mm:ss")
             : undefined,
           page,
           page_size: Number(pageSize),
           sort,
         },
-        { signal }
+        { signal },
       ),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -113,7 +154,11 @@ export function useMovementsPageState() {
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
     queryKey: ["historico", profileScopeKey, historyProductId],
     queryFn: ({ signal }) =>
-      api.getProductHistory(historyProductId!, { page: 1, page_size: 20, sort: "-data" }, { signal }),
+      api.getProductHistory(
+        historyProductId!,
+        { page: 1, page_size: 20, sort: "-data" },
+        { signal },
+      ),
     enabled: !!historyProductId && historyOpened,
     placeholderData: keepPreviousData,
     staleTime: 30_000,
@@ -121,16 +166,18 @@ export function useMovementsPageState() {
 
   const totalItems = listQuery.data?.meta?.total_items ?? 0;
   const totalPages = Math.max(listQuery.data?.meta?.total_pages ?? 1, 1);
-  const listErrorMessage = listQuery.error instanceof Error ? listQuery.error.message : null;
-  const historyErrorMessage = historyQuery.error instanceof Error ? historyQuery.error.message : null;
+  const listErrorMessage =
+    listQuery.error instanceof Error ? listQuery.error.message : null;
+  const historyErrorMessage =
+    historyQuery.error instanceof Error ? historyQuery.error.message : null;
 
   const activeViewCount = useMemo(() => {
     let count = 0;
     if (filtersForm.values.produto_id) count += 1;
     if (filtersForm.values.tipo) count += 1;
     if (filtersForm.values.natureza) count += 1;
-    if (filtersForm.values.origem) count += 1;
-    if (filtersForm.values.destino) count += 1;
+    if (filtersForm.values.origem_location_id) count += 1;
+    if (filtersForm.values.destino_location_id) count += 1;
     if (filtersForm.values.date_from) count += 1;
     if (filtersForm.values.date_to) count += 1;
     if (sort !== DEFAULT_MOVEMENTS_TAB_STATE.sort) count += 1;
@@ -140,8 +187,8 @@ export function useMovementsPageState() {
     filtersForm.values.produto_id,
     filtersForm.values.tipo,
     filtersForm.values.natureza,
-    filtersForm.values.origem,
-    filtersForm.values.destino,
+    filtersForm.values.origem_location_id,
+    filtersForm.values.destino_location_id,
     filtersForm.values.date_from,
     filtersForm.values.date_to,
     pageSize,
@@ -174,7 +221,7 @@ export function useMovementsPageState() {
       serializedFilters,
       showProductId,
       sort,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -211,7 +258,7 @@ export function useMovementsPageState() {
       filtersForm.setFieldValue(field, value as never);
       setPage(1);
     },
-    [filtersForm]
+    [filtersForm],
   );
 
   const clearFilters = useCallback(() => {
@@ -239,7 +286,7 @@ export function useMovementsPageState() {
       setHistoryProductId(productId);
       historyHandlers.open();
     },
-    [historyHandlers]
+    [historyHandlers],
   );
 
   const closeHistory = useCallback(() => {

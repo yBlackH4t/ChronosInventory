@@ -15,12 +15,7 @@ from core.exceptions import (
 
 from core.constants import (
     APP_VERSION,
-    WINDOW_TITLE,
-    WINDOW_SIZE,
-    UI_COLORS,
-    MESSAGES,
-    OPERATION_TYPES,
-    STOCK_LOCATIONS
+    MESSAGES
 )
 
 __all__ = [
@@ -36,10 +31,5 @@ __all__ = [
     
     # Constants
     'APP_VERSION',
-    'WINDOW_TITLE',
-    'WINDOW_SIZE',
-    'UI_COLORS',
-    'MESSAGES',
-    'OPERATION_TYPES',
-    'STOCK_LOCATIONS'
+    'MESSAGES'
 ]

@@ -5,7 +5,9 @@ type ManifestLike = {
 
 export const DEFAULT_RELEASE_NOTES = "Sem release notes para esta versao.";
 
-export function getReleaseNotesFromManifest(manifest?: ManifestLike | null): string {
+export function getReleaseNotesFromManifest(
+  manifest?: ManifestLike | null,
+): string {
   const body = typeof manifest?.body === "string" ? manifest.body : "";
   const notes = typeof manifest?.notes === "string" ? manifest.notes : "";
   const raw = (body || notes).replace(/\r\n/g, "\n").trim();

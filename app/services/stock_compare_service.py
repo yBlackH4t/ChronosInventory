@@ -18,7 +18,7 @@ from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 
 
-REQUIRED_PRODUCT_COLUMNS = {"id", "nome", "qtd_canoas", "qtd_pf"}
+REQUIRED_PRODUCT_COLUMNS = {"id", "nome"}
 
 
 class StockCompareService:
@@ -354,8 +354,7 @@ class StockCompareService:
             "divergent_items": 0,
             "only_left_items": 0,
             "only_right_items": 0,
-            "canoas_mismatch_items": 0,
-            "pf_mismatch_items": 0,
+            "stock_mismatch_items": 0,
             "name_mismatch_items": 0,
             "active_mismatch_items": 0,
         }
@@ -376,12 +375,9 @@ class StockCompareService:
                 if self._normalize_name(left["nome"]) != self._normalize_name(right["nome"]):
                     statuses.append("NAME")
                     summary["name_mismatch_items"] += 1
-                if int(left["qtd_canoas"]) != int(right["qtd_canoas"]):
-                    statuses.append("CANOAS")
-                    summary["canoas_mismatch_items"] += 1
-                if int(left["qtd_pf"]) != int(right["qtd_pf"]):
-                    statuses.append("PF")
-                    summary["pf_mismatch_items"] += 1
+                if int(left["total_stock"]) != int(right["total_stock"]):
+                    statuses.append("STOCK")
+                    summary["stock_mismatch_items"] += 1
                 if bool(left["ativo"]) != bool(right["ativo"]):
                     statuses.append("ACTIVE")
                     summary["active_mismatch_items"] += 1
@@ -394,10 +390,8 @@ class StockCompareService:
                 statuses.append("IDENTICAL")
             summary["total_compared_items"] += 1
 
-            left_canoas = int(left["qtd_canoas"]) if left is not None else None
-            right_canoas = int(right["qtd_canoas"]) if right is not None else None
-            left_pf = int(left["qtd_pf"]) if left is not None else None
-            right_pf = int(right["qtd_pf"]) if right is not None else None
+            left_stock = int(left["total_stock"]) if left is not None else None
+            right_stock = int(right["total_stock"]) if right is not None else None
 
             rows.append(
                 {
@@ -405,12 +399,9 @@ class StockCompareService:
                     "display_name": (left or right)["nome"],
                     "left_name": left["nome"] if left is not None else None,
                     "right_name": right["nome"] if right is not None else None,
-                    "left_qtd_canoas": left_canoas,
-                    "right_qtd_canoas": right_canoas,
-                    "diff_canoas": (right_canoas or 0) - (left_canoas or 0),
-                    "left_qtd_pf": left_pf,
-                    "right_qtd_pf": right_pf,
-                    "diff_pf": (right_pf or 0) - (left_pf or 0),
+                    "left_stock": left_stock,
+                    "right_stock": right_stock,
+                    "diff_stock": (right_stock or 0) - (left_stock or 0),
                     "left_ativo": bool(left["ativo"]) if left is not None else None,
                     "right_ativo": bool(right["ativo"]) if right is not None else None,
                     "statuses": statuses,
@@ -456,22 +447,60 @@ class StockCompareService:
 
             has_ativo = "ativo" in columns
             select_ativo = "COALESCE(ativo, 1) AS ativo" if has_ativo else "1 AS ativo"
-            rows = conn.execute(
-                f"""
-                SELECT id,
-                       nome,
-                       COALESCE(qtd_canoas, 0) AS qtd_canoas,
-                       COALESCE(qtd_pf, 0) AS qtd_pf,
-                       {select_ativo}
-                FROM produtos
-                """
-            ).fetchall()
+
+            has_produto_estoque = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='produto_estoque'").fetchone() is not None
+            has_product_inventory = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='product_inventory'").fetchone() is not None
+            has_qtd_canoas = "qtd_canoas" in columns
+
+            if has_produto_estoque:
+                rows = conn.execute(
+                    f"""
+                    SELECT p.id,
+                           p.nome,
+                           COALESCE(SUM(pe.quantidade), 0) AS total_stock,
+                           {select_ativo}
+                    FROM produtos p
+                    LEFT JOIN produto_estoque pe ON pe.produto_id = p.id
+                    GROUP BY p.id
+                    """
+                ).fetchall()
+            elif has_product_inventory:
+                rows = conn.execute(
+                    f"""
+                    SELECT p.id,
+                           p.nome,
+                           COALESCE(SUM(pi.quantidade), 0) AS total_stock,
+                           {select_ativo}
+                    FROM produtos p
+                    LEFT JOIN product_inventory pi ON pi.produto_id = p.id
+                    GROUP BY p.id
+                    """
+                ).fetchall()
+            elif has_qtd_canoas:
+                rows = conn.execute(
+                    f"""
+                    SELECT id,
+                           nome,
+                           COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0) AS total_stock,
+                           {select_ativo}
+                    FROM produtos
+                    """
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    f"""
+                    SELECT id,
+                           nome,
+                           0 AS total_stock,
+                           {select_ativo}
+                    FROM produtos
+                    """
+                ).fetchall()
 
             products = {
                 int(row["id"]): {
                     "nome": str(row["nome"] or "").strip(),
-                    "qtd_canoas": int(row["qtd_canoas"] or 0),
-                    "qtd_pf": int(row["qtd_pf"] or 0),
+                    "total_stock": int(row["total_stock"] or 0),
                     "ativo": bool(row["ativo"]),
                 }
                 for row in rows
@@ -479,7 +508,7 @@ class StockCompareService:
             total_items = len(products)
             active_items = sum(1 for item in products.values() if item["ativo"])
             with_stock_items = sum(
-                1 for item in products.values() if (item["qtd_canoas"] + item["qtd_pf"]) > 0
+                1 for item in products.values() if item["total_stock"] > 0
             )
             return {
                 "label": label,

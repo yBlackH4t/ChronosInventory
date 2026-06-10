@@ -19,8 +19,7 @@ import type { StockCompareOut, StockCompareRowOut } from "../../lib/api";
 type CompareFilter =
   | "DIFFERENT"
   | "ALL"
-  | "CANOAS"
-  | "PF"
+  | "STOCK"
   | "ONLY_LEFT"
   | "ONLY_RIGHT"
   | "NAME"
@@ -40,8 +39,7 @@ type Props = {
 const FILTER_OPTIONS: { value: CompareFilter; label: string }[] = [
   { value: "DIFFERENT", label: "Somente divergentes" },
   { value: "ALL", label: "Todos" },
-  { value: "CANOAS", label: "Diferenca em Canoas" },
-  { value: "PF", label: "Diferenca em PF" },
+  { value: "STOCK", label: "Diferenca de Estoque" },
   { value: "ONLY_LEFT", label: "So na base A" },
   { value: "ONLY_RIGHT", label: "So na base B" },
   { value: "NAME", label: "Nome divergente" },
@@ -51,8 +49,7 @@ const FILTER_OPTIONS: { value: CompareFilter; label: string }[] = [
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   IDENTICAL: { label: "Igual", color: "gray" },
-  CANOAS: { label: "Canoas", color: "blue" },
-  PF: { label: "PF", color: "orange" },
+  STOCK: { label: "Estoque", color: "blue" },
   ONLY_LEFT: { label: "So A", color: "red" },
   ONLY_RIGHT: { label: "So B", color: "green" },
   NAME: { label: "Nome", color: "violet" },
@@ -95,7 +92,12 @@ export default function StockCompareResults({
   return (
     <>
       <SimpleGrid cols={{ base: 2, md: 5 }}>
-        <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => onFilterChange("DIFFERENT")}>
+        <Card
+          withBorder
+          p="sm"
+          style={{ cursor: "pointer" }}
+          onClick={() => onFilterChange("DIFFERENT")}
+        >
           <Text size="xs" c="dimmed">
             Divergentes
           </Text>
@@ -103,23 +105,25 @@ export default function StockCompareResults({
             {compareResult.summary.divergent_items}
           </Text>
         </Card>
-        <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => onFilterChange("CANOAS")}>
+        <Card
+          withBorder
+          p="sm"
+          style={{ cursor: "pointer" }}
+          onClick={() => onFilterChange("STOCK")}
+        >
           <Text size="xs" c="dimmed">
-            Diferencas em Canoas
+            Diferencas de Estoque
           </Text>
           <Text fw={700} size="xl" c="blue">
-            {compareResult.summary.canoas_mismatch_items}
+            {compareResult.summary.stock_mismatch_items}
           </Text>
         </Card>
-        <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => onFilterChange("PF")}>
-          <Text size="xs" c="dimmed">
-            Diferencas em PF
-          </Text>
-          <Text fw={700} size="xl" c="orange">
-            {compareResult.summary.pf_mismatch_items}
-          </Text>
-        </Card>
-        <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => onFilterChange("ONLY_LEFT")}>
+        <Card
+          withBorder
+          p="sm"
+          style={{ cursor: "pointer" }}
+          onClick={() => onFilterChange("ONLY_LEFT")}
+        >
           <Text size="xs" c="dimmed">
             So na base A
           </Text>
@@ -127,7 +131,12 @@ export default function StockCompareResults({
             {compareResult.summary.only_left_items}
           </Text>
         </Card>
-        <Card withBorder p="sm" style={{ cursor: "pointer" }} onClick={() => onFilterChange("ONLY_RIGHT")}>
+        <Card
+          withBorder
+          p="sm"
+          style={{ cursor: "pointer" }}
+          onClick={() => onFilterChange("ONLY_RIGHT")}
+        >
           <Text size="xs" c="dimmed">
             So na base B
           </Text>
@@ -146,8 +155,12 @@ export default function StockCompareResults({
             </Text>
             <Text size="sm">Itens: {compareResult.left.total_items}</Text>
             <Text size="sm">Ativos: {compareResult.left.active_items}</Text>
-            <Text size="sm">Com estoque: {compareResult.left.with_stock_items}</Text>
-            <Text size="sm">Tamanho: {formatBytes(compareResult.left.file_size)}</Text>
+            <Text size="sm">
+              Com estoque: {compareResult.left.with_stock_items}
+            </Text>
+            <Text size="sm">
+              Tamanho: {formatBytes(compareResult.left.file_size)}
+            </Text>
           </Stack>
         </Card>
         <Card withBorder>
@@ -158,8 +171,12 @@ export default function StockCompareResults({
             </Text>
             <Text size="sm">Itens: {compareResult.right.total_items}</Text>
             <Text size="sm">Ativos: {compareResult.right.active_items}</Text>
-            <Text size="sm">Com estoque: {compareResult.right.with_stock_items}</Text>
-            <Text size="sm">Tamanho: {formatBytes(compareResult.right.file_size)}</Text>
+            <Text size="sm">
+              Com estoque: {compareResult.right.with_stock_items}
+            </Text>
+            <Text size="sm">
+              Tamanho: {formatBytes(compareResult.right.file_size)}
+            </Text>
           </Stack>
         </Card>
       </SimpleGrid>
@@ -170,7 +187,9 @@ export default function StockCompareResults({
             label="Filtro"
             data={FILTER_OPTIONS}
             value={filter}
-            onChange={(value) => onFilterChange((value as CompareFilter) || "DIFFERENT")}
+            onChange={(value) =>
+              onFilterChange((value as CompareFilter) || "DIFFERENT")
+            }
             allowDeselect={false}
             w={240}
           />
@@ -193,12 +212,9 @@ export default function StockCompareResults({
             <Table.Tr>
               <Table.Th>ID</Table.Th>
               <Table.Th>Produto</Table.Th>
-              <Table.Th>{compareResult.left.label} Canoas</Table.Th>
-              <Table.Th>{compareResult.right.label} Canoas</Table.Th>
-              <Table.Th>Dif. Canoas</Table.Th>
-              <Table.Th>{compareResult.left.label} PF</Table.Th>
-              <Table.Th>{compareResult.right.label} PF</Table.Th>
-              <Table.Th>Dif. PF</Table.Th>
+              <Table.Th>{compareResult.left.label} Estoque Total</Table.Th>
+              <Table.Th>{compareResult.right.label} Estoque Total</Table.Th>
+              <Table.Th>Dif. Estoque</Table.Th>
               <Table.Th>{compareResult.left.label} status</Table.Th>
               <Table.Th>{compareResult.right.label} status</Table.Th>
               <Table.Th>Analise</Table.Th>
@@ -211,25 +227,23 @@ export default function StockCompareResults({
                 <Table.Td>
                   <Stack gap={2}>
                     <Text fw={600}>{row.display_name || "-"}</Text>
-                    {row.left_name && row.right_name && row.left_name !== row.right_name && (
-                      <Text size="xs" c="dimmed">
-                        A: {row.left_name} | B: {row.right_name}
-                      </Text>
-                    )}
+                    {row.left_name &&
+                      row.right_name &&
+                      row.left_name !== row.right_name && (
+                        <Text size="xs" c="dimmed">
+                          A: {row.left_name} | B: {row.right_name}
+                        </Text>
+                      )}
                   </Stack>
                 </Table.Td>
-                <Table.Td>{row.left_qtd_canoas ?? "-"}</Table.Td>
-                <Table.Td>{row.right_qtd_canoas ?? "-"}</Table.Td>
+                <Table.Td>{row.left_stock ?? "-"}</Table.Td>
+                <Table.Td>{row.right_stock ?? "-"}</Table.Td>
                 <Table.Td>
-                  <Badge color={stockBadgeColor(row.diff_canoas)} variant="light">
-                    {row.diff_canoas}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>{row.left_qtd_pf ?? "-"}</Table.Td>
-                <Table.Td>{row.right_qtd_pf ?? "-"}</Table.Td>
-                <Table.Td>
-                  <Badge color={stockBadgeColor(row.diff_pf)} variant="light">
-                    {row.diff_pf}
+                  <Badge
+                    color={stockBadgeColor(row.diff_stock)}
+                    variant="light"
+                  >
+                    {row.diff_stock}
                   </Badge>
                 </Table.Td>
                 <Table.Td>{boolLabel(row.left_ativo)}</Table.Td>

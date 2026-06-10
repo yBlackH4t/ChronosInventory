@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Button,
-  Stack,
-  Text,
-  Tabs,
-} from "@mantine/core";
+import { Button, Stack, Text, Tabs } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -46,21 +41,26 @@ const DEFAULT_BACKUP_TAB_STATE: BackupTabState = {
 function bytesToHuman(size: number): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size < 1024 * 1024 * 1024)
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 export default function BackupPage() {
   const persistedState = useMemo(
-    () => loadTabState<BackupTabState>(BACKUP_TAB_ID) ?? DEFAULT_BACKUP_TAB_STATE,
-    []
+    () =>
+      loadTabState<BackupTabState>(BACKUP_TAB_ID) ?? DEFAULT_BACKUP_TAB_STATE,
+    [],
   );
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState<BackupTabState["activeSection"]>(persistedState.activeSection);
+  const [activeSection, setActiveSection] = useState<
+    BackupTabState["activeSection"]
+  >(persistedState.activeSection);
   const [selectedBackupName, setSelectedBackupName] = useState<string | null>(
-    persistedState.selectedBackupName
+    persistedState.selectedBackupName,
   );
-  const [selectedValidation, setSelectedValidation] = useState<BackupValidateOut | null>(null);
+  const [selectedValidation, setSelectedValidation] =
+    useState<BackupValidateOut | null>(null);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
   const {
     autoConfig,
@@ -104,7 +104,11 @@ export default function BackupPage() {
     onError: (error) => notifyError(error),
   });
 
-  const validateSelectedMutation = useMutation<SuccessResponse<BackupValidateOut>, Error, string>({
+  const validateSelectedMutation = useMutation<
+    SuccessResponse<BackupValidateOut>,
+    Error,
+    string
+  >({
     mutationFn: (backupName) => api.backupValidate(backupName),
     onSuccess: (response) => {
       setSelectedValidation(response.data);
@@ -113,7 +117,11 @@ export default function BackupPage() {
     onError: (error) => notifyError(error),
   });
 
-  const restoreMutation = useMutation<SuccessResponse<BackupRestoreOut>, Error, string>({
+  const restoreMutation = useMutation<
+    SuccessResponse<BackupRestoreOut>,
+    Error,
+    string
+  >({
     mutationFn: (backupName) => api.backupRestore({ backup_name: backupName }),
     onSuccess: () => {
       notifySuccess("Backup restaurado com sucesso");
@@ -124,7 +132,11 @@ export default function BackupPage() {
     onError: (error) => notifyError(error),
   });
 
-  const restorePreUpdateMutation = useMutation<SuccessResponse<BackupRestoreOut>, Error, void>({
+  const restorePreUpdateMutation = useMutation<
+    SuccessResponse<BackupRestoreOut>,
+    Error,
+    void
+  >({
     mutationFn: () => api.backupRestorePreUpdate(),
     onSuccess: () => {
       notifySuccess("Backup pre-update restaurado com sucesso");
@@ -139,12 +151,17 @@ export default function BackupPage() {
     Error,
     string | null | undefined
   >({
-    mutationFn: (backupName) => api.backupRestoreTest({ backup_name: backupName ?? undefined }),
+    mutationFn: (backupName) =>
+      api.backupRestoreTest({ backup_name: backupName ?? undefined }),
     onSuccess: (response) => {
       if (response.data.ok) {
         notifySuccess("Teste de restauracao concluido com sucesso");
       } else {
-        notifyError(new Error(`Teste de restauracao falhou: ${response.data.integrity_result}`));
+        notifyError(
+          new Error(
+            `Teste de restauracao falhou: ${response.data.integrity_result}`,
+          ),
+        );
       }
     },
     onError: (error) => notifyError(error),
@@ -153,26 +170,40 @@ export default function BackupPage() {
   const diagnosticsMutation = useMutation<DownloadResponse, Error, void>({
     mutationFn: () => api.backupDiagnostics(),
     onSuccess: ({ blob, filename }) => {
-      downloadBlob(blob, filename || `diagnostico_${dayjs().format("YYYYMMDD_HHmmss")}.zip`);
+      downloadBlob(
+        blob,
+        filename || `diagnostico_${dayjs().format("YYYYMMDD_HHmmss")}.zip`,
+      );
       notifySuccess("Diagnostico exportado");
     },
     onError: (error) => notifyError(error),
   });
 
-  const backups = useMemo(() => backupsQuery.data?.data ?? [], [backupsQuery.data?.data]);
+  const backups = useMemo(
+    () => backupsQuery.data?.data ?? [],
+    [backupsQuery.data?.data],
+  );
   const backupOptions = useMemo(
-    () => backups.map((item) => ({ value: item.name, label: `${item.name} (${bytesToHuman(item.size)})` })),
-    [backups]
+    () =>
+      backups.map((item) => ({
+        value: item.name,
+        label: `${item.name} (${bytesToHuman(item.size)})`,
+      })),
+    [backups],
   );
 
   const effectiveSelectedBackupName = useMemo(() => {
-    if (selectedBackupName && backups.some((item) => item.name === selectedBackupName)) {
+    if (
+      selectedBackupName &&
+      backups.some((item) => item.name === selectedBackupName)
+    ) {
       return selectedBackupName;
     }
     return backups[0]?.name ?? null;
   }, [backups, selectedBackupName]);
 
-  const selectedBackup = backups.find((item) => item.name === effectiveSelectedBackupName) || null;
+  const selectedBackup =
+    backups.find((item) => item.name === effectiveSelectedBackupName) || null;
   const currentValidation = validateCurrentQuery.data?.data;
 
   const persistState = useCallback(
@@ -183,7 +214,7 @@ export default function BackupPage() {
         scrollY: nextScrollY,
       });
     },
-    [activeSection, scrollY, selectedBackupName]
+    [activeSection, scrollY, selectedBackupName],
   );
 
   useEffect(() => {
@@ -221,8 +252,9 @@ export default function BackupPage() {
       title: "Restaurar backup",
       children: (
         <Text size="sm">
-          Esta operacao vai substituir o banco atual pelo backup selecionado ({effectiveSelectedBackupName}). O sistema cria
-          um backup de seguranca automaticamente antes da restauracao.
+          Esta operacao vai substituir o banco atual pelo backup selecionado (
+          {effectiveSelectedBackupName}). O sistema cria um backup de seguranca
+          automaticamente antes da restauracao.
         </Text>
       ),
       labels: { confirm: "Restaurar agora", cancel: "Cancelar" },
@@ -236,11 +268,14 @@ export default function BackupPage() {
       <PageHeader
         title="Backup"
         subtitle="Backups locais, base oficial compartilhada e diagnostico operacional em um unico lugar."
-        actions={(
-          <Button onClick={() => backupMutation.mutate()} loading={backupMutation.isPending}>
+        actions={
+          <Button
+            onClick={() => backupMutation.mutate()}
+            loading={backupMutation.isPending}
+          >
             Criar backup
           </Button>
-        )}
+        }
       />
 
       <BackupOverviewCards
@@ -251,7 +286,14 @@ export default function BackupPage() {
         formatBytes={bytesToHuman}
       />
 
-      <Tabs value={activeSection} onChange={(value) => setActiveSection((value as BackupTabState["activeSection"]) || "locais")}>
+      <Tabs
+        value={activeSection}
+        onChange={(value) =>
+          setActiveSection(
+            (value as BackupTabState["activeSection"]) || "locais",
+          )
+        }
+      >
         <Tabs.List>
           <Tabs.Tab value="locais">Backups locais</Tabs.Tab>
           <Tabs.Tab value="oficial">Base oficial / servidor</Tabs.Tab>
@@ -267,13 +309,21 @@ export default function BackupPage() {
             roleInput={officialBasePanel.officialRoleInput}
             onRoleChange={officialBasePanel.setOfficialRoleInput}
             machineLabelInput={officialBasePanel.officialMachineLabelInput}
-            onMachineLabelChange={officialBasePanel.setOfficialMachineLabelInput}
+            onMachineLabelChange={
+              officialBasePanel.setOfficialMachineLabelInput
+            }
             publisherNameInput={officialBasePanel.officialPublisherNameInput}
-            onPublisherNameChange={officialBasePanel.setOfficialPublisherNameInput}
+            onPublisherNameChange={
+              officialBasePanel.setOfficialPublisherNameInput
+            }
             serverPortInput={officialBasePanel.officialServerPortInput}
             onServerPortChange={officialBasePanel.setOfficialServerPortInput}
-            remoteServerUrlInput={officialBasePanel.officialRemoteServerUrlInput}
-            onRemoteServerUrlChange={officialBasePanel.setOfficialRemoteServerUrlInput}
+            remoteServerUrlInput={
+              officialBasePanel.officialRemoteServerUrlInput
+            }
+            onRemoteServerUrlChange={
+              officialBasePanel.setOfficialRemoteServerUrlInput
+            }
             onSaveConfig={officialBasePanel.saveOfficialBaseConfig}
             saveConfigLoading={officialBasePanel.saveConfigLoading}
             serverSwitchLabel={officialBasePanel.serverSwitchLabel}
@@ -292,12 +342,15 @@ export default function BackupPage() {
             formatBytes={bytesToHuman}
             historyItems={officialBasePanel.officialBaseHistory}
             historyLoading={officialBasePanel.officialBaseHistoryLoading}
-            canDeleteHistory={officialBasePanel.officialRoleInput === "publisher"}
+            canDeleteHistory={
+              officialBasePanel.officialRoleInput === "publisher"
+            }
             deletePending={officialBasePanel.deletePending}
-            onDeleteHistory={officialBasePanel.confirmDeleteOfficialBaseHistoryItem}
+            onDeleteHistory={
+              officialBasePanel.confirmDeleteOfficialBaseHistoryItem
+            }
             onDeleteLatest={officialBasePanel.confirmDeleteLatestOfficialBase}
           />
-
         </Tabs.Panel>
         <Tabs.Panel value="locais" pt="md">
           <LocalBackupsSection
@@ -332,7 +385,9 @@ export default function BackupPage() {
               }
             }}
             validateSelectedLoading={validateSelectedMutation.isPending}
-            onTestRestore={() => restoreTestMutation.mutate(effectiveSelectedBackupName)}
+            onTestRestore={() =>
+              restoreTestMutation.mutate(effectiveSelectedBackupName)
+            }
             restoreTestLoading={restoreTestMutation.isPending}
             onRestore={confirmRestore}
             restoreLoading={restoreMutation.isPending}
@@ -341,7 +396,6 @@ export default function BackupPage() {
             selectedValidation={selectedValidation}
             backups={backups}
           />
-
         </Tabs.Panel>
         <Tabs.Panel value="diagnostico" pt="md">
           <BackupDiagnosticsSection

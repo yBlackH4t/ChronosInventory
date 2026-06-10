@@ -21,6 +21,18 @@ Formato recomendado:
 
 
 
+
+## [2.0.0] - 2026-06-10
+
+### Added
+- TODO
+
+### Changed
+- TODO
+
+### Fixed
+- TODO
+
 ## [1.6.4] - 2026-04-28
 
 ### Added

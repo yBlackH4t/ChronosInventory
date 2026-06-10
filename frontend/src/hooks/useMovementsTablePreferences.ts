@@ -10,10 +10,11 @@ import {
 } from "../lib/movements";
 
 export function useMovementsTablePreferences() {
-  const [viewportWidth, setViewportWidth] = useState<number>(() => getViewportWidth());
-  const [tablePreferences, setTablePreferences] = useState<MovementsTablePreferences>(() =>
-    loadTablePreferences()
+  const [viewportWidth, setViewportWidth] = useState<number>(() =>
+    getViewportWidth(),
   );
+  const [tablePreferences, setTablePreferences] =
+    useState<MovementsTablePreferences>(() => loadTablePreferences());
 
   useEffect(() => {
     saveTablePreferences(tablePreferences);
@@ -27,7 +28,7 @@ export function useMovementsTablePreferences() {
 
   const tableLayout = useMemo(
     () => resolveMovementTableLayout(tablePreferences.viewMode, viewportWidth),
-    [tablePreferences.viewMode, viewportWidth]
+    [tablePreferences.viewMode, viewportWidth],
   );
 
   const resetTablePreferences = () => {

@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "Chronos Inventory",
-    "version": "1.6.4"
+    "version": "2.0.0"
   },
   "tauri": {
     "allowlist": {
@@ -42,23 +42,13 @@
     "bundle": {
       "active": true,
       "identifier": "com.yblackh4t.chronosinventory",
-      "targets": [
-        "msi",
-        "updater"
-      ],
-      "resources": [
-        "webview2/**"
-      ],
-      "icon": [
-        "icons/icon.ico",
-        "icons/icon.png"
-      ],
+      "targets": ["msi", "updater"],
+      "resources": ["webview2/**"],
+      "icon": ["icons/icon.ico", "icons/icon.png"],
       "windows": {
         "webviewFixedRuntimePath": "webview2"
       },
-      "externalBin": [
-        "bin/estoque_backend"
-      ]
+      "externalBin": ["bin/estoque_backend"]
     }
   }
 }

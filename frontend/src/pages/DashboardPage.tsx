@@ -1,4 +1,12 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Card,
   Grid,
@@ -12,10 +20,10 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
-
 import { api } from "../lib/apiClient";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
 import { useProfileScope } from "../state/profileScope";
+import { useLocations } from "../hooks/useLocations";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
 import type {
@@ -30,22 +38,17 @@ import type {
 } from "../lib/api";
 import { notifyError } from "../lib/notify";
 
-const DashboardVisuals = lazy(() => import("../components/dashboard/DashboardVisuals"));
+const DashboardVisuals = lazy(
+  () => import("../components/dashboard/DashboardVisuals"),
+);
 
 const COLORS = {
-  canoas: "#1f77b4",
-  pf: "#f39c12",
   total: "#2ecc71",
   zerado: "#e03131",
+  locs: ["#1f77b4", "#f39c12", "#9b59b6", "#34495e", "#e67e22"],
 };
 
-const SCOPE_OPTIONS = [
-  { value: "AMBOS", label: "Ambos" },
-  { value: "CANOAS", label: "Canoas" },
-  { value: "PF", label: "Passo Fundo" },
-];
-
-type Scope = "AMBOS" | "CANOAS" | "PF";
+type Scope = number | null;
 type PeriodMode = "week" | "month";
 type ExternalTransferType = "ENTRADA" | "SAIDA";
 type DashboardTabState = {
@@ -58,7 +61,7 @@ type DashboardTabState = {
 
 const DASHBOARD_TAB_ID = "dashboard";
 const DEFAULT_DASHBOARD_TAB_STATE: DashboardTabState = {
-  scope: "AMBOS",
+  scope: null,
   periodMode: "week",
   selectedDate: dayjs().format("YYYY-MM-DD"),
   externalTransferType: "SAIDA",
@@ -80,53 +83,85 @@ function getQueryErrorMessage(error: unknown): string | null {
 
 export default function DashboardPage() {
   const { profileScopeKey } = useProfileScope();
+  const { activeLocations: locations } = useLocations();
   const lastErrorToastRef = useRef<string | null>(null);
   const persistedState = useMemo(
-    () => loadTabState<DashboardTabState>(DASHBOARD_TAB_ID) ?? DEFAULT_DASHBOARD_TAB_STATE,
-    []
+    () =>
+      loadTabState<DashboardTabState>(DASHBOARD_TAB_ID) ??
+      DEFAULT_DASHBOARD_TAB_STATE,
+    [],
   );
   const [scope, setScope] = useState<Scope>(persistedState.scope);
-  const [periodMode, setPeriodMode] = useState<PeriodMode>(persistedState.periodMode);
-  const [selectedDate, setSelectedDate] = useState<string | null>(persistedState.selectedDate);
-  const [externalTransferType, setExternalTransferType] = useState<ExternalTransferType>(
-    persistedState.externalTransferType ?? "SAIDA"
+  const [periodMode, setPeriodMode] = useState<PeriodMode>(
+    persistedState.periodMode,
   );
-  const [showAllExternalTransfers, setShowAllExternalTransfers] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(
+    persistedState.selectedDate,
+  );
+  const [externalTransferType, setExternalTransferType] =
+    useState<ExternalTransferType>(
+      persistedState.externalTransferType ?? "SAIDA",
+    );
+  const [showAllExternalTransfers, setShowAllExternalTransfers] =
+    useState(false);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
 
   const selected = dayjs(selectedDate ?? new Date());
   const dateFrom = useMemo(
-    () => selected.startOf(periodMode === "week" ? "week" : "month").format("YYYY-MM-DD"),
-    [selected, periodMode]
+    () =>
+      selected
+        .startOf(periodMode === "week" ? "week" : "month")
+        .format("YYYY-MM-DD"),
+    [selected, periodMode],
   );
   const dateTo = useMemo(
-    () => selected.endOf(periodMode === "week" ? "week" : "month").format("YYYY-MM-DD"),
-    [selected, periodMode]
+    () =>
+      selected
+        .endOf(periodMode === "week" ? "week" : "month")
+        .format("YYYY-MM-DD"),
+    [selected, periodMode],
   );
 
   const bucket = periodMode === "week" ? "day" : "week";
 
   const summaryQuery = useQuery<SuccessResponse<StockSummary>>({
     queryKey: ["analytics", profileScopeKey, "stock-summary", scope],
-    queryFn: ({ signal }) => api.getAnalyticsStockSummary({ scope }, { signal }),
+    queryFn: ({ signal }) =>
+      api.getAnalyticsStockSummary({ scope }, { signal }),
   });
 
   const distributionQuery = useQuery<SuccessResponse<StockDistribution>>({
     queryKey: ["analytics", profileScopeKey, "stock-distribution", scope],
-    queryFn: ({ signal }) => api.getAnalyticsStockDistribution({ scope }, { signal }),
+    queryFn: ({ signal }) =>
+      api.getAnalyticsStockDistribution({ scope }, { signal }),
   });
 
   const topSaidasQuery = useQuery<SuccessResponse<TopSaidaItem[]>>({
-    queryKey: ["analytics", profileScopeKey, "top-saidas", dateFrom, dateTo, scope],
+    queryKey: [
+      "analytics",
+      profileScopeKey,
+      "top-saidas",
+      dateFrom,
+      dateTo,
+      scope,
+    ],
     queryFn: ({ signal }) =>
       api.getAnalyticsTopSaidas(
         { date_from: dateFrom, date_to: dateTo, scope, limit: 5 },
-        { signal }
+        { signal },
       ),
   });
 
   const flowQuery = useQuery<SuccessResponse<FlowPoint[]>>({
-    queryKey: ["analytics", profileScopeKey, "flow", dateFrom, dateTo, scope, bucket],
+    queryKey: [
+      "analytics",
+      profileScopeKey,
+      "flow",
+      dateFrom,
+      dateTo,
+      scope,
+      bucket,
+    ],
     queryFn: ({ signal }) =>
       api.getAnalyticsFlow(
         {
@@ -135,12 +170,20 @@ export default function DashboardPage() {
           scope,
           bucket,
         },
-        { signal }
+        { signal },
       ),
   });
 
   const evolutionQuery = useQuery<SuccessResponse<StockEvolutionPoint[]>>({
-    queryKey: ["analytics", profileScopeKey, "stock-evolution", dateFrom, dateTo, scope, bucket],
+    queryKey: [
+      "analytics",
+      profileScopeKey,
+      "stock-evolution",
+      dateFrom,
+      dateTo,
+      scope,
+      bucket,
+    ],
     queryFn: ({ signal }) =>
       api.getAnalyticsStockEvolution(
         {
@@ -149,7 +192,7 @@ export default function DashboardPage() {
           scope,
           bucket,
         },
-        { signal }
+        { signal },
       ),
   });
   const recentStockoutsQuery = useQuery<SuccessResponse<RecentStockoutItem[]>>({
@@ -162,10 +205,12 @@ export default function DashboardPage() {
           scope,
           limit: 5,
         },
-        { signal }
+        { signal },
       ),
   });
-  const externalTransfersQuery = useQuery<SuccessResponse<ExternalTransferItem[]>>({
+  const externalTransfersQuery = useQuery<
+    SuccessResponse<ExternalTransferItem[]>
+  >({
     queryKey: [
       "analytics",
       profileScopeKey,
@@ -184,22 +229,21 @@ export default function DashboardPage() {
           tipo: externalTransferType,
           limit: 15,
         },
-        { signal }
+        { signal },
       ),
   });
-
 
   const dashboardErrors = useMemo(
     () =>
       [
-      summaryQuery.error,
-      distributionQuery.error,
-      topSaidasQuery.error,
-      flowQuery.error,
-      evolutionQuery.error,
-      recentStockoutsQuery.error,
-      externalTransfersQuery.error,
-    ]
+        summaryQuery.error,
+        distributionQuery.error,
+        topSaidasQuery.error,
+        flowQuery.error,
+        evolutionQuery.error,
+        recentStockoutsQuery.error,
+        externalTransfersQuery.error,
+      ]
         .map(getQueryErrorMessage)
         .filter((item): item is string => Boolean(item)),
     [
@@ -210,7 +254,7 @@ export default function DashboardPage() {
       evolutionQuery.error,
       recentStockoutsQuery.error,
       externalTransfersQuery.error,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -236,25 +280,36 @@ export default function DashboardPage() {
   const externalTransfers = externalTransfersQuery.data?.data ?? [];
 
   const summaryCards = useMemo<SummaryCard[]>(() => {
-    if (!summary) return [];
-    if (scope === "CANOAS") {
+    if (!summary || !summary.locations) return [];
+
+    if (scope !== null) {
+      const location = summary.locations.find((l) => l.location_id === scope);
+      const total = location ? location.total : summary.total_geral;
+      const locName = location ? location.location_name : "Local";
       return [
-        { label: "Total em Canoas", value: summary.total_canoas, color: COLORS.canoas },
-        { label: "Itens zerados em Canoas", value: summary.zerados, color: COLORS.zerado },
+        { label: `Total em ${locName}`, value: total, color: COLORS.locs[0] },
+        {
+          label: `Itens zerados em ${locName}`,
+          value: summary.zerados ?? 0,
+          color: COLORS.zerado,
+        },
       ];
     }
-    if (scope === "PF") {
-      return [
-        { label: "Total em Passo Fundo", value: summary.total_pf, color: COLORS.pf },
-        { label: "Itens zerados em Passo Fundo", value: summary.zerados, color: COLORS.zerado },
-      ];
-    }
-    return [
-      { label: "Total Canoas", value: summary.total_canoas, color: COLORS.canoas },
-      { label: "Total PF", value: summary.total_pf, color: COLORS.pf },
+
+    const cards: SummaryCard[] = summary.locations.map((loc, idx) => {
+      return {
+        label: `Total ${loc.location_name}`,
+        value: loc.total,
+        color: COLORS.locs[idx % COLORS.locs.length],
+      };
+    });
+
+    cards.push(
       { label: "Total Geral", value: summary.total_geral, color: COLORS.total },
       { label: "Itens zerados", value: summary.zerados, color: COLORS.zerado },
-    ];
+    );
+
+    return cards;
   }, [scope, summary]);
 
   const persistState = useCallback(
@@ -267,7 +322,7 @@ export default function DashboardPage() {
         scrollY: nextScrollY,
       });
     },
-    [externalTransferType, periodMode, scope, scrollY, selectedDate]
+    [externalTransferType, periodMode, scope, scrollY, selectedDate],
   );
 
   useEffect(() => {
@@ -321,26 +376,56 @@ export default function DashboardPage() {
                 { value: "month", label: "Mes" },
               ]}
             />
-            <DatePickerInput value={selectedDate} onChange={setSelectedDate} label="Data base" w={180} />
+            <DatePickerInput
+              value={selectedDate}
+              onChange={setSelectedDate}
+              label="Data base"
+              w={180}
+            />
           </Group>
-          <SegmentedControl value={scope} onChange={(value) => setScope(value as Scope)} data={SCOPE_OPTIONS} />
+          <SegmentedControl
+            value={scope === null ? "AMBOS" : String(scope)}
+            onChange={(value) =>
+              setScope(value === "AMBOS" ? null : Number(value))
+            }
+            data={[
+              { value: "AMBOS", label: "Todos os Locais" },
+              ...locations.map((loc) => ({
+                value: String(loc.id),
+                label: loc.label || loc.name,
+              })),
+            ]}
+          />
         </Group>
       </FilterToolbar>
 
       <Grid>
         {summaryQuery.isLoading
-          ? Array.from({ length: scope === "AMBOS" ? 4 : 2 }, (_, index) => (
-              <Grid.Col key={index} span={{ base: 12, md: scope === "AMBOS" ? 3 : 6 }}>
-                <Card className="kpi-card">
-                  <Skeleton h={30} mt={8} />
-                </Card>
-              </Grid.Col>
-            ))
+          ? Array.from(
+              { length: scope === null ? locations.length + 2 : 2 },
+              (_, index) => (
+                <Grid.Col
+                  key={index}
+                  span={{ base: 12, md: scope === null ? 3 : 6 }}
+                >
+                  <Card className="kpi-card">
+                    <Skeleton h={30} mt={8} />
+                  </Card>
+                </Grid.Col>
+              ),
+            )
           : summaryCards.map((card) => (
-              <Grid.Col key={card.label} span={{ base: 12, md: scope === "AMBOS" ? 3 : 6 }}>
+              <Grid.Col
+                key={card.label}
+                span={{ base: 12, md: scope === null ? 3 : 6 }}
+              >
                 <Card className="kpi-card">
-                  <Text size="sm" c="dimmed">{card.label}</Text>
-                  <Text fw={700} size="xl" c={card.color}>{card.value}</Text>
+                  <Text size="sm" c="dimmed">
+                    {card.label}
+                  </Text>
+                  <Text fw={700} size="xl" c={card.color}>
+                    {card.value}
+                  </Text>
                 </Card>
               </Grid.Col>
             ))}
@@ -376,7 +461,9 @@ export default function DashboardPage() {
           externalTransferType={externalTransferType}
           onExternalTransferTypeChange={setExternalTransferType}
           showAllExternalTransfers={showAllExternalTransfers}
-          onToggleAllExternalTransfers={() => setShowAllExternalTransfers((current) => !current)}
+          onToggleAllExternalTransfers={() =>
+            setShowAllExternalTransfers((current) => !current)
+          }
           recentStockouts={recentStockouts}
           recentStockoutsLoading={recentStockoutsQuery.isLoading}
         />

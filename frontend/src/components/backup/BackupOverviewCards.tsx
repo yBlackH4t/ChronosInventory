@@ -1,7 +1,12 @@
 import { Badge, Card, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import dayjs from "dayjs";
 
-import type { BackupAutoConfigOut, BackupListItemOut, BackupValidateOut, OfficialBaseStatusOut } from "../../lib/api";
+import type {
+  BackupAutoConfigOut,
+  BackupListItemOut,
+  BackupValidateOut,
+  OfficialBaseStatusOut,
+} from "../../lib/api";
 
 type Props = {
   currentValidation?: BackupValidateOut | null;
@@ -29,14 +34,31 @@ export function BackupOverviewCards({
             <Text size="xs" c="dimmed">
               Integridade do banco
             </Text>
-            <Badge variant="light" color={currentValidation?.ok ? "green" : currentValidation ? "red" : "gray"}>
-              {currentValidation?.ok ? "Integro" : currentValidation ? "Com erro" : "Aguardando"}
+            <Badge
+              variant="light"
+              color={
+                currentValidation?.ok
+                  ? "green"
+                  : currentValidation
+                    ? "red"
+                    : "gray"
+              }
+            >
+              {currentValidation?.ok
+                ? "Integro"
+                : currentValidation
+                  ? "Com erro"
+                  : "Aguardando"}
             </Badge>
           </Group>
-          <Text fw={700}>{currentValidation?.result || "Sem validacao recente"}</Text>
+          <Text fw={700}>
+            {currentValidation?.result || "Sem validacao recente"}
+          </Text>
           <Text size="sm" c="dimmed">
-            Banco atual: {officialBaseStatus?.current_products_count ?? 0} produtos |{" "}
-            {officialBaseStatus?.current_products_with_stock_count ?? 0} com estoque
+            Banco atual: {officialBaseStatus?.current_products_count ?? 0}{" "}
+            produtos |{" "}
+            {officialBaseStatus?.current_products_with_stock_count ?? 0} com
+            estoque
           </Text>
         </Stack>
       </Card>
@@ -87,7 +109,10 @@ export function BackupOverviewCards({
             <Text size="xs" c="dimmed">
               Servidor local
             </Text>
-            <Badge variant="light" color={officialBaseStatus?.server_running ? "green" : "orange"}>
+            <Badge
+              variant="light"
+              color={officialBaseStatus?.server_running ? "green" : "orange"}
+            >
               {officialBaseStatus?.server_running ? "Ativo" : "Parado"}
             </Badge>
           </Group>

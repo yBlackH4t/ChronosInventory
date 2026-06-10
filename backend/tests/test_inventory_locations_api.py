@@ -11,7 +11,7 @@ from app.models.inventory_location import InventoryLocation
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 
 
-def test_create_location(client: TestClient, db_connection: sqlite3.Connection):
+def test_create_location(client: TestClient):
     """Testa criação de nova location."""
     payload = {
         "name": "ALMOXARIFADO",
@@ -30,18 +30,16 @@ def test_create_location(client: TestClient, db_connection: sqlite3.Connection):
     assert data["ativo"] is True
 
 
-def test_get_location(client: TestClient, db_connection: sqlite3.Connection):
+def test_get_location(client: TestClient):
     """Testa recuperação de location específico."""
     # Criar location
-    repo = InventoryLocationRepository(db_connection)
-    location = InventoryLocation(
-        name="TESTE",
-        label="Local Teste",
-        color="#ff0000",
-        ordem=0,
-        ativo=True,
-    )
-    location_id = repo.create(location)
+    resp = client.post("/inventory-locations", json={
+        "name": "TESTE",
+        "label": "Local Teste",
+        "color": "#ff0000",
+        "ordem": 0,
+    })
+    location_id = resp.json()["data"]["id"]
     
     # Recuperar
     response = client.get(f"/inventory-locations/{location_id}")
@@ -53,20 +51,16 @@ def test_get_location(client: TestClient, db_connection: sqlite3.Connection):
     assert data["label"] == "Local Teste"
 
 
-def test_list_all_locations(client: TestClient, db_connection: sqlite3.Connection):
+def test_list_all_locations(client: TestClient):
     """Testa listagem de todas as locations."""
     # Criar várias locations
-    repo = InventoryLocationRepository(db_connection)
-    
     for i in range(3):
-        location = InventoryLocation(
-            name=f"LOC{i}",
-            label=f"Location {i}",
-            color="#0000ff",
-            ordem=i,
-            ativo=True,
-        )
-        repo.create(location)
+        client.post("/inventory-locations", json={
+            "name": f"LOC{i}",
+            "label": f"Location {i}",
+            "color": "#0000ff",
+            "ordem": i,
+        })
     
     # Listar
     response = client.get("/inventory-locations")
@@ -76,29 +70,26 @@ def test_list_all_locations(client: TestClient, db_connection: sqlite3.Connectio
     assert len(data) >= 3
 
 
-def test_list_active_locations(client: TestClient, db_connection: sqlite3.Connection):
+def test_list_active_locations(client: TestClient):
     """Testa listagem de locations ativas."""
-    repo = InventoryLocationRepository(db_connection)
-    
     # Criar ativa
-    active = InventoryLocation(
-        name="ATIVA",
-        label="Location Ativa",
-        color="#00ff00",
-        ordem=0,
-        ativo=True,
-    )
-    active_id = repo.create(active)
+    resp1 = client.post("/inventory-locations", json={
+        "name": "ATIVA",
+        "label": "Location Ativa",
+        "color": "#00ff00",
+        "ordem": 0,
+    })
+    active_id = resp1.json()["data"]["id"]
     
     # Criar inativa
-    inactive = InventoryLocation(
-        name="INATIVA",
-        label="Location Inativa",
-        color="#00ff00",
-        ordem=1,
-        ativo=False,
-    )
-    inactive_id = repo.create(inactive)
+    resp2 = client.post("/inventory-locations", json={
+        "name": "INATIVA",
+        "label": "Location Inativa",
+        "color": "#00ff00",
+        "ordem": 1,
+    })
+    inactive_id = resp2.json()["data"]["id"]
+    client.delete(f"/inventory-locations/{inactive_id}")  # inativar
     
     # Listar apenas ativas
     response = client.get("/inventory-locations/active")
@@ -112,18 +103,16 @@ def test_list_active_locations(client: TestClient, db_connection: sqlite3.Connec
     # inactive pode não estar dependendo de quais locations já existem
 
 
-def test_update_location(client: TestClient, db_connection: sqlite3.Connection):
+def test_update_location(client: TestClient):
     """Testa atualização de location."""
     # Criar location
-    repo = InventoryLocationRepository(db_connection)
-    location = InventoryLocation(
-        name="UPDATE_TEST",
-        label="Original",
-        color="#ff00ff",
-        ordem=0,
-        ativo=True,
-    )
-    location_id = repo.create(location)
+    resp = client.post("/inventory-locations", json={
+        "name": "UPDATE_TEST",
+        "label": "Original",
+        "color": "#ff00ff",
+        "ordem": 0,
+    })
+    location_id = resp.json()["data"]["id"]
     
     # Atualizar
     update_payload = {
@@ -143,18 +132,16 @@ def test_update_location(client: TestClient, db_connection: sqlite3.Connection):
     assert data["name"] == "UPDATE_TEST"
 
 
-def test_delete_location_soft(client: TestClient, db_connection: sqlite3.Connection):
+def test_delete_location_soft(client: TestClient):
     """Testa soft delete de location."""
     # Criar location
-    repo = InventoryLocationRepository(db_connection)
-    location = InventoryLocation(
-        name="DELETE_TEST",
-        label="To Delete",
-        color="#000000",
-        ordem=0,
-        ativo=True,
-    )
-    location_id = repo.create(location)
+    resp = client.post("/inventory-locations", json={
+        "name": "DELETE_TEST",
+        "label": "To Delete",
+        "color": "#000000",
+        "ordem": 0,
+    })
+    location_id = resp.json()["data"]["id"]
     
     # Deletar (soft)
     response = client.delete(f"/inventory-locations/{location_id}")
@@ -164,21 +151,22 @@ def test_delete_location_soft(client: TestClient, db_connection: sqlite3.Connect
     assert data["ativo"] is False
 
 
-def test_reactivate_location(client: TestClient, db_connection: sqlite3.Connection):
+def test_reactivate_location(client: TestClient):
     """Testa reativação de location desativado."""
     # Criar location
-    repo = InventoryLocationRepository(db_connection)
-    location = InventoryLocation(
-        name="REACTIVATE_TEST",
-        label="To Reactivate",
-        color="#000000",
-        ordem=0,
-        ativo=False,
-    )
-    location_id = repo.create(location)
+    resp = client.post("/inventory-locations", json={
+        "name": "REACTIVATE_TEST",
+        "label": "To Reactivate",
+        "color": "#000000",
+        "ordem": 0,
+    })
+    location_id = resp.json()["data"]["id"]
+    deleted = client.delete(f"/inventory-locations/{location_id}")
+    print("DELETED STATUS:", deleted.status_code, deleted.text)
     
     # Reativar
     response = client.post(f"/inventory-locations/{location_id}/reactivate")
+    print("REACTIVATE STATUS:", response.status_code, response.text)
     
     assert response.status_code == 200
     data = response.json()["data"]
@@ -213,7 +201,7 @@ def test_invalid_color(client: TestClient):
     }
     
     response = client.post("/inventory-locations", json=payload)
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_empty_name(client: TestClient):
@@ -226,7 +214,7 @@ def test_empty_name(client: TestClient):
     }
     
     response = client.post("/inventory-locations", json=payload)
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 def test_location_not_found(client: TestClient):

@@ -48,8 +48,13 @@ export function OfficialBaseHistoryTable({
         <Table.Tbody>
           {items.map((item) => (
             <Table.Tr key={item.manifest_path}>
-              <Table.Td>{dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
-              <Table.Td>{item.manifest.publisher_name || item.manifest.publisher_machine}</Table.Td>
+              <Table.Td>
+                {dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}
+              </Table.Td>
+              <Table.Td>
+                {item.manifest.publisher_name ||
+                  item.manifest.publisher_machine}
+              </Table.Td>
               <Table.Td>{item.manifest.app_version}</Table.Td>
               <Table.Td>{item.manifest.products_count ?? "-"}</Table.Td>
               <Table.Td>{item.manifest.movements_count ?? "-"}</Table.Td>

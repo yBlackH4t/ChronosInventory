@@ -15,6 +15,8 @@ const ProductStatusPage = lazy(() => import("../pages/ProductStatusPage"));
 const StockProfilesPage = lazy(() => import("../pages/StockProfilesPage"));
 const StockComparePage = lazy(() => import("../pages/StockComparePage"));
 const LabelsPage = lazy(() => import("../pages/LabelsPage"));
+const LocationsPage = lazy(() => import("../pages/LocationsPage"));
+const SetupPage = lazy(() => import("../pages/SetupPage"));
 
 function RouteLoader() {
   return (
@@ -37,7 +39,10 @@ export function AppRouter() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/produtos" element={<ProductsPage />} />
         <Route path="/movimentacoes" element={<MovementsPage />} />
-        <Route path="/entrada-nf" element={<Navigate to="/produtos" replace />} />
+        <Route
+          path="/entrada-nf"
+          element={<Navigate to="/produtos" replace />}
+        />
         <Route path="/importar" element={<ImportPage />} />
         <Route path="/exportar" element={<ExportPage />} />
         <Route path="/relatorios" element={<ReportsPage />} />
@@ -48,6 +53,8 @@ export function AppRouter() {
         <Route path="/estoques" element={<StockProfilesPage />} />
         <Route path="/comparar-estoques" element={<StockComparePage />} />
         <Route path="/novidades" element={<ReleaseNotesPage />} />
+        <Route path="/locais" element={<LocationsPage />} />
+        <Route path="/setup" element={<SetupPage />} />
       </Routes>
     </Suspense>
   );

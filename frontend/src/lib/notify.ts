@@ -1,4 +1,4 @@
-﻿import { notifications } from "@mantine/notifications";
+import { notifications } from "@mantine/notifications";
 import { ApiError } from "./api";
 
 type ValidationDetail = {
@@ -10,7 +10,9 @@ type ValidationDetail = {
 
 function normalizeDetails(details: unknown): ValidationDetail[] {
   if (!Array.isArray(details)) return [];
-  return details.filter((item) => typeof item === "object" && item !== null) as ValidationDetail[];
+  return details.filter(
+    (item) => typeof item === "object" && item !== null,
+  ) as ValidationDetail[];
 }
 
 function extractField(detail: ValidationDetail): string | null {
@@ -23,8 +25,6 @@ function friendlyFieldName(field: string | null): string {
   if (!field) return "campo";
   const labels: Record<string, string> = {
     nome: "Nome",
-    qtd_canoas: "Quantidade Canoas",
-    qtd_pf: "Quantidade PF",
     tipo: "Tipo",
     quantidade: "Quantidade",
     origem: "Origem",
@@ -67,7 +67,10 @@ export function notifySuccess(message: string) {
   });
 }
 
-export function notifyError(error: unknown, fallbackMessage = "Erro inesperado") {
+export function notifyError(
+  error: unknown,
+  fallbackMessage = "Erro inesperado",
+) {
   if (error instanceof ApiError) {
     let message = error.message || fallbackMessage;
     let title = "Erro";
@@ -87,13 +90,16 @@ export function notifyError(error: unknown, fallbackMessage = "Erro inesperado")
         const field = extractField(detail);
         return field ? incompatibleMovementFields.has(field) : false;
       });
-      const requires120 = details.some((detail) => extractField(detail) === "motivo_ajuste");
+      const requires120 = details.some(
+        (detail) => extractField(detail) === "motivo_ajuste",
+      );
 
       if (hasIncompatibleMovementField) {
-        message =
-          `Backend desatualizado para esta operacao. Atualize o app para versao ${requires120 ? "1.2.0" : "1.1.0"} ou superior.`;
+        message = `Backend desatualizado para esta operacao. Atualize o app para versao ${requires120 ? "1.2.0" : "1.1.0"} ou superior.`;
       } else {
-        const mapped = details.map(detailToFriendlyMessage).find((item) => Boolean(item));
+        const mapped = details
+          .map(detailToFriendlyMessage)
+          .find((item) => Boolean(item));
         if (mapped) {
           message = mapped;
         }

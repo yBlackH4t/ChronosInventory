@@ -28,8 +28,8 @@ class InventoryService:
             session_service=self.sessions,
         )
 
-    def create_session(self, nome: str, local: str, observacao: Optional[str]) -> InventorySessionRecord:
-        return self.sessions.create_session(nome, local, observacao)
+    def create_session(self, nome: str, location_id: int, observacao: Optional[str]) -> InventorySessionRecord:
+        return self.sessions.create_session(nome, location_id, observacao)
 
     def list_sessions(self, limit: int = 20, offset: int = 0) -> List[InventorySessionRecord]:
         return self.sessions.list_sessions(limit, offset)

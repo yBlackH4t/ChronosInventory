@@ -1,6 +1,15 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { AppShell, Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
+import { useLocation } from "react-router-dom";
+import {
+  AppShell,
+  Badge,
+  Button,
+  Card,
+  Group,
+  Stack,
+  Text,
+} from "@mantine/core";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import type { HealthOut } from "../lib/api";
 import { useProfileScope } from "../state/profileScope";
@@ -16,8 +25,18 @@ export default function AppLayout({
   children: ReactNode;
   health: HealthOut;
 }) {
-  const { restartRequired, activeProfileName, activeProfileId, backendSupportsProfiles } = useProfileScope();
+  const {
+    restartRequired,
+    activeProfileName,
+    activeProfileId,
+    backendSupportsProfiles,
+  } = useProfileScope();
   const [restarting, setRestarting] = useState(false);
+  const location = useLocation();
+
+  if (location.pathname === "/setup") {
+    return <>{children}</>;
+  }
 
   const handleRestartNow = async () => {
     if (restarting) return;
@@ -25,7 +44,10 @@ export default function AppLayout({
     try {
       await restartApplication();
     } catch (error) {
-      notifyError(error, "Nao foi possivel reiniciar automaticamente. Feche e abra o app.");
+      notifyError(
+        error,
+        "Nao foi possivel reiniciar automaticamente. Feche e abra o app.",
+      );
     } finally {
       setRestarting(false);
     }
@@ -63,10 +85,19 @@ export default function AppLayout({
 
                 {restartRequired && (
                   <Group gap="xs">
-                    <Badge color="orange" variant="light" leftSection={<IconAlertTriangle size={12} />}>
+                    <Badge
+                      color="orange"
+                      variant="light"
+                      leftSection={<IconAlertTriangle size={12} />}
+                    >
                       Reinicio pendente
                     </Badge>
-                    <Button size="xs" color="orange" onClick={() => void handleRestartNow()} loading={restarting}>
+                    <Button
+                      size="xs"
+                      color="orange"
+                      onClick={() => void handleRestartNow()}
+                      loading={restarting}
+                    >
                       Reiniciar agora
                     </Button>
                   </Group>
@@ -75,7 +106,13 @@ export default function AppLayout({
             </Card>
           )}
 
-          <div style={restartRequired ? { pointerEvents: "none", opacity: 0.55 } : undefined}>
+          <div
+            style={
+              restartRequired
+                ? { pointerEvents: "none", opacity: 0.55 }
+                : undefined
+            }
+          >
             {children}
           </div>
         </Stack>

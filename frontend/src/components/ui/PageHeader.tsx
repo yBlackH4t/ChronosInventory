@@ -7,7 +7,11 @@ type PageHeaderProps = {
   actions?: ReactNode;
 };
 
-export default function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
+export default function PageHeader({
+  title,
+  subtitle,
+  actions,
+}: PageHeaderProps) {
   return (
     <Group justify="space-between" align="end" wrap="wrap">
       <Stack gap={2} className="page-header">

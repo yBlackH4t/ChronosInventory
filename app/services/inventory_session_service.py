@@ -23,38 +23,42 @@ class InventorySessionService:
     def __init__(self, *, db) -> None:
         self.db = db
 
-    def create_session(self, nome: str, local: str, observacao: str | None) -> InventorySessionRecord:
+    def create_session(self, nome: str, location_id: int, observacao: str | None) -> InventorySessionRecord:
         nome = (nome or "").strip()
         if not nome:
             raise ValidationException("Nome da sessao de inventario e obrigatorio.")
-        local = self.normalize_local(local)
         observacao = observacao.strip() if observacao else None
 
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
             conn.execute("BEGIN")
+            # Fetch the local label from locais table
+            local_row = cursor.execute(
+                "SELECT id, label FROM locais WHERE id = ?",
+                (location_id,)
+            ).fetchone()
+            if not local_row:
+                raise ValidationException("Local selecionado não encontrado.")
+            local_label = str(local_row["label"])
+
             cursor.execute(
                 """
-                INSERT INTO inventory_sessions (nome, local, status, observacao)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO inventory_sessions (nome, local, inventory_location_id, status, observacao)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (nome, local, INVENTORY_STATUS_ABERTO, observacao),
+                (nome, local_label, location_id, INVENTORY_STATUS_ABERTO, observacao),
             )
             session_id = int(cursor.lastrowid)
             cursor.execute(
                 """
                 INSERT INTO inventory_counts (session_id, produto_id, qtd_sistema)
-                SELECT ?, p.id,
-                       CASE
-                         WHEN ? = 'CANOAS' THEN COALESCE(p.qtd_canoas, 0)
-                         WHEN ? = 'PF' THEN COALESCE(p.qtd_pf, 0)
-                         ELSE 0
-                       END
+                SELECT ?, p.id, COALESCE(pe.quantidade, 0)
                 FROM produtos p
+                LEFT JOIN produto_estoque pe ON pe.produto_id = p.id AND pe.local_id = ?
                 WHERE COALESCE(p.ativo, 1) = 1
                 """,
-                (session_id, local, local),
+                (session_id, location_id),
             )
             conn.commit()
             return self.get_session_by_id(conn, session_id)
@@ -248,7 +252,7 @@ class InventorySessionService:
 
     def ensure_session_open(self, conn, session_id: int):
         row = conn.execute(
-            "SELECT id, nome, local, status FROM inventory_sessions WHERE id = ?",
+            "SELECT id, nome, local, inventory_location_id, status FROM inventory_sessions WHERE id = ?",
             (session_id,),
         ).fetchone()
         if not row:

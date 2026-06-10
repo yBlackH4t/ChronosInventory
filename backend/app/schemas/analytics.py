@@ -9,9 +9,16 @@ class TopSaidaItem(BaseModel):
     total_saida: int
 
 
+class LocationStockTotal(BaseModel):
+    location_id: int
+    location_name: str
+    location_label: str
+    color: str | None = None
+    total: int
+
+
 class StockSummaryOut(BaseModel):
-    total_canoas: int
-    total_pf: int
+    locations: list[LocationStockTotal]
     total_geral: int
     zerados: int
 

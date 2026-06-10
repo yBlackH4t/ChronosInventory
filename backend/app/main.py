@@ -22,9 +22,13 @@ from core.database.connection import DatabaseConnection
 from core.database.migration_manager import MigrationManager
 from core.exceptions import (
     DatabaseException,
+    DuplicateException,
     FileOperationException,
     InsufficientStockException,
+    LocationHasStockException,
+    LocationLimitException,
     MigrationException,
+    NotFoundException,
     ProductNotFoundException,
     UpdateException,
     ValidationException,
@@ -39,6 +43,7 @@ from backend.app.api.routers import (
     movements,
     export,
     imports,
+    import_dynamic,
     dashboard,
     analytics,
     inventory,
@@ -148,6 +153,7 @@ app.include_router(reports.router)
 app.include_router(movements.router)
 app.include_router(export.router)
 app.include_router(imports.router)
+app.include_router(import_dynamic.router)
 app.include_router(dashboard.router)
 app.include_router(analytics.router)
 app.include_router(inventory.router)
@@ -171,12 +177,13 @@ def _friendly_validation_message(errors: list[dict]) -> str:
 
     field_labels = {
         "nome": "Nome",
-        "qtd_canoas": "Quantidade Canoas",
-        "qtd_pf": "Quantidade PF",
+        "inventories": "Estoques",
         "produto_id": "Produto",
         "quantidade": "Quantidade",
         "origem": "Origem",
         "destino": "Destino",
+        "origem_location_id": "Local de origem",
+        "destino_location_id": "Local de destino",
         "natureza": "Natureza",
         "motivo_ajuste": "Motivo de ajuste",
         "movimento_ref_id": "Movimento de referencia",
@@ -308,6 +315,32 @@ async def migration_exception_handler(request: Request, exc: MigrationException)
 async def update_exception_handler(request: Request, exc: UpdateException) -> JSONResponse:
     LOG.exception("Update error request_id=%s", _request_id(request))
     return fail(500, "update_error", "Update error", str(exc), _request_id(request))
+
+
+@app.exception_handler(DuplicateException)
+async def duplicate_exception_handler(request: Request, exc: DuplicateException) -> JSONResponse:
+    return fail(409, "duplicate", str(exc), None, _request_id(request))
+
+
+@app.exception_handler(NotFoundException)
+async def not_found_exception_handler(request: Request, exc: NotFoundException) -> JSONResponse:
+    return fail(404, "not_found", str(exc), None, _request_id(request))
+
+
+@app.exception_handler(LocationLimitException)
+async def location_limit_handler(request: Request, exc: LocationLimitException) -> JSONResponse:
+    return fail(409, "location_limit", str(exc), None, _request_id(request))
+
+
+@app.exception_handler(LocationHasStockException)
+async def location_has_stock_handler(request: Request, exc: LocationHasStockException) -> JSONResponse:
+    return fail(
+        409,
+        "location_has_stock",
+        str(exc),
+        exc.stock_summary,
+        _request_id(request),
+    )
 
 
 @app.exception_handler(Exception)

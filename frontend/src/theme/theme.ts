@@ -180,7 +180,8 @@ export const appTheme = createTheme({
       },
       styles: {
         root: {
-          transition: "transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease",
+          transition:
+            "transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease",
         },
       },
     }),

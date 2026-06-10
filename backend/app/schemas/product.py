@@ -6,11 +6,19 @@ from pydantic import BaseModel, Field, ConfigDict
 PRODUCT_OBSERVACAO_MAX_LENGTH = 2000
 
 
+class LocationStock(BaseModel):
+    """Stock quantity at a specific inventory location."""
+    location_id: int
+    location_name: str
+    location_label: str
+    color: str | None = None
+    quantidade: int
+
+
 class ProductOut(BaseModel):
     id: int
     nome: str
-    qtd_canoas: int
-    qtd_pf: int
+    inventories: dict[int, int]
     total_stock: int
     observacao: str | None = None
     ativo: bool = True
@@ -22,8 +30,7 @@ class ProductCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nome: str = Field(min_length=1, max_length=255)
-    qtd_canoas: int = Field(ge=0)
-    qtd_pf: int = Field(ge=0)
+    inventories: dict[int, int] = Field(default_factory=dict)  # {location_id: quantidade}
     observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
 
 
@@ -31,8 +38,7 @@ class ProductPut(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nome: str = Field(min_length=1, max_length=255)
-    qtd_canoas: int = Field(ge=0)
-    qtd_pf: int = Field(ge=0)
+    inventories: dict[int, int] = Field(default_factory=dict)
     observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
 
 
@@ -40,8 +46,7 @@ class ProductPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nome: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    qtd_canoas: Optional[int] = Field(default=None, ge=0)
-    qtd_pf: Optional[int] = Field(default=None, ge=0)
+    inventories: Optional[dict[int, int]] = None
     observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
 
 

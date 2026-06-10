@@ -28,8 +28,10 @@ export default function ExportPage() {
     onError: (error) => {
       if (error instanceof ApiError && error.status === 404) {
         notifyError(
-          new Error("O backend local ainda nao conhece esta exportacao. Atualize/recompile o backend do app e tente novamente."),
-          "Backend local desatualizado."
+          new Error(
+            "O backend local ainda nao conhece esta exportacao. Atualize/recompile o backend do app e tente novamente.",
+          ),
+          "Backend local desatualizado.",
         );
         return;
       }
@@ -52,8 +54,13 @@ export default function ExportPage() {
               Formato XLSX
             </Badge>
           </Group>
-          <Text>Gera um arquivo XLSX com todos os produtos e seus estoques atuais.</Text>
-          <Button onClick={() => exportMutation.mutate()} loading={exportMutation.isPending}>
+          <Text>
+            Gera um arquivo XLSX com todos os produtos e seus estoques atuais.
+          </Text>
+          <Button
+            onClick={() => exportMutation.mutate()}
+            loading={exportMutation.isPending}
+          >
             Exportar XLSX
           </Button>
         </Stack>
@@ -68,10 +75,13 @@ export default function ExportPage() {
             </Badge>
           </Group>
           <Text>
-            Gera uma planilha mais apresentável, com aba de resumo, totais de Canoas, Passo Fundo,
-            total global de peças e a listagem completa dos itens.
+            Gera uma planilha mais apresentável, com aba de resumo, totais por
+            local, total global de peças e a listagem completa dos itens.
           </Text>
-          <Button onClick={() => stockOverviewMutation.mutate()} loading={stockOverviewMutation.isPending}>
+          <Button
+            onClick={() => stockOverviewMutation.mutate()}
+            loading={stockOverviewMutation.isPending}
+          >
             Exportar resumo formatado
           </Button>
         </Stack>

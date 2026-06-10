@@ -1,5 +1,14 @@
 import type { KeyboardEvent, RefObject } from "react";
-import { Badge, Button, Group, NumberInput, Table, Text, TextInput, Stack } from "@mantine/core";
+import {
+  Badge,
+  Button,
+  Group,
+  NumberInput,
+  Table,
+  Text,
+  TextInput,
+  Stack,
+} from "@mantine/core";
 
 import DataTable from "../ui/DataTable";
 import FilterToolbar from "../ui/FilterToolbar";
@@ -59,8 +68,9 @@ export function InventoryCollectorPanel({
           </Badge>
         </Group>
         <Text size="xs" c="dimmed">
-          Fluxo simples: iniciar modo bip (zera fisico para 0), depois so bipar item por item.
-          O sistema compara automaticamente e mostra faltando/a mais na divergencia.
+          Fluxo simples: iniciar modo bip (zera fisico para 0), depois so bipar
+          item por item. O sistema compara automaticamente e mostra faltando/a
+          mais na divergencia.
         </Text>
         <Group align="end" wrap="wrap">
           <Button
@@ -72,14 +82,20 @@ export function InventoryCollectorPanel({
           >
             Iniciar modo bip
           </Button>
-          <Button variant="subtle" onClick={onStop} disabled={!active || initializing || loading}>
+          <Button
+            variant="subtle"
+            onClick={onStop}
+            disabled={!active || initializing || loading}
+          >
             Encerrar modo bip
           </Button>
           <TextInput
             label="Etiqueta"
             placeholder="Bipe ou digite CI-123 / 4031196"
             value={collectorInput}
-            onChange={(event) => onCollectorInputChange(event.currentTarget.value)}
+            onChange={(event) =>
+              onCollectorInputChange(event.currentTarget.value)
+            }
             onKeyDown={onCollectorInputKeyDown}
             ref={collectorInputRef}
             w={320}
@@ -90,14 +106,24 @@ export function InventoryCollectorPanel({
             min={1}
             max={200}
             value={collectorStep}
-            onChange={(value) => onCollectorStepChange(Math.max(1, Math.round(Number(value || 1))))}
+            onChange={(value) =>
+              onCollectorStepChange(Math.max(1, Math.round(Number(value || 1))))
+            }
             w={120}
             disabled={sessionStatus !== "ABERTO" || loading || !active}
           />
-          <Button onClick={onRun} loading={loading} disabled={sessionStatus !== "ABERTO" || !active}>
+          <Button
+            onClick={onRun}
+            loading={loading}
+            disabled={sessionStatus !== "ABERTO" || !active}
+          >
             Somar
           </Button>
-          <Button variant="subtle" onClick={onClearLog} disabled={log.length === 0 || loading}>
+          <Button
+            variant="subtle"
+            onClick={onClearLog}
+            disabled={log.length === 0 || loading}
+          >
             Limpar log
           </Button>
         </Group>
@@ -118,7 +144,10 @@ export function InventoryCollectorPanel({
                     <Table.Td>{entry.at}</Table.Td>
                     <Table.Td>{entry.input}</Table.Td>
                     <Table.Td>
-                      <Badge color={entry.status === "OK" ? "green" : "red"} variant="light">
+                      <Badge
+                        color={entry.status === "OK" ? "green" : "red"}
+                        variant="light"
+                      >
                         {entry.status}
                       </Badge>
                     </Table.Td>

@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
-import type { BackupAutoConfigIn, BackupAutoConfigOut, SuccessResponse } from "../lib/api";
+import type {
+  BackupAutoConfigIn,
+  BackupAutoConfigOut,
+  SuccessResponse,
+} from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
 
 export const AUTO_SCHEDULE_MODE_OPTIONS = [
@@ -22,11 +26,17 @@ export const AUTO_WEEKDAY_OPTIONS = [
 
 export function useBackupAutoConfig() {
   const queryClient = useQueryClient();
-  const [autoEnabledInput, setAutoEnabledInput] = useState<boolean | null>(null);
+  const [autoEnabledInput, setAutoEnabledInput] = useState<boolean | null>(
+    null,
+  );
   const [autoHourInput, setAutoHourInput] = useState<number | null>(null);
   const [autoMinuteInput, setAutoMinuteInput] = useState<number | null>(null);
-  const [autoRetentionInput, setAutoRetentionInput] = useState<string | null>(null);
-  const [autoScheduleModeInput, setAutoScheduleModeInput] = useState<"DAILY" | "WEEKLY" | null>(null);
+  const [autoRetentionInput, setAutoRetentionInput] = useState<string | null>(
+    null,
+  );
+  const [autoScheduleModeInput, setAutoScheduleModeInput] = useState<
+    "DAILY" | "WEEKLY" | null
+  >(null);
   const [autoWeekdayInput, setAutoWeekdayInput] = useState<string | null>(null);
 
   const autoConfigQuery = useQuery<SuccessResponse<BackupAutoConfigOut>>({
@@ -57,8 +67,10 @@ export function useBackupAutoConfig() {
   const autoEnabled = autoEnabledInput ?? Boolean(autoConfig?.enabled ?? false);
   const autoHour = autoHourInput ?? Number(autoConfig?.hour ?? 18);
   const autoMinute = autoMinuteInput ?? Number(autoConfig?.minute ?? 0);
-  const autoRetention = autoRetentionInput ?? String(autoConfig?.retention_days ?? 15);
-  const autoScheduleMode = autoScheduleModeInput ?? autoConfig?.schedule_mode ?? "DAILY";
+  const autoRetention =
+    autoRetentionInput ?? String(autoConfig?.retention_days ?? 15);
+  const autoScheduleMode =
+    autoScheduleModeInput ?? autoConfig?.schedule_mode ?? "DAILY";
   const autoWeekday = autoWeekdayInput ?? String(autoConfig?.weekday ?? 0);
 
   const saveAutoConfig = () => {
@@ -87,8 +99,14 @@ export function useBackupAutoConfig() {
     setAutoScheduleModeInput,
     autoWeekday,
     setAutoWeekdayInput,
-    scheduleOptions: AUTO_SCHEDULE_MODE_OPTIONS.map((item) => ({ value: item.value, label: item.label })),
-    weekdayOptions: AUTO_WEEKDAY_OPTIONS.map((item) => ({ value: item.value, label: item.label })),
+    scheduleOptions: AUTO_SCHEDULE_MODE_OPTIONS.map((item) => ({
+      value: item.value,
+      label: item.label,
+    })),
+    weekdayOptions: AUTO_WEEKDAY_OPTIONS.map((item) => ({
+      value: item.value,
+      label: item.label,
+    })),
     saveAutoConfig,
     saveAutoConfigLoading: updateAutoConfigMutation.isPending,
   };

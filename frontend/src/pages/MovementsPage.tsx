@@ -66,9 +66,11 @@ function MovementsPageContent() {
         <PageHeader
           title="Historico de movimentacoes"
           subtitle="Filtros detalhados para rastrear entradas, saidas, transferencias e devolucoes."
-          actions={(
+          actions={
             <>
-              <Badge variant="light">Filtros ativos: {state.activeViewCount}</Badge>
+              <Badge variant="light">
+                Filtros ativos: {state.activeViewCount}
+              </Badge>
               <Button
                 size="xs"
                 variant="subtle"
@@ -81,7 +83,7 @@ function MovementsPageContent() {
                 Resetar visao
               </Button>
             </>
-          )}
+          }
         />
 
         <MovementsFiltersSection

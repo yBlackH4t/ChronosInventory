@@ -47,3 +47,26 @@ class InvalidTransferException(EstoqueBaseException):
 class FileOperationException(EstoqueBaseException):
     """Exceções relacionadas a operações de arquivo."""
     pass
+
+
+class DuplicateException(EstoqueBaseException):
+    """Exceção quando recurso duplicado é detectado (ex: nome de location)."""
+    pass
+
+
+class NotFoundException(EstoqueBaseException):
+    """Exceção quando recurso não é encontrado."""
+    pass
+
+
+class LocationLimitException(EstoqueBaseException):
+    """Exceção quando limite máximo de locations é atingido."""
+    pass
+
+
+class LocationHasStockException(EstoqueBaseException):
+    """Exceção quando tentativa de remover location que possui estoque."""
+
+    def __init__(self, message: str, stock_summary: dict | None = None):
+        super().__init__(message)
+        self.stock_summary = stock_summary or {}

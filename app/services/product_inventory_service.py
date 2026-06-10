@@ -7,7 +7,7 @@ Operações de negócio para estoque de produtos por location
 from typing import List, Dict, Optional
 import sqlite3
 from app.models.inventory_location import ProductInventory
-from core.database.repositories.product_inventory_repository import ProductInventoryRepository
+from core.database.repositories.produto_estoque_repository import ProductInventoryRepository
 from core.exceptions import NotFoundException, ValidationException
 
 

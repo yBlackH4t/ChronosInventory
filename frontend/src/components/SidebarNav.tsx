@@ -13,6 +13,7 @@ import {
   IconFileImport,
   IconGauge,
   IconReport,
+  IconBuildingStore,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
 import { useProfileScope } from "../state/profileScope";
@@ -29,7 +30,11 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: "Dashboard", to: "/dashboard", icon: IconGauge },
       { label: "Produtos", to: "/produtos", icon: IconBox },
-      { label: "Movimentacoes", to: "/movimentacoes", icon: IconArrowsExchange },
+      {
+        label: "Movimentacoes",
+        to: "/movimentacoes",
+        icon: IconArrowsExchange,
+      },
       { label: "Inventario", to: "/inventario", icon: IconClipboardList },
     ],
   },
@@ -50,9 +55,14 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: "Administracao",
     items: [
+      { label: "Meus Locais", to: "/locais", icon: IconBuildingStore },
       { label: "Backup", to: "/backup", icon: IconDatabase },
       { label: "Estoques", to: "/estoques", icon: IconDatabase },
-      { label: "Comparar estoques", to: "/comparar-estoques", icon: IconArrowsExchange },
+      {
+        label: "Comparar estoques",
+        to: "/comparar-estoques",
+        icon: IconArrowsExchange,
+      },
       { label: "Ativar/Inativar", to: "/itens-status", icon: IconCheckbox },
     ],
   },
@@ -146,7 +156,15 @@ export default function SidebarNav() {
 
     if (route === "/etiquetas") {
       void queryClient.prefetchQuery({
-        queryKey: ["labels-products", profileScopeKey, "", "ATIVO", "COM_ESTOQUE", 1, "20"],
+        queryKey: [
+          "labels-products",
+          profileScopeKey,
+          "",
+          "ATIVO",
+          "COM_ESTOQUE",
+          1,
+          "20",
+        ],
         queryFn: () =>
           api.listProductsStatus({
             query: "",
@@ -190,7 +208,15 @@ export default function SidebarNav() {
 
     if (route === "/itens-status") {
       void queryClient.prefetchQuery({
-        queryKey: ["produtos-status", profileScopeKey, "", "TODOS", "TODOS", 1, "20"],
+        queryKey: [
+          "produtos-status",
+          profileScopeKey,
+          "",
+          "TODOS",
+          "TODOS",
+          1,
+          "20",
+        ],
         queryFn: () =>
           api.listProductsStatus({
             query: "",

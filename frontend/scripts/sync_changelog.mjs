@@ -7,8 +7,13 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..", "..");
 
 const argMap = parseArgs(process.argv.slice(2));
-const changelogPath = path.resolve(argMap.changelog ?? path.join(repoRoot, "CHANGELOG.md"));
-const outputPath = path.resolve(argMap.output ?? path.join(repoRoot, "frontend", "src", "lib", "changelog.ts"));
+const changelogPath = path.resolve(
+  argMap.changelog ?? path.join(repoRoot, "CHANGELOG.md"),
+);
+const outputPath = path.resolve(
+  argMap.output ??
+    path.join(repoRoot, "frontend", "src", "lib", "changelog.ts"),
+);
 const maxHighlights = Number(argMap.maxHighlights ?? 12);
 
 if (!Number.isFinite(maxHighlights) || maxHighlights < 1) {
@@ -29,7 +34,9 @@ const entries = parseChangelog(changelogText).map((entry) => ({
 
 const output = buildTsOutput(entries);
 fs.writeFileSync(outputPath, output, "utf8");
-console.log(`changelog.ts atualizado com ${entries.length} versao(oes): ${outputPath}`);
+console.log(
+  `changelog.ts atualizado com ${entries.length} versao(oes): ${outputPath}`,
+);
 
 function parseArgs(argv) {
   const map = {};
@@ -37,7 +44,8 @@ function parseArgs(argv) {
     const token = argv[i];
     if (!token.startsWith("--")) continue;
     const key = token.slice(2);
-    const value = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
+    const value =
+      argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
     map[key] = value;
   }
   return map;
@@ -49,7 +57,9 @@ function fail(message) {
 }
 
 function normalizeVersion(version) {
-  return String(version || "").trim().replace(/^v/i, "");
+  return String(version || "")
+    .trim()
+    .replace(/^v/i, "");
 }
 
 function parseChangelog(markdown) {
@@ -60,7 +70,9 @@ function parseChangelog(markdown) {
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
-    const heading = rawLine.match(/^##\s+\[([^\]]+)\](?:\s*-\s*([0-9]{4}-[0-9]{2}-[0-9]{2}))?/i);
+    const heading = rawLine.match(
+      /^##\s+\[([^\]]+)\](?:\s*-\s*([0-9]{4}-[0-9]{2}-[0-9]{2}))?/i,
+    );
     if (heading) {
       pushCurrent(entries, current);
       const version = normalizeVersion(heading[1]);
@@ -109,7 +121,9 @@ function pushCurrent(list, entry) {
 }
 
 function normalizeSection(name) {
-  const key = String(name || "").trim().toLowerCase();
+  const key = String(name || "")
+    .trim()
+    .toLowerCase();
   if (key === "added") return "added";
   if (key === "changed") return "changed";
   if (key === "fixed") return "fixed";
@@ -163,7 +177,8 @@ function buildHighlights(entry, limit) {
 
 function buildTsOutput(entries) {
   const serialized = JSON.stringify(entries, null, 2);
-  return `/* Arquivo gerado automaticamente por frontend/scripts/sync_changelog.mjs */\n` +
+  return (
+    `/* Arquivo gerado automaticamente por frontend/scripts/sync_changelog.mjs */\n` +
     `/* Nao edite manualmente: atualize CHANGELOG.md e rode npm run changelog:sync */\n\n` +
     `export type ReleaseEntry = {\n` +
     `  version: string;\n` +
@@ -181,5 +196,6 @@ function buildTsOutput(entries) {
     `}\n\n` +
     `export function getLatestReleaseEntry(): ReleaseEntry | undefined {\n` +
     `  return RELEASE_ENTRIES[0];\n` +
-    `}\n`;
+    `}\n`
+  );
 }

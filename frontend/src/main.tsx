@@ -9,5 +9,5 @@ createRoot(document.getElementById("root")!).render(
     <AppProviders>
       <ApiGate>{(health) => <App health={health} />}</ApiGate>
     </AppProviders>
-  </StrictMode>
+  </StrictMode>,
 );

@@ -11,7 +11,12 @@ import {
 import { useDebouncedValue, useDisclosure } from "@mantine/hooks";
 import { modals } from "@mantine/modals";
 import { useForm } from "@mantine/form";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { IconPlus } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 
@@ -22,13 +27,13 @@ import { ProductDetailsDrawer } from "../components/products/ProductDetailsDrawe
 import { ProductFormModal } from "../components/products/ProductFormModal";
 import { ProductsListTable } from "../components/products/ProductsListTable";
 import { useProductMovement } from "../hooks/useProductMovement";
+import { useLocations } from "../hooks/useLocations";
 import {
   adjustmentReasonLabel,
   movementColor,
   movementNatureLabel,
   movementNatureOptionsByType,
   PRODUCT_ADJUSTMENT_REASON_OPTIONS,
-  PRODUCT_LOCATIONS,
 } from "../lib/productMovement";
 import { useProfileScope } from "../state/profileScope";
 import type {
@@ -40,7 +45,11 @@ import type {
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
-import { clearTabState, loadTabState, saveTabState } from "../state/tabStateCache";
+import {
+  clearTabState,
+  loadTabState,
+  saveTabState,
+} from "../state/tabStateCache";
 
 const PAGE_SIZES = [
   { value: "10", label: "10" },
@@ -55,10 +64,6 @@ const SORT_OPTIONS = [
   { value: "-id", label: "ID decrescente" },
   { value: "-total_stock", label: "Maior estoque total" },
   { value: "total_stock", label: "Menor estoque total" },
-  { value: "-qtd_canoas", label: "Maior quantidade em Canoas" },
-  { value: "qtd_canoas", label: "Menor quantidade em Canoas" },
-  { value: "-qtd_pf", label: "Maior quantidade em PF" },
-  { value: "qtd_pf", label: "Menor quantidade em PF" },
 ];
 const MAX_IMAGES = 5;
 
@@ -91,9 +96,12 @@ const DEFAULT_PRODUCTS_TAB_STATE: ProductsTabState = {
 export default function ProductsPage() {
   const navigate = useNavigate();
   const { profileScopeKey } = useProfileScope();
+  const { activeLocations: locations } = useLocations();
   const persistedState = useMemo(
-    () => loadTabState<ProductsTabState>(PRODUCTS_TAB_ID) ?? DEFAULT_PRODUCTS_TAB_STATE,
-    []
+    () =>
+      loadTabState<ProductsTabState>(PRODUCTS_TAB_ID) ??
+      DEFAULT_PRODUCTS_TAB_STATE,
+    [],
   );
   const [query, setQuery] = useState(persistedState.query);
   const [debounced] = useDebouncedValue(query, 350);
@@ -115,13 +123,17 @@ export default function ProductsPage() {
           page_size: Number(pageSize),
           sort,
         },
-        { signal }
+        { signal },
       ),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
 
-  const createMutation = useMutation<SuccessResponse<Product>, Error, ProductCreate>({
+  const createMutation = useMutation<
+    SuccessResponse<Product>,
+    Error,
+    ProductCreate
+  >({
     mutationFn: (payload: ProductCreate) => api.createProduct(payload),
     onSuccess: (response) => {
       notifySuccess("Produto criado");
@@ -131,7 +143,9 @@ export default function ProductsPage() {
       createForm.reset();
       createForm.resetDirty();
       formHandlers.close();
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -149,8 +163,12 @@ export default function ProductsPage() {
       }
       editForm.resetDirty();
       formHandlers.close();
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
-      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, editing?.id] });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["produto", profileScopeKey, editing?.id],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -163,7 +181,9 @@ export default function ProductsPage() {
     mutationFn: (id: number) => api.deleteProduct(id),
     onSuccess: () => {
       notifySuccess("Produto removido");
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -174,13 +194,10 @@ export default function ProductsPage() {
   const createForm = useForm<ProductCreate>({
     initialValues: {
       nome: "",
-      qtd_canoas: 0,
-      qtd_pf: 0,
+      inventories: {},
     },
     validate: {
       nome: (value) => (value.trim().length === 0 ? "Nome obrigatorio" : null),
-      qtd_canoas: (value) => (value < 0 ? "Nao pode ser negativo" : null),
-      qtd_pf: (value) => (value < 0 ? "Nao pode ser negativo" : null),
     },
   });
 
@@ -196,7 +213,7 @@ export default function ProductsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    createForm.setValues({ nome: "", qtd_canoas: 0, qtd_pf: 0 });
+    createForm.setValues({ nome: "", inventories: {} });
     createForm.resetDirty();
     formHandlers.open();
   };
@@ -212,10 +229,16 @@ export default function ProductsPage() {
   };
 
   const handleCreateSubmit = createForm.onSubmit((values) => {
-    if ((values.qtd_canoas ?? 0) + (values.qtd_pf ?? 0) <= 0) {
-      const msg = "Estoque inicial nao pode ser 0. Use entrada/devolucao para registrar depois.";
-      createForm.setFieldError("qtd_canoas", msg);
-      createForm.setFieldError("qtd_pf", msg);
+    const total = Object.values(values.inventories ?? {}).reduce(
+      (sum, val) => sum + (val || 0),
+      0,
+    );
+    if (total <= 0) {
+      notifyError(
+        new Error(
+          "Estoque inicial nao pode ser 0. Use entrada/devolucao para registrar depois.",
+        ),
+      );
       return;
     }
     createMutation.mutate(values);
@@ -225,23 +248,34 @@ export default function ProductsPage() {
     if (!editing) return;
     patchMutation.mutate({
       id: editing.id,
-      payload: { nome: values.nome.trim(), observacao: values.observacao.trim() },
+      payload: {
+        nome: values.nome.trim(),
+        observacao: values.observacao.trim(),
+      },
     });
   });
 
   const confirmDelete = (product: Product) => {
     modals.openConfirmModal({
       title: "Excluir produto",
-      children: <Text size="sm">Tem certeza que deseja excluir {product.nome}?</Text>,
+      children: (
+        <Text size="sm">Tem certeza que deseja excluir {product.nome}?</Text>
+      ),
       labels: { confirm: "Excluir", cancel: "Cancelar" },
       confirmProps: { color: "red" },
       onConfirm: () => deleteMutation.mutate(product.id),
     });
   };
 
-  const [drawerOpened, setDrawerOpened] = useState<boolean>(persistedState.drawerOpened);
-  const [selectedId, setSelectedId] = useState<number | null>(persistedState.selectedId);
-  const [selectedSnapshot, setSelectedSnapshot] = useState<Product | null>(null);
+  const [drawerOpened, setDrawerOpened] = useState<boolean>(
+    persistedState.drawerOpened,
+  );
+  const [selectedId, setSelectedId] = useState<number | null>(
+    persistedState.selectedId,
+  );
+  const [selectedSnapshot, setSelectedSnapshot] = useState<Product | null>(
+    null,
+  );
 
   const openDetails = (product: Product) => {
     setSelectedId(product.id);
@@ -269,7 +303,13 @@ export default function ProductsPage() {
 
   const currentProduct = detailQuery.data?.data ?? selectedSnapshot;
 
-  const imagesQuery = useQuery<SuccessResponse<{ items: ProductImageItem[]; total: number; max_images: number }>>({
+  const imagesQuery = useQuery<
+    SuccessResponse<{
+      items: ProductImageItem[];
+      total: number;
+      max_images: number;
+    }>
+  >({
     queryKey: ["produto-imagens", profileScopeKey, selectedId],
     queryFn: ({ signal }) => api.listProductImages(selectedId!, { signal }),
     enabled: !!selectedId,
@@ -284,8 +324,12 @@ export default function ProductsPage() {
     mutationFn: (files: File[]) => api.uploadProductImages(selectedId!, files),
     onSuccess: () => {
       notifySuccess("Imagem(ns) adicionada(s)");
-      queryClient.invalidateQueries({ queryKey: ["produto-imagens", profileScopeKey, selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({
+        queryKey: ["produto-imagens", profileScopeKey, selectedId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -295,10 +339,13 @@ export default function ProductsPage() {
     Error,
     number
   >({
-    mutationFn: (imageId: number) => api.setPrimaryProductImage(selectedId!, imageId),
+    mutationFn: (imageId: number) =>
+      api.setPrimaryProductImage(selectedId!, imageId),
     onSuccess: () => {
       notifySuccess("Imagem principal definida");
-      queryClient.invalidateQueries({ queryKey: ["produto-imagens", profileScopeKey, selectedId] });
+      queryClient.invalidateQueries({
+        queryKey: ["produto-imagens", profileScopeKey, selectedId],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -308,11 +355,16 @@ export default function ProductsPage() {
     Error,
     number
   >({
-    mutationFn: (imageId: number) => api.deleteProductImage(selectedId!, imageId),
+    mutationFn: (imageId: number) =>
+      api.deleteProductImage(selectedId!, imageId),
     onSuccess: () => {
       notifySuccess("Imagem removida");
-      queryClient.invalidateQueries({ queryKey: ["produto-imagens", profileScopeKey, selectedId] });
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+      queryClient.invalidateQueries({
+        queryKey: ["produto-imagens", profileScopeKey, selectedId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -327,7 +379,10 @@ export default function ProductsPage() {
     uploadImagesMutation.mutate(files);
   };
 
-  const [observacaoDraft, setObservacaoDraft] = useState<{ productId: number | null; value: string }>({
+  const [observacaoDraft, setObservacaoDraft] = useState<{
+    productId: number | null;
+    value: string;
+  }>({
     productId: null,
     value: "",
   });
@@ -348,8 +403,12 @@ export default function ProductsPage() {
     mutationFn: ({ id, observacao }) => api.patchProduct(id, { observacao }),
     onSuccess: () => {
       notifySuccess("Observacao atualizada");
-      queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
-      queryClient.invalidateQueries({ queryKey: ["produto", profileScopeKey, selectedId] });
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["produto", profileScopeKey, selectedId],
+      });
     },
     onError: (error) => notifyError(error),
   });
@@ -359,18 +418,34 @@ export default function ProductsPage() {
     selectAction,
     handleMovementSubmit,
     createMovementLoading,
-  } = useProductMovement({ selectedId, profileScopeKey });
+  } = useProductMovement({
+    selectedId,
+    profileScopeKey,
+    defaultLocationId: locations[0]?.id ?? 0,
+  });
 
   const [historyPage, setHistoryPage] = useState(persistedState.historyPage);
-  const [historyPageSize, setHistoryPageSize] = useState(persistedState.historyPageSize);
+  const [historyPageSize, setHistoryPageSize] = useState(
+    persistedState.historyPageSize,
+  );
 
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
-    queryKey: ["historico", profileScopeKey, selectedId, historyPage, historyPageSize],
+    queryKey: [
+      "historico",
+      profileScopeKey,
+      selectedId,
+      historyPage,
+      historyPageSize,
+    ],
     queryFn: ({ signal }) =>
       api.getProductHistory(
         selectedId!,
-        { page: historyPage, page_size: Number(historyPageSize), sort: "-data" },
-        { signal }
+        {
+          page: historyPage,
+          page_size: Number(historyPageSize),
+          sort: "-data",
+        },
+        { signal },
       ),
     enabled: !!selectedId,
     placeholderData: keepPreviousData,
@@ -381,8 +456,12 @@ export default function ProductsPage() {
 
   const totalItems = productsQuery.data?.meta?.total_items ?? 0;
   const totalPages = Math.max(productsQuery.data?.meta?.total_pages ?? 1, 1);
-  const historyTotalPages = Math.max(historyQuery.data?.meta?.total_pages ?? 1, 1);
-  const productsErrorMessage = productsQuery.error instanceof Error ? productsQuery.error.message : null;
+  const historyTotalPages = Math.max(
+    historyQuery.data?.meta?.total_pages ?? 1,
+    1,
+  );
+  const productsErrorMessage =
+    productsQuery.error instanceof Error ? productsQuery.error.message : null;
 
   const rows = useMemo(() => {
     return productsQuery.data?.data ?? [];
@@ -396,19 +475,32 @@ export default function ProductsPage() {
     return count;
   }, [pageSize, query, sort]);
 
-  const persistState = useCallback((nextScrollY = scrollY) => {
-    saveTabState<ProductsTabState>(PRODUCTS_TAB_ID, {
-      query,
-      page,
-      pageSize,
-      sort,
-      selectedId,
+  const persistState = useCallback(
+    (nextScrollY = scrollY) => {
+      saveTabState<ProductsTabState>(PRODUCTS_TAB_ID, {
+        query,
+        page,
+        pageSize,
+        sort,
+        selectedId,
+        drawerOpened,
+        historyPage,
+        historyPageSize,
+        scrollY: nextScrollY,
+      });
+    },
+    [
       drawerOpened,
       historyPage,
       historyPageSize,
-      scrollY: nextScrollY,
-    });
-  }, [drawerOpened, historyPage, historyPageSize, page, pageSize, query, scrollY, selectedId, sort]);
+      page,
+      pageSize,
+      query,
+      scrollY,
+      selectedId,
+      sort,
+    ],
+  );
 
   useEffect(() => {
     persistState();
@@ -499,11 +591,11 @@ export default function ProductsPage() {
       <PageHeader
         title="Produtos"
         subtitle="Catalogo com controle de estoque, imagens e historico de movimentacoes."
-        actions={(
+        actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
             Novo produto
           </Button>
-        )}
+        }
       />
 
       <FilterToolbar>
@@ -541,9 +633,7 @@ export default function ProductsPage() {
             w={200}
             label="Ordenacao"
           />
-          <Badge variant="light">
-            Filtros ativos: {activeViewCount}
-          </Badge>
+          <Badge variant="light">Filtros ativos: {activeViewCount}</Badge>
           <Button
             variant="subtle"
             onClick={() => {
@@ -580,6 +670,7 @@ export default function ProductsPage() {
         onOpenEdit={openEdit}
         onConfirmDelete={confirmDelete}
         onPageChange={setPage}
+        locations={locations}
       />
 
       <ProductFormModal
@@ -592,6 +683,7 @@ export default function ProductsPage() {
         onEditSubmit={handleEditSubmit}
         createLoading={createMutation.isPending}
         editLoading={patchMutation.isPending}
+        locations={locations}
       />
 
       <ProductDetailsDrawer
@@ -626,7 +718,10 @@ export default function ProductsPage() {
         onSelectAction={selectAction}
         movementForm={movementForm}
         onSubmitMovement={handleMovementSubmit}
-        locations={PRODUCT_LOCATIONS.map((item) => ({ value: item.value, label: item.label }))}
+        locations={locations.map((item) => ({
+          value: String(item.id),
+          label: item.label || item.name,
+        }))}
         adjustmentReasonOptions={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
         movementNatureOptionsByType={movementNatureOptionsByType}
         createMovementLoading={createMovementLoading}
@@ -637,7 +732,11 @@ export default function ProductsPage() {
           setHistoryPage(1);
         }}
         historyLoading={historyQuery.isLoading}
-        historyErrorMessage={historyQuery.error instanceof Error ? historyQuery.error.message : null}
+        historyErrorMessage={
+          historyQuery.error instanceof Error
+            ? historyQuery.error.message
+            : null
+        }
         historyRows={historyQuery.data?.data ?? []}
         historyTotalItems={historyQuery.data?.meta?.total_items ?? 0}
         historyPage={historyPage}

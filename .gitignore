@@ -25,6 +25,7 @@ stock_profiles.json
 backups/
 exports/
 backend/logs/
+debug_scripts/
 
 # Build artifacts (Python)
 build/

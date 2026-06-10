@@ -1,7 +1,7 @@
 import { Badge, Button, Card, Group, Select, Stack, Text } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 
-type Scope = "AMBOS" | "CANOAS" | "PF";
+type Scope = string;
 
 type Props = {
   salesDateFrom: Date | null;
@@ -36,11 +36,22 @@ export default function ReportsSalesSection({
           </Badge>
         </Group>
         <Text size="sm" c="dimmed">
-          Mostra apenas vendas reais. Transferencia externa, ajuste e devolucao ficam fora deste documento.
+          Mostra apenas vendas reais. Transferencia externa, ajuste e devolucao
+          ficam fora deste documento.
         </Text>
         <Group align="end" wrap="wrap">
-          <DatePickerInput label="De" value={salesDateFrom} onChange={(value) => setSalesDateFrom(value as Date | null)} w={180} />
-          <DatePickerInput label="Ate" value={salesDateTo} onChange={(value) => setSalesDateTo(value as Date | null)} w={180} />
+          <DatePickerInput
+            label="De"
+            value={salesDateFrom}
+            onChange={(value) => setSalesDateFrom(value as Date | null)}
+            w={180}
+          />
+          <DatePickerInput
+            label="Ate"
+            value={salesDateTo}
+            onChange={(value) => setSalesDateTo(value as Date | null)}
+            w={180}
+          />
           <Select
             label="Escopo"
             data={scopeOptions}
@@ -49,7 +60,11 @@ export default function ReportsSalesSection({
             allowDeselect={false}
             w={180}
           />
-          <Button onClick={onGenerate} loading={loading} disabled={!salesDateFrom || !salesDateTo}>
+          <Button
+            onClick={onGenerate}
+            loading={loading}
+            disabled={!salesDateFrom || !salesDateTo}
+          >
             Gerar relatorio de vendas
           </Button>
         </Group>

@@ -28,13 +28,13 @@ class ProductInventoryRepository(BaseRepository):
             Lista de ProductInventory para esse produto
         """
         cursor = self.connection.execute("""
-            SELECT id, produto_id, inventory_location_id, quantidade, atualizado_em
-            FROM product_inventory
+            SELECT id, produto_id, local_id, quantidade, atualizado_em
+            FROM produto_estoque
             WHERE produto_id = ?
-            ORDER BY inventory_location_id ASC
+            ORDER BY local_id ASC
         """, (product_id,))
         
-        return [self._row_to_product_inventory(row) for row in cursor.fetchall()]
+        return [self._row_to_produto_estoque(row) for row in cursor.fetchall()]
     
     def get_by_product_and_location(
         self, 
@@ -52,13 +52,13 @@ class ProductInventoryRepository(BaseRepository):
             ProductInventory ou None se não encontrado
         """
         cursor = self.connection.execute("""
-            SELECT id, produto_id, inventory_location_id, quantidade, atualizado_em
-            FROM product_inventory
-            WHERE produto_id = ? AND inventory_location_id = ?
+            SELECT id, produto_id, local_id, quantidade, atualizado_em
+            FROM produto_estoque
+            WHERE produto_id = ? AND local_id = ?
         """, (product_id, location_id))
         
         row = cursor.fetchone()
-        return self._row_to_product_inventory(row) if row else None
+        return self._row_to_produto_estoque(row) if row else None
     
     def get_quantity(self, product_id: int, location_id: int) -> int:
         """
@@ -72,8 +72,8 @@ class ProductInventoryRepository(BaseRepository):
             Quantidade em estoque (0 se não existe registro)
         """
         cursor = self.connection.execute("""
-            SELECT quantidade FROM product_inventory
-            WHERE produto_id = ? AND inventory_location_id = ?
+            SELECT quantidade FROM produto_estoque
+            WHERE produto_id = ? AND local_id = ?
         """, (product_id, location_id))
         
         row = cursor.fetchone()
@@ -90,7 +90,7 @@ class ProductInventoryRepository(BaseRepository):
             Total de estoque
         """
         cursor = self.connection.execute("""
-            SELECT SUM(quantidade) FROM product_inventory
+            SELECT SUM(quantidade) FROM produto_estoque
             WHERE produto_id = ?
         """, (product_id,))
         
@@ -108,8 +108,8 @@ class ProductInventoryRepository(BaseRepository):
             Dict com {location_id: quantidade}
         """
         cursor = self.connection.execute("""
-            SELECT inventory_location_id, quantidade
-            FROM product_inventory
+            SELECT local_id, quantidade
+            FROM produto_estoque
             WHERE produto_id = ?
         """, (product_id,))
         
@@ -139,29 +139,32 @@ class ProductInventoryRepository(BaseRepository):
         
         # Tenta atualizar primeiro
         cursor = self.connection.execute("""
-            UPDATE product_inventory
+            UPDATE produto_estoque
             SET quantidade = ?, atualizado_em = datetime('now')
-            WHERE produto_id = ? AND inventory_location_id = ?
+            WHERE produto_id = ? AND local_id = ?
         """, (quantity, product_id, location_id))
         
         if cursor.rowcount > 0:
+            self.connection.commit()
             return True
         
         # Se não atualizou, insere novo
         try:
             self.connection.execute("""
-                INSERT INTO product_inventory 
-                (produto_id, inventory_location_id, quantidade, atualizado_em)
+                INSERT INTO produto_estoque 
+                (produto_id, local_id, quantidade, atualizado_em)
                 VALUES (?, ?, ?, datetime('now'))
             """, (product_id, location_id, quantity))
+            self.connection.commit()
             return True
         except sqlite3.IntegrityError:
             # Pode ter sido inserido por outra thread, tenta atualizar novamente
             cursor = self.connection.execute("""
-                UPDATE product_inventory
+                UPDATE produto_estoque
                 SET quantidade = ?, atualizado_em = datetime('now')
-                WHERE produto_id = ? AND inventory_location_id = ?
+                WHERE produto_id = ? AND local_id = ?
             """, (quantity, product_id, location_id))
+            self.connection.commit()
             return cursor.rowcount > 0
     
     def add_quantity(
@@ -203,9 +206,11 @@ class ProductInventoryRepository(BaseRepository):
             Número de registros removidos
         """
         cursor = self.connection.execute("""
-            DELETE FROM product_inventory
+            DELETE FROM produto_estoque
             WHERE produto_id = ?
         """, (product_id,))
+        
+        self.connection.commit()
         
         return cursor.rowcount
     
@@ -222,9 +227,11 @@ class ProductInventoryRepository(BaseRepository):
             Número de registros removidos
         """
         cursor = self.connection.execute("""
-            DELETE FROM product_inventory
-            WHERE inventory_location_id = ?
+            DELETE FROM produto_estoque
+            WHERE local_id = ?
         """, (location_id,))
+        
+        self.connection.commit()
         
         return cursor.rowcount
     
@@ -240,8 +247,8 @@ class ProductInventoryRepository(BaseRepository):
         """
         cursor = self.connection.execute("""
             SELECT DISTINCT produto_id
-            FROM product_inventory
-            WHERE inventory_location_id = ? AND quantidade > 0
+            FROM produto_estoque
+            WHERE local_id = ? AND quantidade > 0
             ORDER BY produto_id
         """, (location_id,))
         
@@ -258,19 +265,19 @@ class ProductInventoryRepository(BaseRepository):
             Total de estoque no location
         """
         cursor = self.connection.execute("""
-            SELECT SUM(quantidade) FROM product_inventory
-            WHERE inventory_location_id = ?
+            SELECT SUM(quantidade) FROM produto_estoque
+            WHERE local_id = ?
         """, (location_id,))
         
         row = cursor.fetchone()
         return row[0] or 0
     
-    def _row_to_product_inventory(self, row: Tuple) -> ProductInventory:
+    def _row_to_produto_estoque(self, row: Tuple) -> ProductInventory:
         """Converte row do banco em ProductInventory."""
         return ProductInventory(
             id=row[0],
             produto_id=row[1],
-            inventory_location_id=row[2],
+            local_id=row[2],
             quantidade=row[3],
             atualizado_em=row[4]
         )

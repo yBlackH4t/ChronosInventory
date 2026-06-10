@@ -172,6 +172,7 @@ class InventoryAdjustmentService:
             session = self.session_service.ensure_session_open(conn, session_id)
             local = str(session["local"])
             nome_sessao = str(session["nome"])
+            location_id = int(session["inventory_location_id"])
 
             rows = cursor.execute(
                 """
@@ -211,44 +212,33 @@ class InventoryAdjustmentService:
 
                 quantidade = abs(divergencia)
                 tipo = "ENTRADA" if divergencia > 0 else "SAIDA"
-                origem = local if tipo == "SAIDA" else None
-                destino = local if tipo == "ENTRADA" else None
-                delta_canoas, delta_pf = self.compute_deltas(local, divergencia)
+                origem_local_id = location_id if tipo == "SAIDA" else None
+                destino_local_id = location_id if tipo == "ENTRADA" else None
 
-                product_row = cursor.execute(
-                    "SELECT qtd_canoas, qtd_pf FROM produtos WHERE id = ?",
-                    (produto_id,),
+                pe_row = cursor.execute(
+                    "SELECT quantidade FROM produto_estoque WHERE produto_id = ? AND local_id = ?",
+                    (produto_id, location_id),
                 ).fetchone()
-                if not product_row:
-                    raise ValidationException(f"Produto {produto_id} nao encontrado.")
+                current_qty = int(pe_row["quantidade"] if pe_row else 0)
 
-                if delta_canoas < 0:
-                    StockMovementValidator.validate_sufficient_stock(int(product_row["qtd_canoas"] or 0), abs(delta_canoas), "Canoas")
-                if delta_pf < 0:
-                    StockMovementValidator.validate_sufficient_stock(int(product_row["qtd_pf"] or 0), abs(delta_pf), "Passo Fundo")
+                if divergencia < 0:
+                    StockMovementValidator.validate_sufficient_stock(current_qty, abs(divergencia), local)
 
-                self.movement_repo.update_stock(conn, produto_id, delta_canoas, delta_pf)
+                self.movement_repo.update_stock(conn, produto_id, {location_id: divergencia})
 
                 movement_obs = (
                     f"Ajuste inventario sessao #{session_id} ({nome_sessao}) | "
                     f"Motivo: {motivo_ajuste} | Sistema: {row['qtd_sistema']} | "
                     f"Fisico: {row['qtd_fisico']} | Divergencia: {divergencia} | {observacao}"
                 )
-                self.movement_repo.insert_history(
-                    conn=conn,
-                    operacao="AJUSTE",
-                    produto_nome=produto_nome,
-                    quantidade=quantidade,
-                    observacao=movement_obs,
-                    data_hora=data_hora,
-                )
+
                 movement_id = self.movement_repo.insert_movement(
                     conn=conn,
                     tipo=tipo,
                     produto_id=produto_id,
                     quantidade=quantidade,
-                    origem=origem,
-                    destino=destino,
+                    origem_local_id=origem_local_id,
+                    destino_local_id=destino_local_id,
                     observacao=movement_obs,
                     natureza=NATUREZA_AJUSTE,
                     motivo_ajuste=motivo_ajuste,
@@ -302,9 +292,3 @@ class InventoryAdjustmentService:
                 "Motivo de ajuste invalido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
             )
         return motivo
-
-    @staticmethod
-    def compute_deltas(local: str, divergencia: int) -> Tuple[int, int]:
-        if local == "CANOAS":
-            return divergencia, 0
-        return 0, divergencia

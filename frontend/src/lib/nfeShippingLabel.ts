@@ -15,7 +15,7 @@ function normalizeTag(value: string): string {
 function findChildrenByTag(node: Element, tag: string): Element[] {
   const normalizedTag = normalizeTag(tag);
   return Array.from(node.children).filter(
-    (child) => normalizeTag(child.localName || child.tagName) === normalizedTag
+    (child) => normalizeTag(child.localName || child.tagName) === normalizedTag,
   );
 }
 
@@ -29,7 +29,10 @@ function findFirstByPath(root: Element | null, path: string[]): Element | null {
   return current;
 }
 
-function findFirstDescendantByTag(root: Element | null, tag: string): Element | null {
+function findFirstDescendantByTag(
+  root: Element | null,
+  tag: string,
+): Element | null {
   if (!root) return null;
   const normalizedTag = normalizeTag(tag);
   const stack: Element[] = [root];
@@ -102,9 +105,15 @@ export function parseNfeShippingData(xmlText: string): NfeShippingData {
 
   if (volNodes.length > 0) {
     volNodes.forEach((volNode) => {
-      volumes += parsePositiveInt(textOf(findFirstByPath(volNode, ["qVol"]), "0"));
-      const pesoL = parsePositiveFloat(textOf(findFirstByPath(volNode, ["pesoL"]), "0"));
-      const pesoB = parsePositiveFloat(textOf(findFirstByPath(volNode, ["pesoB"]), "0"));
+      volumes += parsePositiveInt(
+        textOf(findFirstByPath(volNode, ["qVol"]), "0"),
+      );
+      const pesoL = parsePositiveFloat(
+        textOf(findFirstByPath(volNode, ["pesoL"]), "0"),
+      );
+      const pesoB = parsePositiveFloat(
+        textOf(findFirstByPath(volNode, ["pesoB"]), "0"),
+      );
       totalPeso += pesoL > 0 ? pesoL : pesoB;
     });
   }

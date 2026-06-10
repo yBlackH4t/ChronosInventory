@@ -2,8 +2,13 @@ import { Badge, Group, Loader, Modal, Table, Text } from "@mantine/core";
 import dayjs from "dayjs";
 
 import type { MovementOut } from "../../lib/api";
-import { adjustmentReasonLabel, movementColor, movementNatureLabel } from "../../lib/movements";
+import {
+  adjustmentReasonLabel,
+  movementColor,
+  movementNatureLabel,
+} from "../../lib/movements";
 import EmptyState from "../ui/EmptyState";
+import { useLocations } from "../../hooks/useLocations";
 
 type Props = {
   opened: boolean;
@@ -24,8 +29,15 @@ export default function MovementsHistoryModal({
   rows,
   onRetry,
 }: Props) {
+  const { locations } = useLocations();
+
   return (
-    <Modal opened={opened} onClose={onClose} title="Historico do produto" size="lg">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Historico do produto"
+      size="lg"
+    >
       {!historyProductId ? (
         <Text c="dimmed">Selecione um produto para carregar o historico.</Text>
       ) : loading ? (
@@ -67,13 +79,23 @@ export default function MovementsHistoryModal({
                   </Table.Td>
                   <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
                   <Table.Td>{mov.quantidade}</Table.Td>
-                  <Table.Td>{mov.origem || "-"}</Table.Td>
-                  <Table.Td>{mov.destino || "-"}</Table.Td>
+                  <Table.Td>
+                    {locations.find((l) => l.id === mov.origem_location_id)
+                      ?.name || "-"}
+                  </Table.Td>
+                  <Table.Td>
+                    {locations.find((l) => l.id === mov.destino_location_id)
+                      ?.name || "-"}
+                  </Table.Td>
                   <Table.Td>{mov.documento || "-"}</Table.Td>
-                  <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste)}</Table.Td>
+                  <Table.Td>
+                    {adjustmentReasonLabel(mov.motivo_ajuste)}
+                  </Table.Td>
                   <Table.Td>{mov.local_externo || "-"}</Table.Td>
                   <Table.Td>{mov.observacao || "-"}</Table.Td>
-                  <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
+                  <Table.Td>
+                    {dayjs(mov.data).format("DD/MM/YYYY HH:mm")}
+                  </Table.Td>
                 </Table.Tr>
               ))}
               {rows.length === 0 && (

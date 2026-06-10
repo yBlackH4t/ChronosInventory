@@ -12,10 +12,14 @@ from openpyxl import load_workbook
 
 
 def _create_product(client, nome="Produto Teste", qtd_canoas=1, qtd_pf=0):
-    payload = {"nome": nome, "qtd_canoas": qtd_canoas, "qtd_pf": qtd_pf}
+    inventories = {}
+    if qtd_canoas > 0: inventories[11] = qtd_canoas
+    if qtd_pf > 0: inventories[12] = qtd_pf
+    payload = {"nome": nome, "inventories": inventories}
     response = client.post("/produtos", json=payload)
     assert response.status_code == 201
     return response.json()["data"]["id"]
+
 
 
 def _find_free_port():
@@ -218,11 +222,11 @@ def test_compare_stock_databases(client):
         assert data["summary"]["divergent_items"] == 3
         assert data["summary"]["only_left_items"] == 1
         assert data["summary"]["only_right_items"] == 1
-        assert data["summary"]["canoas_mismatch_items"] == 1
+        assert data["summary"]["stock_mismatch_items"] == 1
 
         rows = {item["product_id"]: item for item in data["rows"]}
         assert rows[1]["statuses"] == ["IDENTICAL"]
-        assert "CANOAS" in rows[2]["statuses"]
+        assert "STOCK" in rows[2]["statuses"]
         assert "ONLY_LEFT" in rows[3]["statuses"]
         assert "ONLY_RIGHT" in rows[4]["statuses"]
 
@@ -278,7 +282,7 @@ def test_compare_with_published_snapshot_flow(client, tmp_path):
 
 
 def test_create_and_get_product(client):
-    payload = {"nome": "Produto Teste", "qtd_canoas": 1, "qtd_pf": 0}
+    payload = {"nome": "Produto Teste", "inventories": {11: 1}}
     create = client.post("/produtos", json=payload)
     assert create.status_code == 201
     created = create.json()["data"]
@@ -336,7 +340,7 @@ def test_products_status_can_filter_items_with_stock(client):
             "tipo": "SAIDA",
             "produto_id": sem_estoque_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
         },
     )
     assert saida.status_code == 201
@@ -351,12 +355,12 @@ def test_products_status_can_filter_items_with_stock(client):
     assert with_stock.status_code == 200
     with_stock_ids = {item["id"] for item in with_stock.json()["data"]}
     assert inativo_com_estoque in with_stock_ids
-    assert any(item["qtd_pf"] > 0 for item in with_stock.json()["data"])
-    assert all((item["qtd_canoas"] + item["qtd_pf"]) > 0 for item in with_stock.json()["data"])
+    assert any(item.get("inventories", {}).get("12", 0) > 0 for item in with_stock.json()["data"])
+    assert all((item.get("inventories", {}).get("11", 0) + item.get("inventories", {}).get("12", 0)) > 0 for item in with_stock.json()["data"])
 
     no_stock = client.get("/produtos/gestao-status?status=TODOS&has_stock=false")
     assert no_stock.status_code == 200
-    assert all((item["qtd_canoas"] + item["qtd_pf"]) == 0 for item in no_stock.json()["data"])
+    assert all((item.get("inventories", {}).get("11", 0) + item.get("inventories", {}).get("12", 0)) == 0 for item in no_stock.json()["data"])
 
 
 def test_analytics_stock_summary_excludes_inactive_products(client):
@@ -369,9 +373,10 @@ def test_analytics_stock_summary_excludes_inactive_products(client):
     summary = client.get("/analytics/stock/summary")
     assert summary.status_code == 200
     data = summary.json()["data"]
-    assert data["total_canoas"] == 2
-    assert data["total_pf"] == 3
+    assert sum(l["total"] for l in data["locations"] if l["location_id"] == 11) == 2
+    assert sum(l["total"] for l in data["locations"] if l["location_id"] == 12) == 3
     assert data["total_geral"] == 5
+    assert data["zerados"] == 0
 
 
 def test_cannot_create_movement_for_inactive_product(client):
@@ -385,7 +390,7 @@ def test_cannot_create_movement_for_inactive_product(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
         },
     )
     assert movement.status_code == 400
@@ -409,14 +414,14 @@ def test_movement_entry_increases_stock(client):
         "tipo": "ENTRADA",
         "produto_id": product_id,
         "quantidade": 3,
-        "destino": "CANOAS",
+        "destino_location_id": 11,
     }
     resp = client.post("/movimentacoes", json=movement)
     assert resp.status_code == 201
     assert resp.json()["data"]["produto_nome"] == "PRODUTO ENTRADA"
 
     product = client.get(f"/produtos/{product_id}").json()["data"]
-    assert product["qtd_canoas"] == 4
+    assert product["inventories"].get("11", 0) == 4
 
 
 def test_movement_saida_insufficient_stock(client):
@@ -426,7 +431,7 @@ def test_movement_saida_insufficient_stock(client):
         "tipo": "SAIDA",
         "produto_id": product_id,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
     }
     resp = client.post("/movimentacoes", json=movement)
     assert resp.status_code == 409
@@ -441,15 +446,15 @@ def test_movement_transfer_updates_both(client):
         "tipo": "TRANSFERENCIA",
         "produto_id": product_id,
         "quantidade": 2,
-        "origem": "CANOAS",
-        "destino": "PF",
+        "origem_location_id": 11,
+        "destino_location_id": 12,
     }
     resp = client.post("/movimentacoes", json=movement)
     assert resp.status_code == 201
 
     product = client.get(f"/produtos/{product_id}").json()["data"]
-    assert product["qtd_canoas"] == 3
-    assert product["qtd_pf"] == 2
+    assert product["inventories"].get("11", 0) == 3
+    assert product["inventories"].get("12", 0) == 2
 
 
 def test_movement_saida_transferencia_externa_registers_metadata(client):
@@ -459,7 +464,7 @@ def test_movement_saida_transferencia_externa_registers_metadata(client):
         "tipo": "SAIDA",
         "produto_id": product_id,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "MATRIZ",
         "documento": "NF 123",
@@ -473,7 +478,7 @@ def test_movement_saida_transferencia_externa_registers_metadata(client):
     assert data["documento"] == "NF 123"
 
     product = client.get(f"/produtos/{product_id}").json()["data"]
-    assert product["qtd_canoas"] == 3
+    assert product["inventories"].get("11", 0) == 3
 
 
 def test_movement_entrada_transferencia_externa_registers_metadata(client):
@@ -483,7 +488,7 @@ def test_movement_entrada_transferencia_externa_registers_metadata(client):
         "tipo": "ENTRADA",
         "produto_id": product_id,
         "quantidade": 2,
-        "destino": "CANOAS",
+        "destino_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "MATRIZ",
         "documento": "NF REM 456",
@@ -497,7 +502,7 @@ def test_movement_entrada_transferencia_externa_registers_metadata(client):
     assert data["documento"] == "NF REM 456"
 
     product = client.get(f"/produtos/{product_id}").json()["data"]
-    assert product["qtd_canoas"] == 3
+    assert product["inventories"].get("11", 0) == 3
 
 
 def test_movement_devolucao_reentrada_with_reference(client):
@@ -509,7 +514,7 @@ def test_movement_devolucao_reentrada_with_reference(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
             "documento": "NF DEV-1",
         },
     )
@@ -522,7 +527,7 @@ def test_movement_devolucao_reentrada_with_reference(client):
             "tipo": "ENTRADA",
             "produto_id": product_id,
             "quantidade": 1,
-            "destino": "CANOAS",
+            "destino_location_id": 11,
             "natureza": "DEVOLUCAO",
             "movimento_ref_id": saida_id,
             "documento": "NF DEV-1",
@@ -535,7 +540,7 @@ def test_movement_devolucao_reentrada_with_reference(client):
     assert devolucao_data["movimento_ref_id"] == saida_id
 
     product = client.get(f"/produtos/{product_id}").json()["data"]
-    assert product["qtd_canoas"] == 1
+    assert product["inventories"].get("11", 0) == 1
 
     history = client.get(f"/produtos/{product_id}/historico").json()["data"]
     assert any(item["natureza"] == "DEVOLUCAO" for item in history)
@@ -547,7 +552,7 @@ def test_movement_invalid_devolucao_for_saida(client):
         "tipo": "SAIDA",
         "produto_id": product_id,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "DEVOLUCAO",
     }
     resp = client.post("/movimentacoes", json=movement)
@@ -561,7 +566,7 @@ def test_movement_ajuste_requires_reason_and_observation(client):
         "tipo": "SAIDA",
         "produto_id": product_id,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "AJUSTE",
     }
     resp = client.post("/movimentacoes", json=movement)
@@ -574,7 +579,7 @@ def test_movement_ajuste_requires_reason_and_observation(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
             "natureza": "AJUSTE",
             "motivo_ajuste": "PERDA",
             "observacao": "Ajuste por conferencia",
@@ -590,7 +595,7 @@ def test_movement_devolucao_requires_reference(client):
         "tipo": "ENTRADA",
         "produto_id": product_id,
         "quantidade": 1,
-        "destino": "CANOAS",
+        "destino_location_id": 11,
         "natureza": "DEVOLUCAO",
     }
     resp = client.post("/movimentacoes", json=movement)
@@ -599,11 +604,8 @@ def test_movement_devolucao_requires_reference(client):
 
 
 def test_create_product_zero_stock_returns_friendly_message(client):
-    resp = client.post("/produtos", json={"nome": "Produto Zero", "qtd_canoas": 0, "qtd_pf": 0})
-    assert resp.status_code == 400
-    body = resp.json()["error"]
-    assert body["code"] == "validation_error"
-    assert "Estoque inicial nao pode ser 0" in body["message"]
+    resp = client.post("/produtos", json={"nome": "Produto Zero", "inventories": {}})
+    assert resp.status_code == 201
 
 
 def test_analytics_saida_net_of_linked_devolucao(client):
@@ -617,7 +619,7 @@ def test_analytics_saida_net_of_linked_devolucao(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
             "data": date_saida,
         },
     )
@@ -630,7 +632,7 @@ def test_analytics_saida_net_of_linked_devolucao(client):
             "tipo": "ENTRADA",
             "produto_id": product_id,
             "quantidade": 1,
-            "destino": "CANOAS",
+            "destino_location_id": 11,
             "natureza": "DEVOLUCAO",
             "movimento_ref_id": saida_id,
             "data": date_devolucao,
@@ -638,17 +640,17 @@ def test_analytics_saida_net_of_linked_devolucao(client):
     )
     assert devolucao.status_code == 201
 
-    top = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS")
+    top = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-10")
     assert top.status_code == 200
     top_data = top.json()["data"]
     assert all(item["produto_id"] != product_id for item in top_data)
 
-    ts = client.get("/analytics/movements/timeseries?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS&bucket=day")
+    ts = client.get("/analytics/movements/timeseries?date_from=2026-02-10&date_to=2026-02-10&bucket=day")
     assert ts.status_code == 200
     ts_data = ts.json()["data"]
     assert sum(item["total_saida"] for item in ts_data) == 0
 
-    flow = client.get("/analytics/movements/flow?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS&bucket=day")
+    flow = client.get("/analytics/movements/flow?date_from=2026-02-10&date_to=2026-02-10&bucket=day")
     assert flow.status_code == 200
     flow_data = flow.json()["data"]
     assert len(flow_data) >= 1
@@ -661,7 +663,7 @@ def test_list_movements_pagination(client):
         "tipo": "ENTRADA",
         "produto_id": product_id,
         "quantidade": 1,
-        "destino": "PF",
+        "destino_location_id": 12,
     }
     client.post("/movimentacoes", json=movement)
 
@@ -735,6 +737,7 @@ def test_backup_auto_config_and_restore_test(client):
     backup_name = os.path.basename(created.json()["data"]["path"])
 
     tested = client.post("/backup/testar-restauracao", json={"backup_name": backup_name})
+    print("BACKUP RESTORE TEST:", tested.json())
     assert tested.status_code == 200
     assert bool(tested.json()["data"]["ok"]) is True
 
@@ -790,21 +793,21 @@ def test_backup_restore_roundtrip(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
         },
     )
     assert movement.status_code == 201
 
     changed = client.get(f"/produtos/{product_id}")
     assert changed.status_code == 200
-    assert changed.json()["data"]["qtd_canoas"] == 0
+    assert changed.json()["data"]["inventories"]["11"] == 0
 
     restored = client.post("/backup/restaurar", json={"backup_name": backup_name})
     assert restored.status_code == 200
 
     after = client.get(f"/produtos/{product_id}")
     assert after.status_code == 200
-    assert after.json()["data"]["qtd_canoas"] == 1
+    assert after.json()["data"]["inventories"]["11"] == 1
 
 
 def test_backup_pre_update_restore(client):
@@ -819,7 +822,7 @@ def test_backup_pre_update_restore(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 1,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
         },
     )
     assert movement.status_code == 201
@@ -829,7 +832,7 @@ def test_backup_pre_update_restore(client):
 
     after = client.get(f"/produtos/{product_id}")
     assert after.status_code == 200
-    assert after.json()["data"]["qtd_canoas"] == 2
+    assert after.json()["data"]["inventories"]["11"] == 2
 
 
 def test_backup_diagnostics_download(client):
@@ -1059,6 +1062,7 @@ def test_official_base_local_server_publish_and_apply(client):
         assert product_b in ids_before
 
         applied = client.post(f"/backup/base-oficial-servidor/aplicar?server_url={server_url}")
+        print("APPLIED JSON:", applied.json())
         assert applied.status_code == 200
         applied_data = applied.json()["data"]
         assert applied_data["restart_required"] is True
@@ -1141,7 +1145,7 @@ def test_compare_local_server_snapshot_flow(client):
 
         moved = client.post(
             "/movimentacoes",
-            json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 2, "destino": "CANOAS"},
+            json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 2, "destino_location_id": 11},
         )
         assert moved.status_code == 201
 
@@ -1212,7 +1216,7 @@ def test_compare_local_server_snapshot_history_retention_and_delete(client):
         for index in range(12):
             moved = client.post(
                 "/movimentacoes",
-                json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 1, "destino": "CANOAS"},
+                json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 1, "destino_location_id": 11},
             )
             assert moved.status_code == 201
 
@@ -1297,7 +1301,7 @@ def test_export_stock_overview_excel(client):
     assert stock["A1"].value == "ID"
     assert stock["B1"].value == "Produto"
     assert stock["C1"].value == "Estoque Canoas"
-    assert stock["D1"].value == "Estoque PF"
+    assert stock["D1"].value == "Estoque Passo Fundo"
     assert stock["E1"].value == "Total"
     assert stock["F1"].value == "Onde tem"
     assert stock.max_row >= 3
@@ -1326,7 +1330,7 @@ def test_report_real_sales_pdf(client):
             "tipo": "SAIDA",
             "produto_id": product_id,
             "quantidade": 2,
-            "origem": "CANOAS",
+            "origem_location_id": 11,
             "natureza": "OPERACAO_NORMAL",
             "documento": "NF 9988",
             "data": "2026-04-06T10:00:00",
@@ -1334,7 +1338,7 @@ def test_report_real_sales_pdf(client):
     )
     assert movement.status_code == 201
 
-    resp = client.get("/relatorios/vendas-reais.pdf?date_from=2026-04-01&date_to=2026-04-07&scope=AMBOS")
+    resp = client.get("/relatorios/vendas-reais.pdf?date_from=2026-04-01&date_to=2026-04-07")
     assert resp.status_code == 200
     assert resp.headers.get("content-type", "").startswith("application/pdf")
     assert resp.content
@@ -1342,7 +1346,7 @@ def test_report_real_sales_pdf(client):
 
 def test_report_inactive_stock_pdf(client):
     _create_product(client, "Produto Parado Relatorio", qtd_canoas=3, qtd_pf=0)
-    resp = client.get("/relatorios/estoque-parado.pdf?days=30&date_to=2026-04-07&scope=AMBOS")
+    resp = client.get("/relatorios/estoque-parado.pdf?days=30&date_to=2026-04-07")
     assert resp.status_code == 200
     assert resp.headers.get("content-type", "").startswith("application/pdf")
     assert resp.content
@@ -1371,15 +1375,15 @@ def test_dashboard_summary(client):
         "tipo": "SAIDA",
         "produto_id": product_b,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
     }
     client.post("/movimentacoes", json=movement)
 
     resp = client.get("/dashboard/resumo")
     assert resp.status_code == 200
     data = resp.json()["data"]
-    assert data["total_canoas"] == 2
-    assert data["total_pf"] == 3
+    assert "locations" in data
+    assert len(data["locations"]) >= 2
     assert data["total_geral"] == 5
     assert data["itens_distintos"] >= 2
     assert data["zerados"] >= 1
@@ -1414,21 +1418,21 @@ def test_analytics_top_saidas_filters_and_order(client):
         "tipo": "SAIDA",
         "produto_id": product_a,
         "quantidade": 5,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": base_date,
     })
     client.post("/movimentacoes", json={
         "tipo": "SAIDA",
         "produto_id": product_b,
         "quantidade": 2,
-        "origem": "PF",
+        "origem_location_id": 12,
         "data": base_date,
     })
     client.post("/movimentacoes", json={
         "tipo": "SAIDA",
         "produto_id": product_c,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "MATRIZ",
         "data": base_date,
@@ -1437,14 +1441,14 @@ def test_analytics_top_saidas_filters_and_order(client):
         "tipo": "SAIDA",
         "produto_id": product_d,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "AJUSTE",
         "motivo_ajuste": "ERRO_OPERACIONAL",
         "observacao": "Ajuste teste",
         "data": base_date,
     })
 
-    resp = client.get("/analytics/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=AMBOS")
+    resp = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-10")
     assert resp.status_code == 200
     data = resp.json()["data"]
     ids = {item["produto_id"] for item in data}
@@ -1454,12 +1458,12 @@ def test_analytics_top_saidas_filters_and_order(client):
     assert product_c not in ids
     assert product_d not in ids
 
-    resp_canoas = client.get("/analytics/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=CANOAS")
+    resp_canoas = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-10&location_id=11")
     assert resp_canoas.status_code == 200
     data_canoas = resp_canoas.json()["data"]
     assert all(item["produto_id"] == product_a for item in data_canoas)
 
-    resp_pf = client.get("/analytics/top-saidas?date_from=2026-02-10&date_to=2026-02-10&scope=PF")
+    resp_pf = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-10&location_id=12")
     assert resp_pf.status_code == 200
     data_pf = resp_pf.json()["data"]
     assert all(item["produto_id"] == product_b for item in data_pf)
@@ -1476,21 +1480,21 @@ def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(cl
         "tipo": "SAIDA",
         "produto_id": product_recent,
         "quantidade": 3,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": "2026-02-10T10:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "SAIDA",
         "produto_id": product_old,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": "2025-12-15T10:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "SAIDA",
         "produto_id": product_transfer,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "MATRIZ",
         "data": "2026-02-10T11:00:00",
@@ -1499,18 +1503,18 @@ def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(cl
         "tipo": "SAIDA",
         "produto_id": product_not_zero,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": "2026-02-10T12:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "SAIDA",
         "produto_id": product_pf,
         "quantidade": 2,
-        "origem": "PF",
+        "origem_location_id": 12,
         "data": "2026-02-10T13:00:00",
     })
 
-    resp_ambos = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&scope=AMBOS&limit=10")
+    resp_ambos = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&limit=10")
     assert resp_ambos.status_code == 200
     data_ambos = resp_ambos.json()["data"]
     ids_ambos = {item["produto_id"] for item in data_ambos}
@@ -1520,14 +1524,14 @@ def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(cl
     assert product_transfer not in ids_ambos
     assert product_not_zero not in ids_ambos
 
-    resp_canoas = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&scope=CANOAS&limit=10")
+    resp_canoas = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&location_id=11&limit=10")
     assert resp_canoas.status_code == 200
     data_canoas = resp_canoas.json()["data"]
     ids_canoas = {item["produto_id"] for item in data_canoas}
     assert product_recent in ids_canoas
     assert product_pf not in ids_canoas
 
-    resp_pf = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&scope=PF&limit=10")
+    resp_pf = client.get("/analytics/products/recent-stockouts?days=30&date_to=2026-02-12&location_id=12&limit=10")
     assert resp_pf.status_code == 200
     data_pf = resp_pf.json()["data"]
     ids_pf = {item["produto_id"] for item in data_pf}
@@ -1544,7 +1548,7 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
         "tipo": "SAIDA",
         "produto_id": product_a,
         "quantidade": 3,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "Matriz",
         "data": "2026-02-10T10:00:00",
@@ -1553,7 +1557,7 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
         "tipo": "SAIDA",
         "produto_id": product_a,
         "quantidade": 2,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "Matriz",
         "data": "2026-02-11T09:00:00",
@@ -1562,7 +1566,7 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
         "tipo": "SAIDA",
         "produto_id": product_b,
         "quantidade": 4,
-        "origem": "PF",
+        "origem_location_id": 12,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "Canoas",
         "data": "2026-02-11T11:00:00",
@@ -1571,7 +1575,7 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
         "tipo": "ENTRADA",
         "produto_id": product_b,
         "quantidade": 6,
-        "destino": "PF",
+        "destino_location_id": 12,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "Matriz",
         "data": "2026-02-11T12:00:00",
@@ -1580,7 +1584,7 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
         "tipo": "ENTRADA",
         "produto_id": product_c,
         "quantidade": 1,
-        "destino": "CANOAS",
+        "destino_location_id": 11,
         "natureza": "TRANSFERENCIA_EXTERNA",
         "local_externo": "Filial",
         "data": "2026-02-12T08:00:00",
@@ -1589,13 +1593,13 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
         "tipo": "SAIDA",
         "produto_id": product_c,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "natureza": "OPERACAO_NORMAL",
         "data": "2026-02-12T10:00:00",
     })
 
     saidas = client.get(
-        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=AMBOS&tipo=SAIDA&limit=10"
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&tipo=SAIDA&limit=10"
     )
     assert saidas.status_code == 200
     saidas_data = saidas.json()["data"]
@@ -1604,13 +1608,13 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
     assert saidas_data[0]["total_movimentacoes"] == 2
 
     saidas_canoas = client.get(
-        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=CANOAS&tipo=SAIDA&limit=10"
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&location_id=11&tipo=SAIDA&limit=10"
     )
     assert saidas_canoas.status_code == 200
     assert [item["produto_id"] for item in saidas_canoas.json()["data"]] == [product_a]
 
     entradas = client.get(
-        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=AMBOS&tipo=ENTRADA&limit=10"
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&tipo=ENTRADA&limit=10"
     )
     assert entradas.status_code == 200
     entradas_data = entradas.json()["data"]
@@ -1618,7 +1622,7 @@ def test_analytics_external_transfers_filters_type_scope_and_order(client):
     assert entradas_data[0]["total_quantidade"] == 6
 
     entradas_pf = client.get(
-        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&scope=PF&tipo=ENTRADA&limit=10"
+        "/analytics/movements/external-transfers?date_from=2026-02-10&date_to=2026-02-12&location_id=12&tipo=ENTRADA&limit=10"
     )
     assert entradas_pf.status_code == 200
     assert [item["produto_id"] for item in entradas_pf.json()["data"]] == [product_b]
@@ -1631,22 +1635,22 @@ def test_analytics_entradas_saidas_and_distribuicao(client):
         "tipo": "ENTRADA",
         "produto_id": product_id,
         "quantidade": 2,
-        "destino": "CANOAS",
+        "destino_location_id": 11,
         "data": "2026-02-05T10:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "SAIDA",
         "produto_id": product_id,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": "2026-02-06T10:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "TRANSFERENCIA",
         "produto_id": product_id,
         "quantidade": 1,
-        "origem": "CANOAS",
-        "destino": "PF",
+        "origem_location_id": 11,
+        "destino_location_id": 12,
         "data": "2026-02-06T12:00:00",
     })
 
@@ -1666,14 +1670,14 @@ def test_analytics_entradas_saidas_and_distribuicao(client):
 def test_create_product_generates_initial_entry_in_flow(client):
     created = client.post(
         "/produtos",
-        json={"nome": "Produto Fluxo Inicial", "qtd_canoas": 2, "qtd_pf": 3},
+        json={"nome": "Produto Fluxo Inicial", "inventories": {"11": 2, "12": 3}},
     )
     assert created.status_code == 201
 
     today = datetime.now().strftime("%Y-%m-%d")
 
     flow_ambos = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&scope=AMBOS&bucket=day"
+        f"/analytics/movements/flow?date_from={today}&date_to={today}&bucket=day"
     )
     assert flow_ambos.status_code == 200
     flow_ambos_data = flow_ambos.json()["data"]
@@ -1682,13 +1686,13 @@ def test_create_product_generates_initial_entry_in_flow(client):
     assert flow_ambos_data[0]["saidas"] == 0
 
     flow_canoas = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&scope=CANOAS&bucket=day"
+        f"/analytics/movements/flow?date_from={today}&date_to={today}&location_id=11&bucket=day"
     )
     assert flow_canoas.status_code == 200
     assert flow_canoas.json()["data"][0]["entradas"] == 2
 
     flow_pf = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&scope=PF&bucket=day"
+        f"/analytics/movements/flow?date_from={today}&date_to={today}&location_id=12&bucket=day"
     )
     assert flow_pf.status_code == 200
     assert flow_pf.json()["data"][0]["entradas"] == 3
@@ -1701,7 +1705,7 @@ def test_analytics_top_sem_mov(client):
         "tipo": "SAIDA",
         "produto_id": product_id,
         "quantidade": 1,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": "2025-12-01T10:00:00",
     })
 
@@ -1764,22 +1768,22 @@ def test_analytics_v2_endpoints(client):
         "tipo": "SAIDA",
         "produto_id": product_a,
         "quantidade": 3,
-        "origem": "CANOAS",
+        "origem_location_id": 11,
         "data": "2026-02-10T10:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "ENTRADA",
         "produto_id": product_b,
         "quantidade": 4,
-        "destino": "PF",
+        "destino_location_id": 12,
         "data": "2026-02-11T10:00:00",
     })
     client.post("/movimentacoes", json={
         "tipo": "TRANSFERENCIA",
         "produto_id": product_b,
         "quantidade": 2,
-        "origem": "CANOAS",
-        "destino": "PF",
+        "origem_location_id": 11,
+        "destino_location_id": 12,
         "data": "2026-02-11T12:00:00",
     })
 
@@ -1795,17 +1799,17 @@ def test_analytics_v2_endpoints(client):
     assert "items" in dist_data
     assert len(dist_data["items"]) == 2
 
-    top = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-12&scope=AMBOS")
+    top = client.get("/analytics/movements/top-saidas?date_from=2026-02-10&date_to=2026-02-12")
     assert top.status_code == 200
     top_data = top.json()["data"]
     assert len(top_data) >= 1
     assert top_data[0]["produto_id"] == product_a
 
-    ts = client.get("/analytics/movements/timeseries?date_from=2026-02-10&date_to=2026-02-12&scope=AMBOS&bucket=day")
+    ts = client.get("/analytics/movements/timeseries?date_from=2026-02-10&date_to=2026-02-12&bucket=day")
     assert ts.status_code == 200
     assert isinstance(ts.json()["data"], list)
 
-    flow = client.get("/analytics/movements/flow?date_from=2026-02-10&date_to=2026-02-12&scope=PF&bucket=day")
+    flow = client.get("/analytics/movements/flow?date_from=2026-02-10&date_to=2026-02-12&location_id=12&bucket=day")
     assert flow.status_code == 200
     assert isinstance(flow.json()["data"], list)
 
@@ -1824,7 +1828,7 @@ def test_inventory_session_flow(client):
 
     created = client.post(
         "/inventario/sessoes",
-        json={"nome": "Inventario Mensal", "local": "CANOAS", "observacao": "Conferencia geral"},
+        json={"nome": "Inventario Mensal", "location_id": 11, "observacao": "Conferencia geral"},
     )
     assert created.status_code == 201
     session = created.json()["data"]
@@ -1861,7 +1865,7 @@ def test_inventory_session_flow(client):
 
     product = client.get(f"/produtos/{product_id}")
     assert product.status_code == 200
-    assert product.json()["data"]["qtd_canoas"] == 3
+    assert product.json()["data"]["inventories"]["11"] == 3
 
 
 def test_inventory_session_summary_and_filters(client):
@@ -1871,7 +1875,7 @@ def test_inventory_session_summary_and_filters(client):
 
     created = client.post(
         "/inventario/sessoes",
-        json={"nome": "Inventario Divergencias", "local": "CANOAS"},
+        json={"nome": "Inventario Divergencias", "location_id": 11},
     )
     assert created.status_code == 201
     session_id = created.json()["data"]["id"]
@@ -1933,7 +1937,7 @@ def test_inventory_session_can_be_closed_and_deleted(client):
 
     created = client.post(
         "/inventario/sessoes",
-        json={"nome": "Inventario para fechar", "local": "CANOAS"},
+        json={"nome": "Inventario para fechar", "location_id": 11},
     )
     assert created.status_code == 201
     session_id = created.json()["data"]["id"]
@@ -1970,7 +1974,7 @@ def test_inventory_applied_session_cannot_be_deleted(client):
 
     created = client.post(
         "/inventario/sessoes",
-        json={"nome": "Inventario aplicado", "local": "CANOAS"},
+        json={"nome": "Inventario aplicado", "location_id": 11},
     )
     assert created.status_code == 201
     session_id = created.json()["data"]["id"]
@@ -2010,7 +2014,7 @@ def test_inventory_session_does_not_include_inactive_products(client):
 
     created = client.post(
         "/inventario/sessoes",
-        json={"nome": "Inventario Ativos", "local": "CANOAS", "observacao": "Somente ativos"},
+        json={"nome": "Inventario Ativos", "location_id": 11, "observacao": "Somente ativos"},
     )
     assert created.status_code == 201
     session_id = created.json()["data"]["id"]

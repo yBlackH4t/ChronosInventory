@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 import sqlite3
 from app.models.inventory_location import InventoryLocation
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
-from core.exceptions import DuplicateException, NotFoundException
+from core.exceptions import DuplicateException, NotFoundException, LocationHasStockException
 
 
 class InventoryLocationService:
@@ -104,7 +104,8 @@ class InventoryLocationService:
         location_id: int,
         label: Optional[str] = None,
         color: Optional[str] = None,
-        ordem: Optional[int] = None
+        ordem: Optional[int] = None,
+        ativo: Optional[bool] = None
     ) -> InventoryLocation:
         """
         Atualiza um location.
@@ -138,6 +139,9 @@ class InventoryLocationService:
             if ordem < 0:
                 raise ValueError("ordem não pode ser negativa")
             location.ordem = ordem
+            
+        if ativo is not None:
+            location.ativo = ativo
         
         # Persistir
         if not self.repository.update(location_id, location):
@@ -145,23 +149,46 @@ class InventoryLocationService:
         
         return location
     
-    def soft_delete(self, location_id: int) -> InventoryLocation:
+    def soft_delete(self, location_id: int, force: bool = False) -> InventoryLocation:
         """
         Desativa um location (soft delete).
         
         Dados são preservados, apenas marcado como inativo.
+        Se possuir estoque, requer force=True para desativar e zerar o estoque.
         
         Args:
             location_id: ID do location a desativar
+            force: Se True, zera o estoque antes de desativar
             
         Returns:
             InventoryLocation desativado
             
         Raises:
             NotFoundException: Se location não existe
+            LocationHasStockException: Se possuir estoque e force=False
         """
         location = self.get_by_id(location_id)  # Valida existência
         
+        # Check stock
+        cursor = self.repository.connection.execute(
+            "SELECT COUNT(produto_id), SUM(quantidade) FROM produto_estoque WHERE local_id = ? AND quantidade > 0", 
+            (location_id,)
+        )
+        row = cursor.fetchone()
+        items_count = row[0] or 0
+        total_qty = row[1] or 0
+        
+        if items_count > 0:
+            if not force:
+                raise LocationHasStockException(
+                    f"Location possui {total_qty} itens em estoque. Use force=True para forçar exclusão.",
+                    stock_summary={"items_count": items_count, "total_qty": total_qty}
+                )
+            
+        # Remove produto_estoque references (zeroes stock and deletes records)
+        self.repository.connection.execute("DELETE FROM produto_estoque WHERE local_id = ?", (location_id,))
+        
+        # Soft delete location
         if not self.repository.soft_delete(location_id):
             raise NotFoundException(f"Falha ao desativar location {location_id}")
         

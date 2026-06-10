@@ -1,7 +1,11 @@
 import { Badge, Card, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import dayjs from "dayjs";
 
-import type { CompareServerStatusOut, RemoteCompareServerOut, StockCompareOut } from "../../lib/api";
+import type {
+  CompareServerStatusOut,
+  RemoteCompareServerOut,
+  StockCompareOut,
+} from "../../lib/api";
 
 type Props = {
   compareResult: StockCompareOut | null;
@@ -25,7 +29,8 @@ export default function StockCompareOverviewCards({
   remoteStatusCheckedAt,
   remoteSnapshotIsOlder,
 }: Props) {
-  const localLatest = compareServerStatus?.local_snapshot?.manifest?.published_at;
+  const localLatest =
+    compareServerStatus?.local_snapshot?.manifest?.published_at;
   const remoteLatest = remoteServerInfo?.compare_manifest?.published_at;
 
   return (
@@ -36,11 +41,18 @@ export default function StockCompareOverviewCards({
             <Text size="xs" c="dimmed">
               Snapshot local
             </Text>
-            <Badge variant="light" color={metricLabelColor(Boolean(localLatest))}>
+            <Badge
+              variant="light"
+              color={metricLabelColor(Boolean(localLatest))}
+            >
               {localLatest ? "LATEST pronto" : "Sem snapshot"}
             </Badge>
           </Group>
-          <Text fw={700}>{localLatest ? dayjs(localLatest).format("DD/MM/YYYY HH:mm") : "Nao publicado"}</Text>
+          <Text fw={700}>
+            {localLatest
+              ? dayjs(localLatest).format("DD/MM/YYYY HH:mm")
+              : "Nao publicado"}
+          </Text>
           <Text size="sm" c="dimmed">
             Confirmado em {localStatusConfirmedAt || "aguardando status"}
           </Text>
@@ -53,11 +65,28 @@ export default function StockCompareOverviewCards({
             <Text size="xs" c="dimmed">
               Snapshot remoto
             </Text>
-            <Badge variant="light" color={remoteServerInfo?.reachable ? "green" : remoteServerInfo ? "orange" : "gray"}>
-              {remoteServerInfo?.reachable ? "Servidor online" : remoteServerInfo ? "Sem snapshot" : "Nao consultado"}
+            <Badge
+              variant="light"
+              color={
+                remoteServerInfo?.reachable
+                  ? "green"
+                  : remoteServerInfo
+                    ? "orange"
+                    : "gray"
+              }
+            >
+              {remoteServerInfo?.reachable
+                ? "Servidor online"
+                : remoteServerInfo
+                  ? "Sem snapshot"
+                  : "Nao consultado"}
             </Badge>
           </Group>
-          <Text fw={700}>{remoteLatest ? dayjs(remoteLatest).format("DD/MM/YYYY HH:mm") : "Nao publicado"}</Text>
+          <Text fw={700}>
+            {remoteLatest
+              ? dayjs(remoteLatest).format("DD/MM/YYYY HH:mm")
+              : "Nao publicado"}
+          </Text>
           <Group gap="xs">
             {remoteSnapshotIsOlder ? (
               <Badge variant="light" color="orange">
@@ -80,12 +109,18 @@ export default function StockCompareOverviewCards({
           <Text size="xs" c="dimmed">
             Comparativo carregado
           </Text>
-          <Text fw={700}>{compareResult ? `${compareResult.rows.length} itens` : "Sem comparacao"}</Text>
+          <Text fw={700}>
+            {compareResult
+              ? `${compareResult.rows.length} itens`
+              : "Sem comparacao"}
+          </Text>
           <Text size="sm" c="dimmed">
             Divergentes: {compareResult?.summary.divergent_items ?? 0}
           </Text>
           <Text size="sm" c="dimmed">
-            So na base A/B: {(compareResult?.summary.only_left_items ?? 0) + (compareResult?.summary.only_right_items ?? 0)}
+            So na base A/B:{" "}
+            {(compareResult?.summary.only_left_items ?? 0) +
+              (compareResult?.summary.only_right_items ?? 0)}
           </Text>
         </Stack>
       </Card>
@@ -95,9 +130,12 @@ export default function StockCompareOverviewCards({
           <Text size="xs" c="dimmed">
             Retencao local
           </Text>
-          <Text fw={700}>{compareServerStatus?.history_items_count ?? 0} snapshots</Text>
+          <Text fw={700}>
+            {compareServerStatus?.history_items_count ?? 0} snapshots
+          </Text>
           <Text size="sm" c="dimmed">
-            Limite automatico: {compareServerStatus?.history_retention_limit ?? 10}
+            Limite automatico:{" "}
+            {compareServerStatus?.history_retention_limit ?? 10}
           </Text>
           <Text size="sm" c="dimmed">
             Porta atual: {compareServerStatus?.server_port ?? "-"}

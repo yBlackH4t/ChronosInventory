@@ -1,4 +1,4 @@
-﻿"""
+"""
 Servico de migracao de dados legados.
 Responsabilidade: Migrar dados de Excel para SQLite.
 """
@@ -20,7 +20,10 @@ class MigrationService:
     """
     
     def __init__(self):
+        from core.database.connection import DatabaseConnection
+        from core.database.repositories.inventory_location_repository import InventoryLocationRepository
         self.product_repo = ProductRepository()
+        self.location_repo = InventoryLocationRepository(DatabaseConnection().get_connection())
         self.backups_dir = FileUtils.get_backups_directory()
     
     def run_migration_if_needed(self, excel_path: str) -> Tuple[bool, str]:
@@ -75,15 +78,17 @@ class MigrationService:
         
         # Prepara dados para insercao em lote
         products_to_insert = []
-        
+        # Obtém IDs default (Canoas, PF)
+        canoas_id, pf_id = self.location_repo.get_default_locations()
+        canoas_id = canoas_id or 11
+        pf_id = pf_id or 12
+
         for _, row in df.iterrows():
             products_to_insert.append((
-                int(row.iloc[0]),  # ID
+                str(row.iloc[0]),  # ID
                 str(row.iloc[1]).strip().upper(),  # Nome
-                int(row.iloc[2]),  # Canoas
-                int(row.iloc[3])   # PF
+                {canoas_id: int(row.iloc[2]), pf_id: int(row.iloc[3])}
             ))
-        
         # Insere em lote
         self.product_repo.bulk_insert(products_to_insert)
         

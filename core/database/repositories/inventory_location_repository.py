@@ -14,7 +14,8 @@ class InventoryLocationRepository(BaseRepository):
     """Repositório para gerenciar locations de estoque."""
     
     def __init__(self, connection: sqlite3.Connection):
-        super().__init__(connection)
+        super().__init__()
+        self.connection = connection
     
     def get_all_active(self) -> List[InventoryLocation]:
         """
@@ -25,8 +26,8 @@ class InventoryLocationRepository(BaseRepository):
         """
         cursor = self.connection.execute("""
             SELECT 
-                id, name, label, color, ordem, ativo, criado_em, atualizado_em
-            FROM inventory_locations
+                id, nome as name, label, color, ordem, ativo
+            FROM locais
             WHERE ativo = 1
             ORDER BY ordem ASC, id ASC
         """)
@@ -42,8 +43,8 @@ class InventoryLocationRepository(BaseRepository):
         """
         cursor = self.connection.execute("""
             SELECT 
-                id, name, label, color, ordem, ativo, criado_em, atualizado_em
-            FROM inventory_locations
+                id, nome as name, label, color, ordem, ativo
+            FROM locais
             ORDER BY ordem ASC, id ASC
         """)
         
@@ -61,8 +62,8 @@ class InventoryLocationRepository(BaseRepository):
         """
         cursor = self.connection.execute("""
             SELECT 
-                id, name, label, color, ordem, ativo, criado_em, atualizado_em
-            FROM inventory_locations
+                id, nome as name, label, color, ordem, ativo
+            FROM locais
             WHERE id = ?
         """, (location_id,))
         
@@ -81,9 +82,9 @@ class InventoryLocationRepository(BaseRepository):
         """
         cursor = self.connection.execute("""
             SELECT 
-                id, name, label, color, ordem, ativo, criado_em, atualizado_em
-            FROM inventory_locations
-            WHERE name = ?
+                id, nome as name, label, color, ordem, ativo
+            FROM locais
+            WHERE nome = ?
         """, (name,))
         
         row = cursor.fetchone()
@@ -106,8 +107,9 @@ class InventoryLocationRepository(BaseRepository):
             raise ValueError("name e label são obrigatórios")
         
         cursor = self.connection.execute("""
-            INSERT INTO inventory_locations (name, label, color, ordem, ativo, criado_em, atualizado_em)
-            VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+            INSERT INTO locais 
+            (nome, label, color, ordem, ativo)
+            VALUES (?, ?, ?, ?, ?)
         """, (
             location.name,
             location.label,
@@ -115,7 +117,7 @@ class InventoryLocationRepository(BaseRepository):
             location.ordem,
             1 if location.ativo else 0
         ))
-        
+        self.connection.commit()
         return cursor.lastrowid
     
     def update(self, location_id: int, location: InventoryLocation) -> bool:
@@ -130,14 +132,8 @@ class InventoryLocationRepository(BaseRepository):
             True se atualizado, False se não encontrado
         """
         cursor = self.connection.execute("""
-            UPDATE inventory_locations
-            SET 
-                name = ?,
-                label = ?,
-                color = ?,
-                ordem = ?,
-                ativo = ?,
-                atualizado_em = datetime('now')
+            UPDATE locais
+            SET nome = ?, label = ?, color = ?, ordem = ?, ativo = ?
             WHERE id = ?
         """, (
             location.name,
@@ -147,7 +143,7 @@ class InventoryLocationRepository(BaseRepository):
             1 if location.ativo else 0,
             location_id
         ))
-        
+        self.connection.commit()
         return cursor.rowcount > 0
     
     def soft_delete(self, location_id: int) -> bool:
@@ -161,11 +157,11 @@ class InventoryLocationRepository(BaseRepository):
             True se desativado, False se não encontrado
         """
         cursor = self.connection.execute("""
-            UPDATE inventory_locations
-            SET ativo = 0, atualizado_em = datetime('now')
+            UPDATE locais
+            SET ativo = 0
             WHERE id = ?
         """, (location_id,))
-        
+        self.connection.commit()
         return cursor.rowcount > 0
     
     def reactivate(self, location_id: int) -> bool:
@@ -179,11 +175,11 @@ class InventoryLocationRepository(BaseRepository):
             True se reativado, False se não encontrado
         """
         cursor = self.connection.execute("""
-            UPDATE inventory_locations
-            SET ativo = 1, atualizado_em = datetime('now')
+            UPDATE locais
+            SET ativo = 1
             WHERE id = ?
         """, (location_id,))
-        
+        self.connection.commit()
         return cursor.rowcount > 0
     
     def get_default_locations(self) -> Tuple[Optional[int], Optional[int]]:
@@ -197,13 +193,13 @@ class InventoryLocationRepository(BaseRepository):
         """
         locations = {}
         cursor = self.connection.execute("""
-            SELECT id, name FROM inventory_locations WHERE name IN ('CANOAS', 'PF')
+            SELECT id, nome FROM locais WHERE nome IN ('Canoas', 'Passo Fundo')
         """)
         
         for location_id, name in cursor.fetchall():
             locations[name] = location_id
         
-        return (locations.get('CANOAS'), locations.get('PF'))
+        return (locations.get('Canoas'), locations.get('Passo Fundo'))
     
     def _row_to_location(self, row: Tuple) -> InventoryLocation:
         """Converte row do banco em InventoryLocation."""
@@ -213,7 +209,5 @@ class InventoryLocationRepository(BaseRepository):
             label=row[2],
             color=row[3],
             ordem=row[4],
-            ativo=bool(row[5]),
-            criado_em=row[6],
-            atualizado_em=row[7]
+            ativo=bool(row[5])
         )

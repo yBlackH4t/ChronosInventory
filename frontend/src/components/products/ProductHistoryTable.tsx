@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 
 import type { MovementOut } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
+import { useLocations } from "../../hooks/useLocations";
 
 type ProductHistoryTableProps = {
   loading: boolean;
@@ -13,7 +14,13 @@ type ProductHistoryTableProps = {
   totalPages: number;
   onPageChange: (page: number) => void;
   movementColor: (tipo: "ENTRADA" | "SAIDA" | "TRANSFERENCIA") => string;
-  movementNatureLabel: (natureza: "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "DEVOLUCAO" | "AJUSTE") => string;
+  movementNatureLabel: (
+    natureza:
+      | "OPERACAO_NORMAL"
+      | "TRANSFERENCIA_EXTERNA"
+      | "DEVOLUCAO"
+      | "AJUSTE",
+  ) => string;
   adjustmentReasonLabel: (reason?: string | null) => string;
   onRetry: () => void;
 };
@@ -31,6 +38,8 @@ export function ProductHistoryTable({
   adjustmentReasonLabel,
   onRetry,
 }: ProductHistoryTableProps) {
+  const { locations } = useLocations();
+
   if (loading) {
     return (
       <Group justify="center" py="md">
@@ -78,8 +87,14 @@ export function ProductHistoryTable({
               </Table.Td>
               <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
               <Table.Td>{mov.quantidade}</Table.Td>
-              <Table.Td>{mov.origem || "-"}</Table.Td>
-              <Table.Td>{mov.destino || "-"}</Table.Td>
+              <Table.Td>
+                {locations.find((l) => l.id === mov.origem_location_id)?.name ||
+                  "-"}
+              </Table.Td>
+              <Table.Td>
+                {locations.find((l) => l.id === mov.destino_location_id)
+                  ?.name || "-"}
+              </Table.Td>
               <Table.Td>{mov.documento || "-"}</Table.Td>
               <Table.Td>{adjustmentReasonLabel(mov.motivo_ajuste)}</Table.Td>
               <Table.Td>{mov.local_externo || "-"}</Table.Td>

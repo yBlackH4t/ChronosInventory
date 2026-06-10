@@ -1,8 +1,15 @@
 import type { FormEventHandler } from "react";
-import { Button, Modal, NumberInput, Stack, TextInput, Textarea } from "@mantine/core";
+import {
+  Button,
+  Modal,
+  NumberInput,
+  Stack,
+  TextInput,
+  Textarea,
+} from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 
-import type { Product, ProductCreate } from "../../lib/api";
+import type { InventoryLocation, Product, ProductCreate } from "../../lib/api";
 
 type ProductFormModalProps = {
   opened: boolean;
@@ -14,6 +21,7 @@ type ProductFormModalProps = {
   onEditSubmit: FormEventHandler<HTMLFormElement>;
   createLoading: boolean;
   editLoading: boolean;
+  locations?: InventoryLocation[];
 };
 
 export function ProductFormModal({
@@ -26,14 +34,23 @@ export function ProductFormModal({
   onEditSubmit,
   createLoading,
   editLoading,
+  locations = [],
 }: ProductFormModalProps) {
   return (
-    <Modal opened={opened} onClose={onClose} title={editing ? "Editar produto" : "Novo produto"}>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={editing ? "Editar produto" : "Novo produto"}
+    >
       {editing ? (
         <form onSubmit={onEditSubmit}>
           <Stack>
             <TextInput label="Nome" {...editForm.getInputProps("nome")} />
-            <Textarea label="Descricao" minRows={3} {...editForm.getInputProps("observacao")} />
+            <Textarea
+              label="Descricao"
+              minRows={3}
+              {...editForm.getInputProps("observacao")}
+            />
             <Button type="submit" loading={editLoading}>
               Salvar
             </Button>
@@ -43,8 +60,14 @@ export function ProductFormModal({
         <form onSubmit={onCreateSubmit}>
           <Stack>
             <TextInput label="Nome" {...createForm.getInputProps("nome")} />
-            <NumberInput label="Qtd Canoas" min={0} {...createForm.getInputProps("qtd_canoas")} />
-            <NumberInput label="Qtd PF" min={0} {...createForm.getInputProps("qtd_pf")} />
+            {locations.map((loc) => (
+              <NumberInput
+                key={loc.id}
+                label={`Qtd ${loc.name}`}
+                min={0}
+                {...createForm.getInputProps(`inventories.${loc.id}`)}
+              />
+            ))}
             <Button type="submit" loading={createLoading}>
               Salvar
             </Button>

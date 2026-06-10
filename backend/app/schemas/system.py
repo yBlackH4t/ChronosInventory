@@ -74,8 +74,7 @@ class StockCompareSummaryOut(BaseModel):
     divergent_items: int
     only_left_items: int
     only_right_items: int
-    canoas_mismatch_items: int
-    pf_mismatch_items: int
+    stock_mismatch_items: int
     name_mismatch_items: int
     active_mismatch_items: int
 
@@ -85,12 +84,9 @@ class StockCompareRowOut(BaseModel):
     display_name: str
     left_name: str | None = None
     right_name: str | None = None
-    left_qtd_canoas: int | None = None
-    right_qtd_canoas: int | None = None
-    diff_canoas: int
-    left_qtd_pf: int | None = None
-    right_qtd_pf: int | None = None
-    diff_pf: int
+    left_stock: int | None = None
+    right_stock: int | None = None
+    diff_stock: int
     left_ativo: bool | None = None
     right_ativo: bool | None = None
     statuses: list[str]

@@ -1,4 +1,4 @@
-﻿from app.services.stock_service import StockService
+from app.services.stock_service import StockService
 from app.services.image_service import ImageService
 from app.services.movement_service import MovementService
 from app.services.backup_service import BackupService
@@ -10,6 +10,8 @@ from app.services.import_service import ImportService
 from app.services.inventory_service import InventoryService
 from app.services.stock_compare_service import StockCompareService
 from app.services.stock_profile_service import StockProfileService
+from app.services.inventory_location_service import InventoryLocationService
+from core.database.connection import DatabaseConnection
 
 
 def get_stock_service() -> StockService:
@@ -55,5 +57,17 @@ def get_inventory_service() -> InventoryService:
 def get_stock_compare_service() -> StockCompareService:
     return StockCompareService()
 
+
 def get_stock_profile_service() -> StockProfileService:
     return StockProfileService()
+
+
+def get_db_connection():
+    """Returns a new SQLite connection from the singleton DatabaseConnection."""
+    return DatabaseConnection().get_connection()
+
+
+def get_inventory_location_service() -> InventoryLocationService:
+    conn = get_db_connection()
+    return InventoryLocationService(conn)
+

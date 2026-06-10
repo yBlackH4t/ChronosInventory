@@ -204,9 +204,9 @@ class OfficialBasePublicationHelper:
             summary["current_products_with_stock_count"] = int(
                 conn.execute(
                     """
-                    SELECT COUNT(*)
-                    FROM produtos
-                    WHERE COALESCE(qtd_canoas, 0) + COALESCE(qtd_pf, 0) > 0
+                    SELECT COUNT(DISTINCT produto_id)
+                    FROM produto_estoque
+                    WHERE quantidade > 0
                     """
                 ).fetchone()[0]
             )

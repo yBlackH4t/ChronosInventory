@@ -2,7 +2,11 @@
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, type StockProfilesStateOut, type SuccessResponse } from "../lib/api";
+import {
+  ApiError,
+  type StockProfilesStateOut,
+  type SuccessResponse,
+} from "../lib/api";
 import { api } from "../lib/apiClient";
 import { clearAllTabStates } from "./tabStateCache";
 
@@ -28,7 +32,9 @@ const DEFAULT_PROFILE_SCOPE: ProfileScopeContextValue = {
   refetch: () => undefined,
 };
 
-const ProfileScopeContext = createContext<ProfileScopeContextValue>(DEFAULT_PROFILE_SCOPE);
+const ProfileScopeContext = createContext<ProfileScopeContextValue>(
+  DEFAULT_PROFILE_SCOPE,
+);
 
 function getLocalStorageSafe(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -42,7 +48,9 @@ function getLocalStorageSafe(): Storage | null {
 function readLastProfileId(): string {
   const storage = getLocalStorageSafe();
   if (!storage) return "default";
-  const value = (storage.getItem(LAST_PROFILE_STORAGE_KEY) || "").trim().toLowerCase();
+  const value = (storage.getItem(LAST_PROFILE_STORAGE_KEY) || "")
+    .trim()
+    .toLowerCase();
   return value || "default";
 }
 
@@ -66,11 +74,19 @@ export function ProfileScopeProvider({ children }: { children: ReactNode }) {
     refetchOnWindowFocus: true,
   });
 
-  const isNotFound = query.error instanceof ApiError && query.error.status === 404;
+  const isNotFound =
+    query.error instanceof ApiError && query.error.status === 404;
   const data = query.data?.data;
   const fallbackProfileId = readLastProfileId();
-  const activeProfileId = (data?.active_profile_id || fallbackProfileId || "default").trim().toLowerCase();
-  const activeProfileName = (data?.active_profile_name || "Principal").trim() || "Principal";
+  const activeProfileId = (
+    data?.active_profile_id ||
+    fallbackProfileId ||
+    "default"
+  )
+    .trim()
+    .toLowerCase();
+  const activeProfileName =
+    (data?.active_profile_name || "Principal").trim() || "Principal";
   const restartRequired = Boolean(data?.restart_required);
 
   useEffect(() => {
@@ -88,7 +104,8 @@ export function ProfileScopeProvider({ children }: { children: ReactNode }) {
     clearAllTabStates();
     queryClient.removeQueries({
       predicate: (cachedQuery) =>
-        Array.isArray(cachedQuery.queryKey) && cachedQuery.queryKey.includes(previousScopeKey),
+        Array.isArray(cachedQuery.queryKey) &&
+        cachedQuery.queryKey.includes(previousScopeKey),
     });
 
     previousProfileIdRef.current = activeProfileId;
@@ -112,10 +129,21 @@ export function ProfileScopeProvider({ children }: { children: ReactNode }) {
         void refetchProfiles();
       },
     }),
-    [activeProfileId, activeProfileName, isNotFound, query.isLoading, refetchProfiles, restartRequired]
+    [
+      activeProfileId,
+      activeProfileName,
+      isNotFound,
+      query.isLoading,
+      refetchProfiles,
+      restartRequired,
+    ],
   );
 
-  return <ProfileScopeContext.Provider value={value}>{children}</ProfileScopeContext.Provider>;
+  return (
+    <ProfileScopeContext.Provider value={value}>
+      {children}
+    </ProfileScopeContext.Provider>
+  );
 }
 
 export function useProfileScope(): ProfileScopeContextValue {

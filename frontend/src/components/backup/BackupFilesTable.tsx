@@ -8,7 +8,8 @@ import EmptyState from "../ui/EmptyState";
 function bytesToHuman(size: number): string {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  if (size < 1024 * 1024 * 1024)
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
@@ -32,7 +33,9 @@ export function BackupFilesTable({ backups }: BackupFilesTableProps) {
             <Table.Tr key={item.name}>
               <Table.Td>{item.name}</Table.Td>
               <Table.Td>{bytesToHuman(item.size)}</Table.Td>
-              <Table.Td>{dayjs(item.created_at).format("DD/MM/YYYY HH:mm")}</Table.Td>
+              <Table.Td>
+                {dayjs(item.created_at).format("DD/MM/YYYY HH:mm")}
+              </Table.Td>
             </Table.Tr>
           ))}
           {backups.length === 0 && (

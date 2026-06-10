@@ -3,6 +3,7 @@ Gerenciador de conexao com banco de dados SQLite.
 Implementa padrao Singleton para garantir unica instancia.
 """
 
+import logging
 import os
 import sqlite3
 from typing import Optional
@@ -10,6 +11,8 @@ from typing import Optional
 from core.constants import LEGACY_DB_PATH
 from core.exceptions import DatabaseException
 from core.utils.file_utils import FileUtils
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConnection:
@@ -32,7 +35,7 @@ class DatabaseConnection:
 
         self.db_path = FileUtils.get_database_path()
         self._handle_legacy_migration()
-        print(f"Database path in use: {self.db_path}")
+        logger.info("Database path in use: %s", self.db_path)
         self._initialized = True
         self._initialize_database()
 
@@ -43,27 +46,29 @@ class DatabaseConnection:
         """
         migration = FileUtils.migrate_legacy_data_to(os.path.dirname(self.db_path))
         if migration.get("copied_files", 0) > 0:
-            print(
+            logger.info(
                 "Migracao de dados legados concluida: "
-                f"{migration['copied_files']} arquivo(s) para '{self.db_path}'."
+                "%d arquivo(s) para '%s'.",
+                migration["copied_files"],
+                self.db_path,
             )
 
         if not os.path.exists(self.db_path) and os.path.exists(LEGACY_DB_PATH):
-            print(f"Banco de dados legado encontrado em '{LEGACY_DB_PATH}'. Importando para AppData...")
+            logger.info("Banco de dados legado encontrado em '%s'. Importando para AppData...", LEGACY_DB_PATH)
             try:
                 FileUtils.copy_file(LEGACY_DB_PATH, self.db_path)
-                print("Copia do banco legado realizada com sucesso.")
+                logger.info("Copia do banco legado realizada com sucesso.")
 
                 try:
                     FileUtils.rename_file(LEGACY_DB_PATH, LEGACY_DB_PATH + ".migrated_to_appdata")
-                    print("Arquivo legado renomeado com sucesso.")
+                    logger.info("Arquivo legado renomeado com sucesso.")
                 except Exception as exc:
-                    print(
-                        "AVISO: Copia bem sucedida, mas nao foi possivel renomear o arquivo antigo. "
-                        f"Erro: {exc}"
+                    logger.warning(
+                        "Copia bem sucedida, mas nao foi possivel renomear o arquivo antigo. Erro: %s",
+                        exc,
                     )
             except Exception as exc:
-                print(f"ERRO CRITICO: Falha ao copiar banco de dados legado. {exc}")
+                logger.error("Falha ao copiar banco de dados legado. %s", exc)
                 if os.path.exists(self.db_path):
                     FileUtils.delete_file(self.db_path)
                 raise DatabaseException(f"Falha ao importar banco legado: {exc}")
@@ -73,7 +78,7 @@ class DatabaseConnection:
         Retorna nova conexao com row_factory e pragmas de performance.
         """
         try:
-            conn = sqlite3.connect(self.db_path)
+            conn = sqlite3.connect(self.db_path, check_same_thread=False)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA foreign_keys = ON;")
             conn.execute("PRAGMA journal_mode = WAL;")
@@ -85,19 +90,19 @@ class DatabaseConnection:
     def _initialize_database(self) -> None:
         """
         Cria tabelas e indices necessarios.
+        Garante que o schema esta completo tanto para instalacoes novas
+        quanto para bancos que serao migrados pelo MigrationManager.
         """
         conn = self.get_connection()
         cursor = conn.cursor()
 
         try:
+            # ── Core tables ──────────────────────────────────────────
             cursor.execute(
                 """
                 CREATE TABLE IF NOT EXISTS produtos (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nome TEXT NOT NULL,
-                    qtd_canoas INTEGER DEFAULT 0,
-                    qtd_pf INTEGER DEFAULT 0,
-                    imagem BLOB,
                     observacao TEXT,
                     ativo INTEGER NOT NULL DEFAULT 1,
                     inativado_em DATETIME,
@@ -120,19 +125,6 @@ class DatabaseConnection:
 
             cursor.execute(
                 """
-                CREATE TABLE IF NOT EXISTS historico (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    operacao TEXT,
-                    produto_nome TEXT,
-                    quantidade INTEGER,
-                    observacao TEXT
-                );
-                """
-            )
-
-            cursor.execute(
-                """
                 CREATE TABLE IF NOT EXISTS movimentacoes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     data_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -147,6 +139,8 @@ class DatabaseConnection:
                     local_externo TEXT,
                     documento TEXT,
                     movimento_ref_id INTEGER,
+                    origem_local_id INTEGER,
+                    destino_local_id INTEGER,
                     FOREIGN KEY(produto_id) REFERENCES produtos(id)
                 );
                 """
@@ -166,6 +160,10 @@ class DatabaseConnection:
                 cursor.execute("ALTER TABLE movimentacoes ADD COLUMN documento TEXT;")
             if "movimento_ref_id" not in movement_columns:
                 cursor.execute("ALTER TABLE movimentacoes ADD COLUMN movimento_ref_id INTEGER;")
+            if "origem_local_id" not in movement_columns:
+                cursor.execute("ALTER TABLE movimentacoes ADD COLUMN origem_local_id INTEGER;")
+            if "destino_local_id" not in movement_columns:
+                cursor.execute("ALTER TABLE movimentacoes ADD COLUMN destino_local_id INTEGER;")
 
             cursor.execute(
                 """
@@ -197,12 +195,18 @@ class DatabaseConnection:
                     local TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'ABERTO',
                     observacao TEXT,
+                    inventory_location_id INTEGER,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     applied_at DATETIME
                 );
                 """
             )
+
+            cursor.execute("PRAGMA table_info(inventory_sessions);")
+            session_columns = {row[1] for row in cursor.fetchall()}
+            if "inventory_location_id" not in session_columns:
+                cursor.execute("ALTER TABLE inventory_sessions ADD COLUMN inventory_location_id INTEGER;")
 
             cursor.execute(
                 """
@@ -225,7 +229,48 @@ class DatabaseConnection:
                 """
             )
 
-            # Indices de listagem/analytics
+            # ── v2.1.0 Tables ────────────────────────────
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS locais (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nome TEXT NOT NULL UNIQUE,
+                    ativo INTEGER NOT NULL DEFAULT 1,
+                    label TEXT,
+                    color TEXT DEFAULT '#808080',
+                    ordem INTEGER DEFAULT 0
+                );
+                """
+            )
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS produto_estoque (
+                    produto_id INTEGER NOT NULL,
+                    local_id INTEGER NOT NULL,
+                    quantidade INTEGER NOT NULL DEFAULT 0,
+                    atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (produto_id, local_id),
+                    FOREIGN KEY(produto_id) REFERENCES produtos(id) ON DELETE CASCADE,
+                    FOREIGN KEY(local_id) REFERENCES locais(id) ON DELETE RESTRICT
+                );
+                """
+            )
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_config (
+                    chave TEXT PRIMARY KEY,
+                    valor TEXT NOT NULL,
+                    tipo TEXT DEFAULT 'string',
+                    descricao TEXT,
+                    atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(chave)
+                );
+                """
+            )
+
+            # ── Indexes ──────────────────────────────────────────────
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_ativo_nome ON produtos(ativo, nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto ON movimentacoes(produto_id);")
@@ -235,11 +280,18 @@ class DatabaseConnection:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_origem_data ON movimentacoes(tipo, origem, data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_destino_data ON movimentacoes(tipo, destino, data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_natureza_data ON movimentacoes(natureza, data_hora);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_origem_local ON movimentacoes(origem_local_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_destino_local ON movimentacoes(destino_local_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_images_primary ON product_images(product_id, is_primary);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_sessions_status ON inventory_sessions(status, created_at);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_session ON inventory_counts(session_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_divergencia ON inventory_counts(session_id, divergencia);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_produto ON produto_estoque(produto_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_local ON produto_estoque(local_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_quantidade ON produto_estoque(quantidade);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_nome ON locais(nome);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_ativo ON locais(ativo);")
 
             # Migra imagens legadas de produtos.imagem para tabela dedicada.
             cursor.execute("SELECT COUNT(*) as total FROM product_images;")

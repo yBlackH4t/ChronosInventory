@@ -12,13 +12,18 @@ import {
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { IconPrinter } from "@tabler/icons-react";
 
-const NfeLabelDesignerPanel = lazy(() => import("../components/labels/NfeLabelDesignerPanel"));
+const NfeLabelDesignerPanel = lazy(
+  () => import("../components/labels/NfeLabelDesignerPanel"),
+);
 import LabelsInternalSection from "../components/labels/LabelsInternalSection";
 import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
 import type { Product, ProductStatusFilter, SuccessResponse } from "../lib/api";
 import { api } from "../lib/apiClient";
-import { buildLabelsPrintHtml, type LabelPrintableItem } from "../lib/labelsPrint";
+import {
+  buildLabelsPrintHtml,
+  type LabelPrintableItem,
+} from "../lib/labelsPrint";
 import { notifyError, notifySuccess } from "../lib/notify";
 
 const STOCK_FILTER_VALUES = ["COM_ESTOQUE", "TODOS", "SEM_ESTOQUE"] as const;
@@ -88,7 +93,10 @@ function printLabels(items: LabelPrintableItem[]) {
 
 export default function LabelsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const preselectedFromUrl = useMemo(() => parseIdsParam(searchParams.get("ids")), [searchParams]);
+  const preselectedFromUrl = useMemo(
+    () => parseIdsParam(searchParams.get("ids")),
+    [searchParams],
+  );
 
   const [labelMode, setLabelMode] = useState<LabelMode>("INTERNAL");
   const [query, setQuery] = useState("");
@@ -100,7 +108,9 @@ export default function LabelsPage() {
   const [printing, setPrinting] = useState(false);
   const [copiesMode, setCopiesMode] = useState<CopiesMode>("ONE");
   const [defaultManualCopies, setDefaultManualCopies] = useState(1);
-  const [manualCopiesById, setManualCopiesById] = useState<Record<number, number>>({});
+  const [manualCopiesById, setManualCopiesById] = useState<
+    Record<number, number>
+  >({});
 
   const listQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["labels-products", query, status, stockFilter, page, pageSize],
@@ -109,19 +119,23 @@ export default function LabelsPage() {
         {
           query: query.trim() || undefined,
           status,
-          has_stock: stockFilter === "TODOS" ? undefined : stockFilter === "COM_ESTOQUE",
+          has_stock:
+            stockFilter === "TODOS" ? undefined : stockFilter === "COM_ESTOQUE",
           page,
           page_size: Number(pageSize),
           sort: "nome",
         },
-        { signal }
+        { signal },
       ),
     enabled: labelMode === "INTERNAL",
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
 
-  const rows = useMemo(() => listQuery.data?.data ?? [], [listQuery.data?.data]);
+  const rows = useMemo(
+    () => listQuery.data?.data ?? [],
+    [listQuery.data?.data],
+  );
   const totalPages = Math.max(listQuery.data?.meta?.total_pages ?? 1, 1);
 
   useEffect(() => {
@@ -137,9 +151,10 @@ export default function LabelsPage() {
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedVisibleCount = useMemo(
     () => visibleIds.filter((id) => selectedSet.has(id)).length,
-    [visibleIds, selectedSet]
+    [visibleIds, selectedSet],
   );
-  const allVisibleSelected = visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+  const allVisibleSelected =
+    visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
 
   const selectedProducts = useMemo(() => {
     return rows.filter((product) => selectedSet.has(product.id));
@@ -154,7 +169,8 @@ export default function LabelsPage() {
 
   const resolveCopies = (product: LabelPrintableItem): number => {
     if (copiesMode === "ONE") return 1;
-    if (copiesMode === "TOTAL_STOCK") return Math.max(0, Math.floor(Number(product.total_stock || 0)));
+    if (copiesMode === "TOTAL_STOCK")
+      return Math.max(0, Math.floor(Number(product.total_stock || 0)));
     return resolveManualCopies(product.id);
   };
 
@@ -203,7 +219,10 @@ export default function LabelsPage() {
   };
 
   const setManualCopies = (productId: number, value: number) => {
-    const next = Math.max(1, Math.min(MAX_COPIES_PER_ITEM, Math.round(Number(value || 1))));
+    const next = Math.max(
+      1,
+      Math.min(MAX_COPIES_PER_ITEM, Math.round(Number(value || 1))),
+    );
     setManualCopiesById((current) => ({ ...current, [productId]: next }));
   };
 
@@ -219,7 +238,9 @@ export default function LabelsPage() {
 
       const missingIds = selectedIds.filter((id) => !byId.has(id));
       if (missingIds.length > 0) {
-        const fetched = await Promise.allSettled(missingIds.map((id) => api.getProduct(id)));
+        const fetched = await Promise.allSettled(
+          missingIds.map((id) => api.getProduct(id)),
+        );
         const failed: number[] = [];
         fetched.forEach((result, index) => {
           if (result.status === "fulfilled") {
@@ -229,7 +250,11 @@ export default function LabelsPage() {
           }
         });
         if (failed.length > 0) {
-          notifyError(new Error(`Nao foi possivel carregar ${failed.length} item(ns) selecionado(s).`));
+          notifyError(
+            new Error(
+              `Nao foi possivel carregar ${failed.length} item(ns) selecionado(s).`,
+            ),
+          );
         }
       }
 
@@ -241,14 +266,22 @@ export default function LabelsPage() {
 
       const batch = buildPrintBatch(items);
       if (batch.expanded.length === 0) {
-        notifyError(new Error("Nenhuma etiqueta para imprimir. Verifique o modo de copias."));
+        notifyError(
+          new Error(
+            "Nenhuma etiqueta para imprimir. Verifique o modo de copias.",
+          ),
+        );
         return;
       }
       if (batch.limited) {
-        notifyError(new Error(`Limite de ${MAX_LABELS_PER_PRINT} etiquetas por impressao atingido.`));
+        notifyError(
+          new Error(
+            `Limite de ${MAX_LABELS_PER_PRINT} etiquetas por impressao atingido.`,
+          ),
+        );
       } else if (batch.skipped > 0 || batch.capped > 0) {
         notifySuccess(
-          `Impressao preparada: ${batch.expanded.length} etiqueta(s). Ignorados: ${batch.skipped}. Ajustados no limite: ${batch.capped}.`
+          `Impressao preparada: ${batch.expanded.length} etiqueta(s). Ignorados: ${batch.skipped}. Ajustados no limite: ${batch.capped}.`,
         );
       }
       printLabels(batch.expanded);
@@ -260,7 +293,9 @@ export default function LabelsPage() {
   const runPrintSingle = (product: Product) => {
     const batch = buildPrintBatch([product]);
     if (batch.expanded.length === 0) {
-      notifyError(new Error("Este item nao gerou etiquetas no modo atual de copias."));
+      notifyError(
+        new Error("Este item nao gerou etiquetas no modo atual de copias."),
+      );
       return;
     }
     printLabels(batch.expanded);
@@ -279,7 +314,13 @@ export default function LabelsPage() {
           labelMode === "INTERNAL" ? (
             <>
               <Badge variant="light">Selecionados: {selectedIds.length}</Badge>
-              <Badge variant="light">Modo: {COPIES_MODE_OPTIONS.find((item) => item.value === copiesMode)?.label}</Badge>
+              <Badge variant="light">
+                Modo:{" "}
+                {
+                  COPIES_MODE_OPTIONS.find((item) => item.value === copiesMode)
+                    ?.label
+                }
+              </Badge>
               <Button
                 leftSection={<IconPrinter size={16} />}
                 onClick={() => void runPrintSelected()}
@@ -299,7 +340,9 @@ export default function LabelsPage() {
         <Group justify="space-between" wrap="wrap">
           <SegmentedControl
             value={labelMode}
-            onChange={(value) => setLabelMode((value as LabelMode) || "INTERNAL")}
+            onChange={(value) =>
+              setLabelMode((value as LabelMode) || "INTERNAL")
+            }
             data={[
               { value: "INTERNAL", label: "Etiqueta de estoque" },
               { value: "NFE", label: "Etiqueta de expedicao (designer)" },

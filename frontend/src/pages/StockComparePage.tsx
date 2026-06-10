@@ -26,8 +26,7 @@ import { loadTabState, saveTabState } from "../state/tabStateCache";
 type CompareFilter =
   | "DIFFERENT"
   | "ALL"
-  | "CANOAS"
-  | "PF"
+  | "STOCK"
   | "ONLY_LEFT"
   | "ONLY_RIGHT"
   | "NAME"
@@ -72,7 +71,10 @@ const DEFAULT_COMPARE_SESSION_CACHE: CompareSessionCache = {
 let compareSessionCache: CompareSessionCache = DEFAULT_COMPARE_SESSION_CACHE;
 
 function remoteServerErrorMessage(serverUrl: string, error: unknown): string {
-  const fallback = error instanceof Error ? error.message : "Falha ao consultar servidor remoto.";
+  const fallback =
+    error instanceof Error
+      ? error.message
+      : "Falha ao consultar servidor remoto.";
   if (!serverUrl.trim()) return fallback;
   return `${fallback} Verifique o endereco, a porta e se o servidor remoto esta ligado.`;
 }
@@ -83,11 +85,12 @@ function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-
 export default function StockComparePage() {
   const persistedState = useMemo(
-    () => loadTabState<CompareTabState>(STOCK_COMPARE_TAB_ID) ?? DEFAULT_COMPARE_STATE,
-    []
+    () =>
+      loadTabState<CompareTabState>(STOCK_COMPARE_TAB_ID) ??
+      DEFAULT_COMPARE_STATE,
+    [],
   );
   const [leftPath, setLeftPath] = useState(persistedState.leftPath);
   const [rightPath, setRightPath] = useState(persistedState.rightPath);
@@ -95,16 +98,25 @@ export default function StockComparePage() {
   const [rightLabel, setRightLabel] = useState(persistedState.rightLabel);
   const [filter, setFilter] = useState<CompareFilter>(persistedState.filter);
   const [search, setSearch] = useState(persistedState.search);
-  const [remoteServerUrl, setRemoteServerUrl] = useState(persistedState.remoteServerUrl);
+  const [remoteServerUrl, setRemoteServerUrl] = useState(
+    persistedState.remoteServerUrl,
+  );
   const [compareResult, setCompareResult] = useState<StockCompareOut | null>(
-    compareSessionCache.compareResult
+    compareSessionCache.compareResult,
   );
-  const [remoteServerInfo, setRemoteServerInfo] = useState<RemoteCompareServerOut | null>(
-    compareSessionCache.remoteServerInfo
+  const [remoteServerInfo, setRemoteServerInfo] =
+    useState<RemoteCompareServerOut | null>(
+      compareSessionCache.remoteServerInfo,
+    );
+  const [remoteCheckedAt, setRemoteCheckedAt] = useState<string | null>(
+    compareSessionCache.remoteCheckedAt,
   );
-  const [remoteCheckedAt, setRemoteCheckedAt] = useState<string | null>(compareSessionCache.remoteCheckedAt);
-  const [remoteCheckError, setRemoteCheckError] = useState<string | null>(compareSessionCache.remoteCheckError);
-  const [remoteReachable, setRemoteReachable] = useState<boolean | null>(compareSessionCache.remoteReachable);
+  const [remoteCheckError, setRemoteCheckError] = useState<string | null>(
+    compareSessionCache.remoteCheckError,
+  );
+  const [remoteReachable, setRemoteReachable] = useState<boolean | null>(
+    compareSessionCache.remoteReachable,
+  );
   const [compareStatusRefreshUntil, setCompareStatusRefreshUntil] = useState(0);
 
   const stockProfilesQuery = useQuery<SuccessResponse<StockProfilesStateOut>>({
@@ -113,21 +125,30 @@ export default function StockComparePage() {
     staleTime: 30_000,
   });
 
-  const compareServerStatusQuery = useQuery<SuccessResponse<CompareServerStatusOut>>({
+  const compareServerStatusQuery = useQuery<
+    SuccessResponse<CompareServerStatusOut>
+  >({
     queryKey: ["compare-server-status"],
     queryFn: ({ signal }) => api.getCompareServerStatus({ signal }),
     staleTime: 15_000,
     refetchInterval: (query) => {
-      const response = query.state.data as SuccessResponse<CompareServerStatusOut> | undefined;
+      const response = query.state.data as
+        | SuccessResponse<CompareServerStatusOut>
+        | undefined;
       const status = response?.data;
-      const shouldPoll = Boolean(status?.server_running) || Date.now() < compareStatusRefreshUntil;
+      const shouldPoll =
+        Boolean(status?.server_running) ||
+        Date.now() < compareStatusRefreshUntil;
       return shouldPoll ? 5_000 : false;
     },
   });
 
-  const compareServerHistoryQuery = useQuery<SuccessResponse<PublishedCompareBaseOut[]>>({
+  const compareServerHistoryQuery = useQuery<
+    SuccessResponse<PublishedCompareBaseOut[]>
+  >({
     queryKey: ["compare-server-history"],
-    queryFn: ({ signal }) => api.listCompareServerHistory({ limit: 10 }, { signal }),
+    queryFn: ({ signal }) =>
+      api.listCompareServerHistory({ limit: 10 }, { signal }),
     staleTime: 15_000,
   });
 
@@ -141,7 +162,15 @@ export default function StockComparePage() {
       search,
       remoteServerUrl,
     });
-  }, [filter, leftLabel, leftPath, remoteServerUrl, rightLabel, rightPath, search]);
+  }, [
+    filter,
+    leftLabel,
+    leftPath,
+    remoteServerUrl,
+    rightLabel,
+    rightPath,
+    search,
+  ]);
 
   useEffect(() => {
     compareSessionCache = {
@@ -151,16 +180,24 @@ export default function StockComparePage() {
       remoteCheckError,
       remoteReachable,
     };
-  }, [compareResult, remoteCheckError, remoteCheckedAt, remoteReachable, remoteServerInfo]);
+  }, [
+    compareResult,
+    remoteCheckError,
+    remoteCheckedAt,
+    remoteReachable,
+    remoteServerInfo,
+  ]);
 
   useEffect(() => {
-    const currentPath = stockProfilesQuery.data?.data?.current_database_path || "";
+    const currentPath =
+      stockProfilesQuery.data?.data?.current_database_path || "";
     if (!currentPath || leftPath.trim()) return;
     setLeftPath(currentPath);
   }, [leftPath, stockProfilesQuery.data?.data?.current_database_path]);
 
   useEffect(() => {
-    const configuredRemote = compareServerStatusQuery.data?.data?.remote_server_url || "";
+    const configuredRemote =
+      compareServerStatusQuery.data?.data?.remote_server_url || "";
     if (!configuredRemote || remoteServerUrl.trim()) return;
     setRemoteServerUrl(configuredRemote);
   }, [compareServerStatusQuery.data?.data?.remote_server_url, remoteServerUrl]);
@@ -200,7 +237,10 @@ export default function StockComparePage() {
     onError: (error) => notifyError(error),
   });
 
-  const inspectRemoteServerMutation = useMutation<SuccessResponse<RemoteCompareServerOut>, Error>({
+  const inspectRemoteServerMutation = useMutation<
+    SuccessResponse<RemoteCompareServerOut>,
+    Error
+  >({
     mutationFn: () => api.inspectRemoteCompareServer(remoteServerUrl.trim()),
     onSuccess: (response) => {
       setRemoteServerInfo(response.data);
@@ -218,7 +258,10 @@ export default function StockComparePage() {
     },
   });
 
-  const comparePublishedMutation = useMutation<SuccessResponse<StockCompareOut>, Error>({
+  const comparePublishedMutation = useMutation<
+    SuccessResponse<StockCompareOut>,
+    Error
+  >({
     mutationFn: () => api.compareWithRemoteServer(remoteServerUrl.trim()),
     onSuccess: (response) => {
       setCompareResult(response.data);
@@ -240,7 +283,8 @@ export default function StockComparePage() {
     Error,
     void
   >({
-    mutationFn: () => api.deleteCompareServerPublication({ delete_latest: true }),
+    mutationFn: () =>
+      api.deleteCompareServerPublication({ delete_latest: true }),
     onSuccess: async (response) => {
       notifySuccess(response.data.message);
       setCompareStatusRefreshUntil(Date.now() + 10_000);
@@ -255,7 +299,8 @@ export default function StockComparePage() {
     Error,
     string
   >({
-    mutationFn: (manifestPath) => api.deleteCompareServerPublication({ manifest_path: manifestPath }),
+    mutationFn: (manifestPath) =>
+      api.deleteCompareServerPublication({ manifest_path: manifestPath }),
     onSuccess: async (response) => {
       notifySuccess(response.data.message);
       await compareServerHistoryQuery.refetch();
@@ -267,7 +312,9 @@ export default function StockComparePage() {
   const chooseDatabaseFile = async (target: "left" | "right") => {
     if (!isTauri()) {
       notifyError(
-        new Error("Selecao de arquivo integrada disponivel apenas no app desktop. Digite o caminho manualmente.")
+        new Error(
+          "Selecao de arquivo integrada disponivel apenas no app desktop. Digite o caminho manualmente.",
+        ),
       );
       return;
     }
@@ -275,7 +322,9 @@ export default function StockComparePage() {
       const { open } = await import("@tauri-apps/api/dialog");
       const selected = await open({
         multiple: false,
-        filters: [{ name: "Banco SQLite", extensions: ["db", "sqlite", "sqlite3"] }],
+        filters: [
+          { name: "Banco SQLite", extensions: ["db", "sqlite", "sqlite3"] },
+        ],
       });
       if (typeof selected !== "string" || !selected.trim()) return;
       if (target === "left") {
@@ -306,7 +355,9 @@ export default function StockComparePage() {
 
   const startPublishedCompare = () => {
     if (!remoteServerUrl.trim()) {
-      notifyError(new Error("Informe o endereco do servidor remoto para comparar."));
+      notifyError(
+        new Error("Informe o endereco do servidor remoto para comparar."),
+      );
       return;
     }
     comparePublishedMutation.mutate();
@@ -317,7 +368,8 @@ export default function StockComparePage() {
       title: "Excluir snapshot atual",
       children: (
         <Text size="sm">
-          Vamos excluir o snapshot de comparacao atualmente publicado nesta maquina. O historico continua preservado.
+          Vamos excluir o snapshot de comparacao atualmente publicado nesta
+          maquina. O historico continua preservado.
         </Text>
       ),
       labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
@@ -331,7 +383,8 @@ export default function StockComparePage() {
       title: "Excluir snapshot do historico",
       children: (
         <Text size="sm">
-          Esse snapshot historico sera removido do servidor local. A base local atual nao sera alterada.
+          Esse snapshot historico sera removido do servidor local. A base local
+          atual nao sera alterada.
         </Text>
       ),
       labels: { confirm: "Excluir historico", cancel: "Cancelar" },
@@ -353,6 +406,8 @@ export default function StockComparePage() {
               ? !row.has_difference
               : row.statuses.includes(filter);
 
+      if (filter === "STOCK" && row.diff_stock !== 0) return true;
+
       if (!matchesFilter) return false;
       if (!query) return true;
 
@@ -365,20 +420,28 @@ export default function StockComparePage() {
     });
   }, [compareResult?.rows, filter, search]);
 
-  const currentDbPath = stockProfilesQuery.data?.data?.current_database_path || "";
-  const activeProfileName = stockProfilesQuery.data?.data?.active_profile_name || "Atual";
+  const currentDbPath =
+    stockProfilesQuery.data?.data?.current_database_path || "";
+  const activeProfileName =
+    stockProfilesQuery.data?.data?.active_profile_name || "Atual";
   const compareServerStatus = compareServerStatusQuery.data?.data;
   const compareServerHistory = compareServerHistoryQuery.data?.data ?? [];
   const localStatusConfirmedAt = compareServerStatusQuery.dataUpdatedAt
-    ? dayjs(compareServerStatusQuery.dataUpdatedAt).format("DD/MM/YYYY HH:mm:ss")
+    ? dayjs(compareServerStatusQuery.dataUpdatedAt).format(
+        "DD/MM/YYYY HH:mm:ss",
+      )
     : null;
-  const remoteStatusCheckedAt = remoteCheckedAt ? dayjs(remoteCheckedAt).format("DD/MM/YYYY HH:mm:ss") : null;
-  const localLatestPublishedAt = compareServerStatus?.local_snapshot?.manifest?.published_at ?? null;
-  const remoteLatestPublishedAt = remoteServerInfo?.compare_manifest?.published_at ?? null;
+  const remoteStatusCheckedAt = remoteCheckedAt
+    ? dayjs(remoteCheckedAt).format("DD/MM/YYYY HH:mm:ss")
+    : null;
+  const localLatestPublishedAt =
+    compareServerStatus?.local_snapshot?.manifest?.published_at ?? null;
+  const remoteLatestPublishedAt =
+    remoteServerInfo?.compare_manifest?.published_at ?? null;
   const remoteSnapshotIsOlder = Boolean(
     localLatestPublishedAt &&
-      remoteLatestPublishedAt &&
-      dayjs(remoteLatestPublishedAt).isBefore(dayjs(localLatestPublishedAt))
+    remoteLatestPublishedAt &&
+    dayjs(remoteLatestPublishedAt).isBefore(dayjs(localLatestPublishedAt)),
   );
 
   return (
@@ -422,7 +485,9 @@ export default function StockComparePage() {
         deleteLatestSnapshotLoading={deleteLatestSnapshotMutation.isPending}
         onDeleteHistorySnapshot={confirmDeleteHistorySnapshot}
         deleteHistorySnapshotLoading={deleteHistorySnapshotMutation.isPending}
-        deletingHistoryManifestPath={deleteHistorySnapshotMutation.variables ?? null}
+        deletingHistoryManifestPath={
+          deleteHistorySnapshotMutation.variables ?? null
+        }
         formatBytes={formatBytes}
       />
 
