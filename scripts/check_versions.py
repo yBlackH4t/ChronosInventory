@@ -58,7 +58,7 @@ def main() -> int:
     cargo_toml_version = str((cargo_toml.get("package") or {}).get("version") or "")
 
     tauri_conf_json = read_json(tauri_conf)
-    tauri_conf_version = str((tauri_conf_json.get("package") or {}).get("version") or "")
+    tauri_conf_version = str(tauri_conf_json.get("version") or (tauri_conf_json.get("package") or {}).get("version") or "")
 
     cargo_lock = read_toml(tauri_cargo_lock)
     cargo_lock_packages = cargo_lock.get("package") or []
