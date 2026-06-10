@@ -98,18 +98,18 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
 
     setCheckingUpdate(true);
     try {
-      const updater = await import("@tauri-apps/api/updater");
-      const process = await import("@tauri-apps/api/process");
+      const updater = await import("@tauri-apps/plugin-updater");
+      const process = await import("@tauri-apps/plugin-process");
 
-      const update = await updater.checkUpdate();
-      if (!update.shouldUpdate) {
+      const update = await updater.check();
+      if (!update) {
         notifySuccess("Nenhuma atualizacao disponivel.");
         return;
       }
 
-      const version = update.manifest?.version ?? "nova";
+      const version = update.version ?? "nova";
       const notes = getReleaseNotesFromManifest(
-        update.manifest as { body?: string; notes?: string },
+        { body: update.body },
       );
 
       modals.openConfirmModal({
@@ -144,7 +144,7 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
 
           try {
             notifySuccess("Instalando atualizacao...");
-            await updater.installUpdate();
+            await update.downloadAndInstall();
             await process.relaunch();
           } catch (error) {
             notifyError(error, "Falha ao instalar atualizacao.");

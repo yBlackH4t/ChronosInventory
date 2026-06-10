@@ -319,7 +319,7 @@ export default function StockComparePage() {
       return;
     }
     try {
-      const { open } = await import("@tauri-apps/api/dialog");
+      const { open } = await import("@tauri-apps/plugin-dialog");
       const selected = await open({
         multiple: false,
         filters: [

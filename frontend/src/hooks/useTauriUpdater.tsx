@@ -9,7 +9,6 @@ import {
   getReleaseNotesPreview,
 } from "../lib/updaterNotes";
 
-type UnlistenFn = () => void;
 
 export function useTauriUpdater() {
   useEffect(() => {
@@ -17,31 +16,25 @@ export function useTauriUpdater() {
     if (!isTauri()) return;
 
     let cancelled = false;
-    let unlisten: UnlistenFn | null = null;
+    
 
     const run = async () => {
       try {
-        const updater = await import("@tauri-apps/api/updater");
-        const process = await import("@tauri-apps/api/process");
+        const updater = await import("@tauri-apps/plugin-updater");
+        const process = await import("@tauri-apps/plugin-process");
 
-        unlisten = await updater.onUpdaterEvent((event) => {
-          if (event.error) {
-            console.error("Updater error:", event.error);
-            return;
-          }
-          console.info("Updater status:", event.status);
-        });
+        
 
-        const update = await updater.checkUpdate();
+        const update = await updater.check();
         if (cancelled) return;
 
-        if (!update.shouldUpdate) {
+        if (!update) {
           return;
         }
 
-        const version = update.manifest?.version ?? "nova";
+        const version = update.version ?? "nova";
         const notes = getReleaseNotesFromManifest(
-          update.manifest as { body?: string; notes?: string },
+          { body: update.body },
         );
         const notesPreview = getReleaseNotesPreview(notes);
 
@@ -57,7 +50,7 @@ export function useTauriUpdater() {
               loading: true,
               autoClose: false,
             });
-            await updater.installUpdate();
+            await update.downloadAndInstall();
             await process.relaunch();
           } catch (err) {
             const message =
@@ -161,9 +154,7 @@ export function useTauriUpdater() {
 
     return () => {
       cancelled = true;
-      if (unlisten) {
-        unlisten();
-      }
+      
     };
   }, []);
 }
