@@ -9,9 +9,10 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { IconBarcode, IconEdit, IconTrash } from "@tabler/icons-react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRef } from "react";
 
 import type { InventoryLocation, Product } from "../../lib/api";
-import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 
 type ProductsListTableProps = {
@@ -53,6 +54,15 @@ export function ProductsListTable({
   onPageChange,
   locations = [],
 }: ProductsListTableProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60, // approximate row height
+    overscan: 10,
+  });
+
   if (loading) {
     return (
       <Group justify="center" mt="xl">
@@ -71,11 +81,25 @@ export function ProductsListTable({
     );
   }
 
+  const virtualItems = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+  const paddingBottom = virtualItems.length > 0
+    ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+    : 0;
+
   return (
     <>
-      <DataTable minWidth={860}>
-        <Table striped highlightOnHover withTableBorder>
-          <Table.Thead>
+      <div 
+        ref={parentRef} 
+        style={{ 
+          height: 'calc(100vh - 280px)', 
+          overflow: 'auto',
+          border: '1px solid var(--mantine-color-default-border)',
+          borderRadius: 'var(--mantine-radius-md)',
+        }}
+      >
+        <Table striped highlightOnHover withTableBorder style={{ border: 0 }}>
+          <Table.Thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'var(--mantine-color-body)' }}>
             <Table.Tr>
               <Table.Th>#</Table.Th>
               <Table.Th>ID</Table.Th>
@@ -89,8 +113,15 @@ export function ProductsListTable({
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {rows.map((product, index) => {
-              const position = (page - 1) * Number(pageSize) + index + 1;
+            {paddingTop > 0 && (
+              <Table.Tr>
+                <Table.Td style={{ height: paddingTop, padding: 0 }} colSpan={7 + locations.length} />
+              </Table.Tr>
+            )}
+            
+            {virtualItems.map((virtualRow) => {
+              const product = rows[virtualRow.index];
+              const position = (page - 1) * Number(pageSize) + virtualRow.index + 1;
               const inStock = product.total_stock > 0;
               const rowClass = `${inStock ? "row-in-stock" : "row-out-stock"} ${selectedId === product.id ? "row-selected" : ""}`;
 
@@ -99,7 +130,7 @@ export function ProductsListTable({
                   key={product.id}
                   className={rowClass}
                   onClick={() => onOpenDetails(product)}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: "pointer", height: `${virtualRow.size}px` }}
                 >
                   <Table.Td>{position}</Table.Td>
                   <Table.Td>{product.id}</Table.Td>
@@ -148,9 +179,16 @@ export function ProductsListTable({
                 </Table.Tr>
               );
             })}
+
+            {paddingBottom > 0 && (
+              <Table.Tr>
+                <Table.Td style={{ height: paddingBottom, padding: 0 }} colSpan={7 + locations.length} />
+              </Table.Tr>
+            )}
+
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={5 + locations.length}>
+                <Table.Td colSpan={7 + locations.length}>
                   <EmptyState
                     message="Nenhum produto encontrado"
                     actionLabel={query.trim() ? "Limpar busca" : undefined}
@@ -161,9 +199,9 @@ export function ProductsListTable({
             )}
           </Table.Tbody>
         </Table>
-      </DataTable>
+      </div>
 
-      <Group justify="space-between">
+      <Group justify="space-between" mt="md">
         <Text size="sm" c="dimmed">
           Total: {totalItems}
         </Text>

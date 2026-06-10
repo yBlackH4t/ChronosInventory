@@ -9,7 +9,10 @@ import { MantineProvider, localStorageColorSchemeManager } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { get, set, del } from "idb-keyval";
 import dayjs from "dayjs";
 import { appTheme } from "../theme/theme";
 import { ProfileScopeProvider } from "../state/profileScope";
@@ -21,9 +24,18 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       staleTime: 30_000,
-      gcTime: 10 * 60 * 1000,
+      gcTime: 10 * 60 * 1000, // 10 minutes
       refetchOnWindowFocus: false,
     },
+  },
+});
+
+// Custom IndexedDB persister for React Query
+const idbPersister = createAsyncStoragePersister({
+  storage: {
+    getItem: async (key) => await get(key),
+    setItem: async (key, value) => await set(key, value),
+    removeItem: async (key) => await del(key),
   },
 });
 
@@ -33,7 +45,10 @@ const colorSchemeManager = localStorageColorSchemeManager({
 
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider 
+      client={queryClient} 
+      persistOptions={{ persister: idbPersister, maxAge: 1000 * 60 * 60 * 24 }} // 24 hours
+    >
       <ProfileScopeProvider>
         <MantineProvider
           theme={appTheme}
@@ -48,6 +63,6 @@ export function AppProviders({ children }: { children: ReactNode }) {
           </DatesProvider>
         </MantineProvider>
       </ProfileScopeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

@@ -75,19 +75,19 @@ export function InventoryCountsTable({
 
   return (
     <>
-      <DataTable minWidth={1200}>
+      <DataTable minWidth={1400}>
         <Table striped highlightOnHover withTableBorder>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Produto</Table.Th>
-              <Table.Th>Sistema</Table.Th>
-              <Table.Th>Fisico</Table.Th>
-              <Table.Th>Divergencia</Table.Th>
-              <Table.Th>Analise</Table.Th>
-              <Table.Th>Motivo</Table.Th>
-              <Table.Th>Observacao</Table.Th>
-              <Table.Th>Movimento</Table.Th>
+              <Table.Th style={{ width: 60 }}>ID</Table.Th>
+              <Table.Th style={{ minWidth: 250 }}>Produto</Table.Th>
+              <Table.Th style={{ width: 100 }}>Sistema</Table.Th>
+              <Table.Th style={{ width: 140 }}>Fisico</Table.Th>
+              <Table.Th style={{ width: 120 }}>Divergencia</Table.Th>
+              <Table.Th style={{ width: 140 }}>Analise</Table.Th>
+              <Table.Th style={{ width: 260 }}>Motivo</Table.Th>
+              <Table.Th style={{ width: 300 }}>Observacao</Table.Th>
+              <Table.Th style={{ width: 100 }}>Movimento</Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -127,6 +127,7 @@ export function InventoryCountsTable({
                             : "red"
                       }
                       variant="light"
+                      size="lg"
                     >
                       {divergencia}
                     </Badge>
@@ -141,6 +142,8 @@ export function InventoryCountsTable({
                             : "red"
                       }
                       variant="light"
+                      size="lg"
+                      style={{ whiteSpace: "nowrap" }}
                     >
                       {divergencia === 0
                         ? "OK"
@@ -172,7 +175,7 @@ export function InventoryCountsTable({
                         divergencia !== 0 ? "Obrigatorio se divergir" : "-"
                       }
                       disabled={sessionStatus !== "ABERTO" || divergencia === 0}
-                      w={220}
+                      w={240}
                     />
                   </Table.Td>
                   <Table.Td>
@@ -189,7 +192,7 @@ export function InventoryCountsTable({
                         divergencia !== 0 ? "Obrigatorio se divergir" : "-"
                       }
                       disabled={sessionStatus !== "ABERTO" || divergencia === 0}
-                      w={260}
+                      w={280}
                     />
                   </Table.Td>
                   <Table.Td>{item.applied_movement_id || "-"}</Table.Td>

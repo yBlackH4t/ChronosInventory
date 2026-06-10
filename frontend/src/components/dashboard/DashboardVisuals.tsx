@@ -13,6 +13,7 @@ import {
 } from "@mantine/core";
 import type { CSSProperties } from "react";
 import dayjs from "dayjs";
+import { motion, type Variants } from "framer-motion";
 import {
   Bar,
   BarChart,
@@ -105,6 +106,21 @@ const LINE_TOOLTIP_CURSOR = {
   strokeDasharray: "4 4",
 };
 
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
+};
+
 function truncateLabel(value: string, max = 15): string {
   const normalized = (value ?? "").trim();
   if (!normalized) return "-";
@@ -175,9 +191,11 @@ export default function DashboardVisuals({
   const externalTransfersContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
 
   return (
-    <Grid>
-      <Grid.Col span={{ base: 12, lg: 6 }}>
-        <Card withBorder>
+    <motion.div variants={containerVariants} initial="hidden" animate="show">
+      <Grid>
+        <Grid.Col span={{ base: 12, lg: 6 }}>
+          <motion.div variants={itemVariants}>
+            <Card withBorder>
           <Group justify="space-between" mb="sm">
             <Title order={4}>Top 5 saidas no periodo</Title>
             <Badge variant="light">{scope}</Badge>
@@ -232,10 +250,12 @@ export default function DashboardVisuals({
               </ResponsiveContainer>
             </div>
           )}
-        </Card>
-      </Grid.Col>
+            </Card>
+          </motion.div>
+        </Grid.Col>
 
       <Grid.Col span={{ base: 12, lg: 6 }}>
+        <motion.div variants={itemVariants}>
         <Card withBorder>
           <Title order={4} mb="sm">
             {scope === null
@@ -295,9 +315,11 @@ export default function DashboardVisuals({
             </div>
           )}
         </Card>
+        </motion.div>
       </Grid.Col>
 
       <Grid.Col span={{ base: 12, lg: 6 }}>
+        <motion.div variants={itemVariants}>
         <Card withBorder>
           <Title order={4} mb="sm">
             Fluxo de entradas e saidas
@@ -348,9 +370,11 @@ export default function DashboardVisuals({
             </div>
           )}
         </Card>
+        </motion.div>
       </Grid.Col>
 
       <Grid.Col span={{ base: 12, lg: 6 }}>
+        <motion.div variants={itemVariants}>
         <Card withBorder>
           <Title order={4} mb="sm">
             Evolucao do estoque no periodo
@@ -393,9 +417,11 @@ export default function DashboardVisuals({
             </div>
           )}
         </Card>
+        </motion.div>
       </Grid.Col>
 
       <Grid.Col span={12}>
+        <motion.div variants={itemVariants}>
         <Card withBorder>
           <Group justify="space-between" align="start" mb="sm" wrap="wrap">
             <div>
@@ -523,9 +549,11 @@ export default function DashboardVisuals({
             </Stack>
           )}
         </Card>
+        </motion.div>
       </Grid.Col>
 
       <Grid.Col span={12}>
+        <motion.div variants={itemVariants}>
         <Card withBorder>
           <Title order={4} mb="sm">
             Zerados com venda recente
@@ -567,7 +595,9 @@ export default function DashboardVisuals({
             </Table.ScrollContainer>
           )}
         </Card>
+        </motion.div>
       </Grid.Col>
     </Grid>
+    </motion.div>
   );
 }
