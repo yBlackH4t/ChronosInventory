@@ -22,6 +22,11 @@ Formato recomendado:
 
 
 
+## [2.0.4] - 2026-06-10
+
+### Fixed
+- **Botão de Atualização**: Resolvido bug persistente onde o botão "Verificar Atualização" sumia em compilações finais do Tauri v2 devido a mudanças no escopo global das variáveis internas. 
+
 ## [2.0.3] - 2026-06-10
 
 ### Fixed

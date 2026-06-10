@@ -1,3 +1,10 @@
 export function isTauri(): boolean {
-  return typeof window !== "undefined" && ("__TAURI__" in window || "__TAURI_INTERNALS__" in window || "__TAURI_IPC__" in window);
+  if (typeof window === "undefined") return false;
+  // @ts-ignore
+  if (window.__TAURI__ !== undefined) return true;
+  // @ts-ignore
+  if (window.__TAURI_INTERNALS__ !== undefined) return true;
+  // @ts-ignore
+  if (window.__TAURI_IPC__ !== undefined) return true;
+  return navigator.userAgent.includes("tauri");
 }

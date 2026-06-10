@@ -26,7 +26,7 @@
   },
   "productName": "Chronos Inventory",
   "mainBinaryName": "Chronos Inventory",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "identifier": "com.yblackh4t.chronosinventory",
   "plugins": {
     "updater": {
@@ -37,6 +37,7 @@
     }
   },
   "app": {
+    "withGlobalTauri": true,
     "security": {
       "csp": null
     },

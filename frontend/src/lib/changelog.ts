@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.0.4",
+    "date": "2026-06-10",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Botão de Atualização: Resolvido bug persistente onde o botão \"Verificar Atualização\" sumia em compilações finais do Tauri v2 devido a mudanças no escopo global das variáveis internas."
+    ]
+  },
+  {
     "version": "2.0.3",
     "date": "2026-06-10",
     "title": "Correcao e estabilidade",
