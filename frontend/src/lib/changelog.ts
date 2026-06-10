@@ -12,9 +12,15 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
     "version": "2.0.0",
     "date": "2026-06-10",
-    "title": "Atualizacao de versao",
+    "title": "Melhorias e correcoes",
     "highlights": [
-      "Sem notas detalhadas para esta versao."
+      "Novo: Suporte completo ao Tauri v2.0, com refatoração estrutural que pavimenta o caminho para o aplicativo Mobile (Android/iOS nativo) no futuro.",
+      "Novo: Suporte Offline-First Extremo (Latência Zero) usando Service Workers (vite-plugin-pwa) para carregar a interface da memória cache quase que instantaneamente.",
+      "Novo: Seleção dinâmica de cores individuais para cada local/filial no gráfico de pizza do Dashboard, salva no navegador.",
+      "Mudanca: Overhaul total de UX/UI com a estética \"Premium Spotify\": Efeito de Vidro Fosco (Glassmorphism) no cabeçalho e menu, sombras táteis nos cards e reações suaves ao passar o mouse nas linhas de tabela.",
+      "Mudanca: Transições de tela agora usam físicas de mola (Spring animations) via Framer Motion, removendo o fade engessado por uma navegação extremamente fluida.",
+      "Mudanca: Pipeline de CI/CD limpo e otimizado: remoção de scripts antigos de injeção de WebView2, pois o instalador do Tauri v2 agora gerencia o WebView de forma nativa e segura.",
+      "Correcao: Correção de quebra de layout no gráfico de \"Distribuição atual de estoque\" onde os nomes dos locais compridos e as porcentagens eram cortados da tela."
     ]
   },
   {
