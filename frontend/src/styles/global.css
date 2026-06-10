@@ -12,7 +12,7 @@
   --line-soft: #e8edf5;
   --text: #0f172a;
   --text-muted: #5b6476;
-  --nav-bg: #0f172a;
+  --nav-bg: rgba(15, 23, 42, 0.85);
   --nav-item: #c6d2eb;
   --nav-item-active: #ffffff;
   --nav-item-active-bg: linear-gradient(135deg, #3b82f6 0%, #4338ca 100%);
@@ -32,7 +32,7 @@
   --line-soft: #243244;
   --text: #e5edf8;
   --text-muted: #9fb1ca;
-  --nav-bg: #0b1220;
+  --nav-bg: rgba(11, 18, 32, 0.85);
   --nav-item: #c7d2e8;
   --nav-item-active: #ffffff;
   --nav-item-active-bg: linear-gradient(135deg, #2563eb 0%, #4338ca 100%);
@@ -73,7 +73,9 @@ textarea::selection,
 
 .app-shell-navbar {
   background: var(--nav-bg);
-  border-right: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
   overflow: hidden;
 }
 
@@ -83,7 +85,9 @@ textarea::selection,
 
 .app-main-header {
   background: var(--nav-bg);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 10px;
 }
 
@@ -135,6 +139,9 @@ textarea::selection,
 
 .sidebar-nav-link {
   color: var(--nav-item);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 8px;
+  margin-bottom: 2px;
 }
 
 .sidebar-nav-link .mantine-NavLink-label {
@@ -147,6 +154,7 @@ textarea::selection,
 
 .sidebar-nav-link:hover {
   background: rgba(255, 255, 255, 0.09);
+  transform: translateX(4px);
 }
 
 .sidebar-nav-link[data-active] {
@@ -208,6 +216,12 @@ textarea::selection,
 .mantine-Card-root {
   background: var(--surface);
   border-color: var(--line-soft);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+
+.mantine-Card-root:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
 }
 
 .mantine-Input-input,
@@ -286,4 +300,14 @@ textarea::selection,
   .filter-toolbar {
     padding: 0.75rem 0.75rem;
   }
+}
+
+
+/* Table Row Hover (Spotify-like) */
+.mantine-Table-tbody tr {
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.mantine-Table-tbody tr:hover {
+  background-color: var(--line-soft) !important;
+  transform: scale(1.005);
 }
