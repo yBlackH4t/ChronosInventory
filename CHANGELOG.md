@@ -22,6 +22,13 @@ Formato recomendado:
 
 
 
+## [2.0.3] - 2026-06-10
+
+### Fixed
+- **Atualizador do Sistema (Updater)**: Resolvido problema em que arquivos do motor (`estoque_backend.exe`) ficavam travados em segundo plano, impedindo a atualização correta no Windows. Agora o sistema força o encerramento completo do motor antes de instalar e ao clicar no "X" para fechar.
+- **Recriação de Locais**: Ao tentar recriar um local que havia sido inativado (soft-delete), o sistema agora reativa o local antigo com os novos dados, em vez de retornar erro de duplicidade.
+- **Botão de Atualização Invisível**: Corrigido bug de detecção do ambiente Tauri v2 (`__TAURI_INTERNALS__`) que impedia a exibição do botão "Verificar update" no HeaderBar.
+
 ## [2.0.2] - 2026-06-10
 
 ### Fixed
