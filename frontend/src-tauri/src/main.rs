@@ -183,6 +183,10 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
     } else {
         log_line(&format!("backend ja estava encerrado ({reason})"));
     }
+    
+    // PyInstaller sidecars spawn a child process. child.kill() only kills the bootloader.
+    // We must forcibly kill the actual backend processes to ensure they don't linger.
+    force_kill_backend_processes();
 }
 
 fn is_backend_port_free() -> bool {
@@ -255,6 +259,19 @@ fn ensure_backend_slot_available() {
 }
 
 #[tauri::command]
+fn kill_backend(app: tauri::AppHandle) -> Result<(), String> {
+    log_line("kill_backend command invoked");
+    stop_backend(&app, "kill_backend_command");
+
+    if !wait_backend_port_release(Duration::from_secs(3)) {
+        log_line("porta 8000 ainda ocupada apos stop_backend, forcando kill");
+        force_kill_backend_processes();
+        std::thread::sleep(Duration::from_millis(300));
+    }
+    Ok(())
+}
+
+#[tauri::command]
 fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     log_line("restart_app command invoked");
     stop_backend(&app, "restart_app_command");
@@ -284,7 +301,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![restart_app])
+        .invoke_handler(tauri::generate_handler![restart_app, kill_backend])
         .manage(BackendState(Mutex::new(None)))
         .setup(|app| {
             log_line("App setup iniciado");

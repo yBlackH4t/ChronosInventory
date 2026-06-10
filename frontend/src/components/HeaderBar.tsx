@@ -144,6 +144,12 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
 
           try {
             notifySuccess("Instalando atualizacao...");
+            try {
+              const { invoke } = await import("@tauri-apps/api/core");
+              await invoke("kill_backend");
+            } catch (e) {
+              console.error("Falha ao matar backend antes do update:", e);
+            }
             await update.downloadAndInstall();
             await process.relaunch();
           } catch (error) {
