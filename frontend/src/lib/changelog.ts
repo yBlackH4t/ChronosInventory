@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.0.1",
+    "date": "2026-06-10",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Hotfix Urgente: Resgate de dados de estoque que não apareciam para clientes originários da versão 1.6.4 após atualização."
+    ]
+  },
+  {
     "version": "2.0.0",
     "date": "2026-06-10",
     "title": "Melhorias e correcoes",
