@@ -10,6 +10,16 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.0.2",
+    "date": "2026-06-10",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Hotfix de Mapeamento: Correção da migração v2.0.1 que trocava estoques se os locais tivessem sido criados manualmente com IDs diferentes da ordem original.",
+      "Correcao: Remoção de Locais: Locais inativados agora somem corretamente da visualização e cálculos do Dashboard.",
+      "Correcao: Botão de Atualização: O botão \"Verificar update\" agora fica visível mesmo em ambientes de teste/desenvolvimento."
+    ]
+  },
+  {
     "version": "2.0.1",
     "date": "2026-06-10",
     "title": "Correcao e estabilidade",

@@ -1,8 +1,8 @@
 [package]
 name = "chronos_inventory_desktop"
-version = "2.0.1"
+version = "2.0.2"
 description = "Chronos Inventory"
-authors = ["Você"]
+authors = ["you"]
 edition = "2021"
 
 [build-dependencies]

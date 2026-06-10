@@ -26,7 +26,7 @@ class MovementAnalyticsService:
 
     def get_stock_summary(self, scope: Optional[int | str] = None) -> dict:
         summary = self.repo.get_stock_summary(location_id=self.normalize_location(scope))
-        locations_db = self.location_repo.get_all() if self.location_repo else []
+        locations_db = self.location_repo.get_all_active() if self.location_repo else []
         
         # Build the 'locations' list for StockSummaryOut
         locations_list = []
@@ -52,7 +52,7 @@ class MovementAnalyticsService:
         summary = self.repo.get_stock_summary(location_id=self.normalize_location(scope))
         total = summary.get("total_geral", 0)
         
-        locations_db = self.location_repo.get_all() if self.location_repo else []
+        locations_db = self.location_repo.get_all_active() if self.location_repo else []
         loc_totals = summary.get("location_totals", {})
         
         items = []

@@ -14,6 +14,7 @@ from core.constants import APP_VERSION
 from core.database.connection import DatabaseConnection
 from core.database.migration_v2_0_0_white_label import migrate_to_white_label
 from core.database.migration_v2_0_1_hotfix import migrate_to_v2_0_1_hotfix
+from core.database.migration_v2_0_2_hotfix import migrate_to_v2_0_2_hotfix
 from core.database.migration_v2_1_0_cleanup import migrate_to_v2_1_0
 from core.exceptions import MigrationException
 from core.utils.validators import Validators
@@ -89,6 +90,7 @@ class MigrationManager:
             MigrationStep("1.2.0", self._migration_inventory_and_backup),
             MigrationStep("2.0.0", migrate_to_white_label),
             MigrationStep("2.0.1", migrate_to_v2_0_1_hotfix),
+            MigrationStep("2.0.2", migrate_to_v2_0_2_hotfix),
             MigrationStep("2.1.0", migrate_to_v2_1_0),
         ]
 

@@ -210,7 +210,7 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
       <Button size="xs" variant="subtle" component={Link} to="/novidades">
         Novidades
       </Button>
-      {!import.meta.env.DEV && isTauri() && (
+      {isTauri() && (
         <Button
           size="xs"
           variant="light"

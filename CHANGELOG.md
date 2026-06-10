@@ -22,6 +22,13 @@ Formato recomendado:
 
 
 
+## [2.0.2] - 2026-06-10
+
+### Fixed
+- **Hotfix de Mapeamento**: Correção da migração v2.0.1 que trocava estoques se os locais tivessem sido criados manualmente com IDs diferentes da ordem original.
+- **Remoção de Locais**: Locais inativados agora somem corretamente da visualização e cálculos do Dashboard.
+- **Botão de Atualização**: O botão "Verificar update" agora fica visível mesmo em ambientes de teste/desenvolvimento.
+
 ## [2.0.1] - 2026-06-10
 
 ### Fixed
