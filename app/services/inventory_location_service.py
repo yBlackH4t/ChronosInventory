@@ -80,7 +80,17 @@ class InventoryLocationService:
         # Verificar duplicata
         existing = self.repository.get_by_name(name)
         if existing:
-            raise DuplicateException(f"Location com name '{name}' já existe")
+            if not existing.ativo:
+                # Se existe mas está inativo, reativa e atualiza os dados
+                self.repository.reactivate(existing.id)
+                return self.update(
+                    existing.id,
+                    label=label,
+                    color=color,
+                    ordem=ordem,
+                    ativo=True
+                )
+            raise DuplicateException(f"Location com name '{name}' já existe e está ativo.")
         
         # Validar formato de cor
         if color and not self._is_valid_hex_color(color):
