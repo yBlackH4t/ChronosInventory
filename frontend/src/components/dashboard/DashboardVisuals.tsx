@@ -1,10 +1,13 @@
 import {
+  ActionIcon,
   Badge,
   Button,
   Card,
+  ColorInput,
   Grid,
   Group,
   Loader,
+  Popover,
   SegmentedControl,
   Stack,
   Table,
@@ -30,6 +33,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import {
+  IconChartPie,
+  IconPalette,
+} from "@tabler/icons-react";
 
 import EmptyState from "../ui/EmptyState";
 import type {
@@ -42,6 +49,7 @@ import type {
 } from "../../lib/api";
 
 import { useLocations } from "../../hooks/useLocations";
+import { useLocalStorage } from "@mantine/hooks";
 
 type Scope = number | null;
 type PeriodMode = "week" | "month";
@@ -163,6 +171,10 @@ export default function DashboardVisuals({
   recentStockoutsLoading,
 }: DashboardVisualsProps) {
   const { locations } = useLocations();
+  const [locationColors, setLocationColors] = useLocalStorage<Record<string, string>>({
+    key: "chronos.dashboard.location_colors",
+    defaultValue: {},
+  });
   const getScopeLabel = (s: Scope) => {
     if (s === null) return "Todos os locais";
     return locations.find((l) => l.id === s)?.name ?? `Local #${s}`;
@@ -257,11 +269,41 @@ export default function DashboardVisuals({
       <Grid.Col span={{ base: 12, lg: 6 }}>
         <motion.div variants={itemVariants}>
         <Card withBorder>
-          <Title order={4} mb="sm">
-            {scope === null
-              ? "Distribuicao atual de estoque"
-              : `Estoque atual em ${getScopeLabel(scope)}`}
-          </Title>
+          <Group justify="space-between" mb="sm">
+            <Group gap="xs">
+              <IconChartPie size={20} style={{ color: "var(--text)" }} />
+              <Title order={4}>
+                {scope === null
+                  ? "Distribuicao atual de estoque"
+                  : `Estoque atual em ${getScopeLabel(scope)}`}
+              </Title>
+            </Group>
+            <Popover width={260} position="bottom-end" withArrow shadow="md">
+              <Popover.Target>
+                <ActionIcon variant="subtle" color="gray" size="sm">
+                  <IconPalette size={16} />
+                </ActionIcon>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Text size="sm" fw={500} mb="xs">Cores por Local</Text>
+                <Stack gap="xs">
+                  {distribution?.items.map((item, idx) => (
+                    <Group key={item.local} justify="space-between" wrap="nowrap">
+                      <Text size="xs" truncate style={{ maxWidth: 100 }}>{item.local}</Text>
+                      <ColorInput
+                        size="xs"
+                        format="hex"
+                        swatches={['#1f77b4', '#f39c12', '#9b59b6', '#e67e22', '#34495e', '#fa5252', '#be4bdb', '#4c6ef5', '#12b886', '#82c91e']}
+                        value={locationColors[item.local] || COLORS.locs[idx % COLORS.locs.length]}
+                        onChange={(val) => setLocationColors((prev) => ({ ...prev, [item.local]: val }))}
+                        style={{ width: 120 }}
+                      />
+                    </Group>
+                  ))}
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+          </Group>
           <Text size="xs" c="dimmed" mb="sm">
             {scope === null
               ? `Base atual por filial | Total: ${distribution?.total ?? 0} itens`
@@ -281,7 +323,7 @@ export default function DashboardVisuals({
                     nameKey="local"
                     cx="50%"
                     cy="50%"
-                    outerRadius={95}
+                    outerRadius={75}
                     label={(entry: {
                       name?: string;
                       value?: number | string;
@@ -290,15 +332,18 @@ export default function DashboardVisuals({
                       `${entry.name ?? "-"}: ${numericValue(entry.value)} (${((entry.percent ?? 0) * 100).toFixed(1)}%)`
                     }
                   >
-                    {distribution.items.map((entry, idx) => (
-                      <Cell
-                        key={entry.local}
-                        fill={
-                          COLORS.locs?.[idx % COLORS.locs?.length] ||
-                          COLORS.total
-                        }
-                      />
-                    ))}
+                    {distribution.items.map((entry, idx) => {
+                      return (
+                        <Cell
+                          key={entry.local}
+                          fill={
+                            locationColors[entry.local] ||
+                            COLORS.locs?.[idx % COLORS.locs?.length] ||
+                            COLORS.total
+                          }
+                        />
+                      );
+                    })}
                   </Pie>
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
