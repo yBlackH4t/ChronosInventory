@@ -7,7 +7,6 @@ import {
   Table,
   Text,
   Tooltip,
-  Avatar,
 } from "@mantine/core";
 import { IconBarcode, IconEdit, IconTrash } from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";

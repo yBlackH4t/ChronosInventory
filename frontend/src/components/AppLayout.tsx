@@ -29,8 +29,6 @@ export default function AppLayout({
 }) {
   const {
     restartRequired,
-    activeProfileName,
-    activeProfileId,
     backendSupportsProfiles,
   } = useProfileScope();
   const [restarting, setRestarting] = useState(false);
