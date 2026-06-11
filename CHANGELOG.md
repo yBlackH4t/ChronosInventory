@@ -29,7 +29,7 @@ Formato recomendado:
 - Aba de Configurações centralizada. Organização em blocos visuais, com opções de backup, banco de dados, atualização e etiquetas unificadas em uma única tela.
 
 ### Changed
-- Banho de loja em todo o sistema. A interface foi completamente redesenhada com visual premium, cards flutuantes, tons modernos e animações fluídas.
+- Banho de loja no sistema inteiro. A interface foi completamente redesenhada com visual premium, cards flutuantes, tons modernos e animações fluídas.
 
 ### Fixed
 - Corrigido o envio do ID de referência (`movimento_ref_id`) em formulários de estorno manual e ajustes nas validações do backend.

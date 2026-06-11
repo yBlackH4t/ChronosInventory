@@ -16,7 +16,7 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     "highlights": [
       "Novo: Funcionalidade de Estorno nativa. Agora é possível estornar movimentações erradas diretamente pela tabela de histórico ou formulário, revertendo o estoque e mantendo o registro auditável.",
       "Novo: Aba de Configurações centralizada. Organização em blocos visuais, com opções de backup, banco de dados, atualização e etiquetas unificadas em uma única tela.",
-      "Mudanca: Banho de loja em todo o sistema. A interface foi completamente redesenhada com visual premium, cards flutuantes, tons modernos e animações fluídas.",
+      "Mudanca: Banho de loja no sistema inteiro. A interface foi completamente redesenhada com visual premium, cards flutuantes, tons modernos e animações fluídas.",
       "Correcao: Corrigido o envio do ID de referência (movimento_ref_id) em formulários de estorno manual e ajustes nas validações do backend."
     ]
   },
