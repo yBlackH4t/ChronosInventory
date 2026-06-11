@@ -12,10 +12,10 @@
   --line-soft: #e8edf5;
   --text: #0f172a;
   --text-muted: #5b6476;
-  --nav-bg: rgba(15, 23, 42, 0.85);
-  --nav-item: #c6d2eb;
-  --nav-item-active: #ffffff;
-  --nav-item-active-bg: linear-gradient(135deg, #3b82f6 0%, #4338ca 100%);
+  --nav-bg: rgba(255, 255, 255, 0.85);
+  --nav-item: #475569;
+  --nav-item-active: #0f172a;
+  --nav-item-active-bg: rgba(59, 130, 246, 0.15);
 }
 
 :root[data-mantine-color-scheme="dark"] {
@@ -117,19 +117,19 @@ textarea::selection,
 }
 
 .sidebar-brand-title {
-  color: #f8fafc;
+  color: var(--text);
   font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
 .sidebar-brand-subtitle {
-  color: #8fa0c4;
+  color: var(--text-muted);
   font-size: 0.76rem;
 }
 
 .sidebar-section-label {
-  color: #8ea1c8;
+  color: var(--text-muted);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -149,23 +149,23 @@ textarea::selection,
 }
 
 .sidebar-nav-link .mantine-NavLink-section {
-  color: #9fb1d9;
+  color: var(--text-muted);
 }
 
 .sidebar-nav-link:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(148, 163, 184, 0.1);
   transform: translateX(4px);
 }
 
 .sidebar-nav-link[data-active] {
   color: var(--nav-item-active);
   background: var(--nav-item-active-bg);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-nav-link[data-active] .mantine-NavLink-label,
 .sidebar-nav-link[data-active] .mantine-NavLink-section {
-  color: #ffffff;
+  color: var(--nav-item-active);
 }
 
 .header-status-badge {
@@ -173,9 +173,9 @@ textarea::selection,
 }
 
 .header-update-btn {
-  background: rgba(255, 255, 255, 0.09);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
 }
 
 .header-update-btn:hover {
@@ -211,6 +211,13 @@ textarea::selection,
 
 .empty-state {
   color: var(--text-muted);
+}
+
+.mantine-Drawer-content,
+.mantine-Modal-content,
+.mantine-Drawer-header,
+.mantine-Modal-header {
+  background: var(--surface);
 }
 
 .mantine-Card-root {

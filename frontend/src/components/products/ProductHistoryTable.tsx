@@ -4,6 +4,9 @@ import dayjs from "dayjs";
 import type { MovementOut } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
 import { useLocations } from "../../hooks/useLocations";
+import EstornoModal from "../movements/EstornoModal";
+import { useState } from "react";
+import { Button } from "@mantine/core";
 
 type ProductHistoryTableProps = {
   loading: boolean;
@@ -19,7 +22,8 @@ type ProductHistoryTableProps = {
       | "OPERACAO_NORMAL"
       | "TRANSFERENCIA_EXTERNA"
       | "DEVOLUCAO"
-      | "AJUSTE",
+      | "AJUSTE"
+      | "ESTORNO",
   ) => string;
   adjustmentReasonLabel: (reason?: string | null) => string;
   onRetry: () => void;
@@ -39,6 +43,7 @@ export function ProductHistoryTable({
   onRetry,
 }: ProductHistoryTableProps) {
   const { locations } = useLocations();
+  const [estornoMovement, setEstornoMovement] = useState<MovementOut | null>(null);
 
   if (loading) {
     return (
@@ -74,6 +79,7 @@ export function ProductHistoryTable({
             <Table.Th>Local externo</Table.Th>
             <Table.Th>Observacao</Table.Th>
             <Table.Th>Data</Table.Th>
+            <Table.Th>Ações</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -100,11 +106,23 @@ export function ProductHistoryTable({
               <Table.Td>{mov.local_externo || "-"}</Table.Td>
               <Table.Td>{mov.observacao || "-"}</Table.Td>
               <Table.Td>{dayjs(mov.data).format("DD/MM/YYYY HH:mm")}</Table.Td>
+              <Table.Td>
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  color="red"
+                  onClick={() => setEstornoMovement(mov)}
+                  disabled={mov.natureza === "ESTORNO"}
+                  title={mov.natureza === "ESTORNO" ? "Essa movimentacao ja e um estorno" : "Estornar"}
+                >
+                  Estornar
+                </Button>
+              </Table.Td>
             </Table.Tr>
           ))}
           {rows.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={11}>
+              <Table.Td colSpan={12}>
                 <Text c="dimmed" ta="center">
                   Sem historico
                 </Text>
@@ -120,6 +138,12 @@ export function ProductHistoryTable({
         </Text>
         <Pagination value={page} onChange={onPageChange} total={totalPages} />
       </Group>
+
+      <EstornoModal
+        opened={!!estornoMovement}
+        onClose={() => setEstornoMovement(null)}
+        movement={estornoMovement}
+      />
     </>
   );
 }

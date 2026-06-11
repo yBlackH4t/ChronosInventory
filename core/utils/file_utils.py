@@ -25,10 +25,13 @@ class FileUtils:
     def get_app_root_directory() -> str:
         """
         Returns the root folder used by the app (independent of active stock profile).
+        Uses 'ChronosInventoryDev' if APP_ENV is 'dev' to prevent corrupting the real database.
         """
         if getattr(sys, "frozen", False):
             appdata_root = os.getenv("APPDATA") or os.path.expanduser("~")
-            app_root = os.path.join(appdata_root, APP_NAME)
+            app_env = os.getenv("APP_ENV", "prod")
+            folder_name = f"{APP_NAME}Dev" if app_env == "dev" else APP_NAME
+            app_root = os.path.join(appdata_root, folder_name)
         else:
             app_root = os.path.abspath(
                 os.path.dirname(os.path.dirname(os.path.dirname(__file__)))

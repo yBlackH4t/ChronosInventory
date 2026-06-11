@@ -37,7 +37,7 @@ def _validate_natureza(natureza: str | None) -> str | None:
     if natureza is None:
         return None
     natureza = natureza.upper()
-    allowed = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE"}
+    allowed = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE", "ESTORNO"}
     if natureza not in allowed:
         raise ValidationException("Natureza invalida.")
     return natureza

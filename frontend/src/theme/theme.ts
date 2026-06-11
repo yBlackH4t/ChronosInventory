@@ -164,11 +164,11 @@ export const appTheme = createTheme({
   },
 
   shadows: {
-    xs: "0 1px 2px rgba(15, 23, 42, 0.05)",
-    sm: "0 2px 6px rgba(15, 23, 42, 0.08)",
-    md: "0 6px 18px rgba(15, 23, 42, 0.12)",
-    lg: "0 10px 30px rgba(15, 23, 42, 0.16)",
-    xl: "0 18px 40px rgba(15, 23, 42, 0.2)",
+    xs: "0 1px 2px rgba(0, 0, 0, 0.05)",
+    sm: "0 4px 12px rgba(0, 0, 0, 0.08)",
+    md: "0 8px 24px rgba(0, 0, 0, 0.15)",
+    lg: "0 12px 32px rgba(0, 0, 0, 0.25)",
+    xl: "0 20px 48px rgba(0, 0, 0, 0.35)",
   },
 
   components: {
@@ -265,11 +265,11 @@ export const appTheme = createTheme({
     Modal: Modal.extend({
       defaultProps: {
         centered: true,
-        radius: "lg",
-        shadow: "md",
+        radius: "xl",
+        shadow: "xl",
         overlayProps: {
-          backgroundOpacity: 0.35,
-          blur: 3,
+          backgroundOpacity: 0.55,
+          blur: 5,
         },
       },
     }),
@@ -277,10 +277,10 @@ export const appTheme = createTheme({
     Drawer: Drawer.extend({
       defaultProps: {
         radius: "lg",
-        shadow: "md",
+        shadow: "xl",
         overlayProps: {
-          backgroundOpacity: 0.3,
-          blur: 2,
+          backgroundOpacity: 0.55,
+          blur: 5,
         },
       },
     }),

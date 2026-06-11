@@ -5,7 +5,7 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field, ConfigDict
 
 MovementType = Literal["ENTRADA", "SAIDA", "TRANSFERENCIA"]
-MovementNature = Literal["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE"]
+MovementNature = Literal["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE", "ESTORNO"]
 AdjustmentReason = Literal[
     "AVARIA",
     "PERDA",

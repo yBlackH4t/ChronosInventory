@@ -143,7 +143,8 @@ export type MovementCreate = {
     | "OPERACAO_NORMAL"
     | "TRANSFERENCIA_EXTERNA"
     | "DEVOLUCAO"
-    | "AJUSTE";
+    | "AJUSTE"
+    | "ESTORNO";
   motivo_ajuste?:
     | "AVARIA"
     | "PERDA"
@@ -169,7 +170,8 @@ export type MovementOut = {
     | "OPERACAO_NORMAL"
     | "TRANSFERENCIA_EXTERNA"
     | "DEVOLUCAO"
-    | "AJUSTE";
+    | "AJUSTE"
+    | "ESTORNO";
   motivo_ajuste?:
     | "AVARIA"
     | "PERDA"
@@ -189,7 +191,8 @@ export type ListMovementsParams = {
     | "OPERACAO_NORMAL"
     | "TRANSFERENCIA_EXTERNA"
     | "DEVOLUCAO"
-    | "AJUSTE";
+    | "AJUSTE"
+    | "ESTORNO";
   origem_location_id?: number | null;
   destino_location_id?: number | null;
   date_from?: string;

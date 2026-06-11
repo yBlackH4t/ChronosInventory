@@ -10,12 +10,14 @@ import {
   Text,
   TextInput,
   Badge,
+  ThemeIcon,
 } from "@mantine/core";
 import {
   IconArrowDown,
   IconArrowUp,
   IconPlus,
   IconTrash,
+  IconListCheck,
 } from "@tabler/icons-react";
 
 import type { Product } from "../../lib/api";
@@ -62,17 +64,47 @@ export default function ReportsSelectedItemsSection({
   const { locations } = useLocations();
 
   return (
-    <Card withBorder>
-      <Stack gap="md">
+    <Card 
+      withBorder 
+      shadow="sm"
+      p="xl"
+      style={{
+        background: 'rgba(255, 255, 255, 0.03)',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: 'var(--mantine-radius-xl)',
+        overflow: 'hidden'
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: "-50px",
+          right: "-50px",
+          width: "150px",
+          height: "150px",
+          background: "radial-gradient(circle, rgba(156, 39, 176, 0.15) 0%, rgba(0,0,0,0) 70%)",
+          borderRadius: "50%",
+          zIndex: 0,
+        }}
+      />
+
+      <Stack gap="lg" style={{ position: 'relative', zIndex: 1 }}>
         <Group justify="space-between" align="flex-start">
-          <Stack gap={4}>
-            <Text fw={600}>Relatorio de itens selecionados</Text>
-            <Text size="sm" c="dimmed">
-              Busque os itens, selecione os desejados e gere um PDF mostrando
-              quantidade por local, total e onde tem saldo.
-            </Text>
-          </Stack>
-          <Badge variant="outline" color="grape">
+          <Group>
+            <ThemeIcon size={48} radius="md" variant="light" color="grape">
+              <IconListCheck size={24} />
+            </ThemeIcon>
+            <div>
+              <Text fw={700} size="lg" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                Relatório de Itens Selecionados
+              </Text>
+              <Text size="sm" c="dimmed">
+                Monte sua própria lista de conferência
+              </Text>
+            </div>
+          </Group>
+          <Badge variant="gradient" gradient={{ from: 'grape', to: 'pink' }}>
             Selecionados: {selectedItems.length}
           </Badge>
         </Group>
@@ -82,14 +114,21 @@ export default function ReportsSelectedItemsSection({
           placeholder="Digite codigo ou nome da peca"
           value={selectedSearch}
           onChange={(event) => setSelectedSearch(event.currentTarget.value)}
+          size="md"
+          variant="filled"
         />
 
-        <Card withBorder radius="md" p="sm">
+        <Card 
+          withBorder 
+          radius="md" 
+          p="md"
+          style={{ background: 'rgba(0, 0, 0, 0.02)' }}
+        >
           <Stack gap="xs">
             <Group justify="space-between">
               <Text fw={500}>Resultados da busca</Text>
               {loadingSearch && selectedSearch.trim().length >= 2 ? (
-                <Loader size="xs" />
+                <Loader size="xs" color="grape" />
               ) : null}
             </Group>
 
@@ -108,7 +147,7 @@ export default function ReportsSelectedItemsSection({
               </Text>
             ) : (
               <ScrollArea.Autosize mah={240} offsetScrollbars>
-                <Table striped highlightOnHover withTableBorder>
+                <Table striped highlightOnHover>
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>ID</Table.Th>
@@ -136,6 +175,7 @@ export default function ReportsSelectedItemsSection({
                           <Table.Td>
                             <Button
                               size="xs"
+                              color="grape"
                               variant={alreadySelected ? "light" : "filled"}
                               leftSection={<IconPlus size={14} />}
                               disabled={alreadySelected}
@@ -154,12 +194,18 @@ export default function ReportsSelectedItemsSection({
           </Stack>
         </Card>
 
-        <Card withBorder radius="md" p="sm">
+        <Card 
+          withBorder 
+          radius="md" 
+          p="md"
+          style={{ background: 'rgba(0, 0, 0, 0.02)' }}
+        >
           <Stack gap="xs">
             <Group justify="space-between">
               <Text fw={500}>Itens escolhidos para o relatorio</Text>
               <Button
                 variant="subtle"
+                color="red"
                 size="xs"
                 onClick={clearSelectedItems}
                 disabled={selectedItems.length === 0}
@@ -167,10 +213,6 @@ export default function ReportsSelectedItemsSection({
                 Limpar selecionados
               </Button>
             </Group>
-            <Text size="sm" c="dimmed">
-              Use os botoes de subir e descer para ajustar a ordem exata em que
-              os itens vao aparecer no PDF.
-            </Text>
 
             {selectedItems.length === 0 ? (
               <Text size="sm" c="dimmed">
@@ -179,7 +221,7 @@ export default function ReportsSelectedItemsSection({
               </Text>
             ) : (
               <ScrollArea.Autosize mah={260} offsetScrollbars>
-                <Table striped highlightOnHover withTableBorder>
+                <Table striped highlightOnHover>
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>ID</Table.Th>
@@ -248,7 +290,7 @@ export default function ReportsSelectedItemsSection({
           </Stack>
         </Card>
 
-        <Group justify="space-between" align="center">
+        <Group justify="space-between" align="center" mt="sm">
           <Text size="sm" c="dimmed">
             O PDF final sempre usa os saldos atuais do sistema no momento da
             geracao.
@@ -257,8 +299,12 @@ export default function ReportsSelectedItemsSection({
             onClick={generateSelectedReport}
             loading={loadingGenerate}
             disabled={selectedItems.length === 0}
+            variant="gradient"
+            gradient={{ from: 'grape', to: 'pink' }}
+            size="md"
+            radius="md"
           >
-            Gerar relatorio dos selecionados
+            Gerar Relatório dos Selecionados
           </Button>
         </Group>
       </Stack>

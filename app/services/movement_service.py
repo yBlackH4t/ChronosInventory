@@ -111,7 +111,7 @@ class MovementService:
             motivo_ajuste = None
         if natureza != NATUREZA_TRANSFERENCIA_EXTERNA:
             local_externo = None
-        if natureza != NATUREZA_DEVOLUCAO:
+        if natureza not in {NATUREZA_DEVOLUCAO, "ESTORNO"}:
             movimento_ref_id = None
 
         StockMovementValidator.validate_movement_data(

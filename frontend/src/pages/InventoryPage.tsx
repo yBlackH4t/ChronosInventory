@@ -22,6 +22,7 @@ import {
   saveTabState,
 } from "../state/tabStateCache";
 import { useLocations } from "../hooks/useLocations";
+import { useScanner } from "../lib/useScanner";
 import type {
   InventoryAdjustmentReason,
   InventoryCountItemIn,
@@ -147,6 +148,19 @@ export default function InventoryPage() {
   const collectorInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
+
+  const { listen } = useScanner();
+
+  useEffect(() => {
+    return listen((code) => {
+      if (collectorModeActive) {
+        setCollectorInput(code);
+        void runCollector(code);
+      } else {
+        setSearch(code);
+      }
+    });
+  }, [listen, collectorModeActive]);
 
   const sessionsQuery = useQuery<SuccessResponse<InventorySessionOut[]>>({
     queryKey: ["inventory-sessions", sessionPage],
@@ -654,7 +668,7 @@ export default function InventoryPage() {
     });
   };
 
-  const runCollector = async () => {
+  const runCollector = async (overrideInput?: string) => {
     if (!selectedSessionId) {
       notifyError(new Error("Abra uma sessao antes de usar o coletor."));
       return;
@@ -668,7 +682,7 @@ export default function InventoryPage() {
       return;
     }
 
-    const rawInput = collectorInput.trim();
+    const rawInput = (overrideInput ?? collectorInput).trim();
     if (!rawInput) {
       notifyError(new Error("Leia ou digite uma etiqueta primeiro."));
       return;

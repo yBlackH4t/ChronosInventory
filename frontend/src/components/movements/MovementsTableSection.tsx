@@ -9,7 +9,7 @@ import {
 } from "@mantine/core";
 import dayjs from "dayjs";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import type { MovementOut } from "../../lib/api";
 import {
@@ -20,6 +20,7 @@ import {
 } from "../../lib/movements";
 import EmptyState from "../ui/EmptyState";
 import { useLocations } from "../../hooks/useLocations";
+import EstornoModal from "./EstornoModal";
 
 type Props = {
   loading: boolean;
@@ -54,6 +55,7 @@ export default function MovementsTableSection({
 }: Props) {
   const { locations } = useLocations();
   const parentRef = useRef<HTMLDivElement>(null);
+  const [estornoMovement, setEstornoMovement] = useState<MovementOut | null>(null);
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -180,13 +182,25 @@ export default function MovementsTableSection({
                       {dayjs(mov.data).format("DD/MM/YYYY HH:mm")}
                     </Table.Td>
                     <Table.Td>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        onClick={() => openHistory(mov.produto_id)}
-                      >
-                        Ver historico
-                      </Button>
+                      <Group gap="xs" wrap="nowrap">
+                        <Button
+                          size="xs"
+                          variant="light"
+                          onClick={() => openHistory(mov.produto_id)}
+                        >
+                          Historico
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          onClick={() => setEstornoMovement(mov)}
+                          disabled={mov.natureza === "ESTORNO"}
+                          title={mov.natureza === "ESTORNO" ? "Essa movimentacao ja e um estorno" : "Estornar"}
+                        >
+                          Estornar
+                        </Button>
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 );
@@ -222,6 +236,12 @@ export default function MovementsTableSection({
         </Text>
         <Pagination value={page} onChange={setPage} total={totalPages} />
       </Group>
+
+      <EstornoModal
+        opened={!!estornoMovement}
+        onClose={() => setEstornoMovement(null)}
+        movement={estornoMovement}
+      />
     </>
   );
 }

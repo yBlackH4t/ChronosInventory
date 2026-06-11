@@ -14,10 +14,12 @@ import {
   IconMoonStars,
   IconRefresh,
   IconSun,
+  IconQrcode,
 } from "@tabler/icons-react";
 import { Link } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import type { HealthOut } from "../lib/api";
-import { api } from "../lib/apiClient";
+import { api, baseUrl } from "../lib/apiClient";
 import { useProfileScope } from "../state/profileScope";
 import { notifyError, notifySuccess } from "../lib/notify";
 import { isTauri } from "../lib/tauri";
@@ -35,6 +37,17 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState(health.version);
   const [releaseNotesChecked, setReleaseNotesChecked] = useState(false);
+  const [scannerIp, setScannerIp] = useState<string | null>(null);
+
+  const fetchScannerIp = async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/scanner/ip`);
+      const data = await res.json();
+      setScannerIp(data.ip);
+    } catch {
+      setScannerIp("127.0.0.1");
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -188,6 +201,28 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
     }
   };
 
+  const openScannerModal = async () => {
+    await fetchScannerIp();
+    modals.open({
+      title: "Scanner via Celular",
+      centered: true,
+      children: (
+        <Group align="center" style={{ flexDirection: "column" }}>
+          <Text size="sm" ta="center">
+            Abra a câmera do seu celular e aponte para o código QR abaixo.
+            O celular e o computador precisam estar na <b>mesma rede Wi-Fi</b>.
+          </Text>
+          <div style={{ padding: 20, background: "white", borderRadius: 8, marginTop: 15 }}>
+            <QRCodeSVG value={`${scannerIp || "http://127.0.0.1:8000"}/api/scanner/app`} size={200} />
+          </div>
+          <Text size="xs" c="dimmed" mt="md">
+            URL: {scannerIp || "http://127.0.0.1:8000"}/api/scanner/app
+          </Text>
+        </Group>
+      ),
+    });
+  };
+
   return (
     <Group justify="flex-end" h="100%" wrap="nowrap" className="header-shell">
       {backendSupportsProfiles && (
@@ -216,6 +251,11 @@ export default function HeaderBar({ health }: { health: HealthOut }) {
       <Button size="xs" variant="subtle" component={Link} to="/novidades">
         Novidades
       </Button>
+      <Tooltip label="Transformar celular em leitor de código de barras">
+        <ActionIcon size="md" variant="light" color="indigo" onClick={openScannerModal}>
+          <IconQrcode size={16} />
+        </ActionIcon>
+      </Tooltip>
       {isTauri() && (
         <Button
           size="xs"

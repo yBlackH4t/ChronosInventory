@@ -182,9 +182,12 @@ class InventorySessionService:
                 where.append("c.applied_movement_id IS NOT NULL")
 
             query = (query or "").strip()
+            order_by = "p.nome ASC"
             if query:
                 where.append("(p.nome LIKE ? OR CAST(p.id AS TEXT) = ?)")
                 params.extend([f"%{query.upper()}%", query])
+                safe_query = query.replace("'", "")
+                order_by = f"CASE WHEN CAST(p.id AS TEXT) = '{safe_query}' THEN 0 ELSE 1 END, p.nome ASC"
             where_sql = " AND ".join(where)
 
             rows = conn.execute(
@@ -201,7 +204,7 @@ class InventorySessionService:
                 FROM inventory_counts c
                 JOIN produtos p ON p.id = c.produto_id
                 WHERE {where_sql}
-                ORDER BY p.nome ASC
+                ORDER BY {order_by}
                 LIMIT ? OFFSET ?
                 """,
                 tuple(params + [limit, offset]),

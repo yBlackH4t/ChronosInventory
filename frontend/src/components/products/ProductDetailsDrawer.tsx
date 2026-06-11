@@ -1,4 +1,4 @@
-import React, { type FormEventHandler } from "react";
+import React, { type FormEventHandler, useState } from "react";
 import {
   ActionIcon,
   Badge,
@@ -23,7 +23,9 @@ import {
   Tooltip,
 } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
-import { IconStar, IconStarFilled, IconTrash } from "@tabler/icons-react";
+import { IconStar, IconStarFilled, IconTrash, IconArrowDownRight, IconArrowUpRight, IconArrowsExchange } from "@tabler/icons-react";
+import { Card } from "@mantine/core";
+import { ImageGalleryModal } from "./ImageGalleryModal";
 
 import type {
   MovementCreate,
@@ -38,6 +40,7 @@ type MovementNature =
   | "OPERACAO_NORMAL"
   | "TRANSFERENCIA_EXTERNA"
   | "DEVOLUCAO"
+  | "ESTORNO"
   | "AJUSTE";
 type AdjustmentReason =
   | "AVARIA"
@@ -126,7 +129,7 @@ export function ProductDetailsDrawer({
   createMovementLoading,
   pageSizes,
   historyPageSize,
-  onHistoryPageSizeChange,
+  onHistoryPageChange: onHistoryPageSizeChange,
   historyLoading,
   historyErrorMessage,
   historyRows,
@@ -139,6 +142,9 @@ export function ProductDetailsDrawer({
   adjustmentReasonLabel,
   onRetryHistory,
 }: ProductDetailsDrawerProps) {
+  const [galleryOpened, setGalleryOpened] = useState(false);
+  const [gallerySlide, setGallerySlide] = useState(0);
+
   return (
     <>
       <Drawer
@@ -161,46 +167,81 @@ export function ProductDetailsDrawer({
         {currentProduct && (
           <Stack gap="md">
             <Group align="flex-start" justify="space-between" wrap="wrap">
-              <Stack gap="xs" maw={360}>
-                <Text size="sm" c="dimmed">
-                  ID
-                </Text>
-                <Text fw={600}>{currentProduct.id}</Text>
-                {locations.map((loc) => (
-                  <React.Fragment key={loc.value}>
-                    <Text size="sm" c="dimmed">
-                      {loc.label}
-                    </Text>
-                    <Text fw={600}>
-                      {currentProduct.inventories?.[Number(loc.value)] ?? 0}
-                    </Text>
-                  </React.Fragment>
-                ))}
-                <Text size="sm" c="dimmed">
-                  Total
-                </Text>
-                <Text fw={600}>{currentProduct.total_stock}</Text>
-
-                <Textarea
-                  label="Descricao"
-                  value={observacao}
-                  onChange={(event) =>
-                    onObservacaoChange(event.currentTarget.value)
-                  }
-                  minRows={3}
-                />
-                <Group gap="xs">
-                  <Button
-                    variant="light"
-                    onClick={onSaveObservacao}
-                    loading={saveObservacaoLoading}
-                  >
-                    Salvar descricao
-                  </Button>
-                  <Button variant="subtle" onClick={onOpenDescription}>
-                    Ver descricao
-                  </Button>
+              <Stack gap="md" style={{ flex: 1, minWidth: 320 }}>
+                <Group mb={-8}>
+                  <Badge size="lg" variant="light" color="indigo" radius="sm">
+                    ID: {currentProduct.id}
+                  </Badge>
                 </Group>
+
+                <SimpleGrid cols={2} spacing="sm">
+                  {locations.map((loc) => {
+                    const qty = currentProduct.inventories?.[Number(loc.value)] ?? 0;
+                    const hasStock = qty > 0;
+                    const color = hasStock ? "teal" : "red";
+                    return (
+                      <Card 
+                        key={loc.value} 
+                        p="sm" 
+                        radius="md" 
+                        withBorder
+                        style={{ 
+                          backgroundColor: 'var(--surface-muted)',
+                          borderColor: `var(--mantine-color-${color}-outline)`,
+                          borderWidth: '1.5px'
+                        }}
+                      >
+                        <Text size="xs" c={color} tt="uppercase" fw={800} mb={4} opacity={0.8}>
+                          {loc.label}
+                        </Text>
+                        <Text size="xl" fw={900} c={color}>
+                          {qty} <Text component="span" size="sm" fw={600} opacity={0.6}>un</Text>
+                        </Text>
+                      </Card>
+                    );
+                  })}
+                  <Card 
+                    p="sm" 
+                    radius="md" 
+                    withBorder
+                    style={{ 
+                      backgroundColor: 'var(--surface-muted)',
+                      borderColor: 'var(--mantine-color-blue-outline)',
+                      borderWidth: '1.5px'
+                    }}
+                  >
+                    <Text size="xs" tt="uppercase" fw={800} mb={4} c="blue" opacity={0.8}>
+                      TOTAL
+                    </Text>
+                    <Text size="xl" fw={900} c="blue">
+                      {currentProduct.total_stock} <Text component="span" size="sm" fw={600} opacity={0.6}>un</Text>
+                    </Text>
+                  </Card>
+                </SimpleGrid>
+
+                <Stack gap="xs" mt="sm">
+                  <Textarea
+                    label="Descricao interna"
+                    value={observacao}
+                    onChange={(event) =>
+                      onObservacaoChange(event.currentTarget.value)
+                    }
+                    minRows={3}
+                    placeholder="Adicione anotacoes sobre este produto..."
+                  />
+                  <Group gap="xs">
+                    <Button
+                      variant="light"
+                      onClick={onSaveObservacao}
+                      loading={saveObservacaoLoading}
+                    >
+                      Salvar descricao
+                    </Button>
+                    <Button variant="subtle" onClick={onOpenDescription}>
+                      Ver tela cheia
+                    </Button>
+                  </Group>
+                </Stack>
               </Stack>
 
               <Stack gap="xs" maw={420}>
@@ -223,7 +264,7 @@ export function ProductDetailsDrawer({
 
                 {imageItems.length > 0 && (
                   <SimpleGrid cols={2} spacing="sm">
-                    {imageItems.map((img) => (
+                    {imageItems.map((img, idx) => (
                       <Stack key={img.id} gap={4}>
                         <Image
                           src={`data:${img.mime_type};base64,${img.image_base64}`}
@@ -231,6 +272,13 @@ export function ProductDetailsDrawer({
                           fit="cover"
                           h={120}
                           radius="sm"
+                          style={{ cursor: "pointer", transition: "transform 0.2s" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.02)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                          onClick={() => {
+                            setGallerySlide(idx);
+                            setGalleryOpened(true);
+                          }}
                         />
                         <Group justify="space-between" wrap="nowrap">
                           <Tooltip
@@ -293,27 +341,34 @@ export function ProductDetailsDrawer({
             <Divider />
 
             <Stack gap="sm">
-              <Title order={4}>Acoes</Title>
+              <Title order={4} mb="xs">Registrar Movimentacao</Title>
               <Group gap="sm">
                 <Button
+                  leftSection={<IconArrowDownRight size={18} />}
                   variant={action === "ENTRADA" ? "filled" : "light"}
                   onClick={() => onSelectAction("ENTRADA")}
+                  color="teal"
+                  radius="md"
                 >
-                  Dar entrada
+                  Entrada
                 </Button>
                 <Button
+                  leftSection={<IconArrowUpRight size={18} />}
                   color="red"
                   variant={action === "SAIDA" ? "filled" : "light"}
                   onClick={() => onSelectAction("SAIDA")}
+                  radius="md"
                 >
-                  Dar saida
+                  Saida
                 </Button>
                 <Button
-                  color="yellow"
+                  leftSection={<IconArrowsExchange size={18} />}
+                  color="blue"
                   variant={action === "TRANSFERENCIA" ? "filled" : "light"}
                   onClick={() => onSelectAction("TRANSFERENCIA")}
+                  radius="md"
                 >
-                  Fazer transferencia
+                  Transferencia
                 </Button>
               </Group>
 
@@ -373,7 +428,7 @@ export function ProductDetailsDrawer({
                       placeholder="Ex: NF 12345"
                       {...movementForm.getInputProps("documento")}
                     />
-                    {movementForm.values.natureza === "DEVOLUCAO" && (
+                    {(movementForm.values.natureza === "DEVOLUCAO" || movementForm.values.natureza === "ESTORNO") && (
                       <NumberInput
                         label="Mov. referencia"
                         min={1}
@@ -410,7 +465,7 @@ export function ProductDetailsDrawer({
                       value={historyPageSize}
                       onChange={(value) => {
                         if (!value) return;
-                        onHistoryPageSizeChange(value);
+                        onHistoryPageSizeChange(Number(value));
                       }}
                       w={120}
                     />
@@ -460,6 +515,13 @@ export function ProductDetailsDrawer({
           </Button>
         </Stack>
       </Modal>
+
+      <ImageGalleryModal
+        opened={galleryOpened}
+        onClose={() => setGalleryOpened(false)}
+        images={imageItems}
+        initialSlide={gallerySlide}
+      />
     </>
   );
 }

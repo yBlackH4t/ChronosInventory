@@ -16,7 +16,9 @@ import {
   Stack,
   Text,
   SegmentedControl,
+  ThemeIcon,
 } from "@mantine/core";
+import { IconBox, IconAlertTriangle, IconPackage, IconTrendingUp } from "@tabler/icons-react";
 import { DatePickerInput } from "@mantine/dates";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -72,6 +74,7 @@ type SummaryCard = {
   label: string;
   value: number;
   color: string;
+  icon: React.ReactNode;
 };
 
 function getQueryErrorMessage(error: unknown): string | null {
@@ -287,11 +290,12 @@ export default function DashboardPage() {
       const total = location ? location.total : summary.total_geral;
       const locName = location ? location.location_name : "Local";
       return [
-        { label: `Total em ${locName}`, value: total, color: COLORS.locs[0] },
+        { label: `Total em ${locName}`, value: total, color: COLORS.locs[0], icon: <IconBox size={20} /> },
         {
           label: `Itens zerados em ${locName}`,
           value: summary.zerados ?? 0,
           color: COLORS.zerado,
+          icon: <IconAlertTriangle size={20} />
         },
       ];
     }
@@ -301,12 +305,13 @@ export default function DashboardPage() {
         label: `Total ${loc.location_name}`,
         value: loc.total,
         color: COLORS.locs[idx % COLORS.locs.length],
+        icon: <IconPackage size={20} />
       };
     });
 
     cards.push(
-      { label: "Total Geral", value: summary.total_geral, color: COLORS.total },
-      { label: "Itens zerados", value: summary.zerados, color: COLORS.zerado },
+      { label: "Total Geral", value: summary.total_geral, color: COLORS.total, icon: <IconTrendingUp size={20} /> },
+      { label: "Itens zerados", value: summary.zerados, color: COLORS.zerado, icon: <IconAlertTriangle size={20} /> },
     );
 
     return cards;
@@ -419,13 +424,20 @@ export default function DashboardPage() {
                 key={card.label}
                 span={{ base: 12, md: scope === null ? 3 : 6 }}
               >
-                <Card className="kpi-card">
-                  <Text size="sm" c="dimmed">
-                    {card.label}
-                  </Text>
-                  <Text fw={700} size="xl" c={card.color}>
-                    {card.value}
-                  </Text>
+                <Card className="kpi-card" p="lg" radius="lg">
+                  <Group justify="space-between" align="flex-start" wrap="nowrap">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text size="sm" c="dimmed" fw={600} tt="uppercase" truncate="end">
+                        {card.label}
+                      </Text>
+                      <Text fw={800} size="h1" mt="xs" c={card.color} truncate="end">
+                        {card.value.toLocaleString()}
+                      </Text>
+                    </div>
+                    <ThemeIcon color={card.color} variant="light" size="xl" radius="md">
+                      {card.icon}
+                    </ThemeIcon>
+                  </Group>
                 </Card>
               </Grid.Col>
             ))}

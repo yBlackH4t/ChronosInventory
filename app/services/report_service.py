@@ -97,7 +97,7 @@ class ReportService:
         col_widths = [id_width, prod_width] + [loc_width] * len(active_locations)
 
         return self._build_pdf_bytes(
-            title=f"Relatorio de Estoque - Chronos Inventory v{APP_VERSION}",
+            title="Relatorio de Estoque",
             subtitles=["Itens ativos com saldo atual por local."],
             data=data,
             col_widths=col_widths,
@@ -187,7 +187,7 @@ class ReportService:
             )
 
         return self._build_pdf_bytes(
-            title="Relatorio de vendas reais",
+            title="Relatorio de Vendas Reais",
             subtitles=[
                 f"Periodo: {date_from.strftime('%d/%m/%Y')} ate {date_to.strftime('%d/%m/%Y')}",
                 f"Escopo: {scope}",
@@ -220,7 +220,7 @@ class ReportService:
             )
 
         return self._build_pdf_bytes(
-            title="Relatorio de estoque parado",
+            title="Relatorio de Estoque Parado",
             subtitles=[
                 f"Referencia: {date_to.strftime('%d/%m/%Y')}",
                 f"Escopo: {scope} | Corte: {days} dias sem movimentacao",
@@ -252,7 +252,7 @@ class ReportService:
             data.append([self._paragraph(str(product.nome)), str(exits), classification])
 
         pdf_bytes = self._build_pdf_bytes(
-            title=f"Relatorio de Giro (Curva ABC) - Chronos Inventory v{APP_VERSION}",
+            title="Relatorio de Giro (Curva ABC)",
             subtitles=["Classificacao baseada em saidas acumuladas por produto."],
             data=data,
             col_widths=REPORT_COLUMN_WIDTHS_ABC,
@@ -303,19 +303,20 @@ class ReportService:
     def _get_table_style(self, left_align_column: int) -> TableStyle:
         style = TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1d4ed8")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0f172a")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+                ("LINEBELOW", (0, 0), (-1, 0), 1.5, colors.HexColor("#334155")),
+                ("LINEBELOW", (0, 1), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, 0), 9),
                 ("FONTSIZE", (0, 1), (-1, -1), 8),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
             ]
         )
         style.add("ALIGN", (left_align_column, 1), (left_align_column, -1), "LEFT")

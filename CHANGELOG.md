@@ -22,6 +22,18 @@ Formato recomendado:
 
 
 
+## [2.1.0] - 2026-06-11
+
+### Added
+- Funcionalidade de Estorno nativa. Agora é possível estornar movimentações erradas diretamente pela tabela de histórico ou formulário, revertendo o estoque e mantendo o registro auditável.
+- Aba de Configurações centralizada. Organização em blocos visuais, com opções de backup, banco de dados, atualização e etiquetas unificadas em uma única tela.
+
+### Changed
+- Banho de loja em todo o sistema. A interface foi completamente redesenhada com visual premium, cards flutuantes, tons modernos e animações fluídas.
+
+### Fixed
+- Corrigido o envio do ID de referência (`movimento_ref_id`) em formulários de estorno manual e ajustes nas validações do backend.
+
 ## [2.0.4] - 2026-06-10
 
 ### Fixed

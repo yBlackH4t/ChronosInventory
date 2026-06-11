@@ -14,6 +14,12 @@ import {
   IconGauge,
   IconReport,
   IconBuildingStore,
+  IconBuildingWarehouse,
+  IconPinned,
+  IconPinnedOff,
+  IconHourglassEmpty,
+  IconPackage,
+  IconSettings,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
 import { useProfileScope } from "../state/profileScope";
@@ -55,20 +61,12 @@ const SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: "Administracao",
     items: [
-      { label: "Meus Locais", to: "/locais", icon: IconBuildingStore },
-      { label: "Backup", to: "/backup", icon: IconDatabase },
-      { label: "Estoques", to: "/estoques", icon: IconDatabase },
-      {
-        label: "Comparar estoques",
-        to: "/comparar-estoques",
-        icon: IconArrowsExchange,
-      },
-      { label: "Ativar/Inativar", to: "/itens-status", icon: IconCheckbox },
+      { label: "Configuracoes", to: "/configuracoes", icon: IconSettings },
     ],
   },
 ];
 
-export default function SidebarNav() {
+export default function SidebarNav({ collapsed = false, isPinned = true, onTogglePin }: { collapsed?: boolean; isPinned?: boolean; onTogglePin?: () => void }) {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { profileScopeKey } = useProfileScope();
@@ -232,33 +230,49 @@ export default function SidebarNav() {
   };
 
   return (
-    <Stack gap="md" className="sidebar-shell">
-      <Stack gap={2} px="xs" pb="xs">
-        <Text className="sidebar-brand-title">Chronos Inventory</Text>
-        <Text className="sidebar-brand-subtitle">Gestao de estoque</Text>
-      </Stack>
+    <Stack gap="md" className="sidebar-shell" style={{ overflowX: "hidden", height: "100%", justifyContent: "space-between" }}>
+      <div>
+        <Stack gap={2} px={collapsed ? 0 : "xs"} pb="xs" align={collapsed ? "center" : "flex-start"} style={{ transition: "all 0.3s ease", position: "relative" }}>
+          {!collapsed && (
+            <div style={{ position: "absolute", right: 0, top: 4, cursor: "pointer" }} onClick={onTogglePin}>
+              {isPinned ? <IconPinned size={16} color="var(--mantine-color-dimmed)" /> : <IconPinnedOff size={16} color="var(--mantine-color-dimmed)" />}
+            </div>
+          )}
+          {collapsed ? (
+             <IconHourglassEmpty size={32} stroke={1.5} color="#f8fafc" style={{ marginBottom: 8 }} />
+          ) : (
+            <>
+              <Text className="sidebar-brand-title" style={{ fontSize: "1.1rem" }}>
+                Chronos Inventory
+              </Text>
+              <Text className="sidebar-brand-subtitle">Gestao de estoque</Text>
+            </>
+          )}
+        </Stack>
 
-      {SECTIONS.map((section, index) => (
+        {SECTIONS.map((section, index) => (
         <Stack key={section.title} gap={6}>
           {index > 0 && <Divider opacity={0.18} />}
-          <Text className="sidebar-section-label">{section.title}</Text>
-          <Stack gap={4}>
+          {!collapsed && <Text className="sidebar-section-label">{section.title}</Text>}
+          <Stack gap={4} align={collapsed ? "center" : "stretch"}>
             {section.items.map((item) => (
               <NavLink
                 key={item.to}
                 component={RouterLink}
                 to={item.to}
-                label={item.label}
-                leftSection={<item.icon size={18} />}
+                label={!collapsed ? item.label : undefined}
+                leftSection={<item.icon size={22} style={{ margin: collapsed ? "0 auto" : undefined }} />}
                 active={location.pathname === item.to}
                 className="sidebar-nav-link"
+                style={{ justifyContent: collapsed ? "center" : "flex-start", padding: collapsed ? "12px 0" : undefined }}
                 onMouseEnter={() => prefetchByRoute(item.to)}
                 onFocus={() => prefetchByRoute(item.to)}
               />
             ))}
           </Stack>
-        </Stack>
-      ))}
+          </Stack>
+        ))}
+      </div>
     </Stack>
   );
 }

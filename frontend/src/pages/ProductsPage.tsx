@@ -18,7 +18,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { IconPlus } from "@tabler/icons-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../lib/apiClient";
 import FilterToolbar from "../components/ui/FilterToolbar";
@@ -28,6 +28,7 @@ import { ProductFormModal } from "../components/products/ProductFormModal";
 import { ProductsListTable } from "../components/products/ProductsListTable";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
+import { useScanner } from "../lib/useScanner";
 import {
   adjustmentReasonLabel,
   movementColor,
@@ -112,6 +113,34 @@ export default function ProductsPage() {
 
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const { listen } = useScanner();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const s = searchParams.get("search");
+    if (s) {
+      setQuery(s);
+      setPage(1);
+      // Remove search param from URL so it doesn't get stuck
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    return listen((code) => {
+      setQuery(code);
+      setPage(1);
+      // Auto-open if it matches exactly 1 product
+      api.listProducts({ query: code, page: 1, page_size: 2 }).then((res) => {
+        if (res.data?.length === 1) {
+          setSelectedId(res.data[0].id);
+          setSelectedSnapshot(res.data[0]);
+          setDrawerOpened(true);
+          setHistoryPage(1);
+        }
+      }).catch(console.error);
+    });
+  }, [listen]);
 
   const productsQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["produtos", profileScopeKey, debounced, page, pageSize, sort],

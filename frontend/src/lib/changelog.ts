@@ -10,6 +10,17 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.1.0",
+    "date": "2026-06-11",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Funcionalidade de Estorno nativa. Agora é possível estornar movimentações erradas diretamente pela tabela de histórico ou formulário, revertendo o estoque e mantendo o registro auditável.",
+      "Novo: Aba de Configurações centralizada. Organização em blocos visuais, com opções de backup, banco de dados, atualização e etiquetas unificadas em uma única tela.",
+      "Mudanca: Banho de loja em todo o sistema. A interface foi completamente redesenhada com visual premium, cards flutuantes, tons modernos e animações fluídas.",
+      "Correcao: Corrigido o envio do ID de referência (movimento_ref_id) em formulários de estorno manual e ajustes nas validações do backend."
+    ]
+  },
+  {
     "version": "2.0.4",
     "date": "2026-06-10",
     "title": "Correcao e estabilidade",

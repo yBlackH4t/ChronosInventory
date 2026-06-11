@@ -1,12 +1,16 @@
-import { Component, type ReactNode } from "react";
+import { Component, useEffect, type ReactNode } from "react";
 import { Badge, Button, Stack } from "@mantine/core";
+import { useState } from "react";
+import { IconQrcode } from "@tabler/icons-react";
 
 import MovementsFiltersSection from "../components/movements/MovementsFiltersSection";
 import MovementsHistoryModal from "../components/movements/MovementsHistoryModal";
 import MovementsTableSection from "../components/movements/MovementsTableSection";
+import BatchMovementModal from "../components/scanner/BatchMovementModal";
 import EmptyState from "../components/ui/EmptyState";
 import PageHeader from "../components/ui/PageHeader";
 import { useMovementsPageState } from "../hooks/useMovementsPageState";
+import { useScanner } from "../lib/useScanner";
 
 type MovementsPageErrorBoundaryProps = {
   children: ReactNode;
@@ -59,6 +63,16 @@ class MovementsPageErrorBoundary extends Component<
 
 function MovementsPageContent() {
   const state = useMovementsPageState();
+  const { listen } = useScanner();
+  const [batchModalOpened, setBatchModalOpened] = useState(false);
+
+  useEffect(() => {
+    if (batchModalOpened) return;
+    return listen((code) => {
+      state.setProductSearch(code);
+      state.setPage(1);
+    });
+  }, [listen, state, batchModalOpened]);
 
   return (
     <Stack gap="xl">
@@ -68,6 +82,15 @@ function MovementsPageContent() {
           subtitle="Filtros detalhados para rastrear entradas, saidas, transferencias e devolucoes."
           actions={
             <>
+              <Button
+                size="xs"
+                variant="filled"
+                color="indigo"
+                leftSection={<IconQrcode size={16} />}
+                onClick={() => setBatchModalOpened(true)}
+              >
+                Movimentação em Lote
+              </Button>
               <Badge variant="light">
                 Filtros ativos: {state.activeViewCount}
               </Badge>
@@ -84,6 +107,14 @@ function MovementsPageContent() {
               </Button>
             </>
           }
+        />
+
+        <BatchMovementModal
+          opened={batchModalOpened}
+          onClose={() => setBatchModalOpened(false)}
+          onSuccess={() => {
+            state.listRefetch();
+          }}
         />
 
         <MovementsFiltersSection

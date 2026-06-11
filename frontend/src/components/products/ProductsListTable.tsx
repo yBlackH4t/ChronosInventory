@@ -7,6 +7,7 @@ import {
   Table,
   Text,
   Tooltip,
+  Avatar,
 } from "@mantine/core";
 import { IconBarcode, IconEdit, IconTrash } from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -133,8 +134,14 @@ export function ProductsListTable({
                   style={{ cursor: "pointer", height: `${virtualRow.size}px` }}
                 >
                   <Table.Td>{position}</Table.Td>
-                  <Table.Td>{product.id}</Table.Td>
-                  <Table.Td>{product.nome}</Table.Td>
+                  <Table.Td>
+                    <Text fw={500} size="sm" c="dimmed">#{product.id}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text fw={600} size="sm" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "300px" }}>
+                      {product.nome}
+                    </Text>
+                  </Table.Td>
                   {locations.map((loc) => (
                     <Table.Td key={loc.id}>
                       {product.inventories?.[loc.id] ?? 0}

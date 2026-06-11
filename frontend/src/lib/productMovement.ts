@@ -14,6 +14,7 @@ export const PRODUCT_MOVEMENT_NATURE_OPTIONS: {
   { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
   { value: "DEVOLUCAO", label: "Devolucao" },
   { value: "AJUSTE", label: "Ajuste" },
+  { value: "ESTORNO", label: "Estorno" },
 ];
 
 export const PRODUCT_ADJUSTMENT_REASON_OPTIONS: {
@@ -57,6 +58,7 @@ export function movementNatureOptionsByType(
         item.value === "OPERACAO_NORMAL" ||
         item.value === "DEVOLUCAO" ||
         item.value === "AJUSTE" ||
+        item.value === "ESTORNO" ||
         item.value === "TRANSFERENCIA_EXTERNA",
     );
   }
@@ -65,6 +67,7 @@ export function movementNatureOptionsByType(
       (item) =>
         item.value === "OPERACAO_NORMAL" ||
         item.value === "TRANSFERENCIA_EXTERNA" ||
+        item.value === "ESTORNO" ||
         item.value === "AJUSTE",
     );
   }
@@ -152,6 +155,15 @@ export function validateMovementSubmission(values: MovementCreate): {
     return {
       field: "movimento_ref_id",
       message: "Informe o movimento de referencia",
+    };
+  }
+  if (
+    values.natureza === "ESTORNO" &&
+    (!values.movimento_ref_id || values.movimento_ref_id < 1)
+  ) {
+    return {
+      field: "movimento_ref_id",
+      message: "Informe a movimentacao original a ser estornada",
     };
   }
   if (values.natureza === "AJUSTE" && !values.motivo_ajuste) {

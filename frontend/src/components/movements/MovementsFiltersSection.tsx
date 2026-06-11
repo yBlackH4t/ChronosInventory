@@ -1,5 +1,4 @@
 import {
-  Badge,
   Button,
   Collapse,
   Group,
@@ -7,10 +6,10 @@ import {
   Select,
   Stack,
   Switch,
-  Text,
   TextInput,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { IconFilter, IconSortDescending, IconSortAscending } from "@tabler/icons-react";
 
 import FilterToolbar from "../ui/FilterToolbar";
 import { useLocations } from "../../hooks/useLocations";
@@ -81,174 +80,193 @@ export default function MovementsFiltersSection({
   return (
     <FilterToolbar>
       <Stack gap="sm">
-        <Group align="end" wrap="wrap">
-          <Select
-            label="Produto (nome)"
-            placeholder="Buscar por nome"
-            data={productOptions}
-            searchable
-            clearable
-            w={280}
-            value={filters.produto_id || null}
-            onChange={(value) => setFilterValue("produto_id", value ?? "")}
-            searchValue={productSearch}
-            onSearchChange={onProductSearchChange}
-            nothingFoundMessage={
-              productSearch.trim().length < 2
-                ? "Digite ao menos 2 letras"
-                : "Nenhum produto"
-            }
-            rightSection={
-              productLookupLoading ? <Loader size="xs" /> : undefined
-            }
-          />
-          <Select
-            label="Tipo"
-            data={MOVEMENT_TYPES}
-            clearable
-            value={filters.tipo || null}
-            onChange={(value) =>
-              setFilterValue("tipo", (value as MovementFilters["tipo"]) ?? "")
-            }
-            w={180}
-          />
-          <Select
-            label="Natureza"
-            data={MOVEMENT_NATURES}
-            clearable
-            value={filters.natureza || null}
-            onChange={(value) =>
-              setFilterValue(
-                "natureza",
-                (value as MovementFilters["natureza"]) ?? "",
-              )
-            }
-            w={220}
-          />
-          <DatePickerInput
-            label="De"
-            value={filters.date_from}
-            onChange={(value) =>
-              setFilterValue("date_from", value as Date | null)
-            }
-            w={170}
-          />
-          <DatePickerInput
-            label="Ate"
-            value={filters.date_to}
-            onChange={(value) =>
-              setFilterValue("date_to", value as Date | null)
-            }
-            w={170}
-          />
-          <Select
-            label="Por pagina"
-            data={["10", "20", "50"]}
-            value={pageSize}
-            onChange={(value) => {
-              if (!value) return;
-              setPageSize(value);
-            }}
-            w={120}
-          />
+        <Group justify="space-between" align="end" wrap="wrap">
+          <Group align="end" wrap="wrap">
+            <Select
+              label="Produto (nome)"
+              placeholder="Buscar por nome"
+              data={productOptions}
+              searchable
+              clearable
+              w={280}
+              value={filters.produto_id || null}
+              onChange={(value) => setFilterValue("produto_id", value ?? "")}
+              searchValue={productSearch}
+              onSearchChange={onProductSearchChange}
+              nothingFoundMessage={
+                productSearch.trim().length < 2
+                  ? "Digite ao menos 2 letras"
+                  : "Nenhum produto"
+              }
+              rightSection={
+                productLookupLoading ? <Loader size="xs" /> : undefined
+              }
+              variant="filled"
+              size="sm"
+            />
+            <Button
+              size="sm"
+              variant="light"
+              onClick={() => {
+                setSort(sort === "-data" ? "data" : "-data");
+              }}
+              leftSection={sort === "-data" ? <IconSortDescending size={16} /> : <IconSortAscending size={16} />}
+            >
+              Ordenar: {sort === "-data" ? "Mais recentes" : "Mais antigos"}
+            </Button>
+          </Group>
           <Button
-            variant="light"
-            onClick={() => {
-              setSort(sort === "-data" ? "data" : "-data");
-            }}
-          >
-            Ordenar: {sort === "-data" ? "Mais recentes" : "Mais antigos"}
-          </Button>
-        </Group>
-
-        <Group justify="space-between" wrap="wrap">
-          <Text size="xs" c="dimmed">
-            Use filtros avancados para origem, destino e busca por ID.
-          </Text>
-          <Button
-            size="xs"
+            size="sm"
             variant="default"
             onClick={() => setShowAdvancedFilters((value) => !value)}
+            leftSection={<IconFilter size={16} />}
           >
-            {showAdvancedFilters
-              ? "Ocultar filtros avancados"
-              : "Mostrar filtros avancados"}
+            {showAdvancedFilters ? "Ocultar filtros" : "Filtros avançados"}
           </Button>
         </Group>
 
-        <Group align="end" wrap="wrap">
-          <Select
-            label="Layout da tabela"
-            data={TABLE_VIEW_MODE_OPTIONS}
-            value={tablePreferences.viewMode}
-            onChange={(value) =>
-              setTablePreferences((current) => ({
-                ...current,
-                viewMode: (value as MovementTableViewMode) || "AUTO",
-              }))
-            }
-            w={260}
-          />
-          <Badge variant="light">Preferencia salva automaticamente</Badge>
-        </Group>
+
 
         <Collapse in={showAdvancedFilters}>
-          <Group align="end" wrap="wrap">
-            <Switch
-              label="Buscar por ID"
-              checked={showProductId}
-              onChange={(event) =>
-                setShowProductId(event.currentTarget.checked)
-              }
-            />
-            {showProductId && (
-              <TextInput
-                label="Produto ID"
-                value={filters.produto_id}
-                onChange={(event) =>
+          <Stack gap="sm">
+            <Group align="end" wrap="wrap">
+              <Select
+                label="Tipo"
+                data={MOVEMENT_TYPES}
+                clearable
+                value={filters.tipo || null}
+                onChange={(value) =>
+                  setFilterValue("tipo", (value as MovementFilters["tipo"]) ?? "")
+                }
+                w={160}
+                size="sm"
+                variant="filled"
+              />
+              <Select
+                label="Natureza"
+                data={MOVEMENT_NATURES}
+                clearable
+                value={filters.natureza || null}
+                onChange={(value) =>
                   setFilterValue(
-                    "produto_id",
-                    event.currentTarget.value.replace(/\D/g, ""),
+                    "natureza",
+                    (value as MovementFilters["natureza"]) ?? "",
+                  )
+                }
+                w={200}
+                size="sm"
+                variant="filled"
+              />
+              <DatePickerInput
+                label="De"
+                value={filters.date_from}
+                onChange={(value) =>
+                  setFilterValue("date_from", value as Date | null)
+                }
+                w={170}
+              />
+              <DatePickerInput
+                label="Ate"
+                value={filters.date_to}
+                onChange={(value) =>
+                  setFilterValue("date_to", value as Date | null)
+                }
+                w={150}
+                size="sm"
+                variant="filled"
+              />
+            </Group>
+            <Group align="end" wrap="wrap">
+              <Select
+                label="Origem"
+                data={locationOptions}
+                clearable
+                value={
+                  filters.origem_location_id
+                    ? String(filters.origem_location_id)
+                    : null
+                }
+                onChange={(value) =>
+                  setFilterValue(
+                    "origem_location_id",
+                    value ? Number(value) : null,
                   )
                 }
                 w={140}
+                size="sm"
+                variant="filled"
               />
-            )}
-            <Select
-              label="Origem"
-              data={locationOptions}
-              clearable
-              value={
-                filters.origem_location_id
-                  ? String(filters.origem_location_id)
-                  : null
-              }
-              onChange={(value) =>
-                setFilterValue(
-                  "origem_location_id",
-                  value ? Number(value) : null,
-                )
-              }
-              w={140}
-            />
-            <Select
-              label="Destino"
-              data={locationOptions}
-              clearable
-              value={
-                filters.destino_location_id
-                  ? String(filters.destino_location_id)
-                  : null
-              }
-              onChange={(value) =>
-                setFilterValue(
-                  "destino_location_id",
-                  value ? Number(value) : null,
-                )
-              }
-              w={140}
-            />
-          </Group>
+              <Select
+                label="Destino"
+                data={locationOptions}
+                clearable
+                value={
+                  filters.destino_location_id
+                    ? String(filters.destino_location_id)
+                    : null
+                }
+                onChange={(value) =>
+                  setFilterValue(
+                    "destino_location_id",
+                    value ? Number(value) : null,
+                  )
+                }
+                w={140}
+                size="sm"
+                variant="filled"
+              />
+              <Switch
+                label="Buscar por ID"
+                checked={showProductId}
+                onChange={(event) =>
+                  setShowProductId(event.currentTarget.checked)
+                }
+              />
+              {showProductId && (
+                <TextInput
+                  label="Produto ID"
+                  value={filters.produto_id}
+                  onChange={(event) =>
+                    setFilterValue(
+                      "produto_id",
+                      event.currentTarget.value.replace(/\D/g, ""),
+                    )
+                  }
+                  w={140}
+                  size="sm"
+                  variant="filled"
+                />
+              )}
+            </Group>
+            <Group align="end" wrap="wrap" mt="sm">
+              <Select
+                label="Layout da tabela"
+                data={TABLE_VIEW_MODE_OPTIONS}
+                value={tablePreferences.viewMode}
+                onChange={(value) =>
+                  setTablePreferences((current) => ({
+                    ...current,
+                    viewMode: (value as MovementTableViewMode) || "AUTO",
+                  }))
+                }
+                w={240}
+                size="sm"
+                variant="filled"
+              />
+              <Select
+                label="Por pagina"
+                data={["10", "20", "50"]}
+                value={pageSize}
+                onChange={(value) => {
+                  if (!value) return;
+                  setPageSize(value);
+                }}
+                w={100}
+                size="sm"
+                variant="filled"
+              />
+            </Group>
+          </Stack>
         </Collapse>
       </Stack>
     </FilterToolbar>

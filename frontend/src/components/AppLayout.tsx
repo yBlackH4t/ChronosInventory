@@ -10,6 +10,7 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
+import { useHover, useLocalStorage } from "@mantine/hooks";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { HealthOut } from "../lib/api";
@@ -35,6 +36,14 @@ export default function AppLayout({
   const [restarting, setRestarting] = useState(false);
   const location = useLocation();
 
+  const [isPinned, setIsPinned] = useLocalStorage({
+    key: "chronos.sidebar.pinned",
+    defaultValue: true,
+  });
+
+  const { hovered, ref: navbarRef } = useHover();
+  const isExpanded = isPinned || hovered;
+
   if (location.pathname === "/setup") {
     return <>{children}</>;
   }
@@ -57,14 +66,16 @@ export default function AppLayout({
   return (
     <AppShell
       padding="md"
-      navbar={{ width: 276, breakpoint: "sm" }}
+      navbar={{ width: isExpanded ? 276 : 80, breakpoint: "sm" }}
+      transitionDuration={300}
+      transitionTimingFunction="cubic-bezier(0.4, 0, 0.2, 1)"
       classNames={{
         navbar: "app-shell-navbar",
         main: "app-shell-main",
       }}
     >
-      <AppShell.Navbar p="sm">
-        <SidebarNav />
+      <AppShell.Navbar p="sm" ref={navbarRef} style={{ overflowX: "hidden" }}>
+        <SidebarNav collapsed={!isExpanded} isPinned={isPinned} onTogglePin={() => setIsPinned(!isPinned)} />
       </AppShell.Navbar>
       <AppShell.Main>
         <Stack gap="md">
@@ -72,37 +83,29 @@ export default function AppLayout({
             <HeaderBar health={health} />
           </Card>
 
-          {backendSupportsProfiles && (
-            <Card withBorder p="sm">
+          {backendSupportsProfiles && restartRequired && (
+            <Card withBorder p="sm" style={{ borderColor: "var(--mantine-color-orange-outline)" }}>
               <Group justify="space-between" align="center" wrap="wrap">
-                <Group gap="xs" align="center">
-                  <Text size="sm" c="dimmed">
-                    Estoque ativo:
-                  </Text>
-                  <Badge variant="light">
-                    {activeProfileName} ({activeProfileId})
+                <Group gap="xs">
+                  <Badge
+                    color="orange"
+                    variant="light"
+                    leftSection={<IconAlertTriangle size={12} />}
+                  >
+                    Reinicio pendente
                   </Badge>
+                  <Text size="sm" c="dimmed">
+                    Alteracoes aplicadas. Reinicie o sistema para ter efeito.
+                  </Text>
                 </Group>
-
-                {restartRequired && (
-                  <Group gap="xs">
-                    <Badge
-                      color="orange"
-                      variant="light"
-                      leftSection={<IconAlertTriangle size={12} />}
-                    >
-                      Reinicio pendente
-                    </Badge>
-                    <Button
-                      size="xs"
-                      color="orange"
-                      onClick={() => void handleRestartNow()}
-                      loading={restarting}
-                    >
-                      Reiniciar agora
-                    </Button>
-                  </Group>
-                )}
+                <Button
+                  size="xs"
+                  color="orange"
+                  onClick={() => void handleRestartNow()}
+                  loading={restarting}
+                >
+                  Reiniciar agora
+                </Button>
               </Group>
             </Card>
           )}

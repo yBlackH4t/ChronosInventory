@@ -24,8 +24,8 @@ import {
   Cell,
   LabelList,
   Legend,
-  Line,
-  LineChart,
+  Area,
+  AreaChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -90,21 +90,29 @@ const PERIOD_LABELS: Record<PeriodMode, string> = {
 };
 
 const CHART_TOOLTIP_CONTENT_STYLE: CSSProperties = {
-  backgroundColor: "var(--surface-muted)",
-  border: "1px solid var(--line)",
-  borderRadius: 10,
-  color: "var(--text)",
-  boxShadow: "0 14px 32px rgba(15, 23, 42, 0.22)",
+  backgroundColor: "rgba(15, 23, 42, 0.85)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  border: "1px solid rgba(255, 255, 255, 0.15)",
+  borderRadius: 12,
+  color: "#fff",
+  boxShadow: "0 14px 32px rgba(0, 0, 0, 0.4)",
+  padding: "12px 16px",
 };
 
 const CHART_TOOLTIP_LABEL_STYLE: CSSProperties = {
-  color: "var(--text)",
-  fontWeight: 600,
-  marginBottom: 6,
+  color: "rgba(255, 255, 255, 0.9)",
+  fontWeight: 700,
+  marginBottom: 8,
+  fontSize: "0.85rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
 };
 
 const CHART_TOOLTIP_ITEM_STYLE: CSSProperties = {
-  color: "var(--text)",
+  color: "#fff",
+  fontWeight: 600,
+  fontSize: "0.95rem",
 };
 
 const BAR_TOOLTIP_CURSOR = { fill: "rgba(148, 163, 184, 0.16)" };
@@ -226,13 +234,21 @@ export default function DashboardVisuals({
                   data={topSaidasChartData}
                   margin={{ top: 22, right: 8, left: 0, bottom: 8 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <defs>
+                    <linearGradient id="colorSaidasTop" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f87171" stopOpacity={1}/>
+                      <stop offset="95%" stopColor="#991b1b" stopOpacity={0.8}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line-soft)" />
                   <XAxis
                     dataKey="nome_curto"
                     interval={0}
                     tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
                   />
-                  <YAxis allowDecimals={false} />
+                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
@@ -249,8 +265,9 @@ export default function DashboardVisuals({
                   <Bar
                     dataKey="total_saida"
                     name="Saidas"
-                    fill={COLORS.zerado}
-                    radius={[4, 4, 0, 0]}
+                    fill="url(#colorSaidasTop)"
+                    radius={[6, 6, 0, 0]}
+
                   >
                     <LabelList
                       dataKey="total_saida"
@@ -379,10 +396,20 @@ export default function DashboardVisuals({
           ) : (
             <div style={{ width: "100%", height: 280 }}>
               <ResponsiveContainer>
-                <LineChart data={flow}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} />
+                <AreaChart data={flow}>
+                  <defs>
+                    <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.total} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={COLORS.total} stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorSaidas" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.zerado} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={COLORS.zerado} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
@@ -394,23 +421,25 @@ export default function DashboardVisuals({
                     ) => [numericValue(value), flowSeriesLabel(name)]}
                   />
                   <Legend />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="entradas"
                     name="Entradas"
                     stroke={COLORS.total}
+                    fillOpacity={1}
+                    fill="url(#colorEntradas)"
                     strokeWidth={2}
-                    dot={false}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="saidas"
                     name="Saidas"
                     stroke={COLORS.zerado}
+                    fillOpacity={1}
+                    fill="url(#colorSaidas)"
                     strokeWidth={2}
-                    dot={false}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}
@@ -434,10 +463,16 @@ export default function DashboardVisuals({
           ) : (
             <div style={{ width: "100%", height: 280 }}>
               <ResponsiveContainer>
-                <LineChart data={evolution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} />
-                  <YAxis allowDecimals={false} />
+                <AreaChart data={evolution}>
+                  <defs>
+                    <linearGradient id="colorEvolution" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.locs?.[0] || COLORS.locs[0]} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={COLORS.locs?.[0] || COLORS.locs[0]} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
                   <Tooltip
                     contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
                     labelStyle={CHART_TOOLTIP_LABEL_STYLE}
@@ -449,15 +484,16 @@ export default function DashboardVisuals({
                     ]}
                   />
                   <Legend />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="total_stock"
                     name="Total em estoque"
                     stroke={COLORS.locs?.[0] || COLORS.locs[0]}
+                    fillOpacity={1}
+                    fill="url(#colorEvolution)"
                     strokeWidth={2}
-                    dot={false}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           )}

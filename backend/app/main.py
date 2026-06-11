@@ -47,8 +47,9 @@ from backend.app.api.routers import (
     dashboard,
     analytics,
     inventory,
-    system,
     inventory_locations,
+    system,
+    scanner,
 )
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.common import SuccessResponse
@@ -117,10 +118,8 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Estoque API", version=APP_VERSION, lifespan=lifespan)
 
-# Allow only local hosts (libera testserver apenas em testes)
-allowed_hosts = ["127.0.0.1", "localhost"]
-if os.getenv("APP_ENV", "").lower() == "test":
-    allowed_hosts.append("testserver")
+# Allow all local hosts for the mobile scanner
+allowed_hosts = ["*"]
 
 app.add_middleware(
     TrustedHostMiddleware,
@@ -138,6 +137,9 @@ if os.getenv("APP_ENV", "dev").lower() == "dev":
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ])
+
+# Permitir acesso móvel via IP local (curinga para scanner)
+cors_origins.append("*")
 
 app.add_middleware(
     CORSMiddleware,
@@ -159,6 +161,7 @@ app.include_router(analytics.router)
 app.include_router(inventory.router)
 app.include_router(inventory_locations.router)
 app.include_router(system.router)
+app.include_router(scanner.router)
 
 
 def _request_id(request: Request) -> str:
@@ -362,10 +365,10 @@ if __name__ == "__main__":
         raise SystemExit(0)
 
     port = int(os.getenv("PORT", "8000"))
-    # Evita configuracao de logging do uvicorn (quebra em exe sem console)
+    # host=0.0.0.0 permite que celulares na mesma rede acessem o backend
     uvicorn.run(
         app,
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=port,
         log_level="info",
         log_config=None,
