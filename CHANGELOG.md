@@ -22,6 +22,11 @@ Formato recomendado:
 
 
 
+## [2.1.2] - 2026-06-12
+
+### Fixed
+- **Desbloqueio do Cache da Interface**: Implementada a destruição total e forçada do cache antigo (Zombie Service Worker). Agora o aplicativo irá desregistrar automaticamente qualquer cache que tenha ficado preso nas máquinas durante o update da versão 2.1.1 e forçará a tela a recarregar imediatamente com o design mais atualizado.
+
 ## [2.1.1] - 2026-06-12
 
 ### Fixed
