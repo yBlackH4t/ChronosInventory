@@ -22,6 +22,11 @@ Formato recomendado:
 
 
 
+## [2.1.1] - 2026-06-12
+
+### Fixed
+- **Cache de Atualização (Service Worker)**: Removido o sistema agressivo de Service Worker introduzido na versão 2.0.0. Como o Tauri já carrega os arquivos do próprio disco com latência zero, o Service Worker era redundante e estava impedindo as novas interfaces de aparecerem automaticamente após as atualizações. O aplicativo passará a deletar os caches antigos e exibir as atualizações instantaneamente.
+
 ## [2.1.0] - 2026-06-11
 
 ### Added
