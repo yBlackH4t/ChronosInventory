@@ -10,7 +10,7 @@ from app.services.movement_service import MovementService
 from backend.app.api.deps import get_movement_service
 from backend.app.api.responses import ok
 from backend.app.schemas.common import PaginationMeta, SuccessResponse
-from backend.app.schemas.movement import MovementCreate, MovementOut
+from backend.app.schemas.movement import MovementCreate, MovementBatchCreate, MovementOut
 
 
 router = APIRouter(prefix="/movimentacoes", tags=["movimentacoes"])
@@ -81,6 +81,46 @@ def create_movement(
         movimento_ref_id=record.movimento_ref_id,
         data=record.data,
     ), status_code=201)
+
+@router.post("/batch", response_model=SuccessResponse[list[MovementOut]], status_code=201)
+def create_movements_batch(
+    payload: MovementBatchCreate,
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[MovementOut]]:
+    records = movement_service.create_movements_batch(
+        tipo=payload.tipo,
+        items=[{"produto_id": i.produto_id, "quantidade": i.quantidade} for i in payload.items],
+        origem_location_id=payload.origem_location_id,
+        destino_location_id=payload.destino_location_id,
+        observacao=payload.observacao,
+        natureza=payload.natureza,
+        motivo_ajuste=payload.motivo_ajuste,
+        local_externo=payload.local_externo,
+        documento=payload.documento,
+        data=payload.data,
+    )
+    
+    out_list = [
+        MovementOut(
+            id=r.id,
+            produto_id=r.produto_id,
+            produto_nome=r.produto_nome,
+            tipo=r.tipo,
+            quantidade=r.quantidade,
+            origem=r.origem,
+            destino=r.destino,
+            origem_location_id=getattr(r, 'origem_location_id', None),
+            destino_location_id=getattr(r, 'destino_location_id', None),
+            observacao=r.observacao,
+            natureza=r.natureza,
+            motivo_ajuste=r.motivo_ajuste,
+            local_externo=r.local_externo,
+            documento=r.documento,
+            movimento_ref_id=r.movimento_ref_id,
+            data=r.data,
+        ) for r in records
+    ]
+    return ok(out_list, status_code=201)
 
 
 @router.get("", response_model=SuccessResponse[list[MovementOut]])

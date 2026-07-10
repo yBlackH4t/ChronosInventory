@@ -32,6 +32,27 @@ class MovementCreate(BaseModel):
     data: Optional[datetime] = None
 
 
+class MovementBatchItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    produto_id: int = Field(ge=1)
+    quantidade: int = Field(ge=1)
+
+
+class MovementBatchCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: MovementType
+    items: list[MovementBatchItem] = Field(min_length=1)
+    origem_location_id: Optional[int] = Field(default=None, ge=1)
+    destino_location_id: Optional[int] = Field(default=None, ge=1)
+    observacao: Optional[str] = Field(default=None, max_length=200)
+    natureza: Optional[MovementNature] = None
+    motivo_ajuste: Optional[AdjustmentReason] = None
+    local_externo: Optional[str] = Field(default=None, max_length=120)
+    documento: Optional[str] = Field(default=None, max_length=120)
+    data: Optional[datetime] = None
+
+
 class MovementOut(BaseModel):
     id: int
     produto_id: int

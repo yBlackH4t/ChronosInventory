@@ -80,6 +80,85 @@ class MovementService:
         movimento_ref_id: Optional[int] = None,
         data: Optional[datetime] = None,
     ) -> MovementRecord:
+        conn = self.repo.db.get_connection()
+        try:
+            conn.execute("BEGIN")
+            record = self._create_movement_internal(
+                conn, tipo, produto_id, quantidade, origem_location_id, destino_location_id,
+                observacao, natureza, motivo_ajuste, local_externo, documento, movimento_ref_id, data
+            )
+            conn.commit()
+            return record
+        except (ValidationException, InvalidTransferException, InsufficientStockException, ProductNotFoundException):
+            conn.rollback()
+            raise
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def create_movements_batch(
+        self,
+        tipo: str,
+        items: List[dict],
+        origem_location_id: Optional[int] = None,
+        destino_location_id: Optional[int] = None,
+        observacao: Optional[str] = None,
+        natureza: Optional[str] = None,
+        motivo_ajuste: Optional[str] = None,
+        local_externo: Optional[str] = None,
+        documento: Optional[str] = None,
+        data: Optional[datetime] = None,
+    ) -> List[MovementRecord]:
+        conn = self.repo.db.get_connection()
+        try:
+            conn.execute("BEGIN")
+            records = []
+            for item in items:
+                record = self._create_movement_internal(
+                    conn,
+                    tipo,
+                    item["produto_id"],
+                    item["quantidade"],
+                    origem_location_id,
+                    destino_location_id,
+                    observacao,
+                    natureza,
+                    motivo_ajuste,
+                    local_externo,
+                    documento,
+                    None,  # movimento_ref_id is not supported in batch yet
+                    data
+                )
+                records.append(record)
+            conn.commit()
+            return records
+        except (ValidationException, InvalidTransferException, InsufficientStockException, ProductNotFoundException):
+            conn.rollback()
+            raise
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def _create_movement_internal(
+        self,
+        conn,
+        tipo: str,
+        produto_id: int,
+        quantidade: int,
+        origem_location_id: Optional[int],
+        destino_location_id: Optional[int],
+        observacao: Optional[str],
+        natureza: Optional[str],
+        motivo_ajuste: Optional[str],
+        local_externo: Optional[str],
+        documento: Optional[str],
+        movimento_ref_id: Optional[int],
+        data: Optional[datetime],
+    ) -> MovementRecord:
         tipo = tipo.upper()
         origem = self.rules.normalize_location(origem_location_id)
         destino = self.rules.normalize_location(destino_location_id)
@@ -123,73 +202,68 @@ class MovementService:
 
         data_hora = (data or datetime.now()).strftime(DATE_FORMAT_DB)
 
-        conn = self.repo.db.get_connection()
-        try:
-            conn.execute("BEGIN")
+        # Load product
+        product_row = self.repo.get_product_by_id(conn, produto_id)
+        if not product_row:
+            raise ProductNotFoundException(f"Produto com ID {produto_id} nao encontrado.")
+        
+        product = dict(product_row)
+        cursor = conn.cursor()
+        cursor.execute("SELECT local_id, quantidade FROM produto_estoque WHERE produto_id = ?", (produto_id,))
+        product["inventories"] = {row["local_id"]: row["quantidade"] for row in cursor.fetchall()}
+        
+        if int(product.get("ativo") or 0) != 1:
+            raise ValidationException("Produto inativo. Reative o item para registrar movimentacoes.")
 
-            # Load product
-            product_row = self.repo.get_product_by_id(conn, produto_id)
-            if not product_row:
-                raise ProductNotFoundException(f"Produto com ID {produto_id} nao encontrado.")
-            
-            product = dict(product_row)
-            cursor = conn.cursor()
-            cursor.execute("SELECT local_id, quantidade FROM produto_estoque WHERE produto_id = ?", (produto_id,))
-            product["inventories"] = {row["local_id"]: row["quantidade"] for row in cursor.fetchall()}
-            
-            if int(product.get("ativo") or 0) != 1:
-                raise ValidationException("Produto inativo. Reative o item para registrar movimentacoes.")
+        if natureza == NATUREZA_DEVOLUCAO:
+            if not movimento_ref_id:
+                raise ValidationException("Informe o movimento de referencia para DEVOLUCAO.")
+            ref_movement = self.repo.get_movement_by_id(conn, int(movimento_ref_id))
+            if not ref_movement:
+                raise ValidationException("Movimento de referencia nao encontrado.")
+            if str(ref_movement.get("tipo", "")).upper() != "SAIDA":
+                raise ValidationException("Movimento de referencia deve ser do tipo SAIDA.")
+            if int(ref_movement.get("produto_id") or 0) != int(produto_id):
+                raise ValidationException("Movimento de referencia deve ser do mesmo produto.")
 
-            if natureza == NATUREZA_DEVOLUCAO:
-                if not movimento_ref_id:
-                    raise ValidationException("Informe o movimento de referencia para DEVOLUCAO.")
-                ref_movement = self.repo.get_movement_by_id(conn, int(movimento_ref_id))
-                if not ref_movement:
-                    raise ValidationException("Movimento de referencia nao encontrado.")
-                if str(ref_movement.get("tipo", "")).upper() != "SAIDA":
-                    raise ValidationException("Movimento de referencia deve ser do tipo SAIDA.")
-                if int(ref_movement.get("produto_id") or 0) != int(produto_id):
-                    raise ValidationException("Movimento de referencia deve ser do mesmo produto.")
+            devolvido = self.repo.get_total_devolucao_by_ref(conn, int(movimento_ref_id))
+            original_saida = int(ref_movement.get("quantidade") or 0)
+            saldo_devolucao = max(original_saida - devolvido, 0)
+            if quantidade > saldo_devolucao:
+                raise ValidationException(
+                    "Quantidade de devolucao excede saldo disponivel da saida referenciada."
+                )
 
-                devolvido = self.repo.get_total_devolucao_by_ref(conn, int(movimento_ref_id))
-                original_saida = int(ref_movement.get("quantidade") or 0)
-                saldo_devolucao = max(original_saida - devolvido, 0)
-                if quantidade > saldo_devolucao:
-                    raise ValidationException(
-                        "Quantidade de devolucao excede saldo disponivel da saida referenciada."
-                    )
+        deltas_by_location_id = self.rules.compute_deltas(tipo, quantidade, origem_location_id, destino_location_id)
 
-            deltas_by_location_id = self.rules.compute_deltas(tipo, quantidade, origem_location_id, destino_location_id)
+        # Validate sufficient stock
+        inventories = product.get("inventories", {})
+        for loc_id, delta in deltas_by_location_id.items():
+            if delta < 0:
+                current_stock = inventories.get(loc_id, 0)
+                StockMovementValidator.validate_sufficient_stock(current_stock, abs(delta), str(loc_id))
 
-            # Validate sufficient stock
-            inventories = product.get("inventories", {})
-            for loc_id, delta in deltas_by_location_id.items():
-                if delta < 0:
-                    current_stock = inventories.get(loc_id, 0)
-                    StockMovementValidator.validate_sufficient_stock(current_stock, abs(delta), str(loc_id))
+        self.repo.update_stock(conn, produto_id, deltas_by_location_id)
 
-            self.repo.update_stock(conn, produto_id, deltas_by_location_id)
+        movement_id = self.repo.insert_movement(
+            conn,
+            tipo,
+            produto_id,
+            quantidade,
+            origem_location_id,
+            destino_location_id,
+            observacao,
+            natureza,
+            motivo_ajuste,
+            local_externo,
+            documento,
+            movimento_ref_id,
+            data_hora,
+        )
 
-            movement_id = self.repo.insert_movement(
-                conn,
-                tipo,
-                produto_id,
-                quantidade,
-                origem_location_id,
-                destino_location_id,
-                observacao,
-                natureza,
-                motivo_ajuste,
-                local_externo,
-                documento,
-                movimento_ref_id,
-                data_hora,
-            )
-
-            conn.commit()
-            return MovementRecord(
-                id=movement_id,
-                produto_id=produto_id,
+        return MovementRecord(
+            id=movement_id,
+            produto_id=produto_id,
                 produto_nome=product["nome"],
                 tipo=tipo,
                 quantidade=quantidade,
@@ -205,14 +279,6 @@ class MovementService:
                 movimento_ref_id=movimento_ref_id,
                 data=datetime.fromisoformat(data_hora),
             )
-        except (ValidationException, InvalidTransferException, InsufficientStockException, ProductNotFoundException):
-            conn.rollback()
-            raise
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
 
     def list_movements(
         self,

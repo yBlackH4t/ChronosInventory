@@ -157,6 +157,34 @@ export type MovementCreate = {
   data?: string;
 };
 
+export type MovementBatchItem = {
+  produto_id: number;
+  quantidade: number;
+};
+
+export type MovementBatchCreate = {
+  tipo: "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
+  items: MovementBatchItem[];
+  origem_location_id?: number | null;
+  destino_location_id?: number | null;
+  observacao?: string;
+  natureza?:
+    | "OPERACAO_NORMAL"
+    | "TRANSFERENCIA_EXTERNA"
+    | "DEVOLUCAO"
+    | "AJUSTE"
+    | "ESTORNO";
+  motivo_ajuste?:
+    | "AVARIA"
+    | "PERDA"
+    | "CORRECAO_INVENTARIO"
+    | "ERRO_OPERACIONAL"
+    | "TRANSFERENCIA";
+  local_externo?: string;
+  documento?: string;
+  data?: string;
+};
+
 export type MovementOut = {
   id: number;
   produto_id: number;

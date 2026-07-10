@@ -38,6 +38,7 @@ import type {
   AnalyticsScope,
   ImportSummary,
   BackupRestoreIn,
+  MovementBatchCreate,
 } from "../types/api";
 export * from "../types/api";
 type QueryValue = string | number | boolean | null | undefined;
@@ -171,6 +172,18 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     async createMovement(payload: MovementCreate, options: RequestInit = {}) {
       return request<MovementOut>(
         `/movimentacoes`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl,
+      );
+    },
+
+    async createMovementsBatch(payload: MovementBatchCreate, options: RequestInit = {}) {
+      return request<MovementOut[]>(
+        `/movimentacoes/batch`,
         {
           method: "POST",
           body: JSON.stringify(payload),
