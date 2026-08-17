@@ -21,6 +21,17 @@ Formato recomendado:
 
 
 
+## [2.1.3] - 2026-08-17
+
+### Added
+- **Vínculos Visuais/Fiscais:** Agora é possível vincular um produto a outro (ex: Turbina Montada apontando para um Conjunto Central) para controle visual e facilitar processos fiscais.
+- Novo Modal de Vínculos com busca inteligente de produtos para criar ou remover relação Pai/Filho.
+- Coluna "Vínculos" na listagem de produtos com atalho para abrir o novo modal.
+- Cadastro de Produtos agora permite informar manualmente o "Nº do Documento (NF)" e "Observação" para a movimentação automática de Estoque Inicial.
+
+### Fixed
+- Exclusão de produtos foi corrigida para limpar o histórico de movimentações e desvincular automaticamente produtos dependentes, evitando erro de integridade no banco.
+- Correção de cor do selo (Badge) no modal de Vínculos para ter melhor contraste com fundo no Modo Escuro.
 
 ## [2.1.2] - 2026-06-12
 

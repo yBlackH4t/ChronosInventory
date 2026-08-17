@@ -15,6 +15,8 @@ from core.database.repositories.product_repository import ProductRepository
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 from core.exceptions import DatabaseException, ValidationException, NotFoundException, ProductNotFoundException
 
+UNSET = object()
+
 
 class StockService:
     """
@@ -139,7 +141,23 @@ class StockService:
                 
         raise NotFoundException(f"Produto com nome '{product_name}' não encontrado.")
     
-    def add_product(self, nome: str, inventories: Dict[int, int], observacao: str | None = None, product_id: int | None = None) -> Product:
+    def get_linked_products(self, product_id: int) -> List[Product]:
+        """
+        Retorna todos os produtos que estão vinculados a este produto.
+        """
+        products_data = self.product_repo.get_linked_products(product_id)
+        return [Product.from_dict(data) for data in products_data]
+
+    def add_product(
+        self, 
+        nome: str, 
+        inventories: Dict[int, int], 
+        observacao: str | None = None, 
+        product_id: int | None = None, 
+        produto_vinculado_id: int | None = None,
+        documento_movimento: str | None = None,
+        observacao_movimento: str | None = None
+    ) -> Product:
         """
         Adiciona novo produto.
         
@@ -160,7 +178,8 @@ class StockService:
         
         # Cria movimentos de entrada para o saldo inicial
         data_hora = datetime.now().strftime(DATE_FORMAT_DB)
-        movement_obs = "Estoque inicial gerado no cadastro do produto."
+        movement_obs = observacao_movimento or "Estoque inicial gerado no cadastro do produto."
+        movement_doc = documento_movimento or "CADASTRO_INICIAL"
         conn = self.movement_repo.db.get_connection()
         try:
             conn.execute("BEGIN")
@@ -177,7 +196,7 @@ class StockService:
                         natureza="OPERACAO_NORMAL",
                         motivo_ajuste=None,
                         local_externo=None,
-                        documento="CADASTRO_INICIAL",
+                        documento=movement_doc,
                         movimento_ref_id=None,
                         data_hora=data_hora,
                     )
@@ -194,9 +213,10 @@ class StockService:
     def update_product(
         self,
         product_id: int,
-        nome: str | None = None,
-        inventories: Dict[int, int] | None = None,
-        observacao: str | None = None
+        nome: str | None = UNSET,
+        inventories: Dict[int, int] | None = UNSET,
+        observacao: str | None = UNSET,
+        produto_vinculado_id: int | None = UNSET
     ) -> Product:
         """
         Atualiza dados do produto.
@@ -217,7 +237,7 @@ class StockService:
         current = self.get_product_by_id(product_id)
         
         # Valida e normaliza nome se fornecido
-        if nome is not None:
+        if nome is not UNSET:
             from app.models.validators import ProductValidator
             ProductValidator.validate_product_name(nome)
             nome_normalizado = nome.strip().upper()
@@ -225,7 +245,7 @@ class StockService:
             nome_normalizado = current.nome
         
         # Valida quantidades se fornecidas
-        if inventories is not None:
+        if inventories is not UNSET:
             for loc_id, qty in inventories.items():
                 from app.models.validators import ProductValidator
                 ProductValidator.validate_stock_quantity(qty)
@@ -234,17 +254,26 @@ class StockService:
             merged_inventories = current.inventories
         
         # Observacao
-        if observacao is None:
+        if observacao is not UNSET:
+            observacao = observacao
+        else:
             observacao = current.observacao
+        
+        # ID Vinculado
+        if produto_vinculado_id is not UNSET:
+            produto_vinculado_id = produto_vinculado_id
+        else:
+            produto_vinculado_id = current.produto_vinculado_id
 
         # Atualiza no banco
-        self.product_repo.update_details(product_id, nome_normalizado, merged_inventories, observacao)
+        self.product_repo.update_details(product_id, nome_normalizado, merged_inventories, observacao, produto_vinculado_id)
         
         return Product(
             id=product_id,
             nome=nome_normalizado,
             inventories=merged_inventories,
             observacao=observacao or "",
+            produto_vinculado_id=produto_vinculado_id,
             ativo=current.ativo,
             inativado_em=current.inativado_em,
             motivo_inativacao=current.motivo_inativacao,

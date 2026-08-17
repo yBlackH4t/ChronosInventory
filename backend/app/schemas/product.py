@@ -21,6 +21,9 @@ class ProductOut(BaseModel):
     inventories: dict[int, int]
     total_stock: int
     observacao: str | None = None
+    produto_vinculado_id: int | None = None
+    produto_vinculado_nome: str | None = None
+    linked_count: int = 0
     ativo: bool = True
     inativado_em: str | None = None
     motivo_inativacao: str | None = None
@@ -32,6 +35,9 @@ class ProductCreate(BaseModel):
     nome: str = Field(min_length=1, max_length=255)
     inventories: dict[int, int] = Field(default_factory=dict)  # {location_id: quantidade}
     observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
+    produto_vinculado_id: int | None = None
+    documento_movimento: Optional[str] = Field(default=None, max_length=255)
+    observacao_movimento: Optional[str] = Field(default=None, max_length=500)
 
 
 class ProductPut(BaseModel):
@@ -40,6 +46,7 @@ class ProductPut(BaseModel):
     nome: str = Field(min_length=1, max_length=255)
     inventories: dict[int, int] = Field(default_factory=dict)
     observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
+    produto_vinculado_id: int | None = None
 
 
 class ProductPatch(BaseModel):
@@ -48,6 +55,7 @@ class ProductPatch(BaseModel):
     nome: Optional[str] = Field(default=None, min_length=1, max_length=255)
     inventories: Optional[dict[int, int]] = None
     observacao: Optional[str] = Field(default=None, max_length=PRODUCT_OBSERVACAO_MAX_LENGTH)
+    produto_vinculado_id: Optional[int] = None
 
 
 class ProductImageOut(BaseModel):

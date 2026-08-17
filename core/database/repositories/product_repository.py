@@ -102,8 +102,11 @@ class ProductRepository(BaseRepository):
         self._append_status_filter(status, where_clauses, params)
         self._append_search_filter(search_term, where_clauses, params)
         query = f"""
-            SELECT p.*
+            SELECT p.*,
+                   pv.nome AS produto_vinculado_nome,
+                   (SELECT COUNT(*) FROM produtos p3 WHERE p3.produto_vinculado_id = p.id) AS linked_count
             FROM produtos p
+            LEFT JOIN produtos pv ON pv.id = p.produto_vinculado_id
             WHERE {' AND '.join(where_clauses)}
             ORDER BY p.nome
         """
@@ -137,9 +140,12 @@ class ProductRepository(BaseRepository):
 
         query = f"""
             SELECT p.*,
-                   COALESCE(SUM(pi.quantidade), 0) AS total_stock
+                   COALESCE(SUM(pi.quantidade), 0) AS total_stock,
+                   pv.nome AS produto_vinculado_nome,
+                   (SELECT COUNT(*) FROM produtos p3 WHERE p3.produto_vinculado_id = p.id) AS linked_count
             FROM produtos p
             LEFT JOIN produto_estoque pi ON pi.produto_id = p.id
+            LEFT JOIN produtos pv ON pv.id = p.produto_vinculado_id
             WHERE {' AND '.join(where_clauses)}
             GROUP BY p.id
             {having_clause}
@@ -183,7 +189,17 @@ class ProductRepository(BaseRepository):
         return result[0]["total"] if result else 0
 
     def get_by_id(self, product_id: int) -> Optional[Dict[str, Any]]:
-        results = self._execute_query("SELECT * FROM produtos WHERE id = ?", (product_id,))
+        results = self._execute_query(
+            """
+            SELECT p.*,
+                   pv.nome AS produto_vinculado_nome,
+                   (SELECT COUNT(*) FROM produtos p3 WHERE p3.produto_vinculado_id = p.id) AS linked_count
+            FROM produtos p
+            LEFT JOIN produtos pv ON pv.id = p.produto_vinculado_id
+            WHERE p.id = ?
+            """,
+            (product_id,)
+        )
         if not results:
             return None
         return self._attach_inventories_single(results[0])
@@ -192,15 +208,38 @@ class ProductRepository(BaseRepository):
         if not product_ids:
             return []
         placeholders = ",".join("?" for _ in product_ids)
-        query = f"SELECT * FROM produtos WHERE id IN ({placeholders})"
+        query = f"""
+            SELECT p.*,
+                   pv.nome AS produto_vinculado_nome,
+                   (SELECT COUNT(*) FROM produtos p3 WHERE p3.produto_vinculado_id = p.id) AS linked_count
+            FROM produtos p
+            LEFT JOIN produtos pv ON pv.id = p.produto_vinculado_id
+            WHERE p.id IN ({placeholders})
+        """
         products = self._execute_query(query, tuple(product_ids))
+        return self._attach_inventories(products)
+
+    def get_linked_products(self, product_id: int) -> List[Dict[str, Any]]:
+        query = f"""
+            SELECT p.*,
+                   pv.nome AS produto_vinculado_nome,
+                   (SELECT COUNT(*) FROM produtos p3 WHERE p3.produto_vinculado_id = p.id) AS linked_count,
+                   COALESCE(SUM(pi.quantidade), 0) AS total_stock
+            FROM produtos p
+            LEFT JOIN produto_estoque pi ON pi.produto_id = p.id
+            LEFT JOIN produtos pv ON pv.id = p.produto_vinculado_id
+            WHERE p.produto_vinculado_id = ?
+            GROUP BY p.id
+            ORDER BY p.nome
+        """
+        products = self._execute_query(query, (product_id,))
         return self._attach_inventories(products)
 
     # ------------------------------------------------------------------
     # Write operations
     # ------------------------------------------------------------------
 
-    def add(self, nome: str, inventories: Dict[int, int], observacao: str | None = None, product_id: int | None = None) -> int:
+    def add(self, nome: str, inventories: Dict[int, int], observacao: str | None = None, product_id: int | None = None, produto_vinculado_id: int | None = None) -> int:
         """
         Insere novo produto e seus estoques por location.
 
@@ -219,18 +258,18 @@ class ProductRepository(BaseRepository):
             if product_id is not None:
                 cursor.execute(
                     """
-                    INSERT INTO produtos (id, nome, observacao, ativo)
-                    VALUES (?, ?, ?, 1)
+                    INSERT INTO produtos (id, nome, observacao, ativo, produto_vinculado_id)
+                    VALUES (?, ?, ?, 1, ?)
                     """,
-                    (product_id, nome, observacao),
+                    (product_id, nome, observacao, produto_vinculado_id),
                 )
             else:
                 cursor.execute(
                     """
-                    INSERT INTO produtos (nome, observacao, ativo)
-                    VALUES (?, ?, 1)
+                    INSERT INTO produtos (nome, observacao, ativo, produto_vinculado_id)
+                    VALUES (?, ?, 1, ?)
                     """,
-                    (nome, observacao),
+                    (nome, observacao, produto_vinculado_id),
                 )
                 product_id = int(cursor.lastrowid)
 
@@ -352,6 +391,7 @@ class ProductRepository(BaseRepository):
         nome: str,
         inventories: Dict[int, int],
         observacao: str | None = None,
+        produto_vinculado_id: int | None = None,
     ) -> bool:
         """
         Atualiza dados do produto (nome, observacao) e estoques por location.
@@ -370,8 +410,8 @@ class ProductRepository(BaseRepository):
         try:
             conn.execute("BEGIN")
             cursor.execute(
-                "UPDATE produtos SET nome = ?, observacao = ? WHERE id = ?",
-                (nome, observacao, product_id),
+                "UPDATE produtos SET nome = ?, observacao = ?, produto_vinculado_id = ? WHERE id = ?",
+                (nome, observacao, produto_vinculado_id, product_id),
             )
             if cursor.rowcount == 0:
                 raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
@@ -413,6 +453,10 @@ class ProductRepository(BaseRepository):
         cursor = conn.cursor()
         try:
             conn.execute("BEGIN")
+            # Desvincula produtos filhos
+            cursor.execute("UPDATE produtos SET produto_vinculado_id = NULL WHERE produto_vinculado_id = ?", (product_id,))
+            # Remove movimentações
+            cursor.execute("DELETE FROM movimentacoes WHERE produto_id = ?", (product_id,))
             # produto_estoque has ON DELETE CASCADE, but be explicit
             cursor.execute("DELETE FROM produto_estoque WHERE produto_id = ?", (product_id,))
             cursor.execute("DELETE FROM produtos WHERE id = ?", (product_id,))

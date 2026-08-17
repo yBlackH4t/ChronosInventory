@@ -60,12 +60,18 @@ export type Product = {
   ativo?: boolean;
   inativado_em?: string | null;
   motivo_inativacao?: string | null;
+  produto_vinculado_id?: number | null;
+  produto_vinculado_nome?: string | null;
+  linked_count: number;
 };
 
 export type ProductCreate = {
   nome: string;
-  inventories: Record<number, number>;
-  observacao?: string | null;
+  inventories?: Record<number, number>;
+  observacao?: string;
+  produto_vinculado_id?: number | null;
+  documento_movimento?: string;
+  observacao_movimento?: string;
 };
 
 export type ProductPut = ProductCreate;

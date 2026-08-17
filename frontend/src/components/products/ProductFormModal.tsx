@@ -68,6 +68,17 @@ export function ProductFormModal({
                 {...createForm.getInputProps(`inventories.${loc.id}`)}
               />
             ))}
+            <TextInput 
+              label="Nº do Documento (NF)" 
+              placeholder="Opcional. Ex: NF 123456" 
+              {...createForm.getInputProps("documento_movimento")} 
+            />
+            <Textarea
+              label="Observação (Movimentação Inicial)"
+              placeholder="Opcional."
+              minRows={2}
+              {...createForm.getInputProps("observacao_movimento")}
+            />
             <Button type="submit" loading={createLoading}>
               Salvar
             </Button>

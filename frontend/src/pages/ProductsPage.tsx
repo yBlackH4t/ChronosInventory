@@ -26,6 +26,7 @@ import PageHeader from "../components/ui/PageHeader";
 import { ProductDetailsDrawer } from "../components/products/ProductDetailsDrawer";
 import { ProductFormModal } from "../components/products/ProductFormModal";
 import { ProductsListTable } from "../components/products/ProductsListTable";
+import ProductLinkModal from "../components/products/ProductLinkModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
 import { useScanner } from "../lib/useScanner";
@@ -110,6 +111,9 @@ export default function ProductsPage() {
   const [pageSize, setPageSize] = useState(persistedState.pageSize);
   const [sort, setSort] = useState(persistedState.sort);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
+
+  const [linkModalOpened, { open: openLinkModal, close: closeLinkModal }] = useDisclosure(false);
+  const [linkModalProduct, setLinkModalProduct] = useState<Product | null>(null);
 
   const queryClient = useQueryClient();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -224,6 +228,8 @@ export default function ProductsPage() {
     initialValues: {
       nome: "",
       inventories: {},
+      documento_movimento: "",
+      observacao_movimento: "",
     },
     validate: {
       nome: (value) => (value.trim().length === 0 ? "Nome obrigatorio" : null),
@@ -242,7 +248,12 @@ export default function ProductsPage() {
 
   const openCreate = () => {
     setEditing(null);
-    createForm.setValues({ nome: "", inventories: {} });
+    createForm.setValues({ 
+      nome: "", 
+      inventories: {},
+      documento_movimento: "",
+      observacao_movimento: "",
+    });
     createForm.resetDirty();
     formHandlers.open();
   };
@@ -698,6 +709,10 @@ export default function ProductsPage() {
         onOpenSingleLabel={openSingleLabel}
         onOpenEdit={openEdit}
         onConfirmDelete={confirmDelete}
+        onOpenLinks={(product) => {
+          setLinkModalProduct(product);
+          openLinkModal();
+        }}
         onPageChange={setPage}
         locations={locations}
       />
@@ -775,6 +790,16 @@ export default function ProductsPage() {
         movementNatureLabel={movementNatureLabel}
         adjustmentReasonLabel={adjustmentReasonLabel}
         onRetryHistory={() => void historyQuery.refetch()}
+      />
+
+      <ProductLinkModal
+        opened={linkModalOpened}
+        onClose={closeLinkModal}
+        product={linkModalProduct}
+        onSuccess={() => {
+          closeLinkModal();
+          queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+        }}
       />
     </Stack>
   );

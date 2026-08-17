@@ -166,6 +166,15 @@ def get_product(
     return ok(product.to_dict())
 
 
+@router.get("/{product_id}/vinculados", response_model=SuccessResponse[list[ProductOut]])
+def get_linked_products(
+    product_id: int,
+    stock_service: StockService = Depends(get_stock_service),
+) -> SuccessResponse[list[ProductOut]]:
+    products = stock_service.get_linked_products(product_id)
+    return ok([p.to_dict() for p in products])
+
+
 @router.post("", response_model=SuccessResponse[ProductOut], status_code=201)
 def create_product(
     payload: ProductCreate,
@@ -175,6 +184,9 @@ def create_product(
         payload.nome,
         payload.inventories,
         payload.observacao,
+        produto_vinculado_id=payload.produto_vinculado_id,
+        documento_movimento=payload.documento_movimento,
+        observacao_movimento=payload.observacao_movimento,
     )
     return ok(product.to_dict(), status_code=201)
 
@@ -190,6 +202,7 @@ def replace_product(
         nome=payload.nome,
         inventories=payload.inventories,
         observacao=payload.observacao,
+        produto_vinculado_id=payload.produto_vinculado_id,
     )
     return ok(product.to_dict())
 
@@ -204,14 +217,24 @@ def update_product(
         payload.nome is None
         and payload.inventories is None
         and payload.observacao is None
+        and payload.produto_vinculado_id is None
+        and "produto_vinculado_id" not in payload.model_fields_set
     ):
         raise ValidationException("Pelo menos um campo deve ser informado.")
 
+    from app.services.stock_service import UNSET
+    
+    nome = payload.nome if "nome" in payload.model_fields_set else UNSET
+    inventories = payload.inventories if "inventories" in payload.model_fields_set else UNSET
+    observacao = payload.observacao if "observacao" in payload.model_fields_set else UNSET
+    produto_vinculado_id = payload.produto_vinculado_id if "produto_vinculado_id" in payload.model_fields_set else UNSET
+
     product = stock_service.update_product(
         product_id=product_id,
-        nome=payload.nome,
-        inventories=payload.inventories,
-        observacao=payload.observacao,
+        nome=nome,
+        inventories=inventories,
+        observacao=observacao,
+        produto_vinculado_id=produto_vinculado_id,
     )
     return ok(product.to_dict())
 

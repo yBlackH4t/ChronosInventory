@@ -30,6 +30,9 @@ class Product:
     inativado_em: Optional[str] = None
     motivo_inativacao: Optional[str] = None
     inventories: Dict[int, int] = field(default_factory=dict)  # {location_id: quantidade}
+    produto_vinculado_id: Optional[int] = None
+    produto_vinculado_nome: Optional[str] = None
+    linked_count: int = 0
     
     def __post_init__(self):
         """Validações após inicialização."""
@@ -134,6 +137,9 @@ class Product:
             'inativado_em': self.inativado_em,
             'motivo_inativacao': self.motivo_inativacao,
             'total_stock': self.total_stock,  # Computed
+            'produto_vinculado_id': self.produto_vinculado_id,
+            'produto_vinculado_nome': self.produto_vinculado_nome,
+            'linked_count': self.linked_count,
         }
     
     @classmethod
@@ -155,6 +161,9 @@ class Product:
             inativado_em=data.get('inativado_em'),
             motivo_inativacao=data.get('motivo_inativacao'),
             inventories=data.get('inventories', {}),
+            produto_vinculado_id=data.get('produto_vinculado_id'),
+            produto_vinculado_nome=data.get('produto_vinculado_nome'),
+            linked_count=data.get('linked_count', 0),
         )
     
     def __str__(self) -> str:

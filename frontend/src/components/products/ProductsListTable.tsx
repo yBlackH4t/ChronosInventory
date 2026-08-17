@@ -31,6 +31,7 @@ type ProductsListTableProps = {
   onOpenSingleLabel: (productId: number) => void;
   onOpenEdit: (product: Product) => void;
   onConfirmDelete: (product: Product) => void;
+  onOpenLinks: (product: Product) => void;
   onPageChange: (page: number) => void;
   locations?: InventoryLocation[];
 };
@@ -51,6 +52,7 @@ export function ProductsListTable({
   onOpenSingleLabel,
   onOpenEdit,
   onConfirmDelete,
+  onOpenLinks,
   onPageChange,
   locations = [],
 }: ProductsListTableProps) {
@@ -109,6 +111,7 @@ export function ProductsListTable({
               ))}
               <Table.Th>Total</Table.Th>
               <Table.Th>Status</Table.Th>
+              <Table.Th>Vínculos</Table.Th>
               <Table.Th>Acoes</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -153,6 +156,27 @@ export function ProductsListTable({
                     <Badge color={inStock ? "green" : "red"} variant="light">
                       {inStock ? "Em estoque" : "Sem estoque"}
                     </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <div onClick={(e) => { e.stopPropagation(); onOpenLinks(product); }}>
+                      {product.linked_count > 0 ? (
+                        <Badge color="blue" variant="filled" style={{ cursor: "pointer" }}>
+                          🔗 {product.linked_count} Vínculos
+                        </Badge>
+                      ) : product.produto_vinculado_id ? (
+                        <Tooltip label={`Vinculado ao #${product.produto_vinculado_id}`}>
+                          <Badge color="gray" variant="light" style={{ cursor: "pointer" }}>
+                            🔗 {product.produto_vinculado_nome || `#${product.produto_vinculado_id}`}
+                          </Badge>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip label="Adicionar Vínculo">
+                          <ActionIcon variant="subtle" color="gray" size="sm">
+                            🔗
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </div>
                   </Table.Td>
                   <Table.Td>
                     <Group

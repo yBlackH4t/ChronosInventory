@@ -61,6 +61,14 @@ export function createProductsApi({
       );
     },
 
+    async getLinkedProducts(id: number, options: RequestInit = {}) {
+      return request<Product[]>(
+        `/produtos/${id}/vinculados`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
     async getProduct(id: number, options: RequestInit = {}) {
       return request<Product>(
         `/produtos/${id}`,
