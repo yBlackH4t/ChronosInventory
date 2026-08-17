@@ -21,7 +21,7 @@ Formato recomendado:
 
 
 
-## [2.1.3] - 2026-08-17
+## [2.2.2] - 2026-08-17
 
 ### Added
 - **Vínculos Visuais/Fiscais:** Agora é possível vincular um produto a outro (ex: Turbina Montada apontando para um Conjunto Central) para controle visual e facilitar processos fiscais.
