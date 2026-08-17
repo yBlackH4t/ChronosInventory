@@ -49,7 +49,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Setup Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup update stable && rustup default stable
 
       - name: Install backend dependencies
         run: |
