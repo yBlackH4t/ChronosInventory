@@ -21,7 +21,7 @@ Formato recomendado:
 
 
 
-## [2.2.2] - 2026-08-17
+## [2.2.3] - 2026-08-17
 
 ### Added
 - **Vínculos Visuais/Fiscais:** Agora é possível vincular um produto a outro (ex: Turbina Montada apontando para um Conjunto Central) para controle visual e facilitar processos fiscais.
@@ -32,6 +32,7 @@ Formato recomendado:
 ### Fixed
 - Exclusão de produtos foi corrigida para limpar o histórico de movimentações e desvincular automaticamente produtos dependentes, evitando erro de integridade no banco.
 - Correção de cor do selo (Badge) no modal de Vínculos para ter melhor contraste com fundo no Modo Escuro.
+- **Hotfix:** Correção da migração de banco de dados (erro "Database error" ao carregar produtos após atualizar direto da versão 2.2.1).
 
 ## [2.1.2] - 2026-06-12
 

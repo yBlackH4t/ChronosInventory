@@ -92,7 +92,12 @@ class MigrationManager:
             MigrationStep("2.0.1", migrate_to_v2_0_1_hotfix),
             MigrationStep("2.0.2", migrate_to_v2_0_2_hotfix),
             MigrationStep("2.1.0", migrate_to_v2_1_0),
+            MigrationStep("2.2.3", self._migration_add_produto_vinculado),
         ]
+
+    def _migration_add_produto_vinculado(self, conn: sqlite3.Connection) -> None:
+        if not self._column_exists(conn, "produtos", "produto_vinculado_id"):
+            conn.execute("ALTER TABLE produtos ADD COLUMN produto_vinculado_id INTEGER REFERENCES produtos(id);")
 
     def _migration_add_product_observacao(self, conn: sqlite3.Connection) -> None:
         if not self._column_exists(conn, "produtos", "observacao"):
