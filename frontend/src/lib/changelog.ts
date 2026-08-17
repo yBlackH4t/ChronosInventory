@@ -10,7 +10,7 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
-    "version": "2.2.2",
+    "version": "2.2.3",
     "date": "2026-08-17",
     "title": "Melhorias e correcoes",
     "highlights": [
@@ -19,7 +19,8 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
       "Novo: Coluna \"Vínculos\" na listagem de produtos com atalho para abrir o novo modal.",
       "Novo: Cadastro de Produtos agora permite informar manualmente o \"Nº do Documento (NF)\" e \"Observação\" para a movimentação automática de Estoque Inicial.",
       "Correcao: Exclusão de produtos foi corrigida para limpar o histórico de movimentações e desvincular automaticamente produtos dependentes, evitando erro de integridade no banco.",
-      "Correcao: Correção de cor do selo (Badge) no modal de Vínculos para ter melhor contraste com fundo no Modo Escuro."
+      "Correcao: Correção de cor do selo (Badge) no modal de Vínculos para ter melhor contraste com fundo no Modo Escuro.",
+      "Correcao: Hotfix: Correção da migração de banco de dados (erro \"Database error\" ao carregar produtos após atualizar direto da versão 2.2.1)."
     ]
   },
   {
