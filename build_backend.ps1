@@ -82,6 +82,7 @@ $sitePkgs = & $venvPy -c "import site; print(site.getsitepackages()[0])"
   --collect-all fastapi `
   --collect-all starlette `
   --collect-all pydantic `
+  --collect-all anthropic `
   --exclude-module pytest `
   --exclude-module _pytest `
   --exclude-module py `

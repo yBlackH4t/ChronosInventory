@@ -9,6 +9,10 @@ assistente pelo terminal, sem precisar do banco real da empresa.
     python scripts/assistente_dev.py aplicacao "scania 440"
     python scripts/assistente_dev.py produto 1
     python scripts/assistente_dev.py cobertura
+    python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"
+
+`perguntar` chama a API da Anthropic: precisa de internet e da chave em
+ANTHROPIC_API_KEY (ou salva pela tela de Configuracoes).
 
 Por padrao usa a pasta %TEMP%/chronos_assistente. Use --pasta para outra.
 Para abrir o app com esse banco: defina CHRONOS_APP_DIR com a mesma pasta.
@@ -178,6 +182,23 @@ def run_tool(folder: str, name: str, arguments: Dict) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
+def ask(folder: str, question: str) -> None:
+    """Pergunta de verdade para a IA (precisa de internet e de ANTHROPIC_API_KEY ou chave salva)."""
+    if not os.path.exists(os.path.join(folder, "estoque.db")):
+        raise SystemExit(f"Banco nao encontrado em {folder}. Rode primeiro: gerar-banco")
+    _use_dir(folder)
+    from app.services.assistant_chat_service import AssistantChatService, AssistantUnavailableError
+
+    try:
+        result = AssistantChatService().chat(question)
+    except AssistantUnavailableError as exc:
+        raise SystemExit(f"Assistente indisponivel: {exc}")
+    print(result["resposta"])
+    print(f"\n[ferramentas: {', '.join(result['ferramentas_usadas']) or '-'}]")
+    for product in result["produtos"]:
+        print(f"[produto #{product['id']}: {product['nome']} - {product['estoque_por_local'] or 'sem estoque'}]")
+
+
 def coverage(folder: str) -> None:
     """Quantos produtos ativos (e com estoque) estao ligados a uma ficha do catalogo."""
     if not os.path.exists(os.path.join(folder, "estoque.db")):
@@ -242,8 +263,9 @@ def coverage(folder: str) -> None:
 
 
 def main() -> None:
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8")
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     logging.basicConfig(level=logging.WARNING)
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -259,10 +281,13 @@ def main() -> None:
     sub.add_parser("aplicacao", help="Ferramenta buscar_por_aplicacao").add_argument("texto")
     sub.add_parser("produto", help="Ferramenta detalhe_produto").add_argument("produto_id", type=int)
     sub.add_parser("cobertura", help="Quantos produtos com estoque tem ficha no catalogo")
+    sub.add_parser("perguntar", help="Pergunta para a IA de verdade (usa a API da Anthropic)").add_argument("pergunta")
 
     args = parser.parse_args()
     if args.comando == "gerar-banco":
         generate_database(args.pasta, args.produtos, args.seed, args.substituir)
+    elif args.comando == "perguntar":
+        ask(args.pasta, args.pergunta)
     elif args.comando == "cobertura":
         coverage(args.pasta)
     elif args.comando == "codigo":

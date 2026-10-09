@@ -45,6 +45,7 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
                 AssistantChatService (Fase 2)
                  - prompt com as regras do negócio
                  - chama a API da Claude com tool use
+                   (claude-opus-5-5, configurável)
                             │  pede ferramentas
                             ▼
                 AssistantToolsService (Fase 1)  ──► SQLite (produtos, estoque, catálogo)
@@ -59,8 +60,9 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 |---|---|---|---|
 | 0 | Banco de teste gerado a partir do catálogo embutido | Claude Code | ✅ pronto |
 | 1 | Ferramentas de busca determinísticas + testes | Claude Code | ✅ pronto |
-| 2 | Cérebro (LLM + tool use) e endpoint `POST /assistente/chat` | Claude Code | a fazer |
-| 2 | Tela de chat no app | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
+| 2 | Cérebro (LLM + tool use), `POST /assistente/chat` e configuração | Claude Code | ✅ pronto (falta testar com chave real) |
+| 2 | Tela de chat e configuração da IA no app | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
+| 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | a fazer (precisa da lista) |
 | 3 | Ponte WhatsApp (API não oficial) | Claude Code | a fazer |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
 
@@ -103,18 +105,40 @@ Detalhes da busca por aplicação:
   ponto juntos ("8.150" é o modelo, não "8" + "150");
 - apelidos de montadora: VW, MB, CAT, MF, NH, JD, Chevrolet→GM.
 
-### Fase 2 — Cérebro (a fazer)
+### Fase 2 — Cérebro (pronto no backend)
 
-- `AssistantChatService`: chama a API da Claude com as ferramentas de `ASSISTANT_TOOLS`
-  e executa cada pedido por `AssistantToolsService.run_tool`. Modelo inicial: Claude Haiku
-  (rápido e barato; o volume de perguntas é baixo). Sonnet se a qualidade não bastar.
-- Prompt de sistema com as regras: marcas atendidas, nunca inventar, perguntar o motor
-  quando houver ambiguidade, distinguir turbina completa × conjunto central, respostas
-  curtas no estilo WhatsApp (`*negrito*`, listas com •).
-- Chave da API guardada só na máquina (configuração local), nunca no repositório.
-- Endpoint `POST /assistente/chat` (contrato em `docs/HANDOFF.md`, seção 4).
-- **Avaliação:** lista de 20–30 perguntas reais do chefe com a resposta esperada, rodada
-  automaticamente a cada mudança no prompt.
+`app/services/assistant_chat_service.py` (configuração em `assistant_config_store.py`,
+rotas em `backend/app/api/routers/assistant.py`, testes em `backend/tests/test_assistant_chat.py`).
+
+- **Como funciona:** a pergunta vai para a API da Claude com as três ferramentas. O modelo
+  pede buscas, o backend executa (`AssistantToolsService.run_tool`) e devolve o JSON; isso se
+  repete até a resposta final (no máximo 6 rodadas). A lista `produtos` da resposta vem dos
+  resultados das ferramentas, filtrada pelos nomes que a resposta cita — não do texto do modelo.
+- **Modelo:** padrão `claude-opus-5-5` com esforço `medium`, ambos configuráveis
+  (`PUT /assistente/config`). Opções para testar com as perguntas reais:
+  esforço `low` (mais rápido e barato) ou o modelo `claude-haiku-5-5` (bem mais barato).
+  Medir com a avaliação antes de trocar.
+- **Recusas:** com Opus 5.5 (e outros modelos que suportam), a API tenta de novo em outro modelo
+  se o filtro de segurança recusar por engano (`fallbacks: "default"`). Se mesmo assim recusar,
+  a resposta pede para reformular.
+- **Custo:** o prompt de sistema e as ferramentas ficam em cache entre as rodadas
+  (`cache_control`). O log do backend registra os tokens de cada chamada
+  (`assistente modelo=... input=... output=... cache_read=...`), sem o conteúdo da conversa.
+- **Conversa:** o backend não guarda nada; a tela (e depois a ponte do WhatsApp) envia o
+  histórico em texto a cada pergunta (até 20 mensagens).
+- **Chave da API:** salva em `assistente_config.json` na pasta do app, fora do banco, dos
+  backups e da base oficial publicada. Sem chave salva, vale a variável `ANTHROPIC_API_KEY`.
+  A API nunca devolve a chave (só `sk-ant-...1234`).
+- **Erros** viram `503 assistente_indisponivel` com mensagem em português: sem chave, chave
+  recusada, sem internet, limite de uso, modelo inexistente, serviço instável.
+- **Testar no terminal:** `python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"`
+  (precisa de internet e de `ANTHROPIC_API_KEY`).
+
+Falta:
+- testar com uma chave real e ajustar o prompt com as respostas;
+- **avaliação:** lista de 20–30 perguntas reais do chefe com a resposta esperada, rodada a
+  cada mudança no prompt ou no modelo;
+- tela de chat e configuração no app (Antigravity).
 
 ### Fase 3 — WhatsApp (a fazer) — **decisão: API não oficial**
 

@@ -108,6 +108,16 @@ Regras:
 - `POST /export/produtos` (stream `.xlsx`)
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)
 
+## Assistente de IA
+Plano e regras em `docs/PLANO_IA.md`. Precisa de internet e de uma chave da API da Anthropic.
+- `POST /assistente/chat` - body `{ "mensagem": str (1-1000), "historico": [{ "papel": "usuario"|"assistente", "texto": str }] }`.
+  Resposta `{ resposta, produtos: [{ id, nome, categoria, estoque_total, estoque_por_local }], ferramentas_usadas }`.
+  O backend nao guarda conversa: a tela envia o historico a cada pergunta.
+  `503 assistente_indisponivel` quando a IA nao esta configurada ou nao responde (sem internet, chave recusada).
+- `GET /assistente/config` - `{ configurado, origem_chave: "configuracoes"|"ambiente"|null, chave_mascarada, modelo, esforco }`. Nunca devolve a chave.
+- `PUT /assistente/config` - body parcial `{ api_key?, modelo?, esforco?: "low"|"medium"|"high"|"xhigh"|"max" }`. `api_key: ""` remove a chave salva.
+  A configuracao fica em `assistente_config.json` na pasta do app (fora do banco e dos backups).
+
 ## Indices SQLite relevantes
 - `idx_produtos_nome`
 - `idx_mov_produto`
@@ -125,3 +135,4 @@ Regras:
 - `invalid_transfer`
 - `not_found`
 - `internal_error`
+- `assistente_indisponivel`
