@@ -68,6 +68,13 @@ if ([version]$pyVer -ge [version]"3.13") {
 & $venvPy -c "import importlib.util, sys; sys.exit('uvicorn nao esta instalado no venv. Rode: pip install -r backend/requirements.txt') if importlib.util.find_spec('uvicorn') is None else None"
 & $venvPy -c "import importlib.util, sys; sys.exit('pyinstaller nao esta instalado no venv. Rode: pip install pyinstaller') if importlib.util.find_spec('PyInstaller') is None else None"
 
+# Catalogo embutido (gerado por scripts/export_catalog_bundle.py). Sem ele, as
+# outras maquinas ficam com a aba de catalogo vazia: falhar aqui e proposital.
+$catalogBundle = Join-Path $PSScriptRoot "core\catalog\data\catalogo_bundle.db.gz"
+if (-not (Test-Path $catalogBundle)) {
+  throw "Pacote do catalogo nao encontrado: $catalogBundle. Rode: python scripts/export_catalog_bundle.py --source estoque.db"
+}
+
 # Build do backend com PyInstaller do venv (forca incluir dependencias do FastAPI)
 $sitePkgs = & $venvPy -c "import site; print(site.getsitepackages()[0])"
 & $venvPy -m PyInstaller --clean --noconfirm `
@@ -79,6 +86,7 @@ $sitePkgs = & $venvPy -c "import site; print(site.getsitepackages()[0])"
   --exclude-module _pytest `
   --exclude-module py `
   --exclude-module tests `
+  --add-data "$catalogBundle;core/catalog/data" `
   --onefile --noconsole $entry -n estoque_backend
 
 # mover para src-tauri/bin (compat: nome simples e nome com target)

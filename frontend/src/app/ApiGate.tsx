@@ -5,7 +5,11 @@ import { api } from "../lib/apiClient";
 import type { HealthOut } from "../lib/api";
 import { isTauri } from "../lib/tauri";
 
-const MAX_WAIT_MS = 20_000;
+// The backend is a single-file executable: it unpacks itself on every start, and the
+// first start after an update also upgrades the database and loads the catalog
+// (plus the antivirus scanning the new file). 20s was not always enough.
+const MAX_WAIT_MS = 90_000;
+const SLOW_START_HINT_MS = 12_000;
 
 type VersionTuple = [number, number, number];
 
@@ -35,6 +39,7 @@ export function ApiGate({
 }) {
   const [health, setHealth] = useState<HealthOut | null>(null);
   const [failed, setFailed] = useState(false);
+  const [slowStart, setSlowStart] = useState(false);
   const [incompatible, setIncompatible] = useState<{
     appVersion: string;
     backendVersion: string;
@@ -78,9 +83,11 @@ export function ApiGate({
     };
 
     check();
+    const slowTimer = setTimeout(() => setSlowStart(true), SLOW_START_HINT_MS);
 
     return () => {
       cancelled = true;
+      clearTimeout(slowTimer);
     };
   }, []);
 
@@ -134,6 +141,12 @@ export function ApiGate({
       <Stack gap="xs" align="center">
         <Loader size="lg" />
         <Text>Iniciando servico local...</Text>
+        {slowStart && (
+          <Text size="sm" c="dimmed" ta="center" maw={360}>
+            Na primeira abertura depois de uma atualizacao isso pode levar ate
+            um minuto. Nao feche o programa.
+          </Text>
+        )}
       </Stack>
     </Center>
   );

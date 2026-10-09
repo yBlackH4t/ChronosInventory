@@ -19,6 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.services.backup_scheduler_service import BackupSchedulerService
 from app.services.local_share_service import LocalShareService
 from app.services.official_base_service import OfficialBaseService
+from core.catalog.bundle import run_catalog_startup
 from core.constants import APP_VERSION
 from core.database.connection import DatabaseConnection
 from core.database.migration_manager import MigrationManager
@@ -84,6 +85,10 @@ setup_logging()
 def startup_runtime_services() -> None:
     db = DatabaseConnection()
     updated, version = MigrationManager(db).check_and_run_migrations()
+    # Catalog shipped with the installer + links to this machine's products.
+    # Off in the test suite (slow); CHRONOS_CATALOG_ON_STARTUP=1 turns it on.
+    if os.getenv("APP_ENV", "").lower() != "test" or os.getenv("CHRONOS_CATALOG_ON_STARTUP") == "1":
+        run_catalog_startup(db)
     official_base_cfg = OfficialBaseService().config_store.load()
     LOG.info(
         "startup app_dir=%s db_path=%s db_version=%s migrated=%s",
