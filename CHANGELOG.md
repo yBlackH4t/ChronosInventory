@@ -40,6 +40,9 @@ Formato recomendado:
 - Vermelho reservado para ações destrutivas e erros reais.
 
 ### Fixed
+- Produtos: o filtro "Com estoque" agora busca em todo o cadastro, e não só na página atual, com total e paginação corretos.
+- Leitor de código: ler a etiqueta impressa (CI-<id>) em Produtos agora abre o produto direto. Antes, a busca ficava vazia.
+- Busca rápida (Ctrl+K) também abre com o cursor dentro de um campo de texto.
 - Busca rápida levava "Histórico" para uma tela inexistente.
 - Importação com fundos escuros fixos que quebravam o tema claro.
 

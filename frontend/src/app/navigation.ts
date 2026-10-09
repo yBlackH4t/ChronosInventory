@@ -187,7 +187,7 @@ export function usePrefetchRoute() {
 
       if (route === "/produtos") {
         void queryClient.prefetchQuery({
-          queryKey: ["produtos", profileScopeKey, "", 1, "10", "nome"],
+          queryKey: ["produtos", profileScopeKey, "", 1, "10", "nome", "TODOS"],
           queryFn: () =>
             api.listProducts({
               query: "",

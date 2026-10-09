@@ -50,6 +50,7 @@ class StockService:
         limit: int = 20,
         offset: int = 0,
         status: str = "ATIVO",
+        has_stock: bool | None = None,
     ) -> Tuple[List[Product], int]:
         """
         Retorna produtos paginados e o total.
@@ -60,6 +61,7 @@ class StockService:
             sort_direction: Direção (ASC/DESC)
             limit: Número máximo de registros
             offset: Deslocamento para paginação
+            has_stock: True = só com estoque, False = só zerados, None = todos
             
         Returns:
             Tupla (lista de produtos, total de itens)
@@ -71,8 +73,11 @@ class StockService:
             limit=limit,
             offset=offset,
             status=status,
+            has_stock=has_stock,
         )
-        total = self.product_repo.count_filtered(search_term, status=status)
+        total = self.product_repo.count_filtered(
+            search_term, status=status, has_stock=has_stock
+        )
         return [Product.from_dict(data) for data in products_data], total
 
     def get_products_status_paginated(

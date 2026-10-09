@@ -82,6 +82,7 @@ def _validate_upload_file(file: UploadFile, contents: bytes) -> None:
 @router.get("", response_model=SuccessResponse[list[ProductOut]])
 def list_products(
     query: str = "",
+    has_stock: bool | None = Query(default=None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort: str | None = None,
@@ -91,6 +92,7 @@ def list_products(
     start = (page - 1) * page_size
     products, total_items = stock_service.get_products_paginated(
         search_term=query,
+        has_stock=has_stock,
         sort_column=sort_column,
         sort_direction=sort_direction,
         limit=page_size,

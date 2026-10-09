@@ -131,34 +131,25 @@ export default function ProductsPage() {
   const { listen } = useScanner();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  useEffect(() => {
-    const s = searchParams.get("search");
-    if (s) {
-      setQuery(s);
+  // ?search= (from Ctrl+K) seeds the search once, then is removed from the URL.
+  const searchParam = searchParams.get("search");
+  const [appliedSearchParam, setAppliedSearchParam] = useState<string | null>(null);
+  if (searchParam !== appliedSearchParam) {
+    setAppliedSearchParam(searchParam);
+    if (searchParam) {
+      setQuery(searchParam);
       setPage(1);
-      // Remove search param from URL so it doesn't get stuck
-      setSearchParams({});
     }
-  }, [searchParams, setSearchParams]);
+  }
 
   useEffect(() => {
-    return listen((code) => {
-      setQuery(code);
-      setPage(1);
-      // Auto-open if it matches exactly 1 product
-      api.listProducts({ query: code, page: 1, page_size: 2 }).then((res) => {
-        if (res.data?.length === 1) {
-          setSelectedId(res.data[0].id);
-          setSelectedSnapshot(res.data[0]);
-          setDrawerOpened(true);
-          setHistoryPage(1);
-        }
-      }).catch(console.error);
-    });
-  }, [listen]);
+    if (searchParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParam, setSearchParams]);
 
   const productsQuery = useQuery<SuccessResponse<Product[]>>({
-    queryKey: ["produtos", profileScopeKey, debounced, page, pageSize, sort],
+    queryKey: ["produtos", profileScopeKey, debounced, page, pageSize, sort, stockFilter],
     queryFn: ({ signal }) =>
       api.listProducts(
         {
@@ -166,6 +157,7 @@ export default function ProductsPage() {
           page,
           page_size: Number(pageSize),
           sort,
+          has_stock: stockFilter === "COM_ESTOQUE" ? true : undefined,
         },
         { signal },
       ),
@@ -480,6 +472,25 @@ export default function ProductsPage() {
     persistedState.historyPageSize,
   );
 
+  useEffect(() => {
+    return listen((code) => {
+      // Printed labels encode "CI-<id>"; the search understands "#<id>".
+      const labelId = /^CI-(\d+)$/i.exec(code.trim())?.[1];
+      const search = labelId ? `#${labelId}` : code;
+      setQuery(search);
+      setPage(1);
+      // Auto-open if it matches exactly 1 product
+      api.listProducts({ query: search, page: 1, page_size: 2 }).then((res) => {
+        if (res.data?.length === 1) {
+          setSelectedId(res.data[0].id);
+          setSelectedSnapshot(res.data[0]);
+          setDrawerOpened(true);
+          setHistoryPage(1);
+        }
+      }).catch(console.error);
+    });
+  }, [listen]);
+
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
     queryKey: [
       "historico",
@@ -514,16 +525,10 @@ export default function ProductsPage() {
   const productsErrorMessage =
     productsQuery.error instanceof Error ? productsQuery.error.message : null;
 
-  const rawRows = useMemo(() => {
+  // "Com estoque" is filtered by the API so pagination and totals stay correct.
+  const rows = useMemo(() => {
     return productsQuery.data?.data ?? [];
   }, [productsQuery.data?.data]);
-
-  const rows = useMemo(() => {
-    if (stockFilter === "COM_ESTOQUE") {
-      return rawRows.filter((p) => p.total_stock > 0);
-    }
-    return rawRows;
-  }, [rawRows, stockFilter]);
 
   const activeViewCount = useMemo(() => {
     let count = 0;
@@ -698,7 +703,10 @@ export default function ProductsPage() {
           <SegmentedControl
             size="sm"
             value={stockFilter}
-            onChange={(val) => setStockFilter(val as "TODOS" | "COM_ESTOQUE")}
+            onChange={(val) => {
+              setStockFilter(val as "TODOS" | "COM_ESTOQUE");
+              setPage(1);
+            }}
             data={[
               { label: "Todos", value: "TODOS" },
               { label: "Com estoque", value: "COM_ESTOQUE" },

@@ -1,7 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { Kbd } from "@mantine/core";
+import { useHotkeys } from "@mantine/hooks";
 import {
   Spotlight,
+  spotlight,
   type SpotlightActionData,
   type SpotlightActionGroupData,
 } from "@mantine/spotlight";
@@ -59,6 +61,9 @@ export function GlobalSpotlight() {
         ]
       : [];
 
+  // "/" only outside text fields, so it never steals a typed slash.
+  useHotkeys([["/", () => spotlight.open()]]);
+
   return (
     <Spotlight
       actions={[...navGroups, ...dynamicActions]}
@@ -70,7 +75,9 @@ export function GlobalSpotlight() {
         leftSection: <IconSearch size={18} stroke={1.5} />,
         placeholder: "Buscar produto ou ir para uma tela…",
       }}
-      shortcut={["mod + k", "mod + p", "/"]}
+      // Ctrl+K / Ctrl+P also work while typing in a field.
+      shortcut={["mod + k", "mod + p"]}
+      tagsToIgnore={[]}
       clearQueryOnClose
       radius="lg"
       scrollable

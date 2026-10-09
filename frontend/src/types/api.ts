@@ -179,11 +179,11 @@ export type ListProductsParams = {
   page?: number;
   page_size?: number;
   sort?: string;
+  has_stock?: boolean;
 };
 
 export type ListProductsStatusParams = ListProductsParams & {
   status?: ProductStatusFilter;
-  has_stock?: boolean;
 };
 
 export type MovementCreate = {
