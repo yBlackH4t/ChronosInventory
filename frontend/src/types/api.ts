@@ -108,6 +108,54 @@ export type ProductImageListOut = {
   max_images: number;
 };
 
+export type CatalogSpecItem = {
+  campo: string;
+  valor: string;
+};
+
+export type CatalogReferenceGroup = {
+  fabricante: string;
+  numeros: string[];
+};
+
+export type CatalogApplicationItem = {
+  montadora?: string | null;
+  veiculo: string;
+  motor?: string | null;
+  tipo?: string | null;
+  complemento?: string | null;
+};
+
+export type CatalogRelatedItem = {
+  tipo: string;
+  codigo: string;
+  descricao: string;
+  grupo?: string | null;
+};
+
+export type ProductCatalogLink = {
+  id: number;
+  fonte: string;
+  codigo: string;
+  descricao: string;
+  grupo?: string | null;
+  modelo?: string | null;
+  observacao?: string | null;
+  foto_arquivo?: string | null;
+  vinculo_status: string;
+  codigos_em_comum: string[];
+  especificacoes: CatalogSpecItem[];
+  referencias: CatalogReferenceGroup[];
+  aplicacoes: CatalogApplicationItem[];
+  relacionados: CatalogRelatedItem[];
+};
+
+export type ProductCatalogResponse = {
+  product_id: number;
+  product_nome: string;
+  vinculos: ProductCatalogLink[];
+};
+
 export type ProductImageUploadOut = {
   id: number;
   message: string;

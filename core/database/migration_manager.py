@@ -16,6 +16,7 @@ from core.database.migration_v2_0_0_white_label import migrate_to_white_label
 from core.database.migration_v2_0_1_hotfix import migrate_to_v2_0_1_hotfix
 from core.database.migration_v2_0_2_hotfix import migrate_to_v2_0_2_hotfix
 from core.database.migration_v2_1_0_cleanup import migrate_to_v2_1_0
+from core.database.migration_v2_3_0_catalog import migrate_to_v2_3_0
 from core.exceptions import MigrationException
 from core.utils.validators import Validators
 
@@ -93,6 +94,7 @@ class MigrationManager:
             MigrationStep("2.0.2", migrate_to_v2_0_2_hotfix),
             MigrationStep("2.1.0", migrate_to_v2_1_0),
             MigrationStep("2.2.3", self._migration_add_produto_vinculado),
+            MigrationStep("2.3.0", migrate_to_v2_3_0),
         ]
 
     def _migration_add_produto_vinculado(self, conn: sqlite3.Connection) -> None:

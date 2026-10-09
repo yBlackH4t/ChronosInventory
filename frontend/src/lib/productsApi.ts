@@ -13,6 +13,7 @@ import type {
   ListProductsParams,
   ListProductsStatusParams,
   SuccessResponse,
+  ProductCatalogResponse,
 } from "../types/api";
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -72,6 +73,14 @@ export function createProductsApi({
     async getProduct(id: number, options: RequestInit = {}) {
       return request<Product>(
         `/produtos/${id}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getProductCatalog(id: number, options: RequestInit = {}) {
+      return request<ProductCatalogResponse>(
+        `/produtos/${id}/catalogo`,
         { method: "GET", ...options },
         baseUrl,
       );

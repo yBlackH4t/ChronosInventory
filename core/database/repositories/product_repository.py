@@ -45,8 +45,17 @@ class ProductRepository(BaseRepository):
                 where_clauses.append("1 = 0")
             return
 
-        where_clauses.append("p.nome LIKE ?")
-        params.append(f"%{term}%")
+        # Busca inteligente 360°: nome do produto + códigos de referência + catálogo de fabricantes
+        from core.database.repositories.catalog_repository import CatalogRepository
+        code_clause = CatalogRepository.build_code_search_clause(term, product_alias="p")
+        if code_clause:
+            code_sql, code_params = code_clause
+            where_clauses.append(f"(p.nome LIKE ? OR {code_sql})")
+            params.append(f"%{term}%")
+            params.extend(code_params)
+        else:
+            where_clauses.append("p.nome LIKE ?")
+            params.append(f"%{term}%")
 
     # ------------------------------------------------------------------
     # Internal helpers: attach inventories to product dicts

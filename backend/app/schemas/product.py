@@ -114,3 +114,51 @@ class ProductStatusBulkIn(BaseModel):
 
 class ProductStatusBulkOut(BaseModel):
     updated: int
+
+
+class CatalogSpecItem(BaseModel):
+    campo: str
+    valor: str
+
+
+class CatalogReferenceGroup(BaseModel):
+    fabricante: str
+    numeros: list[str]
+
+
+class CatalogApplicationItem(BaseModel):
+    montadora: Optional[str] = None
+    veiculo: str
+    motor: Optional[str] = None
+    tipo: Optional[str] = None
+    complemento: Optional[str] = None
+
+
+class CatalogRelatedItem(BaseModel):
+    tipo: str
+    codigo: str
+    descricao: str
+    grupo: Optional[str] = None
+
+
+class ProductCatalogLinkOut(BaseModel):
+    id: int
+    fonte: str
+    codigo: str
+    descricao: str
+    grupo: Optional[str] = None
+    modelo: Optional[str] = None
+    observacao: Optional[str] = None
+    foto_arquivo: Optional[str] = None
+    vinculo_status: str
+    codigos_em_comum: list[str] = Field(default_factory=list)
+    especificacoes: list[CatalogSpecItem] = Field(default_factory=list)
+    referencias: list[CatalogReferenceGroup] = Field(default_factory=list)
+    aplicacoes: list[CatalogApplicationItem] = Field(default_factory=list)
+    relacionados: list[CatalogRelatedItem] = Field(default_factory=list)
+
+
+class ProductCatalogResponseOut(BaseModel):
+    product_id: int
+    product_nome: str
+    vinculos: list[ProductCatalogLinkOut]

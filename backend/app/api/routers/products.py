@@ -28,6 +28,7 @@ from backend.app.schemas.product import (
     ProductStatusBulkOut,
     ProductStatusFilter,
     ProductPut,
+    ProductCatalogResponseOut,
 )
 from core.database.connection import DatabaseConnection
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
@@ -173,6 +174,24 @@ def get_linked_products(
 ) -> SuccessResponse[list[ProductOut]]:
     products = stock_service.get_linked_products(product_id)
     return ok([p.to_dict() for p in products])
+
+
+@router.get("/{product_id}/catalogo", response_model=SuccessResponse[ProductCatalogResponseOut])
+def get_product_catalog(
+    product_id: int,
+    stock_service: StockService = Depends(get_stock_service),
+) -> SuccessResponse[ProductCatalogResponseOut]:
+    product = stock_service.get_product_by_id(product_id)
+    from core.database.repositories.catalog_repository import CatalogRepository
+    cat_repo = CatalogRepository()
+    links = cat_repo.get_product_catalog_links(product_id)
+    return ok(
+        ProductCatalogResponseOut(
+            product_id=product_id,
+            product_nome=product.nome,
+            vinculos=links,
+        )
+    )
 
 
 @router.post("", response_model=SuccessResponse[ProductOut], status_code=201)

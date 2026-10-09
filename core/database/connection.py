@@ -9,6 +9,7 @@ import sqlite3
 from typing import Optional
 
 from core.constants import LEGACY_DB_PATH
+from core.database.migration_v2_3_0_catalog import ensure_catalog_schema
 from core.exceptions import DatabaseException
 from core.utils.file_utils import FileUtils
 
@@ -121,6 +122,8 @@ class DatabaseConnection:
                 cursor.execute("ALTER TABLE produtos ADD COLUMN inativado_em DATETIME;")
             if "motivo_inativacao" not in columns:
                 cursor.execute("ALTER TABLE produtos ADD COLUMN motivo_inativacao TEXT;")
+            if "produto_vinculado_id" not in columns:
+                cursor.execute("ALTER TABLE produtos ADD COLUMN produto_vinculado_id INTEGER REFERENCES produtos(id);")
             cursor.execute("UPDATE produtos SET ativo = 1 WHERE ativo IS NULL;")
 
             cursor.execute(
@@ -292,6 +295,9 @@ class DatabaseConnection:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_quantidade ON produto_estoque(quantidade);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_nome ON locais(nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_ativo ON locais(ativo);")
+
+            # ── v2.3.0 Catalogo de referencias ───────────────────────
+            ensure_catalog_schema(conn)
 
             # Migra imagens legadas de produtos.imagem para tabela dedicada.
             cursor.execute("SELECT COUNT(*) as total FROM product_images;")
