@@ -83,7 +83,7 @@ class CatalogImportService:
             ensure_catalog_schema(dest_conn)
             dest_cursor = dest_conn.cursor()
 
-            dest_cursor.execute("BEGIN TRANSACTION")
+            dest_cursor.execute("BEGIN IMMEDIATE TRANSACTION")
 
             # 1. Registrar / atualizar fonte
             meta = self._read_catalog_metadata(src_conn)

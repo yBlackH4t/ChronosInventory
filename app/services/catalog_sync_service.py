@@ -51,7 +51,7 @@ class CatalogSyncService:
         """
         conn = self.db_connection.get_connection()
         try:
-            conn.execute("BEGIN TRANSACTION")
+            conn.execute("BEGIN IMMEDIATE TRANSACTION")
 
             # 1. Atualizar produto_codigos de todos os produtos existentes
             rebuild_product_codes(conn)

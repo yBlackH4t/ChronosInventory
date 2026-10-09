@@ -187,7 +187,7 @@ class StockService:
         movement_doc = documento_movimento or "CADASTRO_INICIAL"
         conn = self.movement_repo.db.get_connection()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             for loc_id, qty in inventories.items():
                 if qty > 0:
                     self.movement_repo.insert_movement(

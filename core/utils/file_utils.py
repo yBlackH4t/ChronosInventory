@@ -40,6 +40,18 @@ class FileUtils:
         return app_root
 
     @staticmethod
+    def get_backend_log_path() -> str:
+        """
+        Backend log file. Installed app: <app root>/logs/backend.log (persistent;
+        the PyInstaller onefile bundle lives in a temp folder deleted on exit).
+        Development: backend/logs/backend.log.
+        """
+        if getattr(sys, "frozen", False):
+            return os.path.join(FileUtils.get_app_root_directory(), "logs", "backend.log")
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        return os.path.join(project_root, "backend", "logs", "backend.log")
+
+    @staticmethod
     def get_app_directory() -> str:
         """
         Returns the application data directory.

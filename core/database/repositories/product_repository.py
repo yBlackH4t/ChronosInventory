@@ -263,7 +263,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             if product_id is not None:
                 cursor.execute(
                     """
@@ -315,7 +315,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             for location_id, delta in deltas.items():
                 if delta == 0:
                     continue
@@ -367,7 +367,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             for location_id, qty in inventories.items():
                 cursor.execute(
                     """
@@ -417,7 +417,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             cursor.execute(
                 "UPDATE produtos SET nome = ?, observacao = ?, produto_vinculado_id = ? WHERE id = ?",
                 (nome, observacao, produto_vinculado_id, product_id),
@@ -461,7 +461,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             # Desvincula produtos filhos
             cursor.execute("UPDATE produtos SET produto_vinculado_id = NULL WHERE produto_vinculado_id = ?", (product_id,))
             # Remove movimentações
@@ -498,7 +498,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             if ativo:
                 query = f"""
                     UPDATE produtos
@@ -589,7 +589,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             count = 0
             for product_tuple in products:
                 pid, nome = product_tuple[0], product_tuple[1]
@@ -670,7 +670,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
 
             cursor.execute("SELECT COUNT(*) FROM product_images WHERE product_id = ?", (product_id,))
             total = int(cursor.fetchone()[0])
@@ -699,7 +699,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             cursor.execute(
                 "SELECT 1 FROM product_images WHERE product_id = ? AND id = ?",
                 (product_id, image_id),
@@ -724,7 +724,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             cursor.execute(
                 "SELECT is_primary FROM product_images WHERE product_id = ? AND id = ?",
                 (product_id, image_id),
@@ -778,7 +778,7 @@ class ProductRepository(BaseRepository):
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             cursor.execute(
                 "SELECT id FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, id ASC LIMIT 1",
                 (product_id,),

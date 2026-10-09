@@ -26,6 +26,9 @@ from core.database.connection import DatabaseConnection
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 
 
+
+PDF_TABLE_CHUNK_ROWS = 500
+
 class ReportService:
     """Responsabilidade unica: gerar PDFs de relatorio."""
 
@@ -294,9 +297,18 @@ class ReportService:
         if len(data) <= 1:
             data.append([empty_message] + [""] * (len(data[0]) - 1))
 
-        table = Table(data, colWidths=col_widths, repeatRows=1)
-        table.setStyle(self._get_table_style(left_align_column))
-        elements.append(table)
+        # One huge Table makes ReportLab's page splitting quadratic (40k rows ~ 60s).
+        # Consecutive tables of PDF_TABLE_CHUNK_ROWS keep it linear; each repeats the header.
+        header, body = data[0], data[1:]
+        style = self._get_table_style(left_align_column)
+        for start in range(0, len(body), PDF_TABLE_CHUNK_ROWS):
+            table = Table(
+                [header] + body[start:start + PDF_TABLE_CHUNK_ROWS],
+                colWidths=col_widths,
+                repeatRows=1,
+            )
+            table.setStyle(style)
+            elements.append(table)
         doc.build(elements)
         return buffer.getvalue()
 

@@ -3,37 +3,30 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from app.services.stock_service import StockService
 from backend.app.api.deps import get_stock_service
+import ipaddress
+import os
 import socket
-import subprocess
-import threading
 
 router = APIRouter(prefix="/api/scanner", tags=["Scanner"])
 
 # Lista de conexoes WebSocket ativas do Desktop
 connected_desktops: list[WebSocket] = []
 
-# URL global do túnel
-tunnel_url = None
+# Nao ha tunel publico (localtunnel): ele expunha a API inteira, sem autenticacao,
+# na internet. O celular usa o IP da maquina na mesma rede Wi-Fi.
 
-def start_localtunnel():
-    global tunnel_url
+
+def _is_loopback(host: str | None) -> bool:
+    if not host:
+        return False
+    if host in {"localhost", "testclient"}:
+        return True
     try:
-        process = subprocess.Popen(
-            "npx localtunnel --port 8000",
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
-        for line in iter(process.stdout.readline, ''):
-            if "your url is:" in line:
-                tunnel_url = line.split("your url is:")[1].strip()
-                break
-    except Exception as e:
-        print("Localtunnel error:", e)
-
-# Inicia o túnel em segundo plano
-threading.Thread(target=start_localtunnel, daemon=True).start()
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return bool(address.is_loopback or (mapped is not None and mapped.is_loopback))
 
 
 class BarcodePayload(BaseModel):
@@ -216,7 +209,10 @@ async def receive_barcode(payload: BarcodePayload, stock_service: StockService =
 
 @router.websocket("/ws")
 async def scanner_websocket(websocket: WebSocket):
-    """Conexão persistente com o aplicativo Desktop"""
+    """Conexão persistente com o aplicativo Desktop (somente deste computador)."""
+    if not _is_loopback(websocket.client.host if websocket.client else None):
+        await websocket.close(code=1008)
+        return
     await websocket.accept()
     connected_desktops.append(websocket)
     try:
@@ -229,26 +225,36 @@ async def scanner_websocket(websocket: WebSocket):
 
 @router.get("/ip")
 def get_local_ip():
-    """Descobre o IP local da máquina na rede Wi-Fi ou retorna o link do Localtunnel"""
-    global tunnel_url
-    if tunnel_url:
-        return {"ip": tunnel_url}
-        
+    """Descobre o IP local da máquina na rede Wi-Fi (para o QR code do celular)."""
+    port = os.getenv("PORT", "8000")
+    ip = _default_route_ipv4() or _first_private_ipv4()
+    return {"ip": f"http://{ip or '127.0.0.1'}:{port}"}
+
+
+def _default_route_ipv4() -> str | None:
+    # UDP connect only picks the outgoing interface; no packet is sent.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        import psutil
-        # Tentar achar IP 192.168 primeiro
-        for interface, addrs in psutil.net_if_addrs().items():
-            for addr in addrs:
-                if addr.family == socket.AF_INET:
-                    ip = addr.address
-                    if ip.startswith("192.168."):
-                        return {"ip": f"http://{ip}:8000"}
-        
-        # Fallback padrão
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return {"ip": f"http://{ip}:8000"}
-    except Exception:
-        return {"ip": "http://127.0.0.1:8000"}
+        sock.connect(("8.8.8.8", 80))
+        ip = sock.getsockname()[0]
+        return None if ip.startswith("127.") else ip
+    except OSError:
+        return None
+    finally:
+        sock.close()
+
+
+def _first_private_ipv4() -> str | None:
+    # Offline network (no default route): any private address of this machine.
+    try:
+        infos = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+    except OSError:
+        return None
+    for info in infos:
+        ip = info[4][0]
+        try:
+            if ipaddress.ip_address(ip).is_private and not ip.startswith("127."):
+                return ip
+        except ValueError:
+            continue
+    return None

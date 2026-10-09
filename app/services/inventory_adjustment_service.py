@@ -28,7 +28,7 @@ class InventoryAdjustmentService:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             self.session_service.ensure_session_open(conn, session_id)
 
             for item in items:
@@ -90,7 +90,7 @@ class InventoryAdjustmentService:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             row = cursor.execute("SELECT id, status FROM inventory_sessions WHERE id = ?", (session_id,)).fetchone()
             if not row:
                 raise ValidationException("Sessao de inventario nao encontrada.")
@@ -122,7 +122,7 @@ class InventoryAdjustmentService:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             row = cursor.execute(
                 """
                 SELECT id, nome, status
@@ -168,7 +168,7 @@ class InventoryAdjustmentService:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             session = self.session_service.ensure_session_open(conn, session_id)
             local = str(session["local"])
             nome_sessao = str(session["nome"])

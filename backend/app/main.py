@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import ipaddress
 import logging
 import os
+import sqlite3
 import time
 import uuid
 from logging.handlers import RotatingFileHandler
@@ -62,9 +64,8 @@ LOCAL_SHARE_SERVER = LocalShareService()
 
 
 def setup_logging() -> None:
-    log_dir = Path(__file__).resolve().parents[1] / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "backend.log"
+    log_file = Path(FileUtils.get_backend_log_path())
+    log_file.parent.mkdir(parents=True, exist_ok=True)
 
     handlers = [
         logging.StreamHandler(),
@@ -118,7 +119,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Estoque API", version=APP_VERSION, lifespan=lifespan)
 
-# Allow all local hosts for the mobile scanner
+# Host header is not restricted: phones reach the scanner through the machine's LAN IP.
 allowed_hosts = ["*"]
 
 app.add_middleware(
@@ -126,7 +127,9 @@ app.add_middleware(
     allowed_hosts=allowed_hosts,
 )
 
-# CORS para frontend local (Vite + Tauri WebView)
+# CORS: only the desktop WebView (and Vite in dev). The phone scanner page is served
+# by this backend itself (same origin), so it needs no CORS entry. A wildcard here
+# would let any website open on this computer drive the API.
 cors_origins = [
     "tauri://localhost",
     "http://tauri.localhost",
@@ -138,16 +141,55 @@ if os.getenv("APP_ENV", "dev").lower() == "dev":
         "http://127.0.0.1:5173",
     ])
 
-# Permitir acesso móvel via IP local (curinga para scanner)
-cors_origins.append("*")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# The backend listens on 0.0.0.0 so phones on the same network can use the scanner.
+# Everything else (stock, backups, imports, restores) is only for this computer.
+LAN_ALLOWED_PREFIXES = ("/api/scanner/",)
+
+
+def _is_local_client(host: str | None) -> bool:
+    if not host:
+        return False
+    if host == "testclient" and os.getenv("APP_ENV", "").lower() == "test":
+        return True
+    if host == "localhost":
+        return True
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return bool(address.is_loopback or (mapped is not None and mapped.is_loopback))
+
+
+def _lan_api_enabled() -> bool:
+    return os.getenv("CHRONOS_ALLOW_LAN_API", "").strip().lower() in {"1", "true", "yes"}
+
+
+@app.middleware("http")
+async def local_only_middleware(request: Request, call_next):
+    client_host = request.client.host if request.client else None
+    if (
+        not _is_local_client(client_host)
+        and not request.url.path.startswith(LAN_ALLOWED_PREFIXES)
+        and not _lan_api_enabled()
+    ):
+        LOG.warning("Blocked remote request host=%s path=%s", client_host, request.url.path)
+        return fail(
+            403,
+            "forbidden",
+            "Acesso permitido apenas neste computador.",
+            None,
+            "",
+        )
+    return await call_next(request)
 
 app.include_router(products.router)
 app.include_router(backup.router)
@@ -294,6 +336,22 @@ async def insufficient_stock_handler(request: Request, exc: InsufficientStockExc
 @app.exception_handler(InvalidTransferException)
 async def invalid_transfer_handler(request: Request, exc: InvalidTransferException) -> JSONResponse:
     return fail(400, "invalid_transfer", str(exc), None, _request_id(request))
+
+
+@app.exception_handler(sqlite3.OperationalError)
+async def sqlite_operational_error_handler(request: Request, exc: sqlite3.OperationalError) -> JSONResponse:
+    message = str(exc).lower()
+    if "locked" in message or "busy" in message:
+        LOG.warning("Database busy request_id=%s path=%s", _request_id(request), request.url.path)
+        return fail(
+            503,
+            "database_busy",
+            "O banco esta ocupado com outra operacao. Tente novamente em instantes.",
+            None,
+            _request_id(request),
+        )
+    LOG.exception("SQLite error request_id=%s", _request_id(request))
+    return fail(500, "database_error", "Database error", str(exc), _request_id(request))
 
 
 @app.exception_handler(DatabaseException)

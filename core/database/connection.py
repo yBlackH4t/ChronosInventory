@@ -79,7 +79,9 @@ class DatabaseConnection:
         Retorna nova conexao com row_factory e pragmas de performance.
         """
         try:
-            conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            # timeout: how long a writer waits for another one to finish. Writes use
+            # BEGIN IMMEDIATE, so concurrent requests queue instead of failing.
+            conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=15.0)
             conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA foreign_keys = ON;")
             conn.execute("PRAGMA journal_mode = WAL;")

@@ -56,7 +56,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install -r backend/requirements-dev.txt
-          pip install pyinstaller
+
+      - name: Backend tests
+        run: python -m pytest -q
 
       - name: Install frontend dependencies
         run: npm ci

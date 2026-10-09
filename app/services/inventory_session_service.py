@@ -32,7 +32,7 @@ class InventorySessionService:
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             # Fetch the local label from locais table
             local_row = cursor.execute(
                 "SELECT id, label FROM locais WHERE id = ?",

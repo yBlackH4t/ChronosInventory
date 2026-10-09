@@ -33,7 +33,7 @@ class BackupDiagnosticsService:
         db_validation = self.validate_backup()
         backups = self.list_backups_metadata()[:30]
 
-        backend_log = self.read_log_tail(Path("backend") / "logs" / "backend.log")
+        backend_log = self.read_log_tail(Path(FileUtils.get_backend_log_path()))
         tauri_log = self.read_log_tail(self.tauri_log_path())
 
         summary = {

@@ -1,9 +1,13 @@
-﻿fastapi>=0.110
-uvicorn[standard]>=0.23
-pydantic>=2.0
-python-multipart>=0.0.9
-pandas>=2.0
-openpyxl>=3.1
-reportlab>=4.0
-pillow>=10.0
-requests>=2.31
+# Versoes fixas: o release (GitHub Actions) instala exatamente estas versoes,
+# as mesmas com que a suite de testes passou. Atualize de proposito, rodando os testes.
+fastapi==0.129.0
+starlette==0.52.1
+uvicorn[standard]==0.41.0
+pydantic==2.12.5
+python-multipart==0.0.22
+pandas==3.0.1
+numpy==2.4.2
+openpyxl==3.1.5
+reportlab==4.4.10
+pillow==12.1.1
+requests==2.32.5

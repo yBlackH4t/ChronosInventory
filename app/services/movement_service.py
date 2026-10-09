@@ -82,7 +82,7 @@ class MovementService:
     ) -> MovementRecord:
         conn = self.repo.db.get_connection()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             record = self._create_movement_internal(
                 conn, tipo, produto_id, quantidade, origem_location_id, destino_location_id,
                 observacao, natureza, motivo_ajuste, local_externo, documento, movimento_ref_id, data
@@ -113,7 +113,7 @@ class MovementService:
     ) -> List[MovementRecord]:
         conn = self.repo.db.get_connection()
         try:
-            conn.execute("BEGIN")
+            conn.execute("BEGIN IMMEDIATE")
             records = []
             for item in items:
                 record = self._create_movement_internal(

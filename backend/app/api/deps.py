@@ -1,3 +1,5 @@
+from typing import Iterator
+
 from app.services.stock_service import StockService
 from app.services.image_service import ImageService
 from app.services.movement_service import MovementService
@@ -67,7 +69,11 @@ def get_db_connection():
     return DatabaseConnection().get_connection()
 
 
-def get_inventory_location_service() -> InventoryLocationService:
+def get_inventory_location_service() -> Iterator[InventoryLocationService]:
+    # Request-scoped connection, closed when the request ends (it used to leak).
     conn = get_db_connection()
-    return InventoryLocationService(conn)
+    try:
+        yield InventoryLocationService(conn)
+    finally:
+        conn.close()
 

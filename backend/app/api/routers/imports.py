@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from app.services.import_service import ImportService
 from core.constants import SUPPORTED_EXCEL_EXTENSIONS
 from core.utils.file_utils import FileUtils
+from core.utils.validators import Validators
 from core.exceptions import ValidationException
 from backend.app.api.deps import get_import_service
 from backend.app.api.responses import ok
@@ -20,6 +21,12 @@ router = APIRouter(prefix="/import", tags=["import"])
 
 MAX_IMPORT_SIZE_BYTES = 50 * 1024 * 1024
 
+
+
+def _safe_upload_name(filename: str | None) -> str:
+    """Basename only, without path separators: the client controls this value."""
+    name = Validators.sanitize_filename(os.path.basename(str(filename or "").replace("\\", "/")))
+    return name or "planilha.xlsx"
 
 def _validate_extension(filename: str) -> None:
     ext = os.path.splitext(filename)[1].lower()
@@ -42,7 +49,7 @@ def import_excel(
         _validate_extension(file.filename)
         temp_dir = FileUtils.get_temp_directory()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        temp_path = os.path.join(temp_dir, f"import_{timestamp}_{file.filename}")
+        temp_path = os.path.join(temp_dir, f"import_{timestamp}_{_safe_upload_name(file.filename)}")
         with open(temp_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
         excel_path = temp_path
