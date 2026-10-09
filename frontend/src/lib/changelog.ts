@@ -19,13 +19,13 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
       "Novo: Busca rápida (Ctrl+K): encontre produtos ou vá direto para qualquer tela.",
       "Novo: Ficha de catálogo no produto: especificações, referências cruzadas e aplicações, com códigos copiáveis em um clique.",
       "Mudanca: Telas do dia a dia: Produtos com tabela mais limpa e estoque por filial; Dashboard com cores acessíveis e cor fixa por filial; Movimentações com quantidade +/− e filtros em uma linha; Inventário com cards clicáveis e diferença faltando/sobrando; Etiquetas com abas Estoque e Expedição (NF-e) e seleção em lote.",
-      "Mudanca: Telas administrativas: Relatórios, Backup, Comparar estoques, Importar e demais telas reorganizados no mesmo padrão. O vermelho fica reservado para ações destrutivas e erros reais.",
+      "Mudanca: Telas administrativas: Relatórios, Backup, Comparar estoques, Importar e demais telas reorganizados no mesmo padrão, com o tema claro corrigido na Importação. O vermelho fica reservado para ações destrutivas e erros reais.",
       "Correcao: Recarregar a tela (F5) agora mantém a tela atual. Antes, sempre voltava para o Dashboard.",
       "Correcao: Etiquetas: busca, filtros, itens selecionados e cópias são mantidos ao trocar de aba ou recarregar.",
       "Correcao: Produtos: o filtro \"Com estoque\" agora busca em todo o cadastro, e não só na página atual, com total e paginação corretos.",
       "Correcao: Leitor de código: ler a etiqueta impressa (CI-<id>) em Produtos agora abre o produto direto. Antes, a busca ficava vazia.",
       "Correcao: Busca rápida (Ctrl+K): agora abre com o cursor dentro de um campo de texto, e \"Histórico\" leva à tela certa.",
-      "Correcao: Importação com fundos escuros fixos que quebravam o tema claro."
+      "Correcao: Janelas menores e troca de abas: Movimentações cabe em 1024 px sem esconder as ações, as abas abrem sem a tela \"Carregando\" e a nova sessão de inventário já vem com o Local preenchido."
     ]
   },
   {

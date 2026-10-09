@@ -97,23 +97,30 @@ export default function MovementsTableSection({
           className="table-shell"
           style={{ height: "calc(100vh - 330px)", minHeight: 320, overflow: "auto" }}
         >
-          <Table stickyHeader verticalSpacing={0} miw={980}>
+          {/* Fixed layout: set columns keep their width and Produto takes the rest,
+              so a 1024px window (976px of content) still shows the row actions. */}
+          <Table
+            stickyHeader
+            verticalSpacing={0}
+            layout="fixed"
+            miw={tableLayout.showExtraColumns ? 1080 : 920}
+          >
             <Table.Thead>
               <Table.Tr>
-                <Table.Th w={130}>Data</Table.Th>
+                <Table.Th w={112}>Data</Table.Th>
                 <Table.Th>Produto</Table.Th>
-                <Table.Th w={170}>Tipo</Table.Th>
-                <Table.Th w={70} ta="right">
+                <Table.Th w={150}>Tipo</Table.Th>
+                <Table.Th w={64} ta="right">
                   Qtd
                 </Table.Th>
-                <Table.Th w={200}>Origem → destino</Table.Th>
-                <Table.Th w={tableLayout.showExtraColumns ? 160 : 220}>
+                <Table.Th w={180}>Origem → destino</Table.Th>
+                <Table.Th w={tableLayout.showExtraColumns ? 170 : 180}>
                   Documento / obs.
                 </Table.Th>
                 {tableLayout.showExtraColumns && (
-                  <Table.Th w={170}>Ajuste / externo</Table.Th>
+                  <Table.Th w={150}>Ajuste / externo</Table.Th>
                 )}
-                <Table.Th w={84} />
+                <Table.Th w={76} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -143,7 +150,6 @@ export default function MovementsTableSection({
                         size="sm"
                         fw={500}
                         truncate="end"
-                        maw={tableLayout.productMaxWidth + 120}
                         title={mov.produto_nome || `ID ${mov.produto_id}`}
                       >
                         {mov.produto_nome || `ID ${mov.produto_id}`}
@@ -164,12 +170,12 @@ export default function MovementsTableSection({
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap={6} wrap="nowrap">
-                        <Text size="sm" c={origem ? undefined : "var(--text-subtle)"} truncate="end">
+                      <Group gap={6} wrap="nowrap" style={{ overflow: "hidden" }}>
+                        <Text size="sm" c={origem ? undefined : "var(--text-subtle)"} truncate="end" miw={0}>
                           {origem ?? "—"}
                         </Text>
                         <IconArrowRight size={12} stroke={1.5} color="var(--text-subtle)" style={{ flexShrink: 0 }} />
-                        <Text size="sm" c={destino ? undefined : "var(--text-subtle)"} truncate="end">
+                        <Text size="sm" c={destino ? undefined : "var(--text-subtle)"} truncate="end" miw={0}>
                           {destino ?? "—"}
                         </Text>
                       </Group>
@@ -183,7 +189,6 @@ export default function MovementsTableSection({
                           size="xs"
                           c="dimmed"
                           truncate="end"
-                          maw={tableLayout.observationMaxWidth}
                           title={String(mov.observacao)}
                         >
                           {String(mov.observacao)}

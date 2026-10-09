@@ -69,6 +69,7 @@ export function InventoryCreateSessionModal({
               onSessionLocationIdChange(value ? Number(value) : null)
             }
             allowDeselect={false}
+            required
           />
           <TextInput
             label="Observação"

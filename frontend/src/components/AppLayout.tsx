@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AppShell, Button, Group, Text } from "@mantine/core";
@@ -9,6 +9,7 @@ import { useProfileScope } from "../state/profileScope";
 import { notifyError } from "../lib/notify";
 import { restartApplication } from "../lib/restartApp";
 import { PRIMARY_NAV } from "../app/navigation";
+import { preloadRoute } from "../app/routePreload";
 import TopBar from "./shell/TopBar";
 
 const TOPBAR_HEIGHT = 97; // 52px row + 44px tabs + 1px border
@@ -32,6 +33,15 @@ export default function AppLayout({
     ]),
     [],
   );
+
+  // Once the first screen is up, load the other tabs' code in the background so
+  // switching (click or Alt+N) never shows the loading screen.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      PRIMARY_NAV.forEach((item) => preloadRoute(item.to));
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   if (location.pathname === "/setup") {
     return <>{children}</>;

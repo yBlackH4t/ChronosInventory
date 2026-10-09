@@ -3,6 +3,10 @@ import { createRoot } from "react-dom/client";
 import { AppProviders } from "./app/providers";
 import { ApiGate } from "./app/ApiGate";
 import App from "./app/App";
+import { preloadRoute } from "./app/routePreload";
+
+// Fetch the current page's code while the backend health check runs.
+preloadRoute(window.location.pathname);
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then((registrations) => {

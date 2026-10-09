@@ -493,14 +493,22 @@ export default function InventoryPage() {
     throw new Error(`Codigo ${parsedInput.value} nao encontrado nesta sessao.`);
   };
 
+  // Last used location while it is still active, otherwise the first active one
+  // (same default as the movement modal), so the field never starts empty.
+  const effectiveSessionLocationId =
+    sessionLocationId !== null &&
+    activeLocations.some((loc) => loc.id === sessionLocationId)
+      ? sessionLocationId
+      : (activeLocations[0]?.id ?? null);
+
   const onCreateSession = () => {
-    if (sessionLocationId === null) {
+    if (effectiveSessionLocationId === null) {
       notifyError(new Error("Selecione um local para a sessao."));
       return;
     }
     createSessionMutation.mutate({
       nome: sessionName.trim(),
-      location_id: sessionLocationId,
+      location_id: effectiveSessionLocationId,
       observacao: sessionObservacao.trim() || undefined,
     });
   };
@@ -800,7 +808,7 @@ export default function InventoryPage() {
         selectedSession?.nome || sessionName.trim() || "Sessao manual",
       local:
         selectedSession?.local_label ||
-        locations.find((l) => l.id === sessionLocationId)?.name ||
+        locations.find((l) => l.id === effectiveSessionLocationId)?.name ||
         "N/A",
       totalRows: 56,
     });
@@ -890,7 +898,7 @@ export default function InventoryPage() {
         onClose={createModal.close}
         sessionName={sessionName}
         onSessionNameChange={setSessionName}
-        sessionLocationId={sessionLocationId}
+        sessionLocationId={effectiveSessionLocationId}
         onSessionLocationIdChange={setSessionLocationId}
         sessionObservacao={sessionObservacao}
         onSessionObservacaoChange={setSessionObservacao}

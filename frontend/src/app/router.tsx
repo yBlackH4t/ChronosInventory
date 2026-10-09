@@ -1,25 +1,37 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, useState } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import PageTransition from "../components/PageTransition";
+import { getLoadedPage, loadPage, type PagePath } from "./routePreload";
 
-const DashboardPage = lazy(() => import("../pages/DashboardPage"));
-const ProductsPage = lazy(() => import("../pages/ProductsPage"));
-const MovementsPage = lazy(() => import("../pages/MovementsPage"));
-const ImportPage = lazy(() => import("../pages/ImportPage"));
-const ExportPage = lazy(() => import("../pages/ExportPage"));
-const ReportsPage = lazy(() => import("../pages/ReportsPage"));
-const BackupPage = lazy(() => import("../pages/BackupPage"));
-const InventoryPage = lazy(() => import("../pages/InventoryPage"));
-const ReleaseNotesPage = lazy(() => import("../pages/ReleaseNotesPage"));
-const ProductStatusPage = lazy(() => import("../pages/ProductStatusPage"));
-const StockProfilesPage = lazy(() => import("../pages/StockProfilesPage"));
-const StockComparePage = lazy(() => import("../pages/StockComparePage"));
-const LabelsPage = lazy(() => import("../pages/LabelsPage"));
-const LocationsPage = lazy(() => import("../pages/LocationsPage"));
-const SetupPage = lazy(() => import("../pages/SetupPage"));
-const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+// lazy() that skips the loading fallback when the chunk was already preloaded
+// (cold start or tab hover). Decided once per mount, so a page never remounts.
+function lazyPage(path: PagePath) {
+  const LazyPage = lazy(() => loadPage(path));
+  function Page() {
+    const [Loaded] = useState(() => getLoadedPage(path));
+    return Loaded ? <Loaded /> : <LazyPage />;
+  }
+  return Page;
+}
+
+const DashboardPage = lazyPage("/dashboard");
+const ProductsPage = lazyPage("/produtos");
+const MovementsPage = lazyPage("/movimentacoes");
+const ImportPage = lazyPage("/importar");
+const ExportPage = lazyPage("/exportar");
+const ReportsPage = lazyPage("/relatorios");
+const BackupPage = lazyPage("/backup");
+const InventoryPage = lazyPage("/inventario");
+const ReleaseNotesPage = lazyPage("/novidades");
+const ProductStatusPage = lazyPage("/itens-status");
+const StockProfilesPage = lazyPage("/estoques");
+const StockComparePage = lazyPage("/comparar-estoques");
+const LabelsPage = lazyPage("/etiquetas");
+const LocationsPage = lazyPage("/locais");
+const SetupPage = lazyPage("/setup");
+const SettingsPage = lazyPage("/configuracoes");
 
 function RouteLoader() {
   return (

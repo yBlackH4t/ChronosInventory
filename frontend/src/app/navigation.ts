@@ -19,6 +19,7 @@ import {
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
 import { useProfileScope } from "../state/profileScope";
+import { preloadRoute } from "./routePreload";
 
 export type NavItem = {
   label: string;
@@ -168,6 +169,7 @@ export function usePrefetchRoute() {
 
   return useCallback(
     (route: string) => {
+      preloadRoute(route);
       if (prefetched.current.has(route)) return;
       prefetched.current.add(route);
 

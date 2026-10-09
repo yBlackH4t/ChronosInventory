@@ -18,9 +18,9 @@ export const MOVEMENT_NATURES = [
 export const ADJUSTMENT_REASON_LABELS: Record<string, string> = {
   AVARIA: "Avaria",
   PERDA: "Perda",
-  CORRECAO_INVENTARIO: "Correcao inventario",
+  CORRECAO_INVENTARIO: "Correção de inventário",
   ERRO_OPERACIONAL: "Erro operacional",
-  TRANSFERENCIA: "Transferencia",
+  TRANSFERENCIA: "Transferência",
 };
 
 export type MovementFilters = {
@@ -164,9 +164,16 @@ export function signedQuantity(tipo: MovementOut["tipo"], quantidade: number) {
   return String(quantidade);
 }
 
+// Natures that only appear in history (not offered as filters or on creation).
+const HISTORY_ONLY_NATURE_LABELS: Record<string, string> = {
+  ESTORNO: "Estorno",
+};
+
 export function movementNatureLabel(natureza: MovementOut["natureza"]) {
   return (
-    MOVEMENT_NATURES.find((item) => item.value === natureza)?.label ?? natureza
+    MOVEMENT_NATURES.find((item) => item.value === natureza)?.label ??
+    HISTORY_ONLY_NATURE_LABELS[String(natureza)] ??
+    natureza
   );
 }
 
