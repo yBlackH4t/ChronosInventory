@@ -31,7 +31,8 @@ def validate_changelog(changelog_path: Path, expected_version: str) -> list[str]
 
     section = match.group(0)
     errors: list[str] = []
-    if "TODO" in section.upper():
+    # Placeholder marker only: uppercase whole word. Portuguese "todo"/"todos" is normal text.
+    if re.search(r"\bTODO\b", section):
         errors.append(f"CHANGELOG da versao {expected_version} ainda contem TODO.")
     return errors
 

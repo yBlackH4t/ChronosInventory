@@ -36,7 +36,7 @@ Formato recomendado:
 ### Fixed
 - Recarregar a tela (F5) agora mantém a tela atual. Antes, sempre voltava para o Dashboard.
 - Etiquetas: busca, filtros, itens selecionados e cópias são mantidos ao trocar de aba ou recarregar.
-- Produtos: o filtro "Com estoque" agora busca em todo o cadastro, e não só na página atual, com total e paginação corretos.
+- Produtos: o filtro "Com estoque" agora busca no cadastro inteiro, e não só na página atual, com total e paginação corretos.
 - Leitor de código: ler a etiqueta impressa (CI-<id>) em Produtos agora abre o produto direto. Antes, a busca ficava vazia.
 - Busca rápida (Ctrl+K): agora abre com o cursor dentro de um campo de texto, e "Histórico" leva à tela certa.
 - Janelas menores e troca de abas: Movimentações cabe em 1024 px sem esconder as ações, as abas abrem sem a tela "Carregando" e a nova sessão de inventário já vem com o Local preenchido.

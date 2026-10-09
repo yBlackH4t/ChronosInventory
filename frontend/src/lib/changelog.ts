@@ -22,7 +22,7 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
       "Mudanca: Telas administrativas: Relatórios, Backup, Comparar estoques, Importar e demais telas reorganizados no mesmo padrão, com o tema claro corrigido na Importação. O vermelho fica reservado para ações destrutivas e erros reais.",
       "Correcao: Recarregar a tela (F5) agora mantém a tela atual. Antes, sempre voltava para o Dashboard.",
       "Correcao: Etiquetas: busca, filtros, itens selecionados e cópias são mantidos ao trocar de aba ou recarregar.",
-      "Correcao: Produtos: o filtro \"Com estoque\" agora busca em todo o cadastro, e não só na página atual, com total e paginação corretos.",
+      "Correcao: Produtos: o filtro \"Com estoque\" agora busca no cadastro inteiro, e não só na página atual, com total e paginação corretos.",
       "Correcao: Leitor de código: ler a etiqueta impressa (CI-<id>) em Produtos agora abre o produto direto. Antes, a busca ficava vazia.",
       "Correcao: Busca rápida (Ctrl+K): agora abre com o cursor dentro de um campo de texto, e \"Histórico\" leva à tela certa.",
       "Correcao: Janelas menores e troca de abas: Movimentações cabe em 1024 px sem esconder as ações, as abas abrem sem a tela \"Carregando\" e a nova sessão de inventário já vem com o Local preenchido."
