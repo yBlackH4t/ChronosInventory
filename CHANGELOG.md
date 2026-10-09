@@ -28,22 +28,17 @@ Formato recomendado:
 - **Navegação por abas no topo:** a barra lateral saiu. As 6 telas do dia a dia viram abas (atalhos Alt+1 a Alt+6) e a administração fica no menu de engrenagem.
 - **Busca rápida (Ctrl+K):** encontre produtos ou vá direto para qualquer tela.
 - **Ficha de catálogo no produto:** especificações, referências cruzadas e aplicações, com códigos copiáveis em um clique.
-- Seleção em lote com barra fixa em Etiquetas e Ativação em massa.
 
 ### Changed
-- Produtos: tabela mais limpa, com estoque por filial e ações que aparecem ao passar o mouse.
-- Dashboard: gráficos com cores acessíveis (Entradas em azul, Saídas em laranja), cada filial com cor fixa e ranking de saídas.
-- Movimentações: filtros em uma linha, quantidade com sinal (+/−) e estorno discreto no fim da linha.
-- Inventário: nova sessão em janela própria, cards de resumo clicáveis e coluna única de diferença (faltando/sobrando).
-- Etiquetas: abas Estoque e Expedição (NF-e) e editor de etiqueta com painel lateral organizado.
-- Relatórios, Backup, Comparar estoques, Importar e demais telas administrativas reorganizados no mesmo padrão.
-- Vermelho reservado para ações destrutivas e erros reais.
+- **Telas do dia a dia:** Produtos com tabela mais limpa e estoque por filial; Dashboard com cores acessíveis e cor fixa por filial; Movimentações com quantidade +/− e filtros em uma linha; Inventário com cards clicáveis e diferença faltando/sobrando; Etiquetas com abas Estoque e Expedição (NF-e) e seleção em lote.
+- **Telas administrativas:** Relatórios, Backup, Comparar estoques, Importar e demais telas reorganizados no mesmo padrão. O vermelho fica reservado para ações destrutivas e erros reais.
 
 ### Fixed
+- Recarregar a tela (F5) agora mantém a tela atual. Antes, sempre voltava para o Dashboard.
+- Etiquetas: busca, filtros, itens selecionados e cópias são mantidos ao trocar de aba ou recarregar.
 - Produtos: o filtro "Com estoque" agora busca em todo o cadastro, e não só na página atual, com total e paginação corretos.
 - Leitor de código: ler a etiqueta impressa (CI-<id>) em Produtos agora abre o produto direto. Antes, a busca ficava vazia.
-- Busca rápida (Ctrl+K) também abre com o cursor dentro de um campo de texto.
-- Busca rápida levava "Histórico" para uma tela inexistente.
+- Busca rápida (Ctrl+K): agora abre com o cursor dentro de um campo de texto, e "Histórico" leva à tela certa.
 - Importação com fundos escuros fixos que quebravam o tema claro.
 
 ## [2.2.3] - 2026-08-17

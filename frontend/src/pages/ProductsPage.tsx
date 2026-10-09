@@ -86,6 +86,7 @@ type ProductsTabState = {
   page: number;
   pageSize: string;
   sort: string;
+  stockFilter?: "TODOS" | "COM_ESTOQUE";
   selectedId: number | null;
   drawerOpened: boolean;
   historyPage: number;
@@ -121,7 +122,9 @@ export default function ProductsPage() {
   const [pageSize, setPageSize] = useState(persistedState.pageSize);
   const [sort, setSort] = useState(persistedState.sort);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
-  const [stockFilter, setStockFilter] = useState<"TODOS" | "COM_ESTOQUE">("TODOS");
+  const [stockFilter, setStockFilter] = useState<"TODOS" | "COM_ESTOQUE">(
+    persistedState.stockFilter ?? "TODOS",
+  );
 
   const [linkModalOpened, { open: openLinkModal, close: closeLinkModal }] = useDisclosure(false);
   const [linkModalProduct, setLinkModalProduct] = useState<Product | null>(null);
@@ -550,6 +553,7 @@ export default function ProductsPage() {
         page,
         pageSize,
         sort,
+        stockFilter,
         selectedId,
         drawerOpened,
         historyPage,
@@ -567,6 +571,7 @@ export default function ProductsPage() {
       scrollY,
       selectedId,
       sort,
+      stockFilter,
     ],
   );
 

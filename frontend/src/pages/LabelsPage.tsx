@@ -25,9 +25,9 @@ import {
   type LabelPrintableItem,
 } from "../lib/labelsPrint";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { loadTabState, saveTabState } from "../state/tabStateCache";
 
-const STOCK_FILTER_VALUES = ["COM_ESTOQUE", "TODOS", "SEM_ESTOQUE"] as const;
-type StockFilter = (typeof STOCK_FILTER_VALUES)[number];
+type StockFilter = "COM_ESTOQUE" | "TODOS" | "SEM_ESTOQUE";
 type CopiesMode = "ONE" | "TOTAL_STOCK" | "MANUAL";
 type LabelMode = "INTERNAL" | "NFE";
 
@@ -36,6 +36,22 @@ const COPIES_MODE_OPTIONS: { value: CopiesMode; label: string }[] = [
   { value: "TOTAL_STOCK", label: "= estoque" },
   { value: "MANUAL", label: "Manual" },
 ];
+
+const LABELS_TAB_ID = "labels";
+
+// Kept across tab switches and reloads, like the other pages.
+type LabelsTabState = {
+  labelMode: LabelMode;
+  query: string;
+  status: ProductStatusFilter;
+  stockFilter: StockFilter;
+  page: number;
+  pageSize: string;
+  selectedIds: number[];
+  copiesMode: CopiesMode;
+  defaultManualCopies: number;
+  manualCopiesById: Record<number, number>;
+};
 
 const MAX_COPIES_PER_ITEM = 500;
 const MAX_LABELS_PER_PRINT = 2000;
@@ -98,19 +114,70 @@ export default function LabelsPage() {
     [searchParams],
   );
 
-  const [labelMode, setLabelMode] = useState<LabelMode>("INTERNAL");
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<ProductStatusFilter>("ATIVO");
-  const [stockFilter, setStockFilter] = useState<StockFilter>("COM_ESTOQUE");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState("20");
-  const [selectedIds, setSelectedIds] = useState<number[]>(preselectedFromUrl);
+  const persisted = useMemo(
+    () => loadTabState<LabelsTabState>(LABELS_TAB_ID),
+    [],
+  );
+  // "?ids=" (label shortcut from a product) wins over the saved selection and
+  // view; a single product is shown on its own via the "#id" search.
+  const fromUrl = preselectedFromUrl.length > 0;
+  const singleFromUrl =
+    preselectedFromUrl.length === 1 ? preselectedFromUrl[0] : null;
+  const saved = fromUrl ? null : persisted;
+
+  const [labelMode, setLabelMode] = useState<LabelMode>(
+    fromUrl ? "INTERNAL" : (persisted?.labelMode ?? "INTERNAL"),
+  );
+  const [query, setQuery] = useState(
+    singleFromUrl ? `#${singleFromUrl}` : (saved?.query ?? ""),
+  );
+  const [status, setStatus] = useState<ProductStatusFilter>(
+    saved?.status ?? "ATIVO",
+  );
+  const [stockFilter, setStockFilter] = useState<StockFilter>(
+    singleFromUrl ? "TODOS" : (saved?.stockFilter ?? "COM_ESTOQUE"),
+  );
+  const [page, setPage] = useState(saved?.page ?? 1);
+  const [pageSize, setPageSize] = useState(persisted?.pageSize ?? "20");
+  const [selectedIds, setSelectedIds] = useState<number[]>(
+    fromUrl ? preselectedFromUrl : (persisted?.selectedIds ?? []),
+  );
   const [printing, setPrinting] = useState(false);
-  const [copiesMode, setCopiesMode] = useState<CopiesMode>("ONE");
-  const [defaultManualCopies, setDefaultManualCopies] = useState(1);
+  const [copiesMode, setCopiesMode] = useState<CopiesMode>(
+    persisted?.copiesMode ?? "ONE",
+  );
+  const [defaultManualCopies, setDefaultManualCopies] = useState(
+    persisted?.defaultManualCopies ?? 1,
+  );
   const [manualCopiesById, setManualCopiesById] = useState<
     Record<number, number>
-  >({});
+  >(persisted?.manualCopiesById ?? {});
+
+  useEffect(() => {
+    saveTabState<LabelsTabState>(LABELS_TAB_ID, {
+      labelMode,
+      query,
+      status,
+      stockFilter,
+      page,
+      pageSize,
+      selectedIds,
+      copiesMode,
+      defaultManualCopies,
+      manualCopiesById,
+    });
+  }, [
+    copiesMode,
+    defaultManualCopies,
+    labelMode,
+    manualCopiesById,
+    page,
+    pageSize,
+    query,
+    selectedIds,
+    status,
+    stockFilter,
+  ]);
 
   const listQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["labels-products", query, status, stockFilter, page, pageSize],

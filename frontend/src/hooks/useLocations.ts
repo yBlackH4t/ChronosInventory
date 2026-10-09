@@ -3,7 +3,7 @@ import { api } from "../lib/apiClient";
 import { notifyError } from "../lib/notify";
 
 export function useLocations() {
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isPending, isFetching, refetch } = useQuery({
     queryKey: ["locations"],
     queryFn: async () => {
       try {
@@ -19,7 +19,7 @@ export function useLocations() {
     },
   });
   const locations = data || [];
-  const activeLocations = locations.filter((loc: any) => loc.ativo);
+  const activeLocations = locations.filter((loc) => loc.ativo);
 
-  return { locations, activeLocations, isLoading, refetch };
+  return { locations, activeLocations, isLoading, isPending, isFetching, refetch };
 }

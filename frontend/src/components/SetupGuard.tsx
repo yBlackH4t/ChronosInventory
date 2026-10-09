@@ -4,16 +4,20 @@ import { Center, Loader, Stack, Text } from "@mantine/core";
 import { useLocations } from "../hooks/useLocations";
 
 export default function SetupGuard({ children }: { children: ReactNode }) {
-  const { locations, isLoading } = useLocations();
+  const { locations, isPending, isFetching } = useLocations();
   const location = useLocation();
 
-  if (isLoading) {
+  // isPending (not isLoading): while the persisted cache is being restored the
+  // query is pending but not fetching, and redirecting then sent every reload
+  // (F5) through /setup to /dashboard. An empty cached list is only trusted
+  // once the refetch confirms it.
+  if (isPending || (locations.length === 0 && isFetching)) {
     return (
       <Center h="100vh">
         <Stack gap="xs" align="center">
           <Loader size="md" />
           <Text size="sm" c="dimmed">
-            Carregando configuracoes...
+            Carregando configurações…
           </Text>
         </Stack>
       </Center>
