@@ -67,22 +67,96 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | — | — | livre | — |
+| Claude Code | `feature/assistente-ia` | Assistente de IA — Fases 0 e 1 prontas; próxima: Fase 2 (`POST /assistente/chat`) | aguardando revisão | 2026-10-09 |
 | Antigravity | — | — | livre | — |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
-- _(nenhuma)_
+- **Novo (Fase 2, ainda não implementado no backend):** `POST /assistente/chat`. Contrato
+  combinado abaixo, para o frontend começar com um mock. Plano completo em `docs/PLANO_IA.md`.
+
+  Requisição:
+  ```json
+  {
+    "mensagem": "temos turbina do scania 440?",
+    "historico": [
+      { "papel": "usuario", "texto": "temos turbina 4031196?" },
+      { "papel": "assistente", "texto": "Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas." }
+    ]
+  }
+  ```
+  - `historico`: mensagens anteriores da conversa, da mais antiga para a mais nova (máx. 20).
+    O backend não guarda conversa; quem guarda é a tela.
+
+  Resposta `200` (envelope padrão `{ "data": ..., "meta": null }`):
+  ```json
+  {
+    "data": {
+      "resposta": "Scania 440 depende do motor:\n• DC13 Euro 5 (2012+) → *temos 2* (Canoas)\n• DT12 Turbo Compound → *não temos*\nQual é o motor?",
+      "produtos": [
+        {
+          "id": 7,
+          "nome": "TURBO GTA42S - 779839-0025",
+          "categoria": "TURBO",
+          "estoque_total": 2,
+          "estoque_por_local": { "Canoas": 2 }
+        }
+      ],
+      "ferramentas_usadas": ["buscar_por_aplicacao"]
+    },
+    "meta": null
+  }
+  ```
+  - `resposta`: texto no estilo WhatsApp — `*negrito*`, quebras de linha `\n`, listas com `•`.
+  - `produtos`: produtos citados na resposta (pode ser `[]`). `categoria` é `TURBO` ou `CONJUNTO CENTRAL`.
+    `estoque_por_local` só traz locais com quantidade > 0.
+
+  Erros (envelope padrão `{ "error": { "code", "message", "details" } }`):
+  - `503` `assistente_indisponivel` — IA não configurada (sem chave) ou sem internet.
+    Mostrar a `message` e um atalho para Configurações.
+  - `422` — mensagem vazia ou longa demais (limite: 1000 caracteres).
 
 ## 5. Pedidos entre agentes
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- _(nenhum)_
+- [ ] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
+  Branch: `ag/assistente-chat`, criada a partir de `feature/assistente-ia`
+  (`git checkout -b ag/assistente-chat feature/assistente-ia`).
+  - Nova página `frontend/src/pages/AssistantPage.tsx` com rota e item no menu ("Assistente").
+  - Chat: lista de mensagens (usuário à direita, assistente à esquerda), campo de texto,
+    Enter envia e Shift+Enter quebra linha, indicador de "pensando…" enquanto espera.
+  - Renderizar o texto da `resposta` no estilo WhatsApp: `*negrito*` → negrito, `\n` → quebra
+    de linha. Não interpretar HTML.
+  - Abaixo de cada resposta, cards dos `produtos` (nome, estoque total, estoque por local) que
+    abrem o produto na tela de Produtos.
+  - Enviar o `historico` da conversa atual a cada mensagem. Botão "Nova conversa" limpa tudo.
+  - Tratar `503 assistente_indisponivel` com aviso amigável e atalho para Configurações.
+  - Sugestões clicáveis quando o chat está vazio: "Temos turbina 4031196?",
+    "Temos turbina do Scania 440?", "Turbina do Volvo FH 460".
+  - **Enquanto o endpoint não existe:** cliente da API em `frontend/src/lib` com um mock
+    ligado por uma flag (ex.: `VITE_ASSISTENTE_MOCK=1`), devolvendo os exemplos acima.
+    Não deixar o mock ligado por padrão.
+  - Seguir os padrões atuais: Mantine, TanStack Query (mutation), tipos em `frontend/src/types`.
+  - Verificar com `npm run build` e `npm run lint`; registrar a entrega na seção 6.
+  - Fora do escopo agora: configurações da IA e do WhatsApp (chave da API, QR code, números
+    autorizados). Vão ser pedidas depois, junto com a Fase 3.
 
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — Assistente de IA: Fases 0 e 1
+- Branch: `feature/assistente-ia`
+- O que foi feito: plano do assistente (`docs/PLANO_IA.md`); banco de teste gerado a partir
+  do catálogo embutido; ferramentas de busca somente leitura para a IA (por código, por
+  aplicação/veículo e detalhe do produto), que respeitam as marcas atendidas (Garrett,
+  Holset e BorgWarner).
+- Arquivos principais: `app/services/assistant_tools_service.py`,
+  `core/database/repositories/assistant_repository.py`, `core/catalog/normalization.py`
+  (`search_words`), `scripts/assistente_dev.py`, `backend/tests/test_assistant_tools.py`.
+- Verificações: pytest ok (100 testes), `check_versions` ok. Frontend não foi alterado.
+- Para o Antigravity: tarefa da tela de chat na seção 5 e contrato da API na seção 4.
 
 <!--
 ### AAAA-MM-DD — <Agente> — <título curto>
