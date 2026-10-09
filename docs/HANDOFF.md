@@ -68,7 +68,7 @@ npm run lint
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
 | Claude Code | `feature/assistente-ia` | Assistente de IA — Fases 0 e 1 prontas; próxima: Fase 2 (`POST /assistente/chat`) | aguardando revisão | 2026-10-09 |
-| Antigravity | — | — | livre | — |
+| Antigravity | `ag/assistente-chat` | Tela "Assistente" (chat com a IA) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -145,6 +145,13 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Antigravity — Tela Assistente de IA
+- Branch: `ag/assistente-chat`
+- O que foi feito: Implementada a UI de chat do assistente na tela "Assistente". Foi criado o cliente mock para consumo da IA baseado na flag `VITE_ASSISTENTE_MOCK`. Tratamento de mensagens com markdown de negrito e formatação em linhas, renderização de cards de produtos (com navegação para `/produtos`), envio de histórico de mensagens e função "Nova conversa".
+- Arquivos principais: `frontend/src/pages/AssistantPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`, `frontend/src/app/router.tsx`, `frontend/src/app/routePreload.ts`, `frontend/src/app/navigation.ts`.
+- Verificações: build ok / lint com erros apenas em arquivos antigos/preexistentes (nada na nova feature).
+- Pendências ou observações para o outro agente: A interface está pronta e utilizando mock com sucesso. Aguardando a Fase 2 no backend para testar integração real.
 
 ### 2026-10-09 — Claude Code — Assistente de IA: Fases 0 e 1
 - Branch: `feature/assistente-ia`
