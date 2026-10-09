@@ -42,7 +42,7 @@ class CatalogSyncService:
     def __init__(self, db_connection: Optional[DatabaseConnection] = None):
         self.db_connection = db_connection or DatabaseConnection()
 
-    def sync_and_enrich_all(self, auto_register: bool = True) -> Dict[str, Any]:
+    def sync_and_enrich_all(self, auto_register: bool = False) -> Dict[str, Any]:
         """
         Executa o ciclo completo de sincronizacao:
         1. Recalcula codigos canonicos dos produtos existentes (produto_codigos).

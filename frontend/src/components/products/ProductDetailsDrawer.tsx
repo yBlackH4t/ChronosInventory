@@ -1,6 +1,7 @@
 import { type FormEventHandler, useState } from "react";
 import {
   ActionIcon,
+  Badge,
   Button,
   Card,
   Drawer,
@@ -34,6 +35,7 @@ import {
 import { ImageGalleryModal } from "./ImageGalleryModal";
 import { ProductCatalogTab } from "./ProductCatalogTab";
 import { ProductHistoryTable } from "./ProductHistoryTable";
+import { detectBrand, detectCondition } from "../../lib/brands";
 
 import type {
   MovementCreate,
@@ -173,8 +175,26 @@ export function ProductDetailsDrawer({
         padding="lg"
         title={
           currentProduct ? (
-            <Stack gap={2}>
-              <Text fw={650} size="lg" lineClamp={1}>
+            <Stack gap={4}>
+              <Group gap={6} wrap="wrap" align="center">
+                {(() => {
+                  const brand = detectBrand(currentProduct.nome);
+                  const condition = detectCondition(currentProduct.nome);
+                  return (
+                    <>
+                      {brand && (
+                        <Badge size="xs" color={brand.color} variant="light">
+                          {brand.label}
+                        </Badge>
+                      )}
+                      <Badge size="xs" color={condition.color} variant="outline">
+                        {condition.label}
+                      </Badge>
+                    </>
+                  );
+                })()}
+              </Group>
+              <Text fw={650} size="lg" lineClamp={2}>
                 {currentProduct.nome}
               </Text>
               <Text size="xs" c="dimmed" className="mono">

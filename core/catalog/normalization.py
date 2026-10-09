@@ -52,12 +52,92 @@ def is_searchable_code(code: str) -> bool:
     return len(code) >= MIN_CODE_LENGTH and _digit_count(code) >= MIN_CODE_DIGITS
 
 
-def extract_codes_from_name(name: Optional[str]) -> List[str]:
+def expand_family_codes(codes: Iterable[str]) -> List[str]:
+    """
+    Expande codigos para incluir variantes de familia equivalentes (Nova <-> Reman):
+    - BorgWarner 11 digitos:
+        * Miolo 988/970 (Nova) <-> 990/991 (Reman) (ex: 53279887101 <-> 53279907101)
+        * Prefixo 70000 (Nova) <-> 90000 (Reman) (ex: 70000174060 <-> 90000174060)
+    - BorgWarner / Schwitzer 6 digitos:
+        * 7xxxxx (Nova) <-> 9xxxxx (Reman) (ex: 770429 <-> 970429)
+    - Garrett: 6 digitos base + [0|5|9] + 3 digitos (796155-5005 <-> 796155-9005)
+    - Holset: sufixo RX ja tratado por canonical_code
+    """
+    seen: Set[str] = set()
+    result: List[str] = []
+
+    for c in codes:
+        clean = _NON_ALNUM.sub("", str(c).upper())
+        if not clean:
+            continue
+        if clean not in seen:
+            seen.add(clean)
+            result.append(clean)
+
+        # 1. BorgWarner: 11 digitos XXXX [970-988] YYYY <-> XXXX [990-998] YYYY
+        m_bw_mid = re.match(r"^(\d{4})(9[78]\d|99\d)(\d{4})$", clean)
+        if m_bw_mid:
+            prefix, mid, suffix = m_bw_mid.groups()
+            if mid.startswith("99"):
+                variants = [f"{prefix}988{suffix}", f"{prefix}970{suffix}"]
+            else:
+                variants = [f"{prefix}990{suffix}", f"{prefix}991{suffix}"]
+            for v in variants:
+                if v not in seen:
+                    seen.add(v)
+                    result.append(v)
+
+        # 2. BorgWarner: 11 digitos prefixo 70000 (Nova) <-> 90000 (Reman)
+        m_bw_prefix = re.match(r"^([79])(0000\d{6})$", clean)
+        if m_bw_prefix:
+            prefix_digit, rest = m_bw_prefix.groups()
+            other_prefix = "9" if prefix_digit == "7" else "7"
+            v = f"{other_prefix}{rest}"
+            if v not in seen:
+                seen.add(v)
+                result.append(v)
+            # Extrai o codigo curto interno de 6 digitos (ex: 70000174060 -> 174060)
+            short_code = rest[4:]
+            if short_code not in seen:
+                seen.add(short_code)
+                result.append(short_code)
+
+        # 3. BorgWarner / Schwitzer: 6 digitos 7xxxxx (Nova) <-> 9xxxxx (Reman)
+        m_bw_6 = re.match(r"^([79])(\d{5})$", clean)
+        if m_bw_6:
+            first_digit, rest5 = m_bw_6.groups()
+            other_first = "9" if first_digit == "7" else "7"
+            v = f"{other_first}{rest5}"
+            if v not in seen:
+                seen.add(v)
+                result.append(v)
+
+        # 4. Garrett: 6 digitos base + tipo [0|5|9] + 3 digitos
+        m_gt = re.match(r"^(\d{6})([059])(\d{3})$", clean)
+        if m_gt:
+            base, type_digit, suffix = m_gt.groups()
+            if base not in seen:
+                seen.add(base)
+                result.append(base)
+            if type_digit == "9":
+                variants = [f"{base}5{suffix}", f"{base}0{suffix}"]
+            else:
+                variants = [f"{base}9{suffix}"]
+            for v in variants:
+                if v not in seen:
+                    seen.add(v)
+                    result.append(v)
+
+    return result
+
+
+def extract_codes_from_name(name: Optional[str], expand_family: bool = True) -> List[str]:
     """
     Extrai codigos canonicos do nome livre de um produto.
 
     Ex.: 'TURBO HOLSET HX55 - 4031195/4044201/3785479RX' -> ['4031195', '4044201', '3785479']
     Modelos curtos (HX55, K16, S400, EURO5) sao ignorados.
+    Se expand_family=True, inclui as variantes de familia (Nova <-> Reman).
     """
     if not name:
         return []
@@ -71,6 +151,8 @@ def extract_codes_from_name(name: Optional[str]) -> List[str]:
         if is_searchable_code(code) and code not in seen:
             seen.add(code)
             result.append(code)
+    if expand_family:
+        return expand_family_codes(result)
     return result
 
 

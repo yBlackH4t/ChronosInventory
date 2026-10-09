@@ -19,7 +19,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
 
 import type { InventoryLocation, Product } from "../../lib/api";
-import { detectBrand } from "../../lib/brands";
+import { detectBrand, detectCondition } from "../../lib/brands";
 import EmptyState from "../ui/EmptyState";
 
 type ProductsListTableProps = {
@@ -155,6 +155,7 @@ export function ProductsListTable({
               const product = rows[virtualRow.index];
               const inStock = product.total_stock > 0;
               const brand = detectBrand(product.nome);
+              const condition = detectCondition(product.nome);
               const links = linkSummary(product);
               const hasLinks =
                 product.linked_count > 0 || !!product.produto_vinculado_id;
@@ -179,6 +180,14 @@ export function ProductsListTable({
                             {brand.label}
                           </Badge>
                         )}
+                        <Badge
+                          size="xs"
+                          color={condition.color}
+                          variant="outline"
+                          style={{ flexShrink: 0 }}
+                        >
+                          {condition.label}
+                        </Badge>
                         <Text
                           fw={600}
                           size="sm"

@@ -62,21 +62,40 @@ class CatalogRepository(BaseRepository):
         - qualquer referencia cruzada do produto de catalogo vinculado.
         Retorna None se o termo nao parece um codigo.
         """
+        from core.catalog.normalization import expand_family_codes
         code = canonical_code(term)
         if len(code) < MIN_CODE_SEARCH_LENGTH or not any(ch.isdigit() for ch in code):
             return None
 
+        expanded_codes = expand_family_codes([code])
         use_prefix = len(code) >= MIN_PREFIX_SEARCH_LENGTH
-        prefix = f"{code}%"
 
-        def match(column: str) -> Tuple[str, List[Any]]:
+        where_parts_codes = []
+        codes_params = []
+        where_parts_cat = []
+        cat_params = []
+        where_parts_ref = []
+        ref_params = []
+
+        for c in expanded_codes:
             if use_prefix:
-                return f"({column} = ? OR {column} LIKE ?)", [code, prefix]
-            return f"{column} = ?", [code]
+                where_parts_codes.append("(pc.numero_norm = ? OR pc.numero_norm LIKE ?)")
+                codes_params.extend([c, f"{c}%"])
+                where_parts_cat.append("(cp.codigo_norm = ? OR cp.codigo_norm LIKE ?)")
+                cat_params.extend([c, f"{c}%"])
+                where_parts_ref.append("(cr.numero_norm = ? OR cr.numero_norm LIKE ?)")
+                ref_params.extend([c, f"{c}%"])
+            else:
+                where_parts_codes.append("pc.numero_norm = ?")
+                codes_params.append(c)
+                where_parts_cat.append("cp.codigo_norm = ?")
+                cat_params.append(c)
+                where_parts_ref.append("cr.numero_norm = ?")
+                ref_params.append(c)
 
-        codes_sql, codes_params = match("pc.numero_norm")
-        cat_sql, cat_params = match("cp.codigo_norm")
-        ref_sql, ref_params = match("cr.numero_norm")
+        codes_sql = " OR ".join(where_parts_codes)
+        cat_sql = " OR ".join(where_parts_cat)
+        ref_sql = " OR ".join(where_parts_ref)
 
         sql = f"""
             {product_alias}.id IN (
