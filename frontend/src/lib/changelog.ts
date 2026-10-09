@@ -10,6 +10,25 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.3.0",
+    "date": "2026-10-09",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Nova interface: visual limpo e profissional em todas as telas, com tema claro e escuro revisados e fonte Inter embutida (funciona offline).",
+      "Novo: Navegação por abas no topo: a barra lateral saiu. As 6 telas do dia a dia viram abas (atalhos Alt+1 a Alt+6) e a administração fica no menu de engrenagem.",
+      "Novo: Busca rápida (Ctrl+K): encontre produtos ou vá direto para qualquer tela.",
+      "Novo: Ficha de catálogo no produto: especificações, referências cruzadas e aplicações, com códigos copiáveis em um clique.",
+      "Novo: Seleção em lote com barra fixa em Etiquetas e Ativação em massa.",
+      "Mudanca: Produtos: tabela mais limpa, com estoque por filial e ações que aparecem ao passar o mouse.",
+      "Mudanca: Dashboard: gráficos com cores acessíveis (Entradas em azul, Saídas em laranja), cada filial com cor fixa e ranking de saídas.",
+      "Mudanca: Movimentações: filtros em uma linha, quantidade com sinal (+/−) e estorno discreto no fim da linha.",
+      "Mudanca: Inventário: nova sessão em janela própria, cards de resumo clicáveis e coluna única de diferença (faltando/sobrando).",
+      "Mudanca: Etiquetas: abas Estoque e Expedição (NF-e) e editor de etiqueta com painel lateral organizado.",
+      "Mudanca: Relatórios, Backup, Comparar estoques, Importar e demais telas administrativas reorganizados no mesmo padrão.",
+      "Mudanca: Vermelho reservado para ações destrutivas e erros reais."
+    ]
+  },
+  {
     "version": "2.2.3",
     "date": "2026-08-17",
     "title": "Melhorias e correcoes",

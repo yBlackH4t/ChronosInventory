@@ -21,6 +21,28 @@ Formato recomendado:
 
 
 
+## [2.3.0] - 2026-10-09
+
+### Added
+- **Nova interface:** visual limpo e profissional em todas as telas, com tema claro e escuro revisados e fonte Inter embutida (funciona offline).
+- **Navegação por abas no topo:** a barra lateral saiu. As 6 telas do dia a dia viram abas (atalhos Alt+1 a Alt+6) e a administração fica no menu de engrenagem.
+- **Busca rápida (Ctrl+K):** encontre produtos ou vá direto para qualquer tela.
+- **Ficha de catálogo no produto:** especificações, referências cruzadas e aplicações, com códigos copiáveis em um clique.
+- Seleção em lote com barra fixa em Etiquetas e Ativação em massa.
+
+### Changed
+- Produtos: tabela mais limpa, com estoque por filial e ações que aparecem ao passar o mouse.
+- Dashboard: gráficos com cores acessíveis (Entradas em azul, Saídas em laranja), cada filial com cor fixa e ranking de saídas.
+- Movimentações: filtros em uma linha, quantidade com sinal (+/−) e estorno discreto no fim da linha.
+- Inventário: nova sessão em janela própria, cards de resumo clicáveis e coluna única de diferença (faltando/sobrando).
+- Etiquetas: abas Estoque e Expedição (NF-e) e editor de etiqueta com painel lateral organizado.
+- Relatórios, Backup, Comparar estoques, Importar e demais telas administrativas reorganizados no mesmo padrão.
+- Vermelho reservado para ações destrutivas e erros reais.
+
+### Fixed
+- Busca rápida levava "Histórico" para uma tela inexistente.
+- Importação com fundos escuros fixos que quebravam o tema claro.
+
 ## [2.2.3] - 2026-08-17
 
 ### Added
