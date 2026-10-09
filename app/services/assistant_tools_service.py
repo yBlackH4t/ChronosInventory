@@ -358,8 +358,10 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
             "(variante nova/remanufaturada do mesmo codigo) ou 'equivalente_catalogo' (outro codigo "
             "que o catalogo diz ser intercambiavel). Tambem devolve as fichas do catalogo com as aplicacoes."
         ),
+        "strict": True,
         "input_schema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "codigo": {"type": "string", "description": "Codigo da peca, ex.: 4031196, 466646-5041S, 53279887116."}
             },
@@ -375,8 +377,10 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
             "usar turbinas diferentes conforme motor e ano: cada ficha vem com as aplicacoes que bateram e "
             "com nossos produtos ligados a ela (com estoque). So encontra produtos ligados a uma ficha do catalogo."
         ),
+        "strict": True,
         "input_schema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
                 "texto": {"type": "string", "description": "Montadora, modelo e/ou motor, ex.: 'scania r 440 dc13'."}
             },
@@ -389,8 +393,10 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
             "Detalhes de um produto nosso pelo id (que vem nas outras buscas): estoque por local, "
             "observacao e todas as fichas do catalogo ligadas a ele, com referencias e aplicacoes."
         ),
+        "strict": True,
         "input_schema": {
             "type": "object",
+            "additionalProperties": False,
             "properties": {"produto_id": {"type": "integer"}},
             "required": ["produto_id"],
         },

@@ -16,6 +16,13 @@ from app.services.inventory_location_service import InventoryLocationService
 from core.database.connection import DatabaseConnection
 
 
+def get_assistant_chat_service():
+    # Import tardio: o SDK da Anthropic so e carregado quando o assistente e usado.
+    from app.services.assistant_chat_service import AssistantChatService
+
+    return AssistantChatService()
+
+
 def get_stock_service() -> StockService:
     return StockService()
 

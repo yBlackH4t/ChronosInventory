@@ -23,6 +23,7 @@ venv/
 *.bak
 *.log
 official_base_config.json
+assistente_config.json
 stock_profiles.json
 backups/
 exports/

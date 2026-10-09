@@ -67,13 +67,14 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente de IA — Fases 0 e 1 prontas; próxima: Fase 2 (`POST /assistente/chat`) | aguardando revisão | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente de IA — Fases 0, 1 e 2 (backend) prontas; próxima: Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
 | Antigravity | `ag/assistente-chat` | Tela "Assistente" (chat com a IA) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
-- **Novo (Fase 2, ainda não implementado no backend):** `POST /assistente/chat`. Contrato
-  combinado abaixo, para o frontend começar com um mock. Plano completo em `docs/PLANO_IA.md`.
+- **Novo (Fase 2, implementado na branch `feature/assistente-ia`):** `POST /assistente/chat`,
+  `GET /assistente/config` e `PUT /assistente/config`. Plano completo em `docs/PLANO_IA.md`;
+  resumo também em `docs/API_DOCS.md`.
 
   Requisição:
   ```json
@@ -115,6 +116,15 @@ npm run lint
   - `503` `assistente_indisponivel` — IA não configurada (sem chave) ou sem internet.
     Mostrar a `message` e um atalho para Configurações.
   - `422` — mensagem vazia ou longa demais (limite: 1000 caracteres).
+  - A resposta pode levar de alguns segundos a mais de 30 s (a IA pode fazer várias buscas).
+    Não usar timeout curto no cliente; usar no mínimo 120 s.
+
+  Configuração da IA:
+  - `GET /assistente/config` →
+    `{ "configurado": bool, "origem_chave": "configuracoes" | "ambiente" | null, "chave_mascarada": "sk-ant-...1234" | null, "modelo": "claude-opus-5-5", "esforco": "medium" }`.
+    A chave nunca volta inteira.
+  - `PUT /assistente/config` com corpo parcial `{ "api_key"?: str, "modelo"?: str, "esforco"?: "low" | "medium" | "high" | "xhigh" | "max" }`
+    → mesma resposta do GET. `"api_key": ""` remove a chave salva.
 
 ## 5. Pedidos entre agentes
 
@@ -134,13 +144,22 @@ npm run lint
   - Tratar `503 assistente_indisponivel` com aviso amigável e atalho para Configurações.
   - Sugestões clicáveis quando o chat está vazio: "Temos turbina 4031196?",
     "Temos turbina do Scania 440?", "Turbina do Volvo FH 460".
-  - **Enquanto o endpoint não existe:** cliente da API em `frontend/src/lib` com um mock
-    ligado por uma flag (ex.: `VITE_ASSISTENTE_MOCK=1`), devolvendo os exemplos acima.
-    Não deixar o mock ligado por padrão.
+  - O endpoint já existe. Um mock ligado por flag (ex.: `VITE_ASSISTENTE_MOCK=1`) continua útil
+    para trabalhar sem chave da API; não deixar ligado por padrão.
   - Seguir os padrões atuais: Mantine, TanStack Query (mutation), tipos em `frontend/src/types`.
   - Verificar com `npm run build` e `npm run lint`; registrar a entrega na seção 6.
-  - Fora do escopo agora: configurações da IA e do WhatsApp (chave da API, QR code, números
-    autorizados). Vão ser pedidas depois, junto com a Fase 3.
+  - Fora do escopo agora: configurações do WhatsApp (QR code, números autorizados), que vêm
+    com a Fase 3.
+
+- [ ] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
+  Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
+  - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
+    ("usando ANTHROPIC_API_KEY deste computador").
+  - Campo de senha para a chave da API, com botões "Salvar" e "Remover". Mostrar só a
+    `chave_mascarada`; nunca preencher o campo com a chave salva.
+  - Modelo (texto, padrão `claude-opus-5-5`) e esforço (select: low, medium, high, xhigh, max),
+    com uma linha explicando que esforço menor responde mais rápido e gasta menos.
+  - O atalho do aviso `503` da tela "Assistente" deve levar para esta seção.
 
 ## 6. Registro de entregas
 
@@ -152,6 +171,21 @@ npm run lint
 - Arquivos principais: `frontend/src/pages/AssistantPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`, `frontend/src/app/router.tsx`, `frontend/src/app/routePreload.ts`, `frontend/src/app/navigation.ts`.
 - Verificações: build ok / lint com erros apenas em arquivos antigos/preexistentes (nada na nova feature).
 - Pendências ou observações para o outro agente: A interface está pronta e utilizando mock com sucesso. Aguardando a Fase 2 no backend para testar integração real.
+
+### 2026-10-09 — Claude Code — Assistente de IA: Fase 2 (backend)
+- Branch: `feature/assistente-ia`
+- O que foi feito: `POST /assistente/chat` com a API da Claude (tool use com as três buscas,
+  prompt com as regras do negócio, fallback em recusas, cache do prompt); `GET`/`PUT
+  /assistente/config` com a chave salva fora do banco; comando `perguntar` em
+  `scripts/assistente_dev.py`.
+- Arquivos principais: `app/services/assistant_chat_service.py`,
+  `app/services/assistant_config_store.py`, `backend/app/api/routers/assistant.py`,
+  `backend/app/schemas/assistant.py`, `backend/tests/test_assistant_chat.py`.
+- Nova dependência: `anthropic==1.13.0` (`backend/requirements.txt`; `--collect-all anthropic`
+  no `build_backend.ps1`).
+- Verificações: pytest ok (108 testes). A API da Claude foi simulada nos testes; ainda não
+  rodou com chave real. O build do executável não foi testado.
+- Para o Antigravity: o endpoint do chat já existe; novo pedido na seção 5 (Configurações).
 
 ### 2026-10-09 — Claude Code — Assistente de IA: Fases 0 e 1
 - Branch: `feature/assistente-ia`
