@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, Card, Stack, Title } from "@mantine/core";
+import { ActionIcon, Button, Menu, Stack } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
 import {
   keepPreviousData,
   useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconPrinter } from "@tabler/icons-react";
+import { IconDots, IconPlus, IconPrinter, IconRestore } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
@@ -14,7 +15,8 @@ import { buildInventorySheetHtml } from "../lib/inventorySheetTemplate";
 import PageHeader from "../components/ui/PageHeader";
 import { InventorySessionsTable } from "../components/inventory/InventorySessionsTable";
 import { InventorySessionDetailSection } from "../components/inventory/InventorySessionDetailSection";
-import { InventoryCreateSessionCard } from "../components/inventory/InventoryCreateSessionCard";
+import { InventoryCreateSessionModal } from "../components/inventory/InventoryCreateSessionCard";
+import Panel from "../components/ui/Panel";
 import { useInventoryModals } from "../components/inventory/useInventoryModals";
 import {
   clearTabState,
@@ -289,6 +291,8 @@ export default function InventoryPage() {
     staleTime: 30_000,
   });
 
+  const [createModalOpened, createModal] = useDisclosure(false);
+
   const createSessionMutation = useMutation<
     SuccessResponse<InventorySessionOut>,
     Error,
@@ -297,6 +301,7 @@ export default function InventoryPage() {
     mutationFn: (payload) => api.inventoryCreateSession(payload),
     onSuccess: (response) => {
       notifySuccess("Sessao de inventario criada");
+      createModal.close();
       setSessionName("");
       setSessionObservacao("");
       setSelectedSessionId(response.data.id);
@@ -848,34 +853,41 @@ export default function InventoryPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Inventario"
-        subtitle="Crie sessoes de contagem, identifique divergencias e aplique ajustes em lote."
+        title="Inventário"
+        subtitle="Sessões de contagem, divergências e ajustes em lote."
         actions={
           <>
-            <Badge variant="light">Filtros ativos: {activeFilterCount}</Badge>
-            <Button
-              variant="subtle"
-              size="xs"
-              onClick={resetCurrentView}
-              disabled={activeFilterCount === 0}
-            >
-              Limpar filtros
-            </Button>
-            <Button variant="subtle" size="xs" onClick={resetInventoryPage}>
-              Resetar visao
-            </Button>
-            <Button
-              leftSection={<IconPrinter size={16} />}
-              variant="light"
-              onClick={printTemplate}
-            >
-              Imprimir folha modelo
+            <Menu position="bottom-end" width={220}>
+              <Menu.Target>
+                <ActionIcon size="lg" variant="default" aria-label="Mais opções">
+                  <IconDots size={18} stroke={1.5} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<IconPrinter size={16} stroke={1.5} />}
+                  onClick={printTemplate}
+                >
+                  Imprimir folha modelo
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconRestore size={16} stroke={1.5} />}
+                  onClick={resetInventoryPage}
+                >
+                  Restaurar visão padrão
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+            <Button leftSection={<IconPlus size={16} />} onClick={createModal.open}>
+              Nova sessão
             </Button>
           </>
         }
       />
 
-      <InventoryCreateSessionCard
+      <InventoryCreateSessionModal
+        opened={createModalOpened}
+        onClose={createModal.close}
         sessionName={sessionName}
         onSessionNameChange={setSessionName}
         sessionLocationId={sessionLocationId}
@@ -887,30 +899,27 @@ export default function InventoryPage() {
         isLoading={createSessionMutation.isPending}
       />
 
-      <Card withBorder>
-        <Stack>
-          <Title order={4}>Sessoes de inventario</Title>
-          <InventorySessionsTable
-            sessions={sessions}
-            selectedSessionId={selectedSessionId}
-            totalItems={sessionsQuery.data?.meta?.total_items ?? 0}
-            page={sessionPage}
-            totalPages={sessionsPages}
-            closePending={closeSessionMutation.isPending}
-            deletePending={deleteSessionMutation.isPending}
-            onSelectSession={(session) => {
-              setSelectedSessionId(session.id);
-              setItemsPage(1);
-              setEdits({});
-              setCollectorInput("");
-              setCollectorLog([]);
-            }}
-            onConfirmClose={confirmCloseSession}
-            onConfirmDelete={confirmDeleteSession}
-            onPageChange={setSessionPage}
-          />
-        </Stack>
-      </Card>
+      <Panel flush title="Sessões" subtitle="Clique em uma sessão para abrir a contagem.">
+        <InventorySessionsTable
+          sessions={sessions}
+          selectedSessionId={selectedSessionId}
+          totalItems={sessionsQuery.data?.meta?.total_items ?? 0}
+          page={sessionPage}
+          totalPages={sessionsPages}
+          closePending={closeSessionMutation.isPending}
+          deletePending={deleteSessionMutation.isPending}
+          onSelectSession={(session) => {
+            setSelectedSessionId(session.id);
+            setItemsPage(1);
+            setEdits({});
+            setCollectorInput("");
+            setCollectorLog([]);
+          }}
+          onConfirmClose={confirmCloseSession}
+          onConfirmDelete={confirmDeleteSession}
+          onPageChange={setSessionPage}
+        />
+      </Panel>
 
       {selectedSession && (
         <InventorySessionDetailSection

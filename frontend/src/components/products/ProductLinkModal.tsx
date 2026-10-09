@@ -142,12 +142,12 @@ export default function ProductLinkModal({
           <Paper p="md" withBorder>
             <Text fw={500} mb="sm">Este produto é um componente de:</Text>
             <Group justify="space-between" align="center">
-              <Badge color="blue" size="lg" variant="light">
+              <Badge color="gray" size="lg" variant="default">
                 #{product.produto_vinculado_id} - {product.produto_vinculado_nome}
               </Badge>
               <Button
                 color="red"
-                variant="light"
+                variant="subtle"
                 size="xs"
                 leftSection={<IconUnlink size={14} />}
                 onClick={handleUnlinkSelf}
@@ -192,7 +192,7 @@ export default function ProductLinkModal({
             ) : linkedProducts.length === 0 ? (
               <Text c="dimmed" size="sm">Nenhum produto listado.</Text>
             ) : (
-              <Table striped highlightOnHover withTableBorder>
+              <Table verticalSpacing="xs">
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>ID</Table.Th>
@@ -207,8 +207,9 @@ export default function ProductLinkModal({
                       <Table.Td>{p.nome}</Table.Td>
                       <Table.Td>
                         <ActionIcon
-                          color="red"
-                          variant="light"
+                          color="gray"
+                          className="action-danger"
+                          aria-label="Remover vínculo"
                           onClick={() => handleUnlinkProduct(p)}
                           loading={saving}
                         >

@@ -1,4 +1,5 @@
-import { Badge, Button, Card, Group, Stack, Text } from "@mantine/core";
+import { Button, Divider, Group, Stack, Text } from "@mantine/core";
+import { IconDownload, IconReportAnalytics, IconTable } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
@@ -42,50 +43,59 @@ export default function ExportPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Exportar produtos"
-        subtitle="Gere uma planilha consolidada para auditoria, analise e envio externo."
+        title="Exportar"
+        subtitle="Planilhas para auditoria, análise e envio externo."
       />
 
-      <Card withBorder>
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600}>Arquivo de saida</Text>
-            <Badge variant="outline" color="gray">
-              Formato XLSX
-            </Badge>
+      <div className="surface-panel" style={{ overflow: "hidden", maxWidth: 860 }}>
+        <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
+          <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 260 }}>
+            <span className="settings-item-icon">
+              <IconTable size={18} stroke={1.5} />
+            </span>
+            <div>
+              <Text size="sm" fw={600}>
+                Produtos e estoques
+              </Text>
+              <Text size="xs" c="dimmed">
+                Todos os produtos com o estoque atual de cada filial. Formato bruto, bom para reimportar ou cruzar dados.
+              </Text>
+            </div>
           </Group>
-          <Text>
-            Gera um arquivo XLSX com todos os produtos e seus estoques atuais.
-          </Text>
           <Button
+            variant="default"
+            leftSection={<IconDownload size={16} stroke={1.5} />}
             onClick={() => exportMutation.mutate()}
             loading={exportMutation.isPending}
           >
-            Exportar XLSX
+            Baixar XLSX
           </Button>
-        </Stack>
-      </Card>
-
-      <Card withBorder>
-        <Stack gap="md">
-          <Group justify="space-between">
-            <Text fw={600}>Resumo visual de estoque</Text>
-            <Badge variant="outline" color="grape">
-              XLSX formatado
-            </Badge>
+        </Group>
+        <Divider color="var(--border)" />
+        <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
+          <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 260 }}>
+            <span className="settings-item-icon">
+              <IconReportAnalytics size={18} stroke={1.5} />
+            </span>
+            <div>
+              <Text size="sm" fw={600}>
+                Resumo de estoque formatado
+              </Text>
+              <Text size="xs" c="dimmed">
+                Planilha apresentável com aba de resumo, totais por filial, total global de peças e a lista completa.
+              </Text>
+            </div>
           </Group>
-          <Text>
-            Gera uma planilha mais apresentável, com aba de resumo, totais por
-            local, total global de peças e a listagem completa dos itens.
-          </Text>
           <Button
+            variant="default"
+            leftSection={<IconDownload size={16} stroke={1.5} />}
             onClick={() => stockOverviewMutation.mutate()}
             loading={stockOverviewMutation.isPending}
           >
-            Exportar resumo formatado
+            Baixar XLSX
           </Button>
-        </Stack>
-      </Card>
+        </Group>
+      </div>
     </Stack>
   );
 }

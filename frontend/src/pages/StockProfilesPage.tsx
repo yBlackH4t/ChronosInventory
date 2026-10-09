@@ -1,23 +1,24 @@
 import { useState } from "react";
 import {
-  Badge,
+  ActionIcon,
   Button,
-  Card,
   Group,
   Loader,
+  Modal,
   Stack,
   Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
-import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import Panel from "../components/ui/Panel";
+import StatusDot, { KeyValue } from "../components/ui/StatusDot";
 import type {
   ApiError,
   StockProfileActivateOut,
@@ -42,6 +43,8 @@ export default function StockProfilesPage() {
     staleTime: 30_000,
   });
 
+  const [createModalOpened, createModal] = useDisclosure(false);
+
   const createMutation = useMutation<
     SuccessResponse<StockProfileOut>,
     Error,
@@ -49,6 +52,7 @@ export default function StockProfilesPage() {
   >({
     mutationFn: (payload) => api.createStockProfile(payload),
     onSuccess: () => {
+      createModal.close();
       notifySuccess("Novo estoque criado.");
       setNameInput("");
       setIdInput("");
@@ -180,151 +184,158 @@ export default function StockProfilesPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Estoques"
-        subtitle="Gerencie multiplas bases locais (um banco por estoque) e troque o ativo com reinicio seguro."
+        title="Perfis de estoque"
+        subtitle="Bases de dados independentes (um banco por perfil). Trocar o perfil ativo exige reiniciar."
+        actions={
+          <Button leftSection={<IconPlus size={16} />} onClick={createModal.open}>
+            Novo perfil
+          </Button>
+        }
       />
 
-      <Card withBorder>
-        <Stack gap="sm">
-          <Title order={4}>Estoque ativo</Title>
-          {profilesQuery.isLoading ? (
-            <Loader size="sm" />
-          ) : profilesLoadError ? (
-            <EmptyState
-              message={profilesLoadError}
-              actionLabel="Tentar novamente"
-              onAction={() => void profilesQuery.refetch()}
-            />
+      <Panel
+        title="Perfil ativo"
+        actions={
+          state?.restart_required ? (
+            <StatusDot tone="warning">Reinício pendente</StatusDot>
           ) : (
-            <>
-              <Text size="sm">
-                <b>{state?.active_profile_name || "Principal"}</b> (
-                {state?.active_profile_id || "default"})
-              </Text>
-              <Text size="sm" c="dimmed">
-                Banco atual: {state?.current_database_path || "-"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Pasta raiz: {state?.root_directory || "-"}
-              </Text>
-              {state?.restart_required && (
-                <Badge color="orange" variant="light">
-                  Reinicio pendente para aplicar estoque ativo
-                </Badge>
-              )}
-            </>
-          )}
-        </Stack>
-      </Card>
-
-      <FilterToolbar>
-        <Group align="end" wrap="wrap">
-          <TextInput
-            label="Nome do novo estoque"
-            placeholder="Ex: Filial Maringa"
-            value={nameInput}
-            onChange={(event) => setNameInput(event.currentTarget.value)}
-            w={320}
+            <StatusDot tone="success">Em uso</StatusDot>
+          )
+        }
+      >
+        {profilesQuery.isLoading ? (
+          <Loader size="sm" />
+        ) : profilesLoadError ? (
+          <EmptyState
+            message="Falha ao carregar perfis"
+            description={profilesLoadError}
+            actionLabel="Tentar novamente"
+            onAction={() => void profilesQuery.refetch()}
           />
-          <TextInput
-            label="ID (opcional)"
-            placeholder="Ex: maringa"
-            value={idInput}
-            onChange={(event) => setIdInput(event.currentTarget.value)}
-            w={220}
-          />
-          <Button onClick={createProfile} loading={createMutation.isPending}>
-            Criar estoque
-          </Button>
-        </Group>
-      </FilterToolbar>
-
-      <Card withBorder>
-        <Stack>
-          <Title order={4}>Perfis cadastrados</Title>
-          {profilesQuery.isLoading ? (
-            <Loader size="sm" />
-          ) : profilesLoadError ? (
-            <EmptyState
-              message={profilesLoadError}
-              actionLabel="Tentar novamente"
-              onAction={() => void profilesQuery.refetch()}
+        ) : (
+          <Stack gap={0}>
+            <KeyValue
+              label="Perfil"
+              value={`${state?.active_profile_name || "Principal"} (${state?.active_profile_id || "default"})`}
             />
-          ) : (
-            <DataTable minWidth={980}>
-              <Table striped highlightOnHover withTableBorder>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Nome</Table.Th>
-                    <Table.Th>ID</Table.Th>
-                    <Table.Th>Banco</Table.Th>
-                    <Table.Th>Pasta</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th>Acoes</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {profiles.map((profile) => (
-                    <Table.Tr key={profile.id}>
-                      <Table.Td>{profile.name}</Table.Td>
-                      <Table.Td>{profile.id}</Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={profile.db_exists ? "green" : "orange"}
-                          variant="light"
-                        >
-                          {profile.db_exists ? "Criado" : "Ainda vazio"}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>{profile.path}</Table.Td>
-                      <Table.Td>
-                        <Badge
-                          color={profile.is_active ? "blue" : "gray"}
-                          variant="light"
-                        >
-                          {profile.is_active ? "ATIVO" : "INATIVO"}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs">
+            <KeyValue label="Banco atual" value={state?.current_database_path || "—"} mono />
+            <KeyValue label="Pasta raiz" value={state?.root_directory || "—"} mono />
+          </Stack>
+        )}
+      </Panel>
+
+      <Panel flush title="Perfis cadastrados">
+        {profilesQuery.isLoading ? (
+          <Group justify="center" p="xl">
+            <Loader size="sm" />
+          </Group>
+        ) : profilesLoadError ? null : (
+          <Table.ScrollContainer minWidth={760}>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Perfil</Table.Th>
+                  <Table.Th w={140}>Banco</Table.Th>
+                  <Table.Th w={130}>Status</Table.Th>
+                  <Table.Th w={170} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {profiles.map((profile) => (
+                  <Table.Tr
+                    key={profile.id}
+                    className={profile.is_active ? "row-selected" : undefined}
+                  >
+                    <Table.Td>
+                      <Text size="sm" fw={500}>
+                        {profile.name}
+                      </Text>
+                      <Text size="xs" c="dimmed" className="mono" truncate="end" title={profile.path}>
+                        {profile.id} · {profile.path}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <StatusDot tone={profile.db_exists ? "success" : "neutral"}>
+                        {profile.db_exists ? "Criado" : "Vazio"}
+                      </StatusDot>
+                    </Table.Td>
+                    <Table.Td>
+                      <StatusDot tone={profile.is_active ? "info" : "neutral"}>
+                        {profile.is_active ? "Ativo" : "Inativo"}
+                      </StatusDot>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={4} justify="flex-end" wrap="nowrap">
+                        {!profile.is_active && (
                           <Button
                             size="xs"
-                            variant={profile.is_active ? "default" : "light"}
-                            disabled={profile.is_active}
+                            variant="default"
                             loading={activateMutation.isPending}
                             onClick={() => activateMutation.mutate(profile.id)}
                           >
-                            {profile.is_active ? "Em uso" : "Ativar"}
+                            Ativar
                           </Button>
-                          <Button
-                            size="xs"
-                            color="red"
-                            variant="light"
-                            disabled={
-                              profile.is_active || profile.id === "default"
-                            }
-                            loading={deleteMutation.isPending}
-                            onClick={() => confirmDeleteProfile(profile)}
-                          >
-                            Remover
-                          </Button>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                  {profiles.length === 0 && (
-                    <Table.Tr>
-                      <Table.Td colSpan={6}>
-                        <EmptyState message="Nenhum estoque encontrado." />
-                      </Table.Td>
-                    </Table.Tr>
-                  )}
-                </Table.Tbody>
-              </Table>
-            </DataTable>
-          )}
-        </Stack>
-      </Card>
+                        )}
+                        <ActionIcon
+                          color="gray"
+                          className="action-danger"
+                          aria-label="Remover perfil"
+                          disabled={profile.is_active || profile.id === "default"}
+                          loading={deleteMutation.isPending}
+                          onClick={() => confirmDeleteProfile(profile)}
+                        >
+                          <IconTrash size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+                {profiles.length === 0 && (
+                  <Table.Tr>
+                    <Table.Td colSpan={4} style={{ borderBottom: 0 }}>
+                      <EmptyState message="Nenhum perfil encontrado" />
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
+      </Panel>
+
+      <Modal opened={createModalOpened} onClose={createModal.close} title="Novo perfil de estoque">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            createProfile();
+          }}
+        >
+          <Stack gap="sm">
+            <TextInput
+              label="Nome"
+              placeholder="Ex: Filial Maringá"
+              value={nameInput}
+              onChange={(event) => setNameInput(event.currentTarget.value)}
+              data-autofocus
+            />
+            <TextInput
+              label="ID"
+              description="Opcional. Usado no nome da pasta do banco."
+              placeholder="Ex: maringa"
+              value={idInput}
+              onChange={(event) => setIdInput(event.currentTarget.value)}
+            />
+            <Group justify="flex-end" mt="sm">
+              <Button variant="default" onClick={createModal.close}>
+                Cancelar
+              </Button>
+              <Button type="submit" loading={createMutation.isPending}>
+                Criar perfil
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
     </Stack>
   );
 }

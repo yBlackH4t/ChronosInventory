@@ -6,31 +6,46 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  Alert,
-  Badge,
+  Accordion,
+  ActionIcon,
   Button,
   Card,
   Checkbox,
-  Divider,
   FileButton,
   Group,
+  Kbd,
+  Menu,
   NumberInput,
+  SegmentedControl,
   Select,
+  SimpleGrid,
   Stack,
-  Table,
   Text,
   TextInput,
+  Tooltip,
 } from "@mantine/core";
 import {
+  IconBold,
   IconDownload,
   IconFileImport,
-  IconPlus,
+  IconFileTypeXml,
+  IconKeyboard,
+  IconLayoutAlignBottom,
+  IconLayoutAlignCenter,
+  IconLayoutAlignLeft,
+  IconLayoutAlignMiddle,
+  IconLayoutAlignRight,
+  IconLayoutAlignTop,
+  IconPhoto,
   IconPrinter,
+  IconRestore,
+  IconTemplate,
   IconTrash,
+  IconTypography,
+  IconVariable,
 } from "@tabler/icons-react";
 
 import EmptyState from "../ui/EmptyState";
-import FilterToolbar from "../ui/FilterToolbar";
 import {
   buildShippingLabelsDesignerPrintHtml,
   DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT,
@@ -720,167 +735,171 @@ export default function NfeLabelDesignerPanel() {
     }
   };
 
+  const labelCount = nfeData
+    ? Math.max(1, Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT))
+    : 0;
+  const alignButtons: {
+    key: "left" | "center" | "right" | "top" | "middle" | "bottom";
+    label: string;
+    icon: typeof IconLayoutAlignLeft;
+  }[] = [
+    { key: "left", label: "Alinhar à esquerda", icon: IconLayoutAlignLeft },
+    { key: "center", label: "Centralizar na horizontal", icon: IconLayoutAlignCenter },
+    { key: "right", label: "Alinhar à direita", icon: IconLayoutAlignRight },
+    { key: "top", label: "Alinhar ao topo", icon: IconLayoutAlignTop },
+    { key: "middle", label: "Centralizar na vertical", icon: IconLayoutAlignMiddle },
+    { key: "bottom", label: "Alinhar à base", icon: IconLayoutAlignBottom },
+  ];
+
   return (
     <Stack gap="md">
-      <FilterToolbar>
-        <Stack gap="sm">
-          <Group align="center" wrap="wrap">
+      {/* Barra do documento: XML carregado, layout e impressão */}
+      <div className="surface-panel" style={{ padding: "12px 16px" }}>
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+            <span className="settings-item-icon">
+              <IconFileTypeXml size={18} stroke={1.5} />
+            </span>
+            {nfeData ? (
+              <div style={{ minWidth: 0 }}>
+                <Text size="sm" fw={600} truncate="end">
+                  {nfeFileName || "NF-e carregada"}
+                </Text>
+                <Text size="xs" c="dimmed" truncate="end">
+                  NF {nfeData.numeroNota} · {nfeData.cliente} · {labelCount}{" "}
+                  {labelCount === 1 ? "etiqueta" : "etiquetas"}
+                </Text>
+              </div>
+            ) : (
+              <div>
+                <Text size="sm" fw={600}>
+                  Nenhum XML carregado
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {importedLayoutName
+                    ? `Layout: ${importedLayoutName}`
+                    : "Layout salvo automaticamente neste computador"}
+                </Text>
+              </div>
+            )}
+          </Group>
+
+          <Group gap="xs">
             <FileButton
               onChange={(file) => void handleXmlSelect(file)}
               accept=".xml,text/xml,application/xml"
             >
               {(props) => (
-                <Button {...props} leftSection={<IconFileImport size={16} />}>
-                  1. Selecionar XML da NF-e
+                <Button
+                  {...props}
+                  variant={nfeData ? "default" : "filled"}
+                  leftSection={<IconFileImport size={16} stroke={1.5} />}
+                >
+                  {nfeData ? "Trocar XML" : "Selecionar XML da NF-e"}
                 </Button>
               )}
             </FileButton>
-            <Button
-              variant="light"
-              color="gray"
-              leftSection={<IconTrash size={16} />}
-              onClick={clearXml}
-              disabled={!nfeData}
-            >
-              Limpar XML
-            </Button>
-            <Badge variant="light">XML: {nfeFileName || "nenhum"}</Badge>
-            <Badge variant="light">
-              Etiquetas:{" "}
-              {nfeData
-                ? Math.max(
-                    1,
-                    Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT),
-                  )
-                : 0}
-            </Badge>
+            {nfeData && (
+              <Tooltip label="Remover XML">
+                <ActionIcon
+                  size="lg"
+                  variant="default"
+                  className="action-danger"
+                  aria-label="Remover XML"
+                  onClick={clearXml}
+                >
+                  <IconTrash size={16} stroke={1.5} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+            <Menu position="bottom-end" width={220} keepMounted>
+              <Menu.Target>
+                <Button
+                  variant="default"
+                  leftSection={<IconTemplate size={16} stroke={1.5} />}
+                >
+                  Layout
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <FileButton
+                  onChange={(file) => void importLayout(file)}
+                  accept=".json,application/json,text/json"
+                >
+                  {(props) => (
+                    <Menu.Item
+                      {...props}
+                      leftSection={<IconFileImport size={16} stroke={1.5} />}
+                    >
+                      Importar layout
+                    </Menu.Item>
+                  )}
+                </FileButton>
+                <Menu.Item
+                  leftSection={<IconDownload size={16} stroke={1.5} />}
+                  onClick={exportLayout}
+                >
+                  Exportar layout
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  leftSection={<IconRestore size={16} stroke={1.5} />}
+                  onClick={resetLayout}
+                >
+                  Restaurar layout padrão
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
             <Button
               leftSection={<IconPrinter size={16} />}
               onClick={runPrint}
               loading={printing}
               disabled={!nfeData}
             >
-              3. Gerar etiquetas
+              Imprimir{labelCount > 0 ? ` ${labelCount}` : ""}
             </Button>
           </Group>
+        </Group>
+      </div>
 
-          <Group align="center" wrap="wrap">
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={addTextItem}
-              variant="light"
-            >
-              Texto livre
-            </Button>
-            <Select
-              data={SHIPPING_LABEL_FIELD_TOKEN_OPTIONS}
-              value={tokenToAdd}
-              onChange={(value) =>
-                setTokenToAdd((value as ShippingLabelFieldToken) || "cliente")
-              }
-              w={220}
-            />
-            <Button
-              leftSection={<IconPlus size={16} />}
-              onClick={addTokenItem}
-              variant="light"
-            >
-              Campo dinamico
-            </Button>
-            <FileButton
-              onChange={(file) => void addImageItem(file)}
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
-            >
-              {(props) => (
-                <Button
-                  {...props}
-                  variant="light"
-                  leftSection={<IconPlus size={16} />}
-                >
-                  Adicionar imagem
-                </Button>
-              )}
-            </FileButton>
-            <FileButton
-              onChange={(file) => void importLayout(file)}
-              accept=".json,application/json,text/json"
-            >
-              {(props) => (
-                <Button
-                  {...props}
-                  variant="light"
-                  leftSection={<IconFileImport size={16} />}
-                >
-                  Importar layout
-                </Button>
-              )}
-            </FileButton>
-            <Button
-              variant="light"
-              leftSection={<IconDownload size={16} />}
-              onClick={exportLayout}
-            >
-              Exportar layout
-            </Button>
-            <Button variant="subtle" color="gray" onClick={resetLayout}>
-              Resetar layout
-            </Button>
-          </Group>
-
-          <Alert
-            variant="light"
-            color="blue"
-            title="2. Monte a etiqueta no canvas"
-          >
-            Arraste para mover. Puxe o canto inferior direito para
-            redimensionar. Use Del para excluir. Setas movem o bloco. Shift +
-            setas move mais rapido. Ctrl + Shift + L/C/R/T/M/B alinha o bloco no
-            canvas.
-          </Alert>
-
-          {importedLayoutName ? (
-            <Badge variant="light">
-              Layout importado: {importedLayoutName}
-            </Badge>
-          ) : (
-            <Badge variant="light">
-              Layout salvo automaticamente neste computador
-            </Badge>
-          )}
-        </Stack>
-      </FilterToolbar>
       {!nfeData ? (
-        <Card withBorder>
-          <EmptyState message="Selecione um XML da NF-e para editar e gerar etiquetas." />
+        <Card>
+          <EmptyState
+            icon={<IconFileTypeXml size={22} stroke={1.5} />}
+            message="Carregue o XML da NF-e"
+            description="Os dados do cliente, transportadora e volumes preenchem a etiqueta automaticamente. Depois é só ajustar o layout e imprimir."
+          />
         </Card>
       ) : (
-        <Group align="start" wrap="wrap">
-          <Card withBorder p="md" style={{ flex: 1, minWidth: 760 }}>
-            <Stack gap="xs">
-              <Group justify="space-between" wrap="wrap">
-                <div>
-                  <Text fw={600}>Editor visual</Text>
-                  <Text size="xs" c="dimmed">
-                    Selecione um bloco, mova com o mouse e redimensione pela
-                    alca no canto.
-                  </Text>
-                </div>
-                <Badge variant="light">Grade de {GRID_SIZE}px</Badge>
-              </Group>
+        <Group align="flex-start" wrap="wrap" gap="md">
+          {/* Canvas */}
+          <Stack gap="xs" style={{ flex: 1, minWidth: 560 }}>
+            <div
+              className="surface-panel"
+              style={{
+                padding: 24,
+                display: "flex",
+                justifyContent: "center",
+                background: "var(--surface-2)",
+                overflow: "auto",
+              }}
+            >
               <div
                 style={{
                   width: layout.widthPx,
                   maxWidth: "100%",
                   height: layout.heightPx,
                   border: layout.showBorder
-                    ? "1px solid #868e96"
-                    : "1px dashed #adb5bd",
-                  borderRadius: 8,
+                    ? "1px solid #64748b"
+                    : "1px dashed #cbd5e1",
+                  borderRadius: 6,
                   position: "relative",
                   overflow: "hidden",
+                  color: "#0f172a",
                   backgroundColor: "#fff",
+                  boxShadow: "0 1px 3px rgba(15, 23, 42, 0.12)",
                   backgroundImage:
-                    "linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px)",
+                    "linear-gradient(to right, rgba(15,23,42,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,42,0.04) 1px, transparent 1px)",
                   backgroundSize: `${GRID_SIZE * 4}px ${GRID_SIZE * 4}px`,
                 }}
                 onPointerDown={(event) => {
@@ -922,7 +941,7 @@ export default function NfeLabelDesignerPanel() {
                         overflow: item.kind === "image" ? "hidden" : "visible",
                         lineHeight: 1.05,
                         border: isSelected
-                          ? "1px solid #228be6"
+                          ? "1px solid #4f46e5"
                           : "1px dashed transparent",
                         borderRadius: 4,
                         cursor: isActive
@@ -932,11 +951,8 @@ export default function NfeLabelDesignerPanel() {
                           : "grab",
                         userSelect: "none",
                         backgroundColor: isSelected
-                          ? "rgba(34,139,230,0.06)"
+                          ? "rgba(79,70,229,0.06)"
                           : "transparent",
-                        boxShadow: isSelected
-                          ? "0 0 0 1px rgba(34,139,230,0.08) inset"
-                          : "none",
                       }}
                     >
                       {item.kind === "image" ? (
@@ -960,7 +976,7 @@ export default function NfeLabelDesignerPanel() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              color: "#6b7280",
+                              color: "#64748b",
                               border: "1px dashed #cbd5e1",
                               pointerEvents: "none",
                             }}
@@ -990,12 +1006,12 @@ export default function NfeLabelDesignerPanel() {
                           }
                           style={{
                             position: "absolute",
-                            right: 0,
-                            bottom: 0,
-                            width: 12,
-                            height: 12,
-                            background: "#228be6",
-                            borderTopLeftRadius: 4,
+                            right: -1,
+                            bottom: -1,
+                            width: 10,
+                            height: 10,
+                            background: "#4f46e5",
+                            borderRadius: 2,
                             cursor: "nwse-resize",
                           }}
                         />
@@ -1004,413 +1020,462 @@ export default function NfeLabelDesignerPanel() {
                   );
                 })}
               </div>
-            </Stack>
-          </Card>
+            </div>
+            <Group gap={6} wrap="wrap">
+              <IconKeyboard size={14} stroke={1.5} color="var(--text-subtle)" />
+              <Text size="xs" c="dimmed">
+                Arraste para mover · canto inferior direito redimensiona ·{" "}
+                <Kbd size="xs">Del</Kbd> exclui · <Kbd size="xs">Setas</Kbd> movem
+                (<Kbd size="xs">Shift</Kbd> mais rápido) ·{" "}
+                <Kbd size="xs">Ctrl Shift L/C/R/T/M/B</Kbd> alinha
+              </Text>
+            </Group>
+          </Stack>
 
-          <Card withBorder p="md" style={{ width: 380, maxWidth: "100%" }}>
-            <Stack gap="sm">
-              <Text fw={600}>Propriedades e alinhamento</Text>
-
-              <TextInput
-                label="Nome do layout"
-                value={layout.name}
-                onChange={(event) =>
-                  setLayout((current) => ({
-                    ...current,
-                    name: event.currentTarget.value,
-                  }))
-                }
-              />
-              <Group grow>
-                <NumberInput
-                  label="Largura canvas"
-                  value={layout.widthPx}
-                  min={300}
-                  max={2200}
-                  onChange={(value) =>
-                    setLayout((current) => ({
-                      ...current,
-                      widthPx: clamp(
-                        Number(value || current.widthPx),
-                        300,
-                        2200,
-                      ),
-                    }))
-                  }
-                />
-                <NumberInput
-                  label="Altura canvas"
-                  value={layout.heightPx}
-                  min={120}
-                  max={2200}
-                  onChange={(value) =>
-                    setLayout((current) => ({
-                      ...current,
-                      heightPx: clamp(
-                        Number(value || current.heightPx),
-                        120,
-                        2200,
-                      ),
-                    }))
-                  }
-                />
-              </Group>
-              <TextInput
-                label="Fonte atual"
-                value={layout.fontFamily}
-                readOnly
-              />
-              <Select
-                label="Trocar fonte"
-                data={fontOptions.map((font) => ({ value: font, label: font }))}
-                value={layout.fontFamily}
-                searchable
-                nothingFoundMessage="Nenhuma fonte encontrada"
-                onChange={(value) => {
-                  if (!value) return;
-                  setLayout((current) => ({ ...current, fontFamily: value }));
-                }}
-              />
-              <Checkbox
-                label="Mostrar borda da etiqueta"
-                checked={layout.showBorder}
-                onChange={(event) =>
-                  setLayout((current) => ({
-                    ...current,
-                    showBorder: event.currentTarget.checked,
-                  }))
-                }
-              />
-
-              <Divider />
-
-              {!selectedItem ? (
-                <Text size="sm" c="dimmed">
-                  Selecione um bloco no canvas para editar, alinhar ou excluir.
-                </Text>
-              ) : (
-                <Stack gap="xs">
-                  <Badge variant="light">
-                    Selecionado:{" "}
-                    {selectedItem.kind === "image" ? "Imagem" : selectedItem.id}
-                  </Badge>
-
-                  <Group grow>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => alignSelectedItem("left")}
-                    >
-                      Esq
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => alignSelectedItem("center")}
-                    >
-                      Centro
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => alignSelectedItem("right")}
-                    >
-                      Dir
-                    </Button>
-                  </Group>
-                  <Group grow>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => alignSelectedItem("top")}
-                    >
-                      Topo
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => alignSelectedItem("middle")}
-                    >
-                      Meio
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="light"
-                      onClick={() => alignSelectedItem("bottom")}
-                    >
-                      Base
-                    </Button>
-                  </Group>
-
-                  <Select
-                    label="Tipo"
-                    data={[
-                      { value: "text", label: "Texto livre" },
-                      { value: "token", label: "Campo dinamico" },
-                      { value: "image", label: "Imagem" },
-                    ]}
-                    value={selectedItem.kind}
-                    onChange={(value) => {
-                      const nextKind =
-                        (value as ShippingLabelDesignerItem["kind"]) || "text";
-                      updateItem(selectedItem.id, {
-                        kind: nextKind,
-                        token:
-                          nextKind === "token"
-                            ? selectedItem.token || "cliente"
-                            : undefined,
-                        src:
-                          nextKind === "image" ? selectedItem.src : undefined,
-                        width:
-                          nextKind === "image"
-                            ? Math.max(selectedItem.width, 120)
-                            : selectedItem.width,
-                        height:
-                          nextKind === "image"
-                            ? Math.max(selectedItem.height, 60)
-                            : selectedItem.height,
-                      });
-                    }}
-                  />
-
-                  {selectedItem.kind === "image" ? (
-                    <>
-                      <TextInput
-                        label="Nome interno"
-                        value={selectedItem.text}
-                        onChange={(event) =>
-                          updateItem(selectedItem.id, {
-                            text: event.currentTarget.value,
-                          })
-                        }
-                      />
+          {/* Inspetor */}
+          <div className="surface-panel" style={{ width: 340, maxWidth: "100%", overflow: "hidden" }}>
+            <Accordion
+              multiple
+              defaultValue={["inserir", "bloco"]}
+              chevronPosition="right"
+              styles={{
+                item: { borderColor: "var(--border)" },
+                label: { fontSize: 13, fontWeight: 600 },
+              }}
+            >
+              <Accordion.Item value="inserir">
+                <Accordion.Control>Inserir</Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="xs">
+                    <Group grow gap="xs">
+                      <Button
+                        variant="default"
+                        size="xs"
+                        leftSection={<IconTypography size={14} stroke={1.5} />}
+                        onClick={addTextItem}
+                      >
+                        Texto
+                      </Button>
                       <FileButton
-                        onChange={(file) => void replaceSelectedImage(file)}
+                        onChange={(file) => void addImageItem(file)}
                         accept="image/png,image/jpeg,image/webp,image/svg+xml"
                       >
                         {(props) => (
                           <Button
                             {...props}
-                            variant="light"
-                            leftSection={<IconFileImport size={16} />}
+                            variant="default"
+                            size="xs"
+                            leftSection={<IconPhoto size={14} stroke={1.5} />}
                           >
-                            Trocar imagem
+                            Imagem
                           </Button>
                         )}
                       </FileButton>
+                    </Group>
+                    <Group gap="xs" wrap="nowrap">
                       <Select
-                        label="Ajuste da imagem"
-                        data={[
-                          { value: "contain", label: "Manter inteira" },
-                          { value: "cover", label: "Preencher cortando" },
-                          { value: "fill", label: "Esticar" },
-                        ]}
-                        value={selectedItem.objectFit}
+                        size="xs"
+                        aria-label="Campo dinâmico"
+                        data={SHIPPING_LABEL_FIELD_TOKEN_OPTIONS}
+                        value={tokenToAdd}
                         onChange={(value) =>
-                          updateItem(selectedItem.id, {
-                            objectFit:
-                              (value as ShippingLabelDesignerItem["objectFit"]) ||
-                              "contain",
-                          })
+                          setTokenToAdd((value as ShippingLabelFieldToken) || "cliente")
                         }
+                        style={{ flex: 1 }}
                       />
-                    </>
-                  ) : (
-                    <>
-                      <TextInput
-                        label={
-                          selectedItem.kind === "token"
-                            ? "Prefixo (ex.: CLIENTE:)"
-                            : "Texto"
-                        }
-                        value={selectedItem.text}
-                        onChange={(event) =>
-                          updateItem(selectedItem.id, {
-                            text: event.currentTarget.value,
-                          })
-                        }
-                      />
-                      {selectedItem.kind === "token" && (
-                        <Select
-                          label="Campo"
-                          data={SHIPPING_LABEL_FIELD_TOKEN_OPTIONS}
-                          value={selectedItem.token || "cliente"}
-                          onChange={(value) =>
-                            updateItem(selectedItem.id, {
-                              token:
-                                (value as ShippingLabelFieldToken) || "cliente",
-                            })
-                          }
-                        />
-                      )}
-                      <Button variant="light" onClick={autoFitSelectedText}>
-                        Ajustar altura ao texto
+                      <Button
+                        variant="default"
+                        size="xs"
+                        leftSection={<IconVariable size={14} stroke={1.5} />}
+                        onClick={addTokenItem}
+                      >
+                        Campo
                       </Button>
-                    </>
-                  )}
-                  <Group grow>
-                    <NumberInput
-                      label="X"
-                      value={selectedItem.x}
-                      min={0}
-                      max={Math.max(0, layout.widthPx - selectedItem.width)}
-                      onChange={(value) =>
-                        updateItem(selectedItem.id, {
-                          x: clamp(
-                            Number(value || selectedItem.x),
-                            0,
-                            Math.max(0, layout.widthPx - selectedItem.width),
-                          ),
-                        })
-                      }
-                    />
-                    <NumberInput
-                      label="Y"
-                      value={selectedItem.y}
-                      min={0}
-                      max={Math.max(0, layout.heightPx - selectedItem.height)}
-                      onChange={(value) =>
-                        updateItem(selectedItem.id, {
-                          y: clamp(
-                            Number(value || selectedItem.y),
-                            0,
-                            Math.max(0, layout.heightPx - selectedItem.height),
-                          ),
-                        })
-                      }
-                    />
-                  </Group>
-                  <Group grow>
-                    <NumberInput
-                      label="Largura"
-                      value={selectedItem.width}
-                      min={40}
-                      max={layout.widthPx}
-                      onChange={(value) =>
-                        updateItem(selectedItem.id, {
-                          width: clamp(
-                            Number(value || selectedItem.width),
-                            40,
-                            layout.widthPx,
-                          ),
-                        })
-                      }
-                    />
-                    <NumberInput
-                      label="Altura"
-                      value={selectedItem.height}
-                      min={18}
-                      max={layout.heightPx}
-                      onChange={(value) =>
-                        updateItem(selectedItem.id, {
-                          height: clamp(
-                            Number(value || selectedItem.height),
-                            18,
-                            layout.heightPx,
-                          ),
-                        })
-                      }
-                    />
-                  </Group>
+                    </Group>
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
 
-                  {selectedItem.kind !== "image" && (
-                    <>
-                      <Group grow>
+              <Accordion.Item value="bloco">
+                <Accordion.Control>Bloco selecionado</Accordion.Control>
+                <Accordion.Panel>
+                  {!selectedItem ? (
+                    <Text size="xs" c="dimmed">
+                      Clique em um bloco no canvas para editar, alinhar ou excluir.
+                    </Text>
+                  ) : (
+                    <Stack gap="xs">
+                      <Group gap={4} justify="space-between" wrap="nowrap">
+                        {alignButtons.map((button) => (
+                          <Tooltip key={button.key} label={button.label}>
+                            <ActionIcon
+                              variant="default"
+                              size="md"
+                              aria-label={button.label}
+                              onClick={() => alignSelectedItem(button.key)}
+                            >
+                              <button.icon size={16} stroke={1.5} />
+                            </ActionIcon>
+                          </Tooltip>
+                        ))}
+                      </Group>
+
+                      <Select
+                        size="xs"
+                        label="Tipo"
+                        data={[
+                          { value: "text", label: "Texto livre" },
+                          { value: "token", label: "Campo dinâmico" },
+                          { value: "image", label: "Imagem" },
+                        ]}
+                        value={selectedItem.kind}
+                        allowDeselect={false}
+                        onChange={(value) => {
+                          const nextKind =
+                            (value as ShippingLabelDesignerItem["kind"]) || "text";
+                          updateItem(selectedItem.id, {
+                            kind: nextKind,
+                            token:
+                              nextKind === "token"
+                                ? selectedItem.token || "cliente"
+                                : undefined,
+                            src:
+                              nextKind === "image" ? selectedItem.src : undefined,
+                            width:
+                              nextKind === "image"
+                                ? Math.max(selectedItem.width, 120)
+                                : selectedItem.width,
+                            height:
+                              nextKind === "image"
+                                ? Math.max(selectedItem.height, 60)
+                                : selectedItem.height,
+                          });
+                        }}
+                      />
+
+                      {selectedItem.kind === "image" ? (
+                        <>
+                          <TextInput
+                            size="xs"
+                            label="Nome interno"
+                            value={selectedItem.text}
+                            onChange={(event) =>
+                              updateItem(selectedItem.id, {
+                                text: event.currentTarget.value,
+                              })
+                            }
+                          />
+                          <Select
+                            size="xs"
+                            label="Ajuste da imagem"
+                            data={[
+                              { value: "contain", label: "Manter inteira" },
+                              { value: "cover", label: "Preencher cortando" },
+                              { value: "fill", label: "Esticar" },
+                            ]}
+                            value={selectedItem.objectFit}
+                            allowDeselect={false}
+                            onChange={(value) =>
+                              updateItem(selectedItem.id, {
+                                objectFit:
+                                  (value as ShippingLabelDesignerItem["objectFit"]) ||
+                                  "contain",
+                              })
+                            }
+                          />
+                          <FileButton
+                            onChange={(file) => void replaceSelectedImage(file)}
+                            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          >
+                            {(props) => (
+                              <Button
+                                {...props}
+                                size="xs"
+                                variant="default"
+                                leftSection={<IconFileImport size={14} stroke={1.5} />}
+                              >
+                                Trocar imagem
+                              </Button>
+                            )}
+                          </FileButton>
+                        </>
+                      ) : (
+                        <>
+                          <TextInput
+                            size="xs"
+                            label={
+                              selectedItem.kind === "token"
+                                ? "Prefixo (ex.: CLIENTE:)"
+                                : "Texto"
+                            }
+                            value={selectedItem.text}
+                            onChange={(event) =>
+                              updateItem(selectedItem.id, {
+                                text: event.currentTarget.value,
+                              })
+                            }
+                          />
+                          {selectedItem.kind === "token" && (
+                            <Select
+                              size="xs"
+                              label="Campo"
+                              data={SHIPPING_LABEL_FIELD_TOKEN_OPTIONS}
+                              value={selectedItem.token || "cliente"}
+                              allowDeselect={false}
+                              onChange={(value) =>
+                                updateItem(selectedItem.id, {
+                                  token:
+                                    (value as ShippingLabelFieldToken) || "cliente",
+                                })
+                              }
+                            />
+                          )}
+                          <Group gap="xs" wrap="nowrap" align="flex-end">
+                            <NumberInput
+                              size="xs"
+                              label="Fonte"
+                              value={selectedItem.fontSize}
+                              min={8}
+                              max={64}
+                              w={80}
+                              onChange={(value) =>
+                                updateItem(selectedItem.id, {
+                                  fontSize: clamp(
+                                    Number(value || selectedItem.fontSize),
+                                    8,
+                                    64,
+                                  ),
+                                })
+                              }
+                            />
+                            <SegmentedControl
+                              size="xs"
+                              style={{ flex: 1 }}
+                              value={selectedItem.align}
+                              onChange={(value) =>
+                                updateItem(selectedItem.id, {
+                                  align:
+                                    (value as "left" | "center" | "right") || "left",
+                                })
+                              }
+                              data={[
+                                { value: "left", label: "Esq." },
+                                { value: "center", label: "Centro" },
+                                { value: "right", label: "Dir." },
+                              ]}
+                            />
+                            <Tooltip label="Negrito">
+                              <ActionIcon
+                                size="md"
+                                variant={selectedItem.fontWeight >= 700 ? "filled" : "default"}
+                                aria-label="Negrito"
+                                onClick={() =>
+                                  updateItem(selectedItem.id, {
+                                    fontWeight: selectedItem.fontWeight >= 700 ? 400 : 700,
+                                  })
+                                }
+                              >
+                                <IconBold size={16} stroke={1.75} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Group>
+                          <Button size="xs" variant="subtle" color="gray" onClick={autoFitSelectedText}>
+                            Ajustar altura ao texto
+                          </Button>
+                        </>
+                      )}
+
+                      <SimpleGrid cols={4} spacing={6}>
                         <NumberInput
-                          label="Fonte"
-                          value={selectedItem.fontSize}
-                          min={8}
-                          max={64}
+                          size="xs"
+                          label="X"
+                          value={selectedItem.x}
+                          min={0}
+                          max={Math.max(0, layout.widthPx - selectedItem.width)}
+                          hideControls
                           onChange={(value) =>
                             updateItem(selectedItem.id, {
-                              fontSize: clamp(
-                                Number(value || selectedItem.fontSize),
-                                8,
-                                64,
+                              x: clamp(
+                                Number(value || selectedItem.x),
+                                0,
+                                Math.max(0, layout.widthPx - selectedItem.width),
                               ),
                             })
                           }
                         />
-                        <Select
-                          label="Alinhamento do texto"
-                          data={[
-                            { value: "left", label: "Esquerda" },
-                            { value: "center", label: "Centro" },
-                            { value: "right", label: "Direita" },
-                          ]}
-                          value={selectedItem.align}
+                        <NumberInput
+                          size="xs"
+                          label="Y"
+                          value={selectedItem.y}
+                          min={0}
+                          max={Math.max(0, layout.heightPx - selectedItem.height)}
+                          hideControls
                           onChange={(value) =>
                             updateItem(selectedItem.id, {
-                              align:
-                                (value as "left" | "center" | "right") ||
-                                "left",
+                              y: clamp(
+                                Number(value || selectedItem.y),
+                                0,
+                                Math.max(0, layout.heightPx - selectedItem.height),
+                              ),
                             })
                           }
                         />
-                      </Group>
-                      <Checkbox
-                        label="Negrito"
-                        checked={selectedItem.fontWeight >= 700}
-                        onChange={(event) =>
-                          updateItem(selectedItem.id, {
-                            fontWeight: event.currentTarget.checked ? 700 : 400,
-                          })
+                        <NumberInput
+                          size="xs"
+                          label="L"
+                          value={selectedItem.width}
+                          min={40}
+                          max={layout.widthPx}
+                          hideControls
+                          onChange={(value) =>
+                            updateItem(selectedItem.id, {
+                              width: clamp(
+                                Number(value || selectedItem.width),
+                                40,
+                                layout.widthPx,
+                              ),
+                            })
+                          }
+                        />
+                        <NumberInput
+                          size="xs"
+                          label="A"
+                          value={selectedItem.height}
+                          min={18}
+                          max={layout.heightPx}
+                          hideControls
+                          onChange={(value) =>
+                            updateItem(selectedItem.id, {
+                              height: clamp(
+                                Number(value || selectedItem.height),
+                                18,
+                                layout.heightPx,
+                              ),
+                            })
+                          }
+                        />
+                      </SimpleGrid>
+
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        leftSection={<IconTrash size={14} />}
+                        onClick={removeSelectedItem}
+                      >
+                        Excluir bloco
+                      </Button>
+                    </Stack>
+                  )}
+                </Accordion.Panel>
+              </Accordion.Item>
+
+              <Accordion.Item value="etiqueta">
+                <Accordion.Control>Etiqueta</Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap="xs">
+                    <TextInput
+                      size="xs"
+                      label="Nome do layout"
+                      value={layout.name}
+                      onChange={(event) =>
+                        setLayout((current) => ({
+                          ...current,
+                          name: event.currentTarget.value,
+                        }))
+                      }
+                    />
+                    <Group grow gap="xs">
+                      <NumberInput
+                        size="xs"
+                        label="Largura (px)"
+                        value={layout.widthPx}
+                        min={300}
+                        max={2200}
+                        onChange={(value) =>
+                          setLayout((current) => ({
+                            ...current,
+                            widthPx: clamp(
+                              Number(value || current.widthPx),
+                              300,
+                              2200,
+                            ),
+                          }))
                         }
                       />
-                    </>
-                  )}
+                      <NumberInput
+                        size="xs"
+                        label="Altura (px)"
+                        value={layout.heightPx}
+                        min={120}
+                        max={2200}
+                        onChange={(value) =>
+                          setLayout((current) => ({
+                            ...current,
+                            heightPx: clamp(
+                              Number(value || current.heightPx),
+                              120,
+                              2200,
+                            ),
+                          }))
+                        }
+                      />
+                    </Group>
+                    <Select
+                      size="xs"
+                      label="Fonte"
+                      data={fontOptions.map((font) => ({ value: font, label: font }))}
+                      value={layout.fontFamily}
+                      searchable
+                      allowDeselect={false}
+                      nothingFoundMessage="Nenhuma fonte encontrada"
+                      onChange={(value) => {
+                        if (!value) return;
+                        setLayout((current) => ({ ...current, fontFamily: value }));
+                      }}
+                    />
+                    <Checkbox
+                      size="xs"
+                      label="Mostrar borda da etiqueta"
+                      checked={layout.showBorder}
+                      onChange={(event) =>
+                        setLayout((current) => ({
+                          ...current,
+                          showBorder: event.currentTarget.checked,
+                        }))
+                      }
+                    />
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
 
-                  <Button
-                    color="red"
-                    variant="light"
-                    leftSection={<IconTrash size={16} />}
-                    onClick={removeSelectedItem}
-                  >
-                    Excluir bloco
-                  </Button>
-                </Stack>
-              )}
-            </Stack>
-          </Card>
+              <Accordion.Item value="nfe" style={{ borderBottom: 0 }}>
+                <Accordion.Control>Dados da NF-e</Accordion.Control>
+                <Accordion.Panel>
+                  <Stack gap={6}>
+                    {[
+                      ["Cliente", nfeData.cliente],
+                      ["Cidade / UF", `${nfeData.cidade} / ${nfeData.estado}`],
+                      ["Transportadora", nfeData.transportadora],
+                      ["Nota", nfeData.numeroNota],
+                      ["Volumes", nfeData.volumes],
+                      ["Peso (kg)", nfeData.pesoKg],
+                    ].map(([label, value]) => (
+                      <Group key={String(label)} justify="space-between" wrap="nowrap" gap="sm">
+                        <Text size="xs" c="dimmed">
+                          {label}
+                        </Text>
+                        <Text size="xs" fw={500} ta="right" truncate="end">
+                          {String(value ?? "—")}
+                        </Text>
+                      </Group>
+                    ))}
+                  </Stack>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
+          </div>
         </Group>
-      )}
-
-      {nfeData && (
-        <Card withBorder>
-          <Stack gap="xs">
-            <Text fw={600}>Dados da NF-e carregada</Text>
-            <Table withTableBorder>
-              <Table.Tbody>
-                <Table.Tr>
-                  <Table.Th>Cliente</Table.Th>
-                  <Table.Td>{nfeData.cliente}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Cidade / Estado</Table.Th>
-                  <Table.Td>
-                    {nfeData.cidade} / {nfeData.estado}
-                  </Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Transportadora</Table.Th>
-                  <Table.Td>{nfeData.transportadora}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Numero da nota</Table.Th>
-                  <Table.Td>{nfeData.numeroNota}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Volumes</Table.Th>
-                  <Table.Td>{nfeData.volumes}</Table.Td>
-                </Table.Tr>
-                <Table.Tr>
-                  <Table.Th>Peso (Kg)</Table.Th>
-                  <Table.Td>{nfeData.pesoKg}</Table.Td>
-                </Table.Tr>
-              </Table.Tbody>
-            </Table>
-          </Stack>
-        </Card>
       )}
     </Stack>
   );

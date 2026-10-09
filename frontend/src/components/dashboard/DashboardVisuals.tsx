@@ -1,8 +1,6 @@
 import {
   ActionIcon,
-  Badge,
   Button,
-  Card,
   ColorInput,
   Grid,
   Group,
@@ -12,33 +10,23 @@ import {
   Stack,
   Table,
   Text,
-  Title,
+  Tooltip as MantineTooltip,
 } from "@mantine/core";
-import type { CSSProperties } from "react";
 import dayjs from "dayjs";
-import { motion, type Variants } from "framer-motion";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Legend,
   Area,
   AreaChart,
-  Pie,
-  PieChart,
+  CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  IconChartPie,
-  IconPalette,
-} from "@tabler/icons-react";
+import { IconPalette } from "@tabler/icons-react";
 
 import EmptyState from "../ui/EmptyState";
+import Panel from "../ui/Panel";
 import type {
   ExternalTransferItem,
   FlowPoint,
@@ -47,9 +35,8 @@ import type {
   StockEvolutionPoint,
   TopSaidaItem,
 } from "../../lib/api";
-
 import { useLocations } from "../../hooks/useLocations";
-import { useLocalStorage } from "@mantine/hooks";
+import { useChartTheme, useLocationColor } from "../../lib/chartTheme";
 
 type Scope = number | null;
 type PeriodMode = "week" | "month";
@@ -78,71 +65,12 @@ type DashboardVisualsProps = {
   recentStockoutsLoading: boolean;
 };
 
-const COLORS = {
-  total: "#2ecc71",
-  zerado: "#e03131",
-  locs: ["#1f77b4", "#f39c12", "#9b59b6", "#e67e22", "#34495e"],
-};
-
 const PERIOD_LABELS: Record<PeriodMode, string> = {
   week: "Semana",
-  month: "Mes",
+  month: "Mês",
 };
 
-const CHART_TOOLTIP_CONTENT_STYLE: CSSProperties = {
-  backgroundColor: "rgba(15, 23, 42, 0.85)",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-  border: "1px solid rgba(255, 255, 255, 0.15)",
-  borderRadius: 12,
-  color: "#fff",
-  boxShadow: "0 14px 32px rgba(0, 0, 0, 0.4)",
-  padding: "12px 16px",
-};
-
-const CHART_TOOLTIP_LABEL_STYLE: CSSProperties = {
-  color: "rgba(255, 255, 255, 0.9)",
-  fontWeight: 700,
-  marginBottom: 8,
-  fontSize: "0.85rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-};
-
-const CHART_TOOLTIP_ITEM_STYLE: CSSProperties = {
-  color: "#fff",
-  fontWeight: 600,
-  fontSize: "0.95rem",
-};
-
-const BAR_TOOLTIP_CURSOR = { fill: "rgba(148, 163, 184, 0.16)" };
-const LINE_TOOLTIP_CURSOR = {
-  stroke: "var(--line)",
-  strokeWidth: 1,
-  strokeDasharray: "4 4",
-};
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 15 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
-};
-
-function truncateLabel(value: string, max = 15): string {
-  const normalized = (value ?? "").trim();
-  if (!normalized) return "-";
-  if (normalized.length <= max) return normalized;
-  return `${normalized.slice(0, max - 3)}...`;
-}
+const CHART_HEIGHT = 260;
 
 function numericValue(value: number | string | undefined | null): number {
   const parsed = Number(value ?? 0);
@@ -152,14 +80,30 @@ function numericValue(value: number | string | undefined | null): number {
 function flowSeriesLabel(name: string | undefined): string {
   const normalized = (name ?? "").trim().toLowerCase();
   if (normalized === "entradas" || normalized === "entrada") return "Entradas";
-  if (normalized === "saidas" || normalized === "saida") return "Saidas";
+  if (normalized === "saidas" || normalized === "saida") return "Saídas";
   return name ?? "Valor";
+}
+
+function PanelLoader() {
+  return (
+    <Group justify="center" h={CHART_HEIGHT}>
+      <Loader size="sm" />
+    </Group>
+  );
+}
+
+function RankBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const width = max > 0 ? Math.max((value / max) * 100, 2) : 0;
+  return (
+    <div className="inline-bar">
+      <span style={{ width: `${width}%`, background: color }} />
+    </div>
+  );
 }
 
 export default function DashboardVisuals({
   scope,
   periodMode,
-  dateFrom,
   dateTo,
   distribution,
   distributionLoading,
@@ -179,506 +123,409 @@ export default function DashboardVisuals({
   recentStockoutsLoading,
 }: DashboardVisualsProps) {
   const { locations } = useLocations();
-  const [locationColors, setLocationColors] = useLocalStorage<Record<string, string>>({
-    key: "chronos.dashboard.location_colors",
-    defaultValue: {},
-  });
-  const getScopeLabel = (s: Scope) => {
-    if (s === null) return "Todos os locais";
-    return locations.find((l) => l.id === s)?.name ?? `Local #${s}`;
-  };
+  const chart = useChartTheme();
+  const { colorFor, setColor, palette } = useLocationColor();
 
-  const hasTopSaidasData = topSaidas.some((item) => item.total_saida > 0);
-  const topSaidasChartData = topSaidas.map((item) => ({
-    ...item,
-    nome_curto: truncateLabel(item.nome),
-  }));
-  const externalTransfersChartData = externalTransfers
-    .slice(0, 8)
-    .map((item) => ({
-      ...item,
-      nome_curto: truncateLabel(item.nome, 26),
-    }));
-  const externalTransfersVisibleRows = showAllExternalTransfers
+  const scopeLabel =
+    scope === null
+      ? "Todas as filiais"
+      : (locations.find((l) => l.id === scope)?.name ?? `Local #${scope}`);
+  const periodContext = `${PERIOD_LABELS[periodMode]} · ${scopeLabel}`;
+
+  const rankedSaidas = topSaidas.filter((item) => item.total_saida > 0);
+  const maxSaida = Math.max(...rankedSaidas.map((item) => item.total_saida), 0);
+
+  const externalVisibleRows = showAllExternalTransfers
     ? externalTransfers
     : externalTransfers.slice(0, 8);
-  const externalTransfersChartHeight = Math.max(
-    280,
-    externalTransfersChartData.length * 34,
+  const maxExternal = Math.max(
+    ...externalTransfers.map((item) => item.total_quantidade),
+    0,
   );
-  const periodContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
-  const evolutionContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
-  const externalTransfersContext = `${PERIOD_LABELS[periodMode]} | ${getScopeLabel(scope)} | ${dayjs(dateFrom).format("DD/MM/YYYY")} - ${dayjs(dateTo).format("DD/MM/YYYY")}`;
+  const externalColor =
+    externalTransferType === "ENTRADA" ? chart.inflow : chart.outflow;
+
+  const distributionItems = distribution?.items ?? [];
+  const distributionTotal = distribution?.total ?? 0;
+
+  const axisProps = {
+    tick: chart.tick,
+    axisLine: false,
+    tickLine: false,
+  } as const;
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="show">
-      <Grid>
-        <Grid.Col span={{ base: 12, lg: 6 }}>
-          <motion.div variants={itemVariants}>
-            <Card withBorder>
-          <Group justify="space-between" mb="sm">
-            <Title order={4}>Top 5 saidas no periodo</Title>
-            <Badge variant="light">{scope}</Badge>
-          </Group>
-          <Text size="xs" c="dimmed" mb="sm">
-            {periodContext}
-          </Text>
-          {topSaidasLoading ? (
-            <Loader size="sm" />
-          ) : topSaidas.length === 0 || !hasTopSaidasData ? (
-            <EmptyState message="Sem dados para os filtros selecionados. Ajuste data ou escopo." />
-          ) : (
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <BarChart
-                  data={topSaidasChartData}
-                  margin={{ top: 22, right: 8, left: 0, bottom: 8 }}
-                >
-                  <defs>
-                    <linearGradient id="colorSaidasTop" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f87171" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#991b1b" stopOpacity={0.8}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--line-soft)" />
-                  <XAxis
-                    dataKey="nome_curto"
-                    interval={0}
-                    tick={{ fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
-                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                    cursor={BAR_TOOLTIP_CURSOR}
-                    formatter={(value: number | string | undefined) => [
-                      numericValue(value),
-                      "Saidas",
-                    ]}
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.nome ?? "-"
-                    }
-                  />
-                  <Bar
-                    dataKey="total_saida"
-                    name="Saidas"
-                    fill="url(#colorSaidasTop)"
-                    radius={[6, 6, 0, 0]}
-
-                  >
-                    <LabelList
-                      dataKey="total_saida"
-                      position="top"
-                      fontSize={11}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-            </Card>
-          </motion.div>
-        </Grid.Col>
-
-      <Grid.Col span={{ base: 12, lg: 6 }}>
-        <motion.div variants={itemVariants}>
-        <Card withBorder>
-          <Group justify="space-between" mb="sm">
-            <Group gap="xs">
-              <IconChartPie size={20} style={{ color: "var(--text)" }} />
-              <Title order={4}>
-                {scope === null
-                  ? "Distribuicao atual de estoque"
-                  : `Estoque atual em ${getScopeLabel(scope)}`}
-              </Title>
-            </Group>
-            <Popover width={260} position="bottom-end" withArrow shadow="md">
-              <Popover.Target>
-                <ActionIcon variant="subtle" color="gray" size="sm">
-                  <IconPalette size={16} />
-                </ActionIcon>
-              </Popover.Target>
-              <Popover.Dropdown>
-                <Text size="sm" fw={500} mb="xs">Cores por Local</Text>
-                <Stack gap="xs">
-                  {distribution?.items.map((item, idx) => (
-                    <Group key={item.local} justify="space-between" wrap="nowrap">
-                      <Text size="xs" truncate style={{ maxWidth: 100 }}>{item.local}</Text>
-                      <ColorInput
-                        size="xs"
-                        format="hex"
-                        swatches={['#1f77b4', '#f39c12', '#9b59b6', '#e67e22', '#34495e', '#fa5252', '#be4bdb', '#4c6ef5', '#12b886', '#82c91e']}
-                        value={locationColors[item.local] || COLORS.locs[idx % COLORS.locs.length]}
-                        onChange={(val) => setLocationColors((prev) => ({ ...prev, [item.local]: val }))}
-                        style={{ width: 120 }}
-                      />
-                    </Group>
-                  ))}
-                </Stack>
-              </Popover.Dropdown>
-            </Popover>
-          </Group>
-          <Text size="xs" c="dimmed" mb="sm">
-            {scope === null
-              ? `Base atual por filial | Total: ${distribution?.total ?? 0} itens`
-              : `Base atual no escopo | Total: ${distribution?.total ?? 0} itens`}
-          </Text>
-          {distributionLoading ? (
-            <Loader size="sm" />
-          ) : !(distribution && distribution.items.length) ? (
-            <EmptyState message="Sem estoque distribuido no momento." />
-          ) : (
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={distribution.items}
-                    dataKey="quantidade"
-                    nameKey="local"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={75}
-                    label={(entry: {
-                      name?: string;
-                      value?: number | string;
-                      percent?: number;
-                    }) =>
-                      `${entry.name ?? "-"}: ${numericValue(entry.value)} (${((entry.percent ?? 0) * 100).toFixed(1)}%)`
-                    }
-                  >
-                    {distribution.items.map((entry, idx) => {
-                      return (
-                        <Cell
-                          key={entry.local}
-                          fill={
-                            locationColors[entry.local] ||
-                            COLORS.locs?.[idx % COLORS.locs?.length] ||
-                            COLORS.total
-                          }
-                        />
-                      );
-                    })}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
-                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                    formatter={(
-                      value: number | string | undefined,
-                      name: string | undefined,
-                    ) => [`${numericValue(value)} itens`, name ?? "Local"]}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-        </motion.div>
-      </Grid.Col>
-
-      <Grid.Col span={{ base: 12, lg: 6 }}>
-        <motion.div variants={itemVariants}>
-        <Card withBorder>
-          <Title order={4} mb="sm">
-            Fluxo de entradas e saidas
-          </Title>
-          <Text size="xs" c="dimmed" mb="sm">
-            {periodContext}
-          </Text>
-          {flowLoading ? (
-            <Loader size="sm" />
-          ) : flow.length === 0 ? (
-            <EmptyState message="Sem movimentacoes para os filtros selecionados." />
-          ) : (
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <AreaChart data={flow}>
-                  <defs>
-                    <linearGradient id="colorEntradas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={COLORS.total} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={COLORS.total} stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorSaidas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={COLORS.zerado} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={COLORS.zerado} stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
-                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                    cursor={LINE_TOOLTIP_CURSOR}
-                    formatter={(
-                      value: number | string | undefined,
-                      name: string | undefined,
-                    ) => [numericValue(value), flowSeriesLabel(name)]}
-                  />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="entradas"
-                    name="Entradas"
-                    stroke={COLORS.total}
-                    fillOpacity={1}
-                    fill="url(#colorEntradas)"
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="saidas"
-                    name="Saidas"
-                    stroke={COLORS.zerado}
-                    fillOpacity={1}
-                    fill="url(#colorSaidas)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-        </motion.div>
-      </Grid.Col>
-
-      <Grid.Col span={{ base: 12, lg: 6 }}>
-        <motion.div variants={itemVariants}>
-        <Card withBorder>
-          <Title order={4} mb="sm">
-            Evolucao do estoque no periodo
-          </Title>
-          <Text size="xs" c="dimmed" mb="sm">
-            {evolutionContext}
-          </Text>
-          {evolutionLoading ? (
-            <Loader size="sm" />
-          ) : evolution.length === 0 ? (
-            <EmptyState message="Sem historico de evolucao para o periodo selecionado." />
-          ) : (
-            <div style={{ width: "100%", height: 280 }}>
-              <ResponsiveContainer>
-                <AreaChart data={evolution}>
-                  <defs>
-                    <linearGradient id="colorEvolution" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={COLORS.locs?.[0] || COLORS.locs[0]} stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor={COLORS.locs?.[0] || COLORS.locs[0]} stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="period" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
-                  <Tooltip
-                    contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
-                    labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                    itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                    cursor={LINE_TOOLTIP_CURSOR}
-                    formatter={(value: number | string | undefined) => [
-                      numericValue(value),
-                      "Total em estoque",
-                    ]}
-                  />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="total_stock"
-                    name="Total em estoque"
-                    stroke={COLORS.locs?.[0] || COLORS.locs[0]}
-                    fillOpacity={1}
-                    fill="url(#colorEvolution)"
-                    strokeWidth={2}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </Card>
-        </motion.div>
-      </Grid.Col>
-
-      <Grid.Col span={12}>
-        <motion.div variants={itemVariants}>
-        <Card withBorder>
-          <Group justify="space-between" align="start" mb="sm" wrap="wrap">
-            <div>
-              <Title order={4}>Transferencias externas</Title>
-              <Text size="xs" c="dimmed">
-                {externalTransfersContext}
-              </Text>
-            </div>
-            <SegmentedControl
-              value={externalTransferType}
-              onChange={(value) =>
-                onExternalTransferTypeChange(value as ExternalTransferType)
-              }
-              data={[
-                { value: "SAIDA", label: "Saidas externas" },
-                { value: "ENTRADA", label: "Entradas externas" },
-              ]}
-            />
-          </Group>
-          {externalTransfersLoading ? (
-            <Loader size="sm" />
-          ) : externalTransfers.length === 0 ? (
-            <EmptyState message="Sem transferencias externas no recorte atual." />
-          ) : (
-            <Stack gap="md">
-              <div
-                style={{ width: "100%", height: externalTransfersChartHeight }}
-              >
+    <Stack gap="md">
+      <Grid gutter="md">
+        {/* Fluxo de entradas e saídas */}
+        <Grid.Col span={{ base: 12, lg: 7 }}>
+          <Panel title="Entradas e saídas" subtitle={periodContext}>
+            {flowLoading ? (
+              <PanelLoader />
+            ) : flow.length === 0 ? (
+              <EmptyState message="Sem movimentações no período" />
+            ) : (
+              <div style={{ width: "100%", height: CHART_HEIGHT }}>
                 <ResponsiveContainer>
-                  <BarChart
-                    data={externalTransfersChartData}
-                    layout="vertical"
-                    margin={{ top: 8, right: 32, left: 8, bottom: 8 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis type="number" allowDecimals={false} />
-                    <YAxis
-                      type="category"
-                      dataKey="nome_curto"
-                      width={200}
-                      tick={{ fontSize: 11 }}
-                    />
+                  <AreaChart data={flow} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chart.inflow} stopOpacity={0.18} />
+                        <stop offset="100%" stopColor={chart.inflow} stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="fillSaidas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chart.outflow} stopOpacity={0.18} />
+                        <stop offset="100%" stopColor={chart.outflow} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} stroke={chart.grid} />
+                    <XAxis dataKey="period" {...axisProps} />
+                    <YAxis allowDecimals={false} width={40} {...axisProps} />
                     <Tooltip
-                      contentStyle={CHART_TOOLTIP_CONTENT_STYLE}
-                      labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-                      itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-                      cursor={BAR_TOOLTIP_CURSOR}
-                      formatter={(value: number | string | undefined) => [
+                      {...chart.tooltip}
+                      cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
+                      formatter={(value: number | string | undefined, name: string | undefined) => [
                         numericValue(value),
-                        externalTransferType === "ENTRADA"
-                          ? "Qtd entrada"
-                          : "Qtd saida",
+                        flowSeriesLabel(name),
                       ]}
-                      labelFormatter={(_, payload) =>
-                        payload?.[0]?.payload?.nome ?? "-"
-                      }
                     />
-                    <Bar
-                      dataKey="total_quantidade"
-                      fill={
-                        externalTransferType === "ENTRADA"
-                          ? COLORS.total
-                          : COLORS.zerado
-                      }
-                      radius={[0, 4, 4, 0]}
-                    >
-                      <LabelList
-                        dataKey="total_quantidade"
-                        position="right"
-                        fontSize={11}
-                      />
-                    </Bar>
-                  </BarChart>
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: 12, color: chart.tick.fill }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="entradas"
+                      name="Entradas"
+                      stroke={chart.inflow}
+                      fill="url(#fillEntradas)"
+                      strokeWidth={2}
+                      activeDot={{ r: 4 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="saidas"
+                      name="Saídas"
+                      stroke={chart.outflow}
+                      fill="url(#fillSaidas)"
+                      strokeWidth={2}
+                      activeDot={{ r: 4 }}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
+            )}
+          </Panel>
+        </Grid.Col>
 
-              <Table.ScrollContainer minWidth={860}>
-                <Table striped highlightOnHover withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>ID</Table.Th>
-                      <Table.Th>Produto</Table.Th>
-                      <Table.Th>Qtd transferida</Table.Th>
-                      <Table.Th>Movimentacoes</Table.Th>
-                      <Table.Th>Ultima transferencia</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {externalTransfersVisibleRows.map((item) => (
-                      <Table.Tr
-                        key={`${externalTransferType}-${item.produto_id}`}
-                      >
-                        <Table.Td>{item.produto_id}</Table.Td>
-                        <Table.Td>{item.nome}</Table.Td>
-                        <Table.Td>{item.total_quantidade}</Table.Td>
-                        <Table.Td>{item.total_movimentacoes}</Table.Td>
-                        <Table.Td>
-                          {item.ultima_transferencia
-                            ? dayjs(item.ultima_transferencia).format(
-                                "DD/MM/YYYY HH:mm",
-                              )
-                            : "Sem historico"}
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Table.ScrollContainer>
+        {/* Distribuição por filial */}
+        <Grid.Col span={{ base: 12, lg: 5 }}>
+          <Panel
+            title={scope === null ? "Distribuição por filial" : `Estoque em ${scopeLabel}`}
+            subtitle={`${distributionTotal.toLocaleString("pt-BR")} unidades em estoque`}
+            actions={
+              distributionItems.length > 0 ? (
+                <Popover width={240} position="bottom-end">
+                  <Popover.Target>
+                    <ActionIcon color="gray" size="sm" aria-label="Cores das filiais">
+                      <IconPalette size={16} stroke={1.5} />
+                    </ActionIcon>
+                  </Popover.Target>
+                  <Popover.Dropdown>
+                    <Text size="xs" fw={600} c="dimmed" mb="xs">
+                      Cores por filial
+                    </Text>
+                    <Stack gap="xs">
+                      {distributionItems.map((item) => (
+                        <Group key={item.local} justify="space-between" wrap="nowrap">
+                          <Text size="xs" truncate maw={90}>
+                            {item.local}
+                          </Text>
+                          <ColorInput
+                            size="xs"
+                            format="hex"
+                            swatches={palette}
+                            value={colorFor(item.local)}
+                            onChange={(val) => setColor(item.local, val)}
+                            w={120}
+                          />
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Popover.Dropdown>
+                </Popover>
+              ) : undefined
+            }
+          >
+            {distributionLoading ? (
+              <PanelLoader />
+            ) : distributionItems.length === 0 ? (
+              <EmptyState message="Sem estoque distribuído no momento" />
+            ) : (
+              <Stack gap="lg" pt={4}>
+                <div className="share-bar" role="img" aria-label="Participação por filial">
+                  {distributionItems.map((item) => (
+                    <span
+                      key={item.local}
+                      title={`${item.local}: ${item.quantidade}`}
+                      style={{
+                        width: `${distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0}%`,
+                        background: colorFor(item.local),
+                      }}
+                    />
+                  ))}
+                </div>
+                <Stack gap={10}>
+                  {distributionItems.map((item) => {
+                    const share =
+                      distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0;
+                    return (
+                      <Group key={item.local} justify="space-between" wrap="nowrap">
+                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                          <span
+                            className="legend-swatch"
+                            style={{ background: colorFor(item.local) }}
+                          />
+                          <Text size="sm" truncate>
+                            {item.local}
+                          </Text>
+                        </Group>
+                        <Group gap="md" wrap="nowrap">
+                          <Text size="sm" fw={600} className="num">
+                            {item.quantidade.toLocaleString("pt-BR")}
+                          </Text>
+                          <Text size="xs" c="dimmed" w={44} ta="right" className="num">
+                            {share.toFixed(1)}%
+                          </Text>
+                        </Group>
+                      </Group>
+                    );
+                  })}
+                </Stack>
+              </Stack>
+            )}
+          </Panel>
+        </Grid.Col>
 
-              {externalTransfers.length > 8 ? (
-                <Group justify="space-between" align="center">
-                  <Text size="xs" c="dimmed">
-                    Mostrando {externalTransfersVisibleRows.length} de{" "}
-                    {externalTransfers.length} itens.
-                  </Text>
-                  <Button
-                    variant="subtle"
-                    size="xs"
-                    onClick={onToggleAllExternalTransfers}
-                  >
-                    {showAllExternalTransfers ? "Ver menos" : "Ver mais"}
-                  </Button>
-                </Group>
-              ) : null}
-            </Stack>
-          )}
-        </Card>
-        </motion.div>
-      </Grid.Col>
+        {/* Evolução do estoque */}
+        <Grid.Col span={{ base: 12, lg: 7 }}>
+          <Panel title="Evolução do estoque" subtitle={periodContext}>
+            {evolutionLoading ? (
+              <PanelLoader />
+            ) : evolution.length === 0 ? (
+              <EmptyState message="Sem histórico no período" />
+            ) : (
+              <div style={{ width: "100%", height: CHART_HEIGHT }}>
+                <ResponsiveContainer>
+                  <AreaChart data={evolution} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="fillEvolution" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={chart.series[0]} stopOpacity={0.16} />
+                        <stop offset="100%" stopColor={chart.series[0]} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} stroke={chart.grid} />
+                    <XAxis dataKey="period" {...axisProps} />
+                    <YAxis allowDecimals={false} width={40} {...axisProps} />
+                    <Tooltip
+                      {...chart.tooltip}
+                      cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
+                      formatter={(value: number | string | undefined) => [
+                        numericValue(value),
+                        "Total em estoque",
+                      ]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="total_stock"
+                      name="Total em estoque"
+                      stroke={chart.series[0]}
+                      fill="url(#fillEvolution)"
+                      strokeWidth={2}
+                      activeDot={{ r: 4 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </Panel>
+        </Grid.Col>
 
-      <Grid.Col span={12}>
-        <motion.div variants={itemVariants}>
-        <Card withBorder>
-          <Title order={4} mb="sm">
-            Zerados com venda recente
-          </Title>
-          <Text size="xs" c="dimmed" mb="sm">
-            Referencia: ate {dayjs(dateTo).format("DD/MM/YYYY")} | Escopo:{" "}
-            {getScopeLabel(scope)} | Janela: 30 dias
-          </Text>
-          {recentStockoutsLoading ? (
-            <Loader size="sm" />
-          ) : recentStockouts.length === 0 ? (
-            <EmptyState message="Nenhum item zerado com venda real recente no recorte atual." />
-          ) : (
+        {/* Mais vendidos */}
+        <Grid.Col span={{ base: 12, lg: 5 }}>
+          <Panel title="Mais saídas no período" subtitle={periodContext}>
+            {topSaidasLoading ? (
+              <PanelLoader />
+            ) : rankedSaidas.length === 0 ? (
+              <EmptyState message="Sem saídas no período" />
+            ) : (
+              <Stack gap="md" pt={4}>
+                {rankedSaidas.map((item, index) => (
+                  <Stack key={item.produto_id} gap={6}>
+                    <Group justify="space-between" wrap="nowrap" gap="sm">
+                      <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Text size="xs" c="dimmed" w={14} className="num">
+                          {index + 1}
+                        </Text>
+                        <MantineTooltip label={item.nome} openDelay={500}>
+                          <Text size="sm" truncate="end">
+                            {item.nome}
+                          </Text>
+                        </MantineTooltip>
+                      </Group>
+                      <Text size="sm" fw={600} className="num">
+                        {item.total_saida}
+                      </Text>
+                    </Group>
+                    <div style={{ paddingLeft: 24 }}>
+                      <RankBar value={item.total_saida} max={maxSaida} color={chart.outflow} />
+                    </div>
+                  </Stack>
+                ))}
+              </Stack>
+            )}
+          </Panel>
+        </Grid.Col>
+      </Grid>
+
+      {/* Transferências externas */}
+      <Panel
+        flush
+        title="Transferências externas"
+        subtitle={periodContext}
+        actions={
+          <SegmentedControl
+            size="xs"
+            value={externalTransferType}
+            onChange={(value) =>
+              onExternalTransferTypeChange(value as ExternalTransferType)
+            }
+            data={[
+              { value: "SAIDA", label: "Saídas" },
+              { value: "ENTRADA", label: "Entradas" },
+            ]}
+          />
+        }
+      >
+        {externalTransfersLoading ? (
+          <PanelLoader />
+        ) : externalTransfers.length === 0 ? (
+          <EmptyState message="Sem transferências externas no período" />
+        ) : (
+          <>
             <Table.ScrollContainer minWidth={720}>
-              <Table striped highlightOnHover withTableBorder>
+              <Table>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>ID</Table.Th>
                     <Table.Th>Produto</Table.Th>
-                    <Table.Th>Qtd vendida (30d)</Table.Th>
-                    <Table.Th>Ultima venda</Table.Th>
+                    <Table.Th w={240}>Quantidade</Table.Th>
+                    <Table.Th w={130} ta="right">
+                      Movimentações
+                    </Table.Th>
+                    <Table.Th w={170}>Última</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {recentStockouts.map((item) => (
-                    <Table.Tr key={item.produto_id}>
-                      <Table.Td>{item.produto_id}</Table.Td>
-                      <Table.Td>{item.nome}</Table.Td>
-                      <Table.Td>{item.total_saida_recente}</Table.Td>
+                  {externalVisibleRows.map((item) => (
+                    <Table.Tr key={`${externalTransferType}-${item.produto_id}`}>
                       <Table.Td>
-                        {item.last_sale
-                          ? dayjs(item.last_sale).format("DD/MM/YYYY HH:mm")
-                          : "Sem historico"}
+                        <Text size="sm" fw={500} lineClamp={1}>
+                          {item.nome}
+                        </Text>
+                        <Text size="xs" c="dimmed" className="mono">
+                          #{item.produto_id}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap="sm" wrap="nowrap">
+                          <Text size="sm" fw={600} w={36} className="num">
+                            {item.total_quantidade}
+                          </Text>
+                          <div style={{ flex: 1 }}>
+                            <RankBar
+                              value={item.total_quantidade}
+                              max={maxExternal}
+                              color={externalColor}
+                            />
+                          </div>
+                        </Group>
+                      </Table.Td>
+                      <Table.Td ta="right" className="num">
+                        {item.total_movimentacoes}
+                      </Table.Td>
+                      <Table.Td c="dimmed" className="num">
+                        {item.ultima_transferencia
+                          ? dayjs(item.ultima_transferencia).format("DD/MM/YYYY HH:mm")
+                          : "—"}
                       </Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
               </Table>
             </Table.ScrollContainer>
-          )}
-        </Card>
-        </motion.div>
-      </Grid.Col>
-    </Grid>
-    </motion.div>
+            {externalTransfers.length > 8 ? (
+              <Group justify="space-between" px="lg" py="sm">
+                <Text size="xs" c="dimmed">
+                  Mostrando {externalVisibleRows.length} de {externalTransfers.length}
+                </Text>
+                <Button variant="subtle" color="gray" size="xs" onClick={onToggleAllExternalTransfers}>
+                  {showAllExternalTransfers ? "Ver menos" : "Ver todos"}
+                </Button>
+              </Group>
+            ) : null}
+          </>
+        )}
+      </Panel>
+
+      {/* Zerados com venda recente */}
+      <Panel
+        flush
+        title="Zerados com venda recente"
+        subtitle={`Itens sem estoque que tiveram saída nos últimos 30 dias · até ${dayjs(dateTo).format("DD/MM/YYYY")} · ${scopeLabel}`}
+      >
+        {recentStockoutsLoading ? (
+          <PanelLoader />
+        ) : recentStockouts.length === 0 ? (
+          <EmptyState message="Nenhum item zerado com venda recente" />
+        ) : (
+          <Table.ScrollContainer minWidth={640}>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Produto</Table.Th>
+                  <Table.Th w={160} ta="right">
+                    Vendido em 30 dias
+                  </Table.Th>
+                  <Table.Th w={170}>Última venda</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {recentStockouts.map((item) => (
+                  <Table.Tr key={item.produto_id}>
+                    <Table.Td>
+                      <Text size="sm" fw={500} lineClamp={1}>
+                        {item.nome}
+                      </Text>
+                      <Text size="xs" c="dimmed" className="mono">
+                        #{item.produto_id}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td ta="right" fw={600} className="num">
+                      {item.total_saida_recente}
+                    </Table.Td>
+                    <Table.Td c="dimmed" className="num">
+                      {item.last_sale
+                        ? dayjs(item.last_sale).format("DD/MM/YYYY HH:mm")
+                        : "—"}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
+      </Panel>
+    </Stack>
   );
 }

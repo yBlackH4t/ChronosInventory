@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Card, Table } from "@mantine/core";
+import { Table } from "@mantine/core";
 
 type DataTableProps = {
   children: ReactNode;
@@ -11,10 +11,10 @@ export default function DataTable({
   minWidth = 860,
 }: DataTableProps) {
   return (
-    <Card className="table-shell" p="xs">
+    <div className="table-shell">
       <Table.ScrollContainer minWidth={minWidth}>
         {children}
       </Table.ScrollContainer>
-    </Card>
+    </div>
   );
 }

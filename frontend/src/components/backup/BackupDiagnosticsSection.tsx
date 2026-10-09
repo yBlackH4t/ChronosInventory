@@ -1,4 +1,4 @@
-import { Button, Card, Group, Stack, Text, Title } from "@mantine/core";
+import { Button, Divider, Group, Text } from "@mantine/core";
 
 type BackupDiagnosticsSectionProps = {
   onExportDiagnostics: () => void;
@@ -14,44 +14,44 @@ export function BackupDiagnosticsSection({
   restorePreUpdateLoading,
 }: BackupDiagnosticsSectionProps) {
   return (
-    <Stack gap="lg">
-      <Card withBorder>
-        <Stack gap="md">
-          <Title order={4}>Diagnostico e suporte</Title>
-          <Text size="sm" c="dimmed">
-            Gere um pacote tecnico para suporte e use o restore pre-update
-            quando uma atualizacao nao sobe corretamente.
+    <div className="surface-panel" style={{ overflow: "hidden" }}>
+      <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <Text size="sm" fw={600}>
+            Exportar diagnóstico
           </Text>
-          <Group>
-            <Button
-              variant="light"
-              onClick={onExportDiagnostics}
-              loading={exportLoading}
-            >
-              Exportar diagnostico
-            </Button>
-            <Button
-              variant="light"
-              color="orange"
-              onClick={onRestorePreUpdate}
-              loading={restorePreUpdateLoading}
-            >
-              Restaurar pre-update
-            </Button>
-          </Group>
-        </Stack>
-      </Card>
-
-      <Card withBorder>
-        <Stack gap="xs">
-          <Title order={4}>Quando usar</Title>
-          <Text size="sm" c="dimmed">
-            `Exportar diagnostico` ajuda a enviar logs e informacoes do ambiente
-            para suporte. `Restaurar pre-update` funciona como rollback rapido
-            depois de uma atualizacao com problema.
+          <Text size="xs" c="dimmed">
+            Pacote com logs e informações do ambiente para enviar ao suporte.
           </Text>
-        </Stack>
-      </Card>
-    </Stack>
+        </div>
+        <Button
+          variant="default"
+          onClick={onExportDiagnostics}
+          loading={exportLoading}
+        >
+          Exportar
+        </Button>
+      </Group>
+      <Divider color="var(--border)" />
+      <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <Text size="sm" fw={600}>
+            Restaurar pré-atualização
+          </Text>
+          <Text size="xs" c="dimmed">
+            Volta para o backup feito automaticamente antes da última
+            atualização. Use se o app não subir corretamente depois de atualizar.
+          </Text>
+        </div>
+        <Button
+          variant="light"
+          color="orange"
+          onClick={onRestorePreUpdate}
+          loading={restorePreUpdateLoading}
+        >
+          Restaurar
+        </Button>
+      </Group>
+    </div>
   );
 }

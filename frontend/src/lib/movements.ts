@@ -4,14 +4,14 @@ import type { MovementCreate, MovementOut } from "./api";
 
 export const MOVEMENT_TYPES = [
   { value: "ENTRADA", label: "Entrada" },
-  { value: "SAIDA", label: "Saida" },
-  { value: "TRANSFERENCIA", label: "Transferencia" },
+  { value: "SAIDA", label: "Saída" },
+  { value: "TRANSFERENCIA", label: "Transferência" },
 ];
 
 export const MOVEMENT_NATURES = [
-  { value: "OPERACAO_NORMAL", label: "Operacao normal" },
-  { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
-  { value: "DEVOLUCAO", label: "Devolucao" },
+  { value: "OPERACAO_NORMAL", label: "Operação normal" },
+  { value: "TRANSFERENCIA_EXTERNA", label: "Transferência externa" },
+  { value: "DEVOLUCAO", label: "Devolução" },
   { value: "AJUSTE", label: "Ajuste" },
 ];
 
@@ -152,9 +152,16 @@ export function deserializeFilters(
 }
 
 export function movementColor(tipo: MovementOut["tipo"]) {
-  if (tipo === "ENTRADA") return "green";
-  if (tipo === "SAIDA") return "red";
-  return "yellow";
+  // Red stays reserved for destructive actions; a sale is routine.
+  if (tipo === "ENTRADA") return "teal";
+  if (tipo === "SAIDA") return "orange";
+  return "indigo";
+}
+
+export function signedQuantity(tipo: MovementOut["tipo"], quantidade: number) {
+  if (tipo === "ENTRADA") return `+${quantidade}`;
+  if (tipo === "SAIDA") return `−${quantidade}`;
+  return String(quantidade);
 }
 
 export function movementNatureLabel(natureza: MovementOut["natureza"]) {

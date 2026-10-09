@@ -13,9 +13,11 @@ export default function PageHeader({
   actions,
 }: PageHeaderProps) {
   return (
-    <Group justify="space-between" align="end" wrap="wrap">
-      <Stack gap={2} className="page-header">
-        <Title order={2}>{title}</Title>
+    <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+      <Stack gap={2}>
+        <Title order={2} className="page-header-title">
+          {title}
+        </Title>
         {subtitle && (
           <Text size="sm" className="page-subtitle">
             {subtitle}

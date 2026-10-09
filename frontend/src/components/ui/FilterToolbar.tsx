@@ -1,14 +1,10 @@
 import type { ReactNode } from "react";
-import { Card, Stack } from "@mantine/core";
 
 type FilterToolbarProps = {
   children: ReactNode;
 };
 
+// Borderless toolbar: filters sit directly on the page instead of in a card.
 export default function FilterToolbar({ children }: FilterToolbarProps) {
-  return (
-    <Card className="filter-toolbar" p="sm">
-      <Stack gap="sm">{children}</Stack>
-    </Card>
-  );
+  return <div className="filter-toolbar">{children}</div>;
 }

@@ -29,9 +29,10 @@ export const PRODUCT_ADJUSTMENT_REASON_OPTIONS: {
 ];
 
 export function movementColor(tipo: ProductMovementType) {
-  if (tipo === "ENTRADA") return "green";
-  if (tipo === "SAIDA") return "red";
-  return "yellow";
+  // Red stays reserved for destructive actions; a sale is routine.
+  if (tipo === "ENTRADA") return "teal";
+  if (tipo === "SAIDA") return "orange";
+  return "indigo";
 }
 
 export function movementNatureLabel(natureza: ProductMovementNature) {

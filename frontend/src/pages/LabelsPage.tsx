@@ -1,22 +1,22 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Badge,
   Button,
   Group,
-  Stack,
-  Text,
   Loader,
+  NumberInput,
   SegmentedControl,
+  Stack,
+  Tabs,
+  Text,
 } from "@mantine/core";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { IconPrinter } from "@tabler/icons-react";
+import { IconBarcode, IconPrinter, IconTruckDelivery } from "@tabler/icons-react";
 
 const NfeLabelDesignerPanel = lazy(
   () => import("../components/labels/NfeLabelDesignerPanel"),
 );
 import LabelsInternalSection from "../components/labels/LabelsInternalSection";
-import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
 import type { Product, ProductStatusFilter, SuccessResponse } from "../lib/api";
 import { api } from "../lib/apiClient";
@@ -33,8 +33,8 @@ type LabelMode = "INTERNAL" | "NFE";
 
 const COPIES_MODE_OPTIONS: { value: CopiesMode; label: string }[] = [
   { value: "ONE", label: "1 por item" },
-  { value: "TOTAL_STOCK", label: "Igual estoque total" },
-  { value: "MANUAL", label: "Manual por item" },
+  { value: "TOTAL_STOCK", label: "= estoque" },
+  { value: "MANUAL", label: "Manual" },
 ];
 
 const MAX_COPIES_PER_ITEM = 500;
@@ -307,86 +307,119 @@ export default function LabelsPage() {
         title="Etiquetas"
         subtitle={
           labelMode === "INTERNAL"
-            ? "Gere etiquetas de estoque por item ou em lote."
-            : "Editor visual de etiqueta de expedicao (arraste e solte)."
-        }
-        actions={
-          labelMode === "INTERNAL" ? (
-            <>
-              <Badge variant="light">Selecionados: {selectedIds.length}</Badge>
-              <Badge variant="light">
-                Modo:{" "}
-                {
-                  COPIES_MODE_OPTIONS.find((item) => item.value === copiesMode)
-                    ?.label
-                }
-              </Badge>
-              <Button
-                leftSection={<IconPrinter size={16} />}
-                onClick={() => void runPrintSelected()}
-                disabled={selectedIds.length === 0}
-                loading={printing}
-              >
-                Gerar etiquetas selecionadas
-              </Button>
-            </>
-          ) : (
-            <Badge variant="light">Designer visual ativo</Badge>
-          )
+            ? "Etiquetas de estoque com código de barras, por item ou em lote."
+            : "Etiqueta de expedição montada a partir do XML da NF-e."
         }
       />
 
-      <FilterToolbar>
-        <Group justify="space-between" wrap="wrap">
-          <SegmentedControl
-            value={labelMode}
-            onChange={(value) =>
-              setLabelMode((value as LabelMode) || "INTERNAL")
-            }
-            data={[
-              { value: "INTERNAL", label: "Etiqueta de estoque" },
-              { value: "NFE", label: "Etiqueta de expedicao (designer)" },
-            ]}
-          />
-          {labelMode === "NFE" && (
-            <Text size="xs" c="dimmed">
-              Fluxo: carregar XML, montar layout visual e imprimir.
-            </Text>
-          )}
-        </Group>
-      </FilterToolbar>
+      <Tabs
+        value={labelMode}
+        onChange={(value) => setLabelMode((value as LabelMode) || "INTERNAL")}
+      >
+        <Tabs.List>
+          <Tabs.Tab value="INTERNAL" leftSection={<IconBarcode size={16} stroke={1.5} />}>
+            Estoque
+          </Tabs.Tab>
+          <Tabs.Tab value="NFE" leftSection={<IconTruckDelivery size={16} stroke={1.5} />}>
+            Expedição (NF-e)
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
 
       {labelMode === "INTERNAL" ? (
-        <LabelsInternalSection
-          query={query}
-          setQuery={setQuery}
-          status={status}
-          setStatus={setStatus}
-          stockFilter={stockFilter}
-          setStockFilter={setStockFilter}
-          page={page}
-          setPage={setPage}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          copiesMode={copiesMode}
-          setCopiesMode={setCopiesMode}
-          defaultManualCopies={defaultManualCopies}
-          setDefaultManualCopies={setDefaultManualCopies}
-          setSelectedIds={setSelectedIds}
-          setManualCopiesById={setManualCopiesById}
-          rows={rows}
-          totalPages={totalPages}
-          selectedSet={selectedSet}
-          allVisibleSelected={allVisibleSelected}
-          selectedVisibleCount={selectedVisibleCount}
-          listQuery={listQuery}
-          toggleSelectAllVisible={toggleSelectAllVisible}
-          toggleRow={toggleRow}
-          resolveManualCopies={resolveManualCopies}
-          resolveCopies={resolveCopies}
-          setManualCopies={setManualCopies}
-          runPrintSingle={runPrintSingle}
-        />
+        <>
+          <LabelsInternalSection
+            query={query}
+            setQuery={setQuery}
+            status={status}
+            setStatus={setStatus}
+            stockFilter={stockFilter}
+            setStockFilter={setStockFilter}
+            page={page}
+            setPage={setPage}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            copiesMode={copiesMode}
+            setCopiesMode={setCopiesMode}
+            defaultManualCopies={defaultManualCopies}
+            setDefaultManualCopies={setDefaultManualCopies}
+            setSelectedIds={setSelectedIds}
+            setManualCopiesById={setManualCopiesById}
+            rows={rows}
+            totalPages={totalPages}
+            selectedSet={selectedSet}
+            allVisibleSelected={allVisibleSelected}
+            selectedVisibleCount={selectedVisibleCount}
+            listQuery={listQuery}
+            toggleSelectAllVisible={toggleSelectAllVisible}
+            toggleRow={toggleRow}
+            resolveManualCopies={resolveManualCopies}
+            resolveCopies={resolveCopies}
+            setManualCopies={setManualCopies}
+            runPrintSingle={runPrintSingle}
+          />
+
+          {selectedIds.length > 0 && (
+            <div className="selection-bar">
+              <Group gap="sm" wrap="nowrap">
+                <Text size="sm" fw={600} className="num">
+                  {selectedIds.length}{" "}
+                  {selectedIds.length === 1 ? "selecionado" : "selecionados"}
+                </Text>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="xs"
+                  onClick={() => setSelectedIds([])}
+                >
+                  Limpar
+                </Button>
+              </Group>
+              <Group gap="sm" wrap="wrap" justify="flex-end">
+                <Text size="xs" c="dimmed">
+                  Cópias
+                </Text>
+                <SegmentedControl
+                  size="xs"
+                  value={copiesMode}
+                  onChange={(value) =>
+                    setCopiesMode((value as CopiesMode) || "ONE")
+                  }
+                  data={COPIES_MODE_OPTIONS}
+                />
+                {copiesMode === "MANUAL" && (
+                  <NumberInput
+                    size="xs"
+                    aria-label="Cópias padrão"
+                    prefix="×"
+                    value={defaultManualCopies}
+                    min={1}
+                    max={MAX_COPIES_PER_ITEM}
+                    onChange={(value) =>
+                      setDefaultManualCopies(
+                        Math.max(
+                          1,
+                          Math.min(
+                            MAX_COPIES_PER_ITEM,
+                            Math.round(Number(value || 1)),
+                          ),
+                        ),
+                      )
+                    }
+                    w={80}
+                  />
+                )}
+                <Button
+                  leftSection={<IconPrinter size={16} />}
+                  onClick={() => void runPrintSelected()}
+                  loading={printing}
+                >
+                  Imprimir etiquetas
+                </Button>
+              </Group>
+            </div>
+          )}
+        </>
       ) : (
         <Suspense
           fallback={

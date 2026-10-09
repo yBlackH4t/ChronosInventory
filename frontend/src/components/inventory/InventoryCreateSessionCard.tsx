@@ -1,15 +1,9 @@
-import {
-  Button,
-  Card,
-  Group,
-  Select,
-  Stack,
-  TextInput,
-  Title,
-} from "@mantine/core";
+import { Button, Group, Modal, Select, Stack, Text, TextInput } from "@mantine/core";
 import type { InventoryLocation } from "../../lib/api";
 
-type InventoryCreateSessionCardProps = {
+type InventoryCreateSessionModalProps = {
+  opened: boolean;
+  onClose: () => void;
   sessionName: string;
   onSessionNameChange: (value: string) => void;
   sessionLocationId: number | null;
@@ -21,7 +15,9 @@ type InventoryCreateSessionCardProps = {
   isLoading: boolean;
 };
 
-export function InventoryCreateSessionCard({
+export function InventoryCreateSessionModal({
+  opened,
+  onClose,
   sessionName,
   onSessionNameChange,
   sessionLocationId,
@@ -31,18 +27,36 @@ export function InventoryCreateSessionCard({
   activeLocations,
   onCreateSession,
   isLoading,
-}: InventoryCreateSessionCardProps) {
+}: InventoryCreateSessionModalProps) {
   return (
-    <Card withBorder>
-      <Stack>
-        <Title order={4}>Nova sessao de inventario</Title>
-        <Group align="end" wrap="wrap">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={
+        <Stack gap={0}>
+          <Text fw={650}>Nova sessão de inventário</Text>
+          <Text size="xs" c="dimmed">
+            A sessão carrega o saldo atual do local para conferência.
+          </Text>
+        </Stack>
+      }
+      size="md"
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (sessionName.trim().length === 0) return;
+          onCreateSession();
+        }}
+      >
+        <Stack gap="sm">
           <TextInput
-            label="Nome da sessao"
-            placeholder="Ex: Inventario mensal - fevereiro"
+            label="Nome da sessão"
+            placeholder="Ex: Inventário mensal — fevereiro"
             value={sessionName}
             onChange={(event) => onSessionNameChange(event.currentTarget.value)}
-            w={320}
+            data-autofocus
+            required
           />
           <Select
             label="Local"
@@ -54,25 +68,30 @@ export function InventoryCreateSessionCard({
             onChange={(value) =>
               onSessionLocationIdChange(value ? Number(value) : null)
             }
-            w={180}
+            allowDeselect={false}
           />
           <TextInput
-            label="Observacao"
+            label="Observação"
+            placeholder="Opcional"
             value={sessionObservacao}
             onChange={(event) =>
               onSessionObservacaoChange(event.currentTarget.value)
             }
-            w={320}
           />
-          <Button
-            onClick={onCreateSession}
-            loading={isLoading}
-            disabled={sessionName.trim().length === 0}
-          >
-            Criar sessao
-          </Button>
-        </Group>
-      </Stack>
-    </Card>
+          <Group justify="flex-end" mt="sm">
+            <Button variant="default" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              loading={isLoading}
+              disabled={sessionName.trim().length === 0}
+            >
+              Criar sessão
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   );
 }

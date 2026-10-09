@@ -1,8 +1,15 @@
-import { Badge, Button, Group, Pagination, Table, Text } from "@mantine/core";
+import {
+  ActionIcon,
+  Group,
+  Pagination,
+  Table,
+  Text,
+  Tooltip,
+} from "@mantine/core";
+import { IconLock, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import type { InventorySessionOut } from "../../lib/api";
-import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 
 type InventorySessionsTableProps = {
@@ -17,6 +24,12 @@ type InventorySessionsTableProps = {
   onConfirmClose: (session: InventorySessionOut) => void;
   onConfirmDelete: (session: InventorySessionOut) => void;
   onPageChange: (page: number) => void;
+};
+
+const STATUS_META: Record<string, { label: string; color: string }> = {
+  ABERTO: { label: "Em contagem", color: "var(--mantine-color-blue-filled)" },
+  FECHADO: { label: "Fechada", color: "var(--text-subtle)" },
+  APLICADO: { label: "Ajuste aplicado", color: "var(--success)" },
 };
 
 export function InventorySessionsTable({
@@ -34,106 +47,146 @@ export function InventorySessionsTable({
 }: InventorySessionsTableProps) {
   return (
     <>
-      <DataTable minWidth={980}>
-        <Table striped highlightOnHover withTableBorder>
+      <Table.ScrollContainer minWidth={860}>
+        <Table>
           <Table.Thead>
             <Table.Tr>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Nome</Table.Th>
-              <Table.Th>Local</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Itens</Table.Th>
-              <Table.Th>Contados</Table.Th>
-              <Table.Th>Divergentes</Table.Th>
-              <Table.Th>Criado em</Table.Th>
-              <Table.Th>Acoes</Table.Th>
+              <Table.Th>Sessão</Table.Th>
+              <Table.Th w={150}>Local</Table.Th>
+              <Table.Th w={160}>Status</Table.Th>
+              <Table.Th w={200}>Progresso</Table.Th>
+              <Table.Th w={110} ta="right">
+                Divergentes
+              </Table.Th>
+              <Table.Th w={90} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {sessions.map((session) => (
-              <Table.Tr
-                key={session.id}
-                className={
-                  selectedSessionId === session.id ? "row-selected" : ""
-                }
-              >
-                <Table.Td>{session.id}</Table.Td>
-                <Table.Td>{session.nome}</Table.Td>
-                <Table.Td>
-                  {session.local_label ?? `Local #${session.location_id}`}
-                </Table.Td>
-                <Table.Td>
-                  <Badge
-                    color={
-                      session.status === "ABERTO"
-                        ? "blue"
-                        : session.status === "FECHADO"
-                          ? "gray"
-                          : "green"
-                    }
-                    variant="light"
-                  >
-                    {session.status}
-                  </Badge>
-                </Table.Td>
-                <Table.Td>{session.total_items}</Table.Td>
-                <Table.Td>{session.counted_items}</Table.Td>
-                <Table.Td>{session.divergent_items}</Table.Td>
-                <Table.Td>
-                  {dayjs(session.created_at).format("DD/MM/YYYY HH:mm")}
-                </Table.Td>
-                <Table.Td>
-                  <Group gap="xs">
-                    <Button
-                      size="xs"
-                      variant={
-                        selectedSessionId === session.id ? "filled" : "light"
-                      }
-                      onClick={() => onSelectSession(session)}
+            {sessions.map((session) => {
+              const status = STATUS_META[session.status] ?? {
+                label: session.status,
+                color: "var(--text-subtle)",
+              };
+              const progress =
+                session.total_items > 0
+                  ? (session.counted_items / session.total_items) * 100
+                  : 0;
+              return (
+                <Table.Tr
+                  key={session.id}
+                  className={selectedSessionId === session.id ? "row-selected" : undefined}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onSelectSession(session)}
+                >
+                  <Table.Td>
+                    <Text size="sm" fw={500} lineClamp={1}>
+                      {session.nome}
+                    </Text>
+                    <Text size="xs" c="dimmed" className="num">
+                      #{session.id} · {dayjs(session.created_at).format("DD/MM/YYYY HH:mm")}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">
+                      {session.local_label ?? `Local #${session.location_id}`}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap={6} wrap="nowrap">
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: "50%",
+                          background: status.color,
+                        }}
+                      />
+                      <Text size="sm">{status.label}</Text>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="sm" wrap="nowrap">
+                      <div className="inline-bar" style={{ flex: 1 }}>
+                        <span
+                          style={{
+                            width: `${progress}%`,
+                            background: "var(--mantine-color-blue-filled)",
+                          }}
+                        />
+                      </div>
+                      <Text size="xs" c="dimmed" className="num" w={70} ta="right">
+                        {session.counted_items}/{session.total_items}
+                      </Text>
+                    </Group>
+                  </Table.Td>
+                  <Table.Td ta="right">
+                    <Text
+                      size="sm"
+                      fw={session.divergent_items > 0 ? 600 : 400}
+                      c={session.divergent_items > 0 ? undefined : "var(--text-subtle)"}
+                      className="num"
                     >
-                      Abrir
-                    </Button>
-                    <Button
-                      size="xs"
-                      color="orange"
-                      variant="light"
-                      disabled={session.status !== "ABERTO"}
-                      loading={closePending}
-                      onClick={() => onConfirmClose(session)}
+                      {session.divergent_items}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group
+                      gap={2}
+                      justify="flex-end"
+                      wrap="nowrap"
+                      className="row-actions"
+                      onClick={(event) => event.stopPropagation()}
                     >
-                      Fechar
-                    </Button>
-                    <Button
-                      size="xs"
-                      color="red"
-                      variant="light"
-                      disabled={session.status === "APLICADO"}
-                      loading={deletePending}
-                      onClick={() => onConfirmDelete(session)}
-                    >
-                      Excluir
-                    </Button>
-                  </Group>
-                </Table.Td>
-              </Table.Tr>
-            ))}
+                      <Tooltip label="Fechar sessão">
+                        <ActionIcon
+                          color="gray"
+                          aria-label="Fechar sessão"
+                          disabled={session.status !== "ABERTO"}
+                          loading={closePending}
+                          onClick={() => onConfirmClose(session)}
+                        >
+                          <IconLock size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="Excluir sessão">
+                        <ActionIcon
+                          color="gray"
+                          className="action-danger"
+                          aria-label="Excluir sessão"
+                          disabled={session.status === "APLICADO"}
+                          loading={deletePending}
+                          onClick={() => onConfirmDelete(session)}
+                        >
+                          <IconTrash size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              );
+            })}
             {sessions.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={9}>
-                  <EmptyState message="Nenhuma sessao de inventario criada." />
+                <Table.Td colSpan={6} style={{ borderBottom: 0 }}>
+                  <EmptyState
+                    message="Nenhuma sessão de inventário"
+                    description="Crie uma sessão para começar a contagem."
+                  />
                 </Table.Td>
               </Table.Tr>
             )}
           </Table.Tbody>
         </Table>
-      </DataTable>
+      </Table.ScrollContainer>
 
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          Total: {totalItems}
-        </Text>
-        <Pagination value={page} onChange={onPageChange} total={totalPages} />
-      </Group>
+      {totalPages > 1 && (
+        <Group justify="space-between" px="lg" py="sm">
+          <Text size="xs" c="dimmed">
+            {totalItems} sessões
+          </Text>
+          <Pagination size="sm" value={page} onChange={onPageChange} total={totalPages} />
+        </Group>
+      )}
     </>
   );
 }

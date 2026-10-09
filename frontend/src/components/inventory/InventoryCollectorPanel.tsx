@@ -1,17 +1,23 @@
-import type { KeyboardEvent, RefObject } from "react";
+import { useState, type KeyboardEvent, type RefObject } from "react";
 import {
-  Badge,
   Button,
+  Collapse,
   Group,
   NumberInput,
-  Table,
+  Stack,
   Text,
   TextInput,
-  Stack,
+  UnstyledButton,
 } from "@mantine/core";
-
-import DataTable from "../ui/DataTable";
-import FilterToolbar from "../ui/FilterToolbar";
+import {
+  IconBarcode,
+  IconCheck,
+  IconChevronDown,
+  IconChevronRight,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconX,
+} from "@tabler/icons-react";
 
 type CollectorLogItem = {
   id: string;
@@ -56,109 +62,147 @@ export function InventoryCollectorPanel({
   log,
   onClearLog,
 }: InventoryCollectorPanelProps) {
+  const [logOpened, setLogOpened] = useState(false);
+  const sessionOpen = sessionStatus === "ABERTO";
+
   return (
-    <FilterToolbar>
-      <Stack gap="xs">
-        <Group justify="space-between" wrap="wrap">
-          <Text fw={600} size="sm">
-            Coletor por etiqueta
-          </Text>
-          <Badge color={active ? "green" : "gray"} variant="light">
-            {active ? "Modo bip ativo" : "Modo bip inativo"}
-          </Badge>
+    <div className="surface-panel" style={{ padding: "14px 16px" }}>
+      <Stack gap="sm">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Group gap="sm" wrap="nowrap">
+            <span className="settings-item-icon">
+              <IconBarcode size={18} stroke={1.5} />
+            </span>
+            <div>
+              <Group gap={8}>
+                <Text fw={600} size="sm">
+                  Coletor por etiqueta
+                </Text>
+                <span
+                  className="status-dot"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    boxShadow: "none",
+                    background: active ? "var(--success)" : "var(--text-subtle)",
+                  }}
+                />
+                <Text size="xs" c="dimmed">
+                  {active ? "Ativo" : "Inativo"}
+                </Text>
+              </Group>
+              <Text size="xs" c="dimmed">
+                Ao iniciar, o físico é zerado; depois é só bipar item por item.
+              </Text>
+            </div>
+          </Group>
+          {active ? (
+            <Button
+              variant="default"
+              leftSection={<IconPlayerStop size={14} />}
+              onClick={onStop}
+              disabled={initializing || loading}
+            >
+              Encerrar
+            </Button>
+          ) : (
+            <Button
+              variant="default"
+              leftSection={<IconPlayerPlay size={14} />}
+              onClick={onInitialize}
+              loading={initializing}
+              disabled={!sessionOpen || initializing || loading}
+            >
+              Iniciar modo bip
+            </Button>
+          )}
         </Group>
-        <Text size="xs" c="dimmed">
-          Fluxo simples: iniciar modo bip (zera fisico para 0), depois so bipar
-          item por item. O sistema compara automaticamente e mostra faltando/a
-          mais na divergencia.
-        </Text>
-        <Group align="end" wrap="wrap">
-          <Button
-            color={active ? "gray" : "blue"}
-            variant={active ? "light" : "filled"}
-            onClick={onInitialize}
-            loading={initializing}
-            disabled={sessionStatus !== "ABERTO" || initializing || loading}
-          >
-            Iniciar modo bip
-          </Button>
-          <Button
-            variant="subtle"
-            onClick={onStop}
-            disabled={!active || initializing || loading}
-          >
-            Encerrar modo bip
-          </Button>
-          <TextInput
-            label="Etiqueta"
-            placeholder="Bipe ou digite CI-123 / 4031196"
-            value={collectorInput}
-            onChange={(event) =>
-              onCollectorInputChange(event.currentTarget.value)
-            }
-            onKeyDown={onCollectorInputKeyDown}
-            ref={collectorInputRef}
-            w={320}
-            disabled={sessionStatus !== "ABERTO" || loading || !active}
-          />
-          <NumberInput
-            label="Incremento"
-            min={1}
-            max={200}
-            value={collectorStep}
-            onChange={(value) =>
-              onCollectorStepChange(Math.max(1, Math.round(Number(value || 1))))
-            }
-            w={120}
-            disabled={sessionStatus !== "ABERTO" || loading || !active}
-          />
-          <Button
-            onClick={onRun}
-            loading={loading}
-            disabled={sessionStatus !== "ABERTO" || !active}
-          >
-            Somar
-          </Button>
-          <Button
-            variant="subtle"
-            onClick={onClearLog}
-            disabled={log.length === 0 || loading}
-          >
-            Limpar log
-          </Button>
-        </Group>
+
+        {active && (
+          <Group align="flex-end" wrap="wrap" gap="sm">
+            <TextInput
+              size="md"
+              placeholder="Bipe ou digite CI-123 / 4031196"
+              aria-label="Etiqueta"
+              leftSection={<IconBarcode size={18} stroke={1.5} />}
+              value={collectorInput}
+              onChange={(event) =>
+                onCollectorInputChange(event.currentTarget.value)
+              }
+              onKeyDown={onCollectorInputKeyDown}
+              ref={collectorInputRef}
+              style={{ flex: 1, minWidth: 240 }}
+              disabled={!sessionOpen || loading}
+            />
+            <NumberInput
+              size="md"
+              aria-label="Incremento"
+              prefix="+"
+              min={1}
+              max={200}
+              value={collectorStep}
+              onChange={(value) =>
+                onCollectorStepChange(Math.max(1, Math.round(Number(value || 1))))
+              }
+              w={90}
+              disabled={!sessionOpen || loading}
+            />
+            <Button size="md" onClick={onRun} loading={loading} disabled={!sessionOpen}>
+              Somar
+            </Button>
+          </Group>
+        )}
+
         {log.length > 0 && (
-          <DataTable minWidth={780}>
-            <Table withTableBorder striped>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Hora</Table.Th>
-                  <Table.Th>Entrada</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                  <Table.Th>Mensagem</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
+          <div>
+            <Group justify="space-between">
+              <UnstyledButton onClick={() => setLogOpened((value) => !value)}>
+                <Group gap={6}>
+                  {logOpened ? (
+                    <IconChevronDown size={14} />
+                  ) : (
+                    <IconChevronRight size={14} />
+                  )}
+                  <Text size="xs" c="dimmed" fw={500}>
+                    Últimas leituras ({log.length})
+                  </Text>
+                </Group>
+              </UnstyledButton>
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                onClick={onClearLog}
+                disabled={loading}
+              >
+                Limpar
+              </Button>
+            </Group>
+            <Collapse in={logOpened}>
+              <Stack gap={4} mt={6} mah={220} style={{ overflowY: "auto" }}>
                 {log.map((entry) => (
-                  <Table.Tr key={entry.id}>
-                    <Table.Td>{entry.at}</Table.Td>
-                    <Table.Td>{entry.input}</Table.Td>
-                    <Table.Td>
-                      <Badge
-                        color={entry.status === "OK" ? "green" : "red"}
-                        variant="light"
-                      >
-                        {entry.status}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{entry.message}</Table.Td>
-                  </Table.Tr>
+                  <Group key={entry.id} gap="sm" wrap="nowrap">
+                    {entry.status === "OK" ? (
+                      <IconCheck size={14} color="var(--success)" />
+                    ) : (
+                      <IconX size={14} color="var(--danger)" />
+                    )}
+                    <Text size="xs" c="dimmed" className="num" w={64}>
+                      {entry.at}
+                    </Text>
+                    <Text size="xs" className="mono" w={140} truncate>
+                      {entry.input}
+                    </Text>
+                    <Text size="xs" c={entry.status === "OK" ? "dimmed" : "var(--danger)"} truncate>
+                      {entry.message}
+                    </Text>
+                  </Group>
                 ))}
-              </Table.Tbody>
-            </Table>
-          </DataTable>
+              </Stack>
+            </Collapse>
+          </div>
         )}
       </Stack>
-    </FilterToolbar>
+    </div>
   );
 }

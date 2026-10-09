@@ -8,6 +8,7 @@ import { api } from "../lib/apiClient";
 import { BackupDiagnosticsSection } from "../components/backup/BackupDiagnosticsSection";
 import { BackupOverviewCards } from "../components/backup/BackupOverviewCards";
 import { LocalBackupsSection } from "../components/backup/LocalBackupsSection";
+import { IconDatabasePlus } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
 import { useBackupAutoConfig } from "../hooks/useBackupAutoConfig";
@@ -266,14 +267,15 @@ export default function BackupPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Backup"
-        subtitle="Backups locais, base oficial compartilhada e diagnostico operacional em um unico lugar."
+        title="Backup e segurança"
+        subtitle="Cópias locais, base oficial compartilhada e ferramentas de recuperação."
         actions={
           <Button
+            leftSection={<IconDatabasePlus size={16} stroke={1.5} />}
             onClick={() => backupMutation.mutate()}
             loading={backupMutation.isPending}
           >
-            Criar backup
+            Criar backup agora
           </Button>
         }
       />
@@ -296,8 +298,8 @@ export default function BackupPage() {
       >
         <Tabs.List>
           <Tabs.Tab value="locais">Backups locais</Tabs.Tab>
-          <Tabs.Tab value="oficial">Base oficial / servidor</Tabs.Tab>
-          <Tabs.Tab value="diagnostico">Diagnostico e restore</Tabs.Tab>
+          <Tabs.Tab value="oficial">Base oficial</Tabs.Tab>
+          <Tabs.Tab value="diagnostico">Recuperação</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="oficial" pt="md">

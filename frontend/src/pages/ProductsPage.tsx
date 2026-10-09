@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionIcon,
   Badge,
   Button,
   Group,
+  Kbd,
+  Popover,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -17,7 +21,13 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconPlus } from "@tabler/icons-react";
+import {
+  IconAdjustmentsHorizontal,
+  IconPlus,
+  IconRestore,
+  IconSearch,
+  IconX,
+} from "@tabler/icons-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../lib/apiClient";
@@ -111,6 +121,7 @@ export default function ProductsPage() {
   const [pageSize, setPageSize] = useState(persistedState.pageSize);
   const [sort, setSort] = useState(persistedState.sort);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
+  const [stockFilter, setStockFilter] = useState<"TODOS" | "COM_ESTOQUE">("TODOS");
 
   const [linkModalOpened, { open: openLinkModal, close: closeLinkModal }] = useDisclosure(false);
   const [linkModalProduct, setLinkModalProduct] = useState<Product | null>(null);
@@ -503,17 +514,29 @@ export default function ProductsPage() {
   const productsErrorMessage =
     productsQuery.error instanceof Error ? productsQuery.error.message : null;
 
-  const rows = useMemo(() => {
+  const rawRows = useMemo(() => {
     return productsQuery.data?.data ?? [];
   }, [productsQuery.data?.data]);
+
+  const rows = useMemo(() => {
+    if (stockFilter === "COM_ESTOQUE") {
+      return rawRows.filter((p) => p.total_stock > 0);
+    }
+    return rawRows;
+  }, [rawRows, stockFilter]);
 
   const activeViewCount = useMemo(() => {
     let count = 0;
     if (query.trim()) count += 1;
+    if (stockFilter !== "TODOS") count += 1;
     if (sort !== DEFAULT_PRODUCTS_TAB_STATE.sort) count += 1;
     if (pageSize !== DEFAULT_PRODUCTS_TAB_STATE.pageSize) count += 1;
     return count;
-  }, [pageSize, query, sort]);
+  }, [pageSize, query, sort, stockFilter]);
+
+  const viewOptionsCount =
+    Number(sort !== DEFAULT_PRODUCTS_TAB_STATE.sort) +
+    Number(pageSize !== DEFAULT_PRODUCTS_TAB_STATE.pageSize);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -584,6 +607,7 @@ export default function ProductsPage() {
 
   const resetView = () => {
     setQuery(DEFAULT_PRODUCTS_TAB_STATE.query);
+    setStockFilter("TODOS");
     setPage(DEFAULT_PRODUCTS_TAB_STATE.page);
     setPageSize(DEFAULT_PRODUCTS_TAB_STATE.pageSize);
     setSort(DEFAULT_PRODUCTS_TAB_STATE.sort);
@@ -630,7 +654,7 @@ export default function ProductsPage() {
     <Stack gap="md">
       <PageHeader
         title="Produtos"
-        subtitle="Catalogo com controle de estoque, imagens e historico de movimentacoes."
+        subtitle="Consulta de estoque por filial, equivalências e aplicações."
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
             Novo produto
@@ -639,54 +663,106 @@ export default function ProductsPage() {
       />
 
       <FilterToolbar>
-        <Group align="end" wrap="wrap">
+        <Group wrap="wrap" gap="sm" align="center">
           <TextInput
-            placeholder="Buscar por nome ou #ID"
-            label="Busca"
+            ref={searchInputRef}
+            size="md"
+            placeholder="Buscar por código (ex: 4031195, 805390), modelo ou #ID"
+            aria-label="Buscar produtos"
+            leftSection={<IconSearch size={18} stroke={1.5} />}
+            rightSectionWidth={query ? 36 : 64}
+            rightSection={
+              query ? (
+                <ActionIcon
+                  size="sm"
+                  color="gray"
+                  aria-label="Limpar busca"
+                  onClick={() => {
+                    setQuery("");
+                    setPage(1);
+                  }}
+                >
+                  <IconX size={14} />
+                </ActionIcon>
+              ) : (
+                <Kbd size="xs">Ctrl F</Kbd>
+              )
+            }
             value={query}
             onChange={(event) => {
               setQuery(event.currentTarget.value);
               setPage(1);
             }}
-            w={260}
-            ref={searchInputRef}
+            style={{ flex: 1, minWidth: 260 }}
           />
-          <Select
-            data={PAGE_SIZES}
-            value={pageSize}
-            onChange={(value) => {
-              if (!value) return;
-              setPageSize(value);
-              setPage(1);
-            }}
-            w={120}
-            label="Por pagina"
+          <SegmentedControl
+            size="sm"
+            value={stockFilter}
+            onChange={(val) => setStockFilter(val as "TODOS" | "COM_ESTOQUE")}
+            data={[
+              { label: "Todos", value: "TODOS" },
+              { label: "Com estoque", value: "COM_ESTOQUE" },
+            ]}
           />
-          <Select
-            data={SORT_OPTIONS}
-            value={sort}
-            onChange={(value) => {
-              if (!value) return;
-              setSort(value);
-              setPage(1);
-            }}
-            w={200}
-            label="Ordenacao"
-          />
-          <Badge variant="light">Filtros ativos: {activeViewCount}</Badge>
-          <Button
-            variant="subtle"
-            onClick={() => {
-              setQuery("");
-              setPage(1);
-            }}
-            disabled={!query.trim()}
-          >
-            Limpar busca
-          </Button>
-          <Button variant="subtle" onClick={resetView}>
-            Resetar visao
-          </Button>
+          <Popover position="bottom-end" width={260}>
+            <Popover.Target>
+              <Button
+                variant="default"
+                leftSection={<IconAdjustmentsHorizontal size={16} stroke={1.5} />}
+                rightSection={
+                  viewOptionsCount > 0 ? (
+                    <Badge size="xs" circle variant="filled">
+                      {viewOptionsCount}
+                    </Badge>
+                  ) : undefined
+                }
+              >
+                Visualização
+              </Button>
+            </Popover.Target>
+            <Popover.Dropdown>
+              <Stack gap="sm">
+                <Select
+                  label="Ordenação"
+                  data={SORT_OPTIONS}
+                  value={sort}
+                  allowDeselect={false}
+                  onChange={(value) => {
+                    if (!value) return;
+                    setSort(value);
+                    setPage(1);
+                  }}
+                  comboboxProps={{ withinPortal: false }}
+                />
+                <Select
+                  label="Itens por página"
+                  data={PAGE_SIZES}
+                  value={pageSize}
+                  allowDeselect={false}
+                  onChange={(value) => {
+                    if (!value) return;
+                    setPageSize(value);
+                    setPage(1);
+                  }}
+                  comboboxProps={{ withinPortal: false }}
+                />
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="xs"
+                  leftSection={<IconRestore size={14} />}
+                  onClick={resetView}
+                  disabled={activeViewCount === 0}
+                >
+                  Resetar visão
+                </Button>
+              </Stack>
+            </Popover.Dropdown>
+          </Popover>
+          <Text size="sm" c="dimmed" className="num" ml="auto">
+            {totalItems.toLocaleString("pt-BR")}{" "}
+            {totalItems === 1 ? "produto" : "produtos"}
+          </Text>
         </Group>
       </FilterToolbar>
 

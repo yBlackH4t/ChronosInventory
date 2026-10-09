@@ -1,8 +1,6 @@
 import {
   Accordion,
-  Badge,
   Button,
-  Card,
   Group,
   SimpleGrid,
   Stack,
@@ -44,19 +42,22 @@ export default function StockCompareManualSection({
   compareManualLoading,
 }: Props) {
   return (
-    <Accordion variant="separated">
-      <Accordion.Item value="manual">
-        <Accordion.Control>Modo avancado: comparacao manual</Accordion.Control>
+    <div className="surface-panel" style={{ overflow: "hidden" }}>
+    <Accordion chevronPosition="right">
+      <Accordion.Item value="manual" style={{ borderBottom: 0 }}>
+        <Accordion.Control>
+          <Text size="sm" fw={600}>
+            Comparação manual entre arquivos
+          </Text>
+          <Text size="xs" c="dimmed">
+            Para comparar dois arquivos .db específicos sem usar o servidor local
+          </Text>
+        </Accordion.Control>
         <Accordion.Panel>
           <Stack gap="md">
-            <Text size="sm" c="dimmed">
-              Use apenas quando precisar comparar dois arquivos especificos sem
-              depender do servidor local.
-            </Text>
             <SimpleGrid cols={{ base: 1, md: 2 }}>
-              <Card withBorder>
-                <Stack gap="sm">
-                  <Text fw={600}>Base A</Text>
+              <Stack gap="sm">
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.06em">Base A</Text>
                   <TextInput
                     label="Nome da base"
                     value={leftLabel}
@@ -74,11 +75,12 @@ export default function StockCompareManualSection({
                     placeholder="Ex: C:\\Bases\\estoque.db"
                   />
                   <Group>
-                    <Button variant="light" onClick={onChooseLeftFile}>
+                    <Button variant="default" onClick={onChooseLeftFile}>
                       Escolher arquivo
                     </Button>
                     <Button
                       variant="subtle"
+                      color="gray"
                       onClick={onUseCurrentDatabase}
                       disabled={!currentDbPath}
                     >
@@ -86,11 +88,9 @@ export default function StockCompareManualSection({
                     </Button>
                   </Group>
                 </Stack>
-              </Card>
 
-              <Card withBorder>
-                <Stack gap="sm">
-                  <Text fw={600}>Base B</Text>
+              <Stack gap="sm">
+                  <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.06em">Base B</Text>
                   <TextInput
                     label="Nome da base"
                     value={rightLabel}
@@ -108,16 +108,17 @@ export default function StockCompareManualSection({
                     placeholder="Ex: C:\\Bases\\colega\\estoque.db"
                   />
                   <Group>
-                    <Button variant="light" onClick={onChooseRightFile}>
+                    <Button variant="default" onClick={onChooseRightFile}>
                       Escolher arquivo
                     </Button>
                   </Group>
                 </Stack>
-              </Card>
             </SimpleGrid>
 
             <Group justify="space-between" wrap="wrap">
-              <Badge variant="light">Comparacao por ID do produto</Badge>
+              <Text size="xs" c="dimmed">
+                Os itens são casados pelo ID do produto.
+              </Text>
               <Button onClick={onCompareManual} loading={compareManualLoading}>
                 Comparar manualmente
               </Button>
@@ -126,5 +127,6 @@ export default function StockCompareManualSection({
         </Accordion.Panel>
       </Accordion.Item>
     </Accordion>
+    </div>
   );
 }

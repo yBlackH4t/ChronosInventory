@@ -4,14 +4,21 @@ import {
   Button,
   Card,
   Drawer,
+  Menu,
   Modal,
   NumberInput,
+  Pagination,
+  Popover,
+  SegmentedControl,
   Select,
   Table,
+  Tabs,
   TextInput,
   Textarea,
+  Tooltip,
   createTheme,
   rem,
+  type CSSVariablesResolver,
 } from "@mantine/core";
 
 // Semantic color aliases for consistent status communication across the app.
@@ -22,11 +29,29 @@ export const statusColors = {
   info: "info",
 } as const;
 
+const FONT_STACK =
+  '"Inter Variable", Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
+
 export const appTheme = createTheme({
   primaryColor: "brand",
   primaryShade: { light: 6, dark: 5 },
 
   colors: {
+    // Slate-tinted dark scale: Mantine uses it for every dark-mode surface
+    // (inputs, segmented controls, menus), so it must match the app tokens.
+    dark: [
+      "#e2e8f0",
+      "#cbd5e1",
+      "#94a3b8",
+      "#64748b",
+      "#2a3850",
+      "#1a2740",
+      "#162235",
+      "#0f172a",
+      "#0b0f17",
+      "#070a10",
+    ],
+
     // Neutral scale used for text, borders, and surfaces.
     slate: [
       "#f8fafc",
@@ -130,8 +155,8 @@ export const appTheme = createTheme({
     xs: rem(6),
     sm: rem(8),
     md: rem(10),
-    lg: rem(14),
-    xl: rem(18),
+    lg: rem(12),
+    xl: rem(16),
   },
 
   spacing: {
@@ -142,33 +167,36 @@ export const appTheme = createTheme({
     xl: rem(32),
   },
 
-  fontFamily: "Manrope, Segoe UI, system-ui, sans-serif",
+  fontFamily: FONT_STACK,
+  fontFamilyMonospace:
+    '"Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace',
   fontSizes: {
     xs: rem(12),
-    sm: rem(14),
-    md: rem(15),
-    lg: rem(17),
-    xl: rem(20),
+    sm: rem(13.5),
+    md: rem(14.5),
+    lg: rem(16),
+    xl: rem(19),
   },
 
   headings: {
-    fontFamily: "Manrope, Segoe UI, system-ui, sans-serif",
+    fontFamily: FONT_STACK,
+    fontWeight: "650",
     sizes: {
-      h1: { fontSize: rem(32), lineHeight: "1.15", fontWeight: "700" },
-      h2: { fontSize: rem(28), lineHeight: "1.2", fontWeight: "700" },
-      h3: { fontSize: rem(20), lineHeight: "1.25", fontWeight: "700" },
-      h4: { fontSize: rem(17), lineHeight: "1.3", fontWeight: "650" },
-      h5: { fontSize: rem(15), lineHeight: "1.35", fontWeight: "650" },
-      h6: { fontSize: rem(14), lineHeight: "1.35", fontWeight: "600" },
+      h1: { fontSize: rem(30), lineHeight: "1.15", fontWeight: "650" },
+      h2: { fontSize: rem(24), lineHeight: "1.2", fontWeight: "650" },
+      h3: { fontSize: rem(19), lineHeight: "1.25", fontWeight: "650" },
+      h4: { fontSize: rem(16), lineHeight: "1.3", fontWeight: "600" },
+      h5: { fontSize: rem(14.5), lineHeight: "1.35", fontWeight: "600" },
+      h6: { fontSize: rem(13.5), lineHeight: "1.35", fontWeight: "600" },
     },
   },
 
   shadows: {
-    xs: "0 1px 2px rgba(0, 0, 0, 0.05)",
-    sm: "0 4px 12px rgba(0, 0, 0, 0.08)",
-    md: "0 8px 24px rgba(0, 0, 0, 0.15)",
-    lg: "0 12px 32px rgba(0, 0, 0, 0.25)",
-    xl: "0 20px 48px rgba(0, 0, 0, 0.35)",
+    xs: "0 1px 2px rgba(15, 23, 42, 0.05)",
+    sm: "0 2px 8px rgba(15, 23, 42, 0.06)",
+    md: "0 8px 24px rgba(15, 23, 42, 0.10)",
+    lg: "0 12px 32px rgba(15, 23, 42, 0.16)",
+    xl: "0 24px 56px rgba(15, 23, 42, 0.24)",
   },
 
   components: {
@@ -176,12 +204,12 @@ export const appTheme = createTheme({
       defaultProps: {
         size: "sm",
         radius: "md",
-        fw: 600,
+        fw: 550,
       },
       styles: {
         root: {
           transition:
-            "transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease",
+            "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
         },
       },
     }),
@@ -189,53 +217,41 @@ export const appTheme = createTheme({
     ActionIcon: ActionIcon.extend({
       defaultProps: {
         radius: "md",
-        variant: "light",
+        variant: "subtle",
       },
     }),
 
     Card: Card.extend({
       defaultProps: {
         withBorder: true,
-        radius: "md",
-        shadow: "xs",
+        radius: "lg",
+        shadow: "none",
         p: "lg",
       },
     }),
 
     TextInput: TextInput.extend({
-      defaultProps: { size: "sm" },
-      styles: {
-        input: {
-          borderColor: "var(--mantine-color-slate-3)",
-        },
-      },
+      defaultProps: { size: "sm", radius: "md" },
     }),
 
     NumberInput: NumberInput.extend({
-      defaultProps: { size: "sm" },
-      styles: {
-        input: {
-          borderColor: "var(--mantine-color-slate-3)",
-        },
-      },
+      defaultProps: { size: "sm", radius: "md" },
     }),
 
     Select: Select.extend({
-      defaultProps: { size: "sm" },
-      styles: {
-        input: {
-          borderColor: "var(--mantine-color-slate-3)",
-        },
+      defaultProps: {
+        size: "sm",
+        radius: "md",
+        comboboxProps: { shadow: "md", radius: "md" },
       },
     }),
 
     Textarea: Textarea.extend({
-      defaultProps: { size: "sm" },
-      styles: {
-        input: {
-          borderColor: "var(--mantine-color-slate-3)",
-        },
-      },
+      defaultProps: { size: "sm", radius: "md" },
+    }),
+
+    SegmentedControl: SegmentedControl.extend({
+      defaultProps: { radius: "md" },
     }),
 
     Badge: Badge.extend({
@@ -243,46 +259,89 @@ export const appTheme = createTheme({
         radius: "sm",
         variant: "light",
       },
+      styles: {
+        root: { fontWeight: 600, letterSpacing: "0.02em" },
+      },
+    }),
+
+    Tooltip: Tooltip.extend({
+      defaultProps: {
+        openDelay: 300,
+        radius: "sm",
+      },
+    }),
+
+    Menu: Menu.extend({
+      defaultProps: {
+        radius: "md",
+        shadow: "md",
+        transitionProps: { transition: "pop-top-right", duration: 120 },
+      },
+    }),
+
+    Popover: Popover.extend({
+      defaultProps: {
+        radius: "md",
+        shadow: "md",
+        transitionProps: { transition: "pop", duration: 120 },
+      },
+    }),
+
+    Pagination: Pagination.extend({
+      defaultProps: { radius: "md" },
+    }),
+
+    Tabs: Tabs.extend({
+      defaultProps: { radius: "md" },
     }),
 
     Table: Table.extend({
       defaultProps: {
-        withTableBorder: true,
         stickyHeader: true,
-        horizontalSpacing: "sm",
+        highlightOnHover: true,
+        horizontalSpacing: "md",
         verticalSpacing: "sm",
-      },
-      styles: {
-        th: {
-          textTransform: "uppercase",
-          letterSpacing: "0.04em",
-          fontSize: rem(11),
-          fontWeight: 700,
-        },
       },
     }),
 
     Modal: Modal.extend({
       defaultProps: {
         centered: true,
-        radius: "xl",
+        radius: "lg",
         shadow: "xl",
         overlayProps: {
-          backgroundOpacity: 0.55,
-          blur: 5,
+          backgroundOpacity: 0.45,
+          blur: 3,
         },
+        transitionProps: { transition: "pop", duration: 160 },
       },
     }),
 
     Drawer: Drawer.extend({
       defaultProps: {
-        radius: "lg",
+        radius: 0,
         shadow: "xl",
         overlayProps: {
-          backgroundOpacity: 0.55,
-          blur: 5,
+          backgroundOpacity: 0.45,
+          blur: 3,
         },
+        transitionProps: { duration: 180 },
       },
     }),
+  },
+});
+
+// Aligns Mantine's own surface variables with the tokens in global.css.
+export const cssVariablesResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {
+    "--mantine-color-body": "#f8fafc",
+    "--mantine-color-default-border": "#e2e8f0",
+    "--mantine-color-dimmed": "#64748b",
+  },
+  dark: {
+    "--mantine-color-body": "#0b0f17",
+    "--mantine-color-default-border": "rgba(148, 163, 184, 0.16)",
+    "--mantine-color-dimmed": "#94a3b8",
   },
 });

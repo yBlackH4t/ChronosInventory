@@ -1,85 +1,64 @@
-import { Card, SimpleGrid, Text } from "@mantine/core";
+import type { InventorySessionSummaryOut, InventoryStatusFilter } from "../../lib/api";
+import StatTile from "../ui/StatTile";
 
-import type { InventorySessionSummaryOut } from "../../lib/api";
+type SummaryFilter = "NOT_COUNTED" | "MISSING" | "SURPLUS" | "MATCHED" | "PENDING";
 
 type InventorySummaryCardsProps = {
   summary: InventorySessionSummaryOut;
-  onSelectFilter: (
-    filter: "NOT_COUNTED" | "MISSING" | "SURPLUS" | "MATCHED" | "PENDING",
-  ) => void;
+  activeFilter?: InventoryStatusFilter;
+  onSelectFilter: (filter: SummaryFilter) => void;
 };
 
 export function InventorySummaryCards({
   summary,
+  activeFilter,
   onSelectFilter,
 }: InventorySummaryCardsProps) {
+  const tiles: {
+    key: SummaryFilter;
+    label: string;
+    value: number;
+    accent?: string;
+  }[] = [
+    { key: "NOT_COUNTED", label: "Não contados", value: summary.not_counted_items },
+    {
+      key: "MISSING",
+      label: "Faltando no físico",
+      value: summary.missing_items,
+      accent: "var(--warning)",
+    },
+    {
+      key: "SURPLUS",
+      label: "Sobrando no físico",
+      value: summary.surplus_items,
+      accent: "var(--mantine-color-teal-filled)",
+    },
+    {
+      key: "MATCHED",
+      label: "Conferidos OK",
+      value: summary.matched_items,
+      accent: "var(--success)",
+    },
+    {
+      key: "PENDING",
+      label: "Pendentes de ajuste",
+      value: summary.pending_items,
+      accent: "var(--mantine-color-blue-filled)",
+    },
+  ];
+
   return (
-    <SimpleGrid cols={{ base: 2, md: 5 }}>
-      <Card
-        withBorder
-        p="sm"
-        onClick={() => onSelectFilter("NOT_COUNTED")}
-        style={{ cursor: "pointer" }}
-      >
-        <Text size="xs" c="dimmed">
-          Nao contados
-        </Text>
-        <Text fw={700} size="xl">
-          {summary.not_counted_items}
-        </Text>
-      </Card>
-      <Card
-        withBorder
-        p="sm"
-        onClick={() => onSelectFilter("MISSING")}
-        style={{ cursor: "pointer" }}
-      >
-        <Text size="xs" c="dimmed">
-          Faltando no fisico
-        </Text>
-        <Text fw={700} size="xl" c="red">
-          {summary.missing_items}
-        </Text>
-      </Card>
-      <Card
-        withBorder
-        p="sm"
-        onClick={() => onSelectFilter("SURPLUS")}
-        style={{ cursor: "pointer" }}
-      >
-        <Text size="xs" c="dimmed">
-          Sobrando no fisico
-        </Text>
-        <Text fw={700} size="xl" c="green">
-          {summary.surplus_items}
-        </Text>
-      </Card>
-      <Card
-        withBorder
-        p="sm"
-        onClick={() => onSelectFilter("MATCHED")}
-        style={{ cursor: "pointer" }}
-      >
-        <Text size="xs" c="dimmed">
-          Conferidos OK
-        </Text>
-        <Text fw={700} size="xl">
-          {summary.matched_items}
-        </Text>
-      </Card>
-      <Card
-        withBorder
-        p="sm"
-        onClick={() => onSelectFilter("PENDING")}
-        style={{ cursor: "pointer" }}
-      >
-        <Text size="xs" c="dimmed">
-          Pendentes de ajuste
-        </Text>
-        <Text fw={700} size="xl" c="orange">
-          {summary.pending_items}
-        </Text>
-      </Card>
-    </SimpleGrid>
+    <div className="stat-grid">
+      {tiles.map((tile) => (
+        <StatTile
+          key={tile.key}
+          label={tile.label}
+          value={tile.value.toLocaleString("pt-BR")}
+          accent={tile.accent}
+          active={activeFilter === tile.key}
+          onClick={() => onSelectFilter(tile.key)}
+        />
+      ))}
+    </div>
   );
 }

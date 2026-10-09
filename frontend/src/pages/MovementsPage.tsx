@@ -1,5 +1,5 @@
 import { Component, useEffect, type ReactNode } from "react";
-import { Badge, Button, Stack } from "@mantine/core";
+import { Button, Stack } from "@mantine/core";
 import { useState } from "react";
 import { IconQrcode } from "@tabler/icons-react";
 
@@ -46,11 +46,11 @@ class MovementsPageErrorBoundary extends Component<
       return (
         <Stack gap="lg">
           <PageHeader
-            title="Movimentacoes"
-            subtitle="Ocorreu um erro visual nesta tela. Clique para recarregar."
+            title="Movimentações"
+            subtitle="Ocorreu um erro ao exibir esta tela."
           />
           <EmptyState
-            message="Falha ao renderizar esta visualizacao."
+            message="Falha ao exibir as movimentações"
             actionLabel="Recarregar tela"
             onAction={this.handleReload}
           />
@@ -75,37 +75,18 @@ function MovementsPageContent() {
   }, [listen, state, batchModalOpened]);
 
   return (
-    <Stack gap="xl">
-      <Stack gap="sm">
+    <Stack gap="lg">
+      <Stack gap="lg">
         <PageHeader
-          title="Historico de movimentacoes"
-          subtitle="Filtros detalhados para rastrear entradas, saidas, transferencias e devolucoes."
+          title="Movimentações"
+          subtitle="Entradas, saídas, transferências e devoluções de todas as filiais."
           actions={
-            <>
-              <Button
-                size="xs"
-                variant="filled"
-                color="indigo"
-                leftSection={<IconQrcode size={16} />}
-                onClick={() => setBatchModalOpened(true)}
-              >
-                Movimentação em Lote
-              </Button>
-              <Badge variant="light">
-                Filtros ativos: {state.activeViewCount}
-              </Badge>
-              <Button
-                size="xs"
-                variant="subtle"
-                onClick={state.clearFilters}
-                disabled={state.activeViewCount === 0}
-              >
-                Limpar filtros
-              </Button>
-              <Button size="xs" variant="subtle" onClick={state.resetView}>
-                Resetar visao
-              </Button>
-            </>
+            <Button
+              leftSection={<IconQrcode size={16} stroke={1.5} />}
+              onClick={() => setBatchModalOpened(true)}
+            >
+              Movimentação em lote
+            </Button>
           }
         />
 
@@ -134,6 +115,9 @@ function MovementsPageContent() {
           setShowProductId={state.setShowProductId}
           tablePreferences={state.tablePreferences}
           setTablePreferences={state.setTablePreferences}
+          activeViewCount={state.activeViewCount}
+          onClearFilters={state.clearFilters}
+          onResetView={state.resetView}
         />
 
         <MovementsTableSection

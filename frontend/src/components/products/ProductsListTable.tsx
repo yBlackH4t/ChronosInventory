@@ -4,15 +4,22 @@ import {
   Group,
   Loader,
   Pagination,
+  Stack,
   Table,
   Text,
   Tooltip,
 } from "@mantine/core";
-import { IconBarcode, IconEdit, IconTrash } from "@tabler/icons-react";
+import {
+  IconBarcode,
+  IconEdit,
+  IconLink,
+  IconTrash,
+} from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
 
 import type { InventoryLocation, Product } from "../../lib/api";
+import { detectBrand } from "../../lib/brands";
 import EmptyState from "../ui/EmptyState";
 
 type ProductsListTableProps = {
@@ -36,10 +43,26 @@ type ProductsListTableProps = {
   locations?: InventoryLocation[];
 };
 
+const ROW_HEIGHT = 56;
+
+function linkSummary(product: Product): string | null {
+  if (product.produto_vinculado_id) {
+    const name = product.produto_vinculado_nome
+      ? ` ${product.produto_vinculado_nome}`
+      : "";
+    return `Equivalente a #${product.produto_vinculado_id}${name}`;
+  }
+  if (product.linked_count > 0) {
+    return `${product.linked_count} ${
+      product.linked_count === 1 ? "vínculo" : "vínculos"
+    }`;
+  }
+  return null;
+}
+
 export function ProductsListTable({
   rows,
   page,
-  pageSize,
   selectedId,
   totalItems,
   totalPages,
@@ -61,14 +84,14 @@ export function ProductsListTable({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 60, // approximate row height
+    estimateSize: () => ROW_HEIGHT,
     overscan: 10,
   });
 
   if (loading) {
     return (
       <Group justify="center" mt="xl">
-        <Loader />
+        <Loader size="sm" />
       </Group>
     );
   }
@@ -76,134 +99,177 @@ export function ProductsListTable({
   if (errorMessage) {
     return (
       <EmptyState
-        message={`Falha ao carregar produtos: ${errorMessage}`}
+        message="Falha ao carregar produtos"
+        description={errorMessage}
         actionLabel="Tentar novamente"
         onAction={onRetry}
       />
     );
   }
 
+  const columnCount = 3 + locations.length;
   const virtualItems = rowVirtualizer.getVirtualItems();
   const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
-  const paddingBottom = virtualItems.length > 0
-    ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
-    : 0;
+  const paddingBottom =
+    virtualItems.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+      : 0;
 
   return (
-    <>
-      <div 
-        ref={parentRef} 
-        style={{ 
-          height: 'calc(100vh - 280px)', 
-          overflow: 'auto',
-          border: '1px solid var(--mantine-color-default-border)',
-          borderRadius: 'var(--mantine-radius-md)',
+    <Stack gap="sm">
+      <div
+        ref={parentRef}
+        className="table-shell"
+        style={{
+          height: "calc(100vh - 330px)",
+          minHeight: 320,
+          overflow: "auto",
         }}
       >
-        <Table striped highlightOnHover withTableBorder style={{ border: 0 }}>
-          <Table.Thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'var(--mantine-color-body)' }}>
+        <Table layout="fixed" stickyHeader verticalSpacing={0} miw={640}>
+          <Table.Thead>
             <Table.Tr>
-              <Table.Th>#</Table.Th>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Nome</Table.Th>
+              <Table.Th>Produto</Table.Th>
               {locations.map((loc) => (
-                <Table.Th key={loc.id}>{loc.label || loc.name}</Table.Th>
+                <Table.Th key={loc.id} w={110} ta="right">
+                  {loc.label || loc.name}
+                </Table.Th>
               ))}
-              <Table.Th>Total</Table.Th>
-              <Table.Th>Status</Table.Th>
-              <Table.Th>Vínculos</Table.Th>
-              <Table.Th>Acoes</Table.Th>
+              <Table.Th w={90} ta="right">
+                Total
+              </Table.Th>
+              <Table.Th w={156} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {paddingTop > 0 && (
               <Table.Tr>
-                <Table.Td style={{ height: paddingTop, padding: 0 }} colSpan={7 + locations.length} />
+                <Table.Td
+                  style={{ height: paddingTop, padding: 0 }}
+                  colSpan={columnCount}
+                />
               </Table.Tr>
             )}
-            
+
             {virtualItems.map((virtualRow) => {
               const product = rows[virtualRow.index];
-              const position = (page - 1) * Number(pageSize) + virtualRow.index + 1;
               const inStock = product.total_stock > 0;
-              const rowClass = `${inStock ? "row-in-stock" : "row-out-stock"} ${selectedId === product.id ? "row-selected" : ""}`;
+              const brand = detectBrand(product.nome);
+              const links = linkSummary(product);
+              const hasLinks =
+                product.linked_count > 0 || !!product.produto_vinculado_id;
 
               return (
                 <Table.Tr
                   key={product.id}
-                  className={rowClass}
+                  className={selectedId === product.id ? "row-selected" : undefined}
                   onClick={() => onOpenDetails(product)}
-                  style={{ cursor: "pointer", height: `${virtualRow.size}px` }}
+                  style={{ cursor: "pointer", height: ROW_HEIGHT }}
                 >
-                  <Table.Td>{position}</Table.Td>
                   <Table.Td>
-                    <Text fw={500} size="sm" c="dimmed">#{product.id}</Text>
+                    <Stack gap={2}>
+                      <Group gap={8} wrap="nowrap">
+                        {brand && (
+                          <Badge
+                            size="xs"
+                            color={brand.color}
+                            variant="light"
+                            style={{ flexShrink: 0 }}
+                          >
+                            {brand.label}
+                          </Badge>
+                        )}
+                        <Text
+                          fw={600}
+                          size="sm"
+                          truncate="end"
+                          c={inStock ? undefined : "dimmed"}
+                        >
+                          {product.nome}
+                        </Text>
+                      </Group>
+                      <Text size="xs" c="dimmed" truncate="end">
+                        <span className="mono">#{product.id}</span>
+                        {links && <> · {links}</>}
+                      </Text>
+                    </Stack>
                   </Table.Td>
-                  <Table.Td>
-                    <Text fw={600} size="sm" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "300px" }}>
-                      {product.nome}
+
+                  {locations.map((loc) => {
+                    const qty = product.inventories?.[loc.id] ?? 0;
+                    return (
+                      <Table.Td key={loc.id} ta="right">
+                        {qty > 0 ? (
+                          <Text size="sm" fw={600} c="var(--success)" className="num">
+                            {qty}
+                          </Text>
+                        ) : (
+                          <Text size="sm" c="var(--text-subtle)">
+                            —
+                          </Text>
+                        )}
+                      </Table.Td>
+                    );
+                  })}
+
+                  <Table.Td ta="right">
+                    <Text
+                      size="sm"
+                      fw={inStock ? 700 : 500}
+                      c={inStock ? undefined : "var(--text-subtle)"}
+                      className="num"
+                    >
+                      {product.total_stock}
                     </Text>
                   </Table.Td>
-                  {locations.map((loc) => (
-                    <Table.Td key={loc.id}>
-                      {product.inventories?.[loc.id] ?? 0}
-                    </Table.Td>
-                  ))}
-                  <Table.Td>
-                    <Badge variant="light">{product.total_stock}</Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color={inStock ? "green" : "red"} variant="light">
-                      {inStock ? "Em estoque" : "Sem estoque"}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <div onClick={(e) => { e.stopPropagation(); onOpenLinks(product); }}>
-                      {product.linked_count > 0 ? (
-                        <Badge color="blue" variant="filled" style={{ cursor: "pointer" }}>
-                          🔗 {product.linked_count} Vínculos
-                        </Badge>
-                      ) : product.produto_vinculado_id ? (
-                        <Tooltip label={`Vinculado ao #${product.produto_vinculado_id}`}>
-                          <Badge color="gray" variant="light" style={{ cursor: "pointer" }}>
-                            🔗 {product.produto_vinculado_nome || `#${product.produto_vinculado_id}`}
-                          </Badge>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip label="Adicionar Vínculo">
-                          <ActionIcon variant="subtle" color="gray" size="sm">
-                            🔗
-                          </ActionIcon>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </Table.Td>
+
                   <Table.Td>
                     <Group
-                      gap="xs"
+                      gap={2}
+                      justify="flex-end"
+                      wrap="nowrap"
+                      className="row-actions"
                       onClick={(event) => event.stopPropagation()}
                     >
-                      <Tooltip label="Gerar etiqueta">
+                      <Tooltip
+                        label={hasLinks ? "Ver vínculos" : "Adicionar vínculo"}
+                      >
                         <ActionIcon
-                          variant="light"
-                          onClick={() => onOpenSingleLabel(product.id)}
+                          color={hasLinks ? "brand" : "gray"}
+                          aria-label="Vínculos"
+                          onClick={() => onOpenLinks(product)}
                         >
-                          <IconBarcode size={16} />
+                          <IconLink size={16} stroke={1.5} />
                         </ActionIcon>
                       </Tooltip>
-                      <ActionIcon
-                        variant="light"
-                        onClick={() => onOpenEdit(product)}
-                      >
-                        <IconEdit size={16} />
-                      </ActionIcon>
-                      <ActionIcon
-                        color="red"
-                        variant="light"
-                        onClick={() => onConfirmDelete(product)}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
+                      <Tooltip label="Gerar etiqueta">
+                        <ActionIcon
+                          color="gray"
+                          aria-label="Gerar etiqueta"
+                          onClick={() => onOpenSingleLabel(product.id)}
+                        >
+                          <IconBarcode size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="Editar cadastro">
+                        <ActionIcon
+                          color="gray"
+                          aria-label="Editar cadastro"
+                          onClick={() => onOpenEdit(product)}
+                        >
+                          <IconEdit size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip label="Excluir produto">
+                        <ActionIcon
+                          color="gray"
+                          className="action-danger"
+                          aria-label="Excluir produto"
+                          onClick={() => onConfirmDelete(product)}
+                        >
+                          <IconTrash size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Tooltip>
                     </Group>
                   </Table.Td>
                 </Table.Tr>
@@ -212,15 +278,23 @@ export function ProductsListTable({
 
             {paddingBottom > 0 && (
               <Table.Tr>
-                <Table.Td style={{ height: paddingBottom, padding: 0 }} colSpan={7 + locations.length} />
+                <Table.Td
+                  style={{ height: paddingBottom, padding: 0 }}
+                  colSpan={columnCount}
+                />
               </Table.Tr>
             )}
 
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={7 + locations.length}>
+                <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
                   <EmptyState
                     message="Nenhum produto encontrado"
+                    description={
+                      query.trim()
+                        ? "Tente outro código, modelo ou equivalência."
+                        : undefined
+                    }
                     actionLabel={query.trim() ? "Limpar busca" : undefined}
                     onAction={query.trim() ? onClearSearch : undefined}
                   />
@@ -231,12 +305,19 @@ export function ProductsListTable({
         </Table>
       </div>
 
-      <Group justify="space-between" mt="md">
-        <Text size="sm" c="dimmed">
-          Total: {totalItems}
+      <Group justify="space-between">
+        <Text size="xs" c="dimmed" className="num">
+          Mostrando {rows.length} de {totalItems.toLocaleString("pt-BR")} produtos
         </Text>
-        <Pagination value={page} onChange={onPageChange} total={totalPages} />
+        {totalPages > 1 && (
+          <Pagination
+            value={page}
+            onChange={onPageChange}
+            total={totalPages}
+            size="sm"
+          />
+        )}
       </Group>
-    </>
+    </Stack>
   );
 }

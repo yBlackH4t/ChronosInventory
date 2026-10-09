@@ -1,19 +1,18 @@
 import {
-  Badge,
+  Group,
+  Loader,
   NumberInput,
   Pagination,
   Select,
   Table,
   Text,
   TextInput,
-  Group,
 } from "@mantine/core";
 
 import type {
   InventoryAdjustmentReason,
   InventoryCountOut,
 } from "../../lib/api";
-import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 
 type InventoryCountsTableProps = {
@@ -62,32 +61,41 @@ export function InventoryCountsTable({
   onPageChange,
 }: InventoryCountsTableProps) {
   if (loading) {
-    return <Text c="dimmed">Carregando itens...</Text>;
+    return (
+      <Group justify="center" p="xl">
+        <Loader size="sm" />
+      </Group>
+    );
   }
 
   if (errorMessage) {
     return (
       <EmptyState
-        message={`Falha ao carregar itens da sessao: ${errorMessage}`}
+        message="Falha ao carregar itens da sessão"
+        description={errorMessage}
       />
     );
   }
 
+  const editable = sessionStatus === "ABERTO";
+
   return (
     <>
-      <DataTable minWidth={1400}>
-        <Table striped highlightOnHover withTableBorder>
+      <Table.ScrollContainer minWidth={1180}>
+        <Table verticalSpacing="xs">
           <Table.Thead>
             <Table.Tr>
-              <Table.Th style={{ width: 60 }}>ID</Table.Th>
-              <Table.Th style={{ minWidth: 250 }}>Produto</Table.Th>
-              <Table.Th style={{ width: 100 }}>Sistema</Table.Th>
-              <Table.Th style={{ width: 140 }}>Fisico</Table.Th>
-              <Table.Th style={{ width: 120 }}>Divergencia</Table.Th>
-              <Table.Th style={{ width: 140 }}>Analise</Table.Th>
-              <Table.Th style={{ width: 260 }}>Motivo</Table.Th>
-              <Table.Th style={{ width: 300 }}>Observacao</Table.Th>
-              <Table.Th style={{ width: 100 }}>Movimento</Table.Th>
+              <Table.Th>Produto</Table.Th>
+              <Table.Th w={90} ta="right">
+                Sistema
+              </Table.Th>
+              <Table.Th w={130}>Físico</Table.Th>
+              <Table.Th w={140}>Diferença</Table.Th>
+              <Table.Th w={230}>Motivo</Table.Th>
+              <Table.Th w={260}>Observação</Table.Th>
+              <Table.Th w={90} ta="right">
+                Mov.
+              </Table.Th>
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -96,12 +104,21 @@ export function InventoryCountsTable({
               const qtdFisico =
                 edit?.qtd_fisico ?? item.qtd_fisico ?? item.qtd_sistema;
               const divergencia = qtdFisico - item.qtd_sistema;
+              const diverges = divergencia !== 0;
 
               return (
                 <Table.Tr key={item.produto_id}>
-                  <Table.Td>{item.produto_id}</Table.Td>
-                  <Table.Td>{item.produto_nome}</Table.Td>
-                  <Table.Td>{item.qtd_sistema}</Table.Td>
+                  <Table.Td>
+                    <Text size="sm" fw={500} lineClamp={1}>
+                      {item.produto_nome}
+                    </Text>
+                    <Text size="xs" c="dimmed" className="mono">
+                      #{item.produto_id}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td ta="right" className="num">
+                    {item.qtd_sistema}
+                  </Table.Td>
                   <Table.Td>
                     <NumberInput
                       min={0}
@@ -113,44 +130,37 @@ export function InventoryCountsTable({
                           item,
                         )
                       }
-                      disabled={sessionStatus !== "ABERTO"}
-                      w={120}
+                      disabled={!editable}
+                      w={110}
+                      aria-label="Quantidade física"
                     />
                   </Table.Td>
                   <Table.Td>
-                    <Badge
-                      color={
-                        divergencia === 0
-                          ? "gray"
-                          : divergencia > 0
-                            ? "green"
-                            : "red"
-                      }
-                      variant="light"
-                      size="lg"
-                    >
-                      {divergencia}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge
-                      color={
-                        divergencia === 0
-                          ? "gray"
-                          : divergencia > 0
-                            ? "green"
-                            : "red"
-                      }
-                      variant="light"
-                      size="lg"
-                      style={{ whiteSpace: "nowrap" }}
-                    >
-                      {divergencia === 0
-                        ? "OK"
-                        : divergencia > 0
-                          ? `A mais: ${divergencia}`
-                          : `Faltando: ${Math.abs(divergencia)}`}
-                    </Badge>
+                    {diverges ? (
+                      <Group gap={6} wrap="nowrap">
+                        <Text
+                          size="sm"
+                          fw={600}
+                          className="num"
+                          c={
+                            divergencia > 0
+                              ? "var(--mantine-color-teal-filled)"
+                              : "var(--warning)"
+                          }
+                        >
+                          {divergencia > 0
+                            ? "+" + divergencia
+                            : "\u2212" + Math.abs(divergencia)}
+                        </Text>
+                        <Text size="xs" c="dimmed">
+                          {divergencia > 0 ? "sobrando" : "faltando"}
+                        </Text>
+                      </Group>
+                    ) : (
+                      <Text size="sm" c="var(--text-subtle)">
+                        OK
+                      </Text>
+                    )}
                   </Table.Td>
                   <Table.Td>
                     <Select
@@ -171,11 +181,9 @@ export function InventoryCountsTable({
                           item,
                         )
                       }
-                      placeholder={
-                        divergencia !== 0 ? "Obrigatorio se divergir" : "-"
-                      }
-                      disabled={sessionStatus !== "ABERTO" || divergencia === 0}
-                      w={240}
+                      placeholder={diverges ? "Obrigatório" : "—"}
+                      disabled={!editable || !diverges}
+                      aria-label="Motivo do ajuste"
                     />
                   </Table.Td>
                   <Table.Td>
@@ -188,33 +196,35 @@ export function InventoryCountsTable({
                           item,
                         )
                       }
-                      placeholder={
-                        divergencia !== 0 ? "Obrigatorio se divergir" : "-"
-                      }
-                      disabled={sessionStatus !== "ABERTO" || divergencia === 0}
-                      w={280}
+                      placeholder={diverges ? "Obrigatório" : "—"}
+                      disabled={!editable || !diverges}
+                      aria-label="Observação"
                     />
                   </Table.Td>
-                  <Table.Td>{item.applied_movement_id || "-"}</Table.Td>
+                  <Table.Td ta="right" c="dimmed" className="mono">
+                    {item.applied_movement_id || "—"}
+                  </Table.Td>
                 </Table.Tr>
               );
             })}
             {items.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={9}>
-                  <EmptyState message="Nenhum item para o filtro selecionado." />
+                <Table.Td colSpan={7} style={{ borderBottom: 0 }}>
+                  <EmptyState message="Nenhum item para o filtro selecionado" />
                 </Table.Td>
               </Table.Tr>
             )}
           </Table.Tbody>
         </Table>
-      </DataTable>
+      </Table.ScrollContainer>
 
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          Total: {totalItems}
+      <Group justify="space-between" px="lg" py="sm">
+        <Text size="xs" c="dimmed" className="num">
+          {totalItems} itens
         </Text>
-        <Pagination value={page} onChange={onPageChange} total={totalPages} />
+        {totalPages > 1 && (
+          <Pagination size="sm" value={page} onChange={onPageChange} total={totalPages} />
+        )}
       </Group>
     </>
   );

@@ -1,12 +1,13 @@
-import { Badge, Group, Loader, Modal, Table, Text } from "@mantine/core";
+import { Group, Loader, Modal, Table, Text } from "@mantine/core";
 import dayjs from "dayjs";
 
 import type { MovementOut } from "../../lib/api";
 import {
   adjustmentReasonLabel,
-  movementColor,
   movementNatureLabel,
+  signedQuantity,
 } from "../../lib/movements";
+import MovementTypeTag from "./MovementTypeTag";
 import EmptyState from "../ui/EmptyState";
 import { useLocations } from "../../hooks/useLocations";
 
@@ -39,7 +40,7 @@ export default function MovementsHistoryModal({
       size="lg"
     >
       {!historyProductId ? (
-        <Text c="dimmed">Selecione um produto para carregar o historico.</Text>
+        <Text c="dimmed">Selecione um produto para carregar o histórico.</Text>
       ) : loading ? (
         <Group justify="center" mt="sm">
           <Loader size="sm" />
@@ -51,8 +52,9 @@ export default function MovementsHistoryModal({
           onAction={onRetry}
         />
       ) : (
+        <div className="table-shell">
         <Table.ScrollContainer minWidth={900}>
-          <Table striped withTableBorder>
+          <Table verticalSpacing="xs">
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
@@ -64,21 +66,21 @@ export default function MovementsHistoryModal({
                 <Table.Th>Documento</Table.Th>
                 <Table.Th>Motivo ajuste</Table.Th>
                 <Table.Th>Local externo</Table.Th>
-                <Table.Th>Observacao</Table.Th>
+                <Table.Th>Observação</Table.Th>
                 <Table.Th>Data</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {rows.map((mov) => (
                 <Table.Tr key={mov.id}>
-                  <Table.Td>{mov.id}</Table.Td>
+                  <Table.Td c="dimmed" className="mono">{mov.id}</Table.Td>
                   <Table.Td>
-                    <Badge color={movementColor(mov.tipo)} variant="light">
-                      {mov.tipo}
-                    </Badge>
+                    <MovementTypeTag tipo={mov.tipo} />
                   </Table.Td>
                   <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
-                  <Table.Td>{mov.quantidade}</Table.Td>
+                  <Table.Td fw={600} className="num">
+                    {signedQuantity(mov.tipo, mov.quantidade)}
+                  </Table.Td>
                   <Table.Td>
                     {locations.find((l) => l.id === mov.origem_location_id)
                       ?.name || "-"}
@@ -101,13 +103,14 @@ export default function MovementsHistoryModal({
               {rows.length === 0 && (
                 <Table.Tr>
                   <Table.Td colSpan={11}>
-                    <EmptyState message="Sem historico" />
+                    <EmptyState message="Sem histórico" />
                   </Table.Td>
                 </Table.Tr>
               )}
             </Table.Tbody>
           </Table>
         </Table.ScrollContainer>
+        </div>
       )}
     </Modal>
   );

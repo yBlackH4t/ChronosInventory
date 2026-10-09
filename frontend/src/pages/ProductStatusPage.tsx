@@ -5,12 +5,15 @@ import {
   Checkbox,
   Group,
   Pagination,
+  Popover,
+  SegmentedControl,
   Select,
   Stack,
   Table,
   Text,
   TextInput,
 } from "@mantine/core";
+import { IconAdjustmentsHorizontal, IconSearch } from "@tabler/icons-react";
 import {
   keepPreviousData,
   useMutation,
@@ -19,9 +22,8 @@ import {
 } from "@tanstack/react-query";
 
 import PageHeader from "../components/ui/PageHeader";
-import FilterToolbar from "../components/ui/FilterToolbar";
-import DataTable from "../components/ui/DataTable";
 import EmptyState from "../components/ui/EmptyState";
+import StatusDot from "../components/ui/StatusDot";
 import { api } from "../lib/apiClient";
 import { ApiError } from "../lib/api";
 import type {
@@ -39,9 +41,9 @@ const STATUS_OPTIONS = [
   { value: "INATIVO", label: "Inativos" },
 ];
 const STOCK_OPTIONS = [
-  { value: "TODOS", label: "Estoque: Todos" },
-  { value: "COM_ESTOQUE", label: "Com estoque (> 0)" },
-  { value: "SEM_ESTOQUE", label: "Sem estoque (= 0)" },
+  { value: "TODOS", label: "Todos" },
+  { value: "COM_ESTOQUE", label: "Com estoque" },
+  { value: "SEM_ESTOQUE", label: "Sem estoque" },
 ] as const;
 type StockFilter = (typeof STOCK_OPTIONS)[number]["value"];
 
@@ -138,181 +140,236 @@ export default function ProductStatusPage() {
     bulkMutation.mutate({ ids: selectedIds, ativo });
   };
 
+  const columnCount = 5 + locations.length;
+  const optionsCount =
+    Number(stockFilter !== "TODOS") + Number(pageSize !== "20");
+
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Ativar/Inativar Itens"
-        subtitle="Painel rapido para gerenciar status de muitos itens ao mesmo tempo."
-        actions={
-          <>
-            <Badge variant="light">Selecionados: {selectedIds.length}</Badge>
+        title="Ativação em massa"
+        subtitle="Ative ou inative vários produtos de uma vez. Itens inativos saem das operações, mas mantêm o histórico."
+      />
+
+      <div className="toolbar-row">
+        <TextInput
+          size="md"
+          aria-label="Buscar produtos"
+          placeholder="Buscar por nome ou #ID"
+          leftSection={<IconSearch size={18} stroke={1.5} />}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.currentTarget.value);
+            setPage(1);
+          }}
+          style={{ flex: 1, minWidth: 260 }}
+        />
+        <SegmentedControl
+          value={status}
+          onChange={(value) => {
+            setStatus((value as ProductStatusFilter) || "TODOS");
+            setPage(1);
+          }}
+          data={STATUS_OPTIONS}
+        />
+        <Popover position="bottom-end" width={260}>
+          <Popover.Target>
             <Button
-              variant="light"
-              color="red"
+              variant="default"
+              leftSection={<IconAdjustmentsHorizontal size={16} stroke={1.5} />}
+              rightSection={
+                optionsCount > 0 ? (
+                  <Badge size="xs" circle variant="filled">
+                    {optionsCount}
+                  </Badge>
+                ) : undefined
+              }
+            >
+              Opções
+            </Button>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <Stack gap="sm">
+              <Select
+                label="Estoque"
+                data={STOCK_OPTIONS.map((item) => ({
+                  value: item.value,
+                  label: item.label,
+                }))}
+                value={stockFilter}
+                allowDeselect={false}
+                onChange={(value) => {
+                  setStockFilter((value as StockFilter) || "TODOS");
+                  setPage(1);
+                }}
+                comboboxProps={{ withinPortal: false }}
+              />
+              <Select
+                label="Itens por página"
+                data={["10", "20", "50", "100"]}
+                value={pageSize}
+                allowDeselect={false}
+                onChange={(value) => {
+                  if (!value) return;
+                  setPageSize(value);
+                  setPage(1);
+                }}
+                comboboxProps={{ withinPortal: false }}
+              />
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                onClick={() => {
+                  setQuery("");
+                  setStatus("TODOS");
+                  setStockFilter("TODOS");
+                  setPage(1);
+                  setSelectedIds([]);
+                }}
+              >
+                Limpar filtros e seleção
+              </Button>
+            </Stack>
+          </Popover.Dropdown>
+        </Popover>
+      </div>
+
+      <div className="table-shell">
+        <Table.ScrollContainer minWidth={760}>
+          <Table verticalSpacing="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={44}>
+                  <Checkbox
+                    size="xs"
+                    aria-label="Selecionar todos visíveis"
+                    checked={allVisibleSelected}
+                    indeterminate={
+                      selectedVisibleCount > 0 && !allVisibleSelected
+                    }
+                    onChange={(event) =>
+                      toggleSelectAllVisible(event.currentTarget.checked)
+                    }
+                  />
+                </Table.Th>
+                <Table.Th>Produto</Table.Th>
+                {locations.map((loc) => (
+                  <Table.Th key={loc.id} w={100} ta="right">
+                    {loc.label || loc.name}
+                  </Table.Th>
+                ))}
+                <Table.Th w={80} ta="right">
+                  Total
+                </Table.Th>
+                <Table.Th w={120}>Status</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.map((product) => {
+                const checked = selectedSet.has(product.id);
+                return (
+                  <Table.Tr
+                    key={product.id}
+                    className={checked ? "row-selected" : undefined}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => toggleRow(product.id, !checked)}
+                  >
+                    <Table.Td onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        size="xs"
+                        aria-label={`Selecionar ${product.nome}`}
+                        checked={checked}
+                        onChange={(event) =>
+                          toggleRow(product.id, event.currentTarget.checked)
+                        }
+                      />
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" fw={500} lineClamp={1} c={product.ativo ? undefined : "dimmed"}>
+                        {product.nome}
+                      </Text>
+                      <Text size="xs" c="dimmed" className="mono">
+                        #{product.id}
+                      </Text>
+                    </Table.Td>
+                    {locations.map((loc) => (
+                      <Table.Td key={loc.id} ta="right" className="num">
+                        {product.inventories?.[loc.id] ?? 0}
+                      </Table.Td>
+                    ))}
+                    <Table.Td ta="right" fw={600} className="num">
+                      {product.total_stock}
+                    </Table.Td>
+                    <Table.Td>
+                      <StatusDot tone={product.ativo ? "success" : "neutral"}>
+                        {product.ativo ? "Ativo" : "Inativo"}
+                      </StatusDot>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+              {listQuery.isError && (
+                <Table.Tr>
+                  <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
+                    <EmptyState
+                      message="Falha ao carregar itens"
+                      description={`${loadError} Verifique se o backend está atualizado.`}
+                      actionLabel="Tentar novamente"
+                      onAction={() => void listQuery.refetch()}
+                    />
+                  </Table.Td>
+                </Table.Tr>
+              )}
+              {!listQuery.isError && rows.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
+                    <EmptyState message="Nenhum item encontrado" />
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      </div>
+
+      <Group justify="space-between">
+        <Text size="xs" c="dimmed" className="num">
+          {(listQuery.data?.meta?.total_items ?? 0).toLocaleString("pt-BR")} itens
+        </Text>
+        {totalPages > 1 && (
+          <Pagination size="sm" value={page} onChange={setPage} total={totalPages} />
+        )}
+      </Group>
+
+      {selectedIds.length > 0 && (
+        <div className="selection-bar">
+          <Group gap="sm" wrap="nowrap">
+            <Text size="sm" fw={600} className="num">
+              {selectedIds.length}{" "}
+              {selectedIds.length === 1 ? "selecionado" : "selecionados"}
+            </Text>
+            <Button variant="subtle" color="gray" size="xs" onClick={() => setSelectedIds([])}>
+              Limpar
+            </Button>
+          </Group>
+          <Group gap="xs">
+            <Button
+              variant="default"
               onClick={() => runBulkStatus(false)}
               loading={bulkMutation.isPending}
-              disabled={selectedIds.length === 0}
             >
-              Marcar inativo
+              Inativar
             </Button>
             <Button
-              variant="light"
-              color="green"
               onClick={() => runBulkStatus(true)}
               loading={bulkMutation.isPending}
-              disabled={selectedIds.length === 0}
             >
               Reativar
             </Button>
-          </>
-        }
-      />
-
-      <FilterToolbar>
-        <Group align="end" wrap="wrap">
-          <TextInput
-            label="Buscar"
-            placeholder="Nome do item ou #ID"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.currentTarget.value);
-              setPage(1);
-            }}
-            w={320}
-          />
-          <Select
-            label="Status"
-            data={STATUS_OPTIONS}
-            value={status}
-            onChange={(value) => {
-              setStatus((value as ProductStatusFilter) || "TODOS");
-              setPage(1);
-            }}
-            w={180}
-          />
-          <Select
-            label="Estoque"
-            data={STOCK_OPTIONS.map((item) => ({
-              value: item.value,
-              label: item.label,
-            }))}
-            value={stockFilter}
-            onChange={(value) => {
-              setStockFilter((value as StockFilter) || "TODOS");
-              setPage(1);
-            }}
-            w={220}
-          />
-          <Select
-            label="Por pagina"
-            data={["10", "20", "50", "100"]}
-            value={pageSize}
-            onChange={(value) => {
-              if (!value) return;
-              setPageSize(value);
-              setPage(1);
-            }}
-            w={120}
-          />
-          <Button
-            variant="subtle"
-            onClick={() => {
-              setQuery("");
-              setStatus("TODOS");
-              setStockFilter("TODOS");
-              setPage(1);
-              setSelectedIds([]);
-            }}
-          >
-            Limpar filtros
-          </Button>
-        </Group>
-      </FilterToolbar>
-
-      <DataTable minWidth={940}>
-        <Table striped highlightOnHover withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>
-                <Checkbox
-                  checked={allVisibleSelected}
-                  indeterminate={
-                    selectedVisibleCount > 0 && !allVisibleSelected
-                  }
-                  onChange={(event) =>
-                    toggleSelectAllVisible(event.currentTarget.checked)
-                  }
-                />
-              </Table.Th>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Nome</Table.Th>
-              {locations.map((loc) => (
-                <Table.Th key={loc.id}>{loc.label || loc.name}</Table.Th>
-              ))}
-              <Table.Th>Total</Table.Th>
-              <Table.Th>Status</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.map((product) => {
-              const checked = selectedSet.has(product.id);
-              return (
-                <Table.Tr key={product.id}>
-                  <Table.Td>
-                    <Checkbox
-                      checked={checked}
-                      onChange={(event) =>
-                        toggleRow(product.id, event.currentTarget.checked)
-                      }
-                    />
-                  </Table.Td>
-                  <Table.Td>{product.id}</Table.Td>
-                  <Table.Td>{product.nome}</Table.Td>
-                  {locations.map((loc) => (
-                    <Table.Td key={loc.id}>
-                      {product.inventories?.[loc.id] ?? 0}
-                    </Table.Td>
-                  ))}
-                  <Table.Td>{product.total_stock}</Table.Td>
-                  <Table.Td>
-                    <Badge
-                      color={product.ativo ? "green" : "gray"}
-                      variant="light"
-                    >
-                      {product.ativo ? "ATIVO" : "INATIVO"}
-                    </Badge>
-                  </Table.Td>
-                </Table.Tr>
-              );
-            })}
-            {listQuery.isError && (
-              <Table.Tr>
-                <Table.Td colSpan={5 + locations.length}>
-                  <EmptyState
-                    message={`${loadError} Verifique se o backend esta atualizado para 1.2.0+.`}
-                    actionLabel="Tentar novamente"
-                    onAction={() => void listQuery.refetch()}
-                  />
-                </Table.Td>
-              </Table.Tr>
-            )}
-            {!listQuery.isError && rows.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={5 + locations.length}>
-                  <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
-                </Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
-      </DataTable>
-
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          Total: {listQuery.data?.meta?.total_items ?? 0}
-        </Text>
-        <Pagination value={page} onChange={setPage} total={totalPages} />
-      </Group>
+          </Group>
+        </div>
+      )}
     </Stack>
   );
 }

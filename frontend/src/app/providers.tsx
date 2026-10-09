@@ -3,6 +3,8 @@ import "@mantine/notifications/styles.css";
 import "@mantine/dates/styles.css";
 import "@mantine/spotlight/styles.css";
 import "@mantine/carousel/styles.css";
+import "@mantine/dropzone/styles.css";
+import "@fontsource-variable/inter";
 import "../styles/global.css";
 import "dayjs/locale/pt-br";
 
@@ -16,7 +18,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del } from "idb-keyval";
 import dayjs from "dayjs";
-import { appTheme } from "../theme/theme";
+import { appTheme, cssVariablesResolver } from "../theme/theme";
 import { ProfileScopeProvider } from "../state/profileScope";
 
 dayjs.locale("pt-br");
@@ -54,6 +56,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <ProfileScopeProvider>
         <MantineProvider
           theme={appTheme}
+          cssVariablesResolver={cssVariablesResolver}
           colorSchemeManager={colorSchemeManager}
           defaultColorScheme="light"
         >

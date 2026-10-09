@@ -65,7 +65,9 @@ export function ProductHistoryTable({
 
   return (
     <>
-      <Table striped highlightOnHover>
+      <div className="table-shell">
+      <Table.ScrollContainer minWidth={1100}>
+      <Table verticalSpacing="xs">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>ID</Table.Th>
@@ -85,14 +87,14 @@ export function ProductHistoryTable({
         <Table.Tbody>
           {rows.map((mov) => (
             <Table.Tr key={mov.id}>
-              <Table.Td>{mov.id}</Table.Td>
+              <Table.Td className="mono" c="dimmed">{mov.id}</Table.Td>
               <Table.Td>
-                <Badge color={movementColor(mov.tipo)} variant="light">
+                <Badge size="sm" color={movementColor(mov.tipo)} variant="light">
                   {mov.tipo}
                 </Badge>
               </Table.Td>
               <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
-              <Table.Td>{mov.quantidade}</Table.Td>
+              <Table.Td fw={600} className="num">{mov.quantidade}</Table.Td>
               <Table.Td>
                 {locations.find((l) => l.id === mov.origem_location_id)?.name ||
                   "-"}
@@ -110,7 +112,8 @@ export function ProductHistoryTable({
                 <Button
                   size="xs"
                   variant="subtle"
-                  color="red"
+                  color="gray"
+                  className="action-danger"
                   onClick={() => setEstornoMovement(mov)}
                   disabled={mov.natureza === "ESTORNO"}
                   title={mov.natureza === "ESTORNO" ? "Essa movimentacao ja e um estorno" : "Estornar"}
@@ -131,12 +134,21 @@ export function ProductHistoryTable({
           )}
         </Table.Tbody>
       </Table>
+      </Table.ScrollContainer>
+      </div>
 
-      <Group justify="space-between">
-        <Text size="sm" c="dimmed">
+      <Group justify="space-between" mt="sm">
+        <Text size="xs" c="dimmed" className="num">
           Total: {totalItems}
         </Text>
-        <Pagination value={page} onChange={onPageChange} total={totalPages} />
+        {totalPages > 1 && (
+          <Pagination
+            size="sm"
+            value={page}
+            onChange={onPageChange}
+            total={totalPages}
+          />
+        )}
       </Group>
 
       <EstornoModal

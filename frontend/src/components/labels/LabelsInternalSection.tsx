@@ -6,17 +6,22 @@ import {
   Group,
   NumberInput,
   Pagination,
+  Popover,
+  SegmentedControl,
   Select,
+  Stack,
   Table,
   Text,
   TextInput,
   Tooltip,
 } from "@mantine/core";
-import { IconBarcode } from "@tabler/icons-react";
+import {
+  IconAdjustmentsHorizontal,
+  IconBarcode,
+  IconSearch,
+} from "@tabler/icons-react";
 
-import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
-import FilterToolbar from "../ui/FilterToolbar";
 import type {
   Product,
   ProductStatusFilter,
@@ -31,19 +36,13 @@ const STATUS_OPTIONS = [
 ];
 
 const STOCK_OPTIONS = [
-  { value: "COM_ESTOQUE", label: "Com estoque (> 0)" },
+  { value: "COM_ESTOQUE", label: "Com estoque" },
   { value: "TODOS", label: "Todos" },
-  { value: "SEM_ESTOQUE", label: "Sem estoque (= 0)" },
+  { value: "SEM_ESTOQUE", label: "Sem estoque" },
 ] as const;
 
 type StockFilter = (typeof STOCK_OPTIONS)[number]["value"];
 type CopiesMode = "ONE" | "TOTAL_STOCK" | "MANUAL";
-
-const COPIES_MODE_OPTIONS: { value: CopiesMode; label: string }[] = [
-  { value: "ONE", label: "1 por item" },
-  { value: "TOTAL_STOCK", label: "Igual estoque total" },
-  { value: "MANUAL", label: "Manual por item" },
-];
 
 const MAX_COPIES_PER_ITEM = 500;
 
@@ -83,6 +82,9 @@ type Props = {
   runPrintSingle: (product: Product) => void;
 };
 
+// Nested dropdowns must stay inside the popover, or a click on them closes it.
+const IN_POPOVER = { withinPortal: false } as const;
+
 export default function LabelsInternalSection({
   query,
   setQuery,
@@ -95,9 +97,6 @@ export default function LabelsInternalSection({
   pageSize,
   setPageSize,
   copiesMode,
-  setCopiesMode,
-  defaultManualCopies,
-  setDefaultManualCopies,
   setSelectedIds,
   setManualCopiesById,
   rows,
@@ -119,201 +118,244 @@ export default function LabelsInternalSection({
       : "Falha ao carregar itens para etiquetas.";
 
   const { locations } = useLocations();
+  const columnCount = 5 + locations.length;
+  const optionsCount =
+    Number(status !== "ATIVO") + Number(pageSize !== "20");
 
   return (
-    <>
-      <FilterToolbar>
-        <Group align="end" wrap="wrap">
-          <TextInput
-            label="Buscar"
-            placeholder="Nome ou numero"
-            value={query}
-            onChange={(event) => {
-              setQuery(event.currentTarget.value);
-              setPage(1);
-            }}
-            w={320}
-          />
-          <Select
-            label="Status"
-            data={STATUS_OPTIONS}
-            value={status}
-            onChange={(value) => {
-              setStatus((value as ProductStatusFilter) || "ATIVO");
-              setPage(1);
-            }}
-            w={180}
-          />
-          <Select
-            label="Estoque"
-            data={STOCK_OPTIONS.map((item) => ({
-              value: item.value,
-              label: item.label,
-            }))}
-            value={stockFilter}
-            onChange={(value) => {
-              setStockFilter((value as StockFilter) || "COM_ESTOQUE");
-              setPage(1);
-            }}
-            w={220}
-          />
-          <Select
-            label="Por pagina"
-            data={["10", "20", "50", "100"]}
-            value={pageSize}
-            onChange={(value) => {
-              if (!value) return;
-              setPageSize(value);
-              setPage(1);
-            }}
-            w={120}
-          />
-          <Select
-            label="Copias"
-            data={COPIES_MODE_OPTIONS}
-            value={copiesMode}
-            onChange={(value) => setCopiesMode((value as CopiesMode) || "ONE")}
-            w={210}
-          />
-          {copiesMode === "MANUAL" && (
-            <NumberInput
-              label="Padrao manual"
-              value={defaultManualCopies}
-              min={1}
-              max={MAX_COPIES_PER_ITEM}
-              onChange={(value) =>
-                setDefaultManualCopies(
-                  Math.max(
-                    1,
-                    Math.min(
-                      MAX_COPIES_PER_ITEM,
-                      Math.round(Number(value || 1)),
-                    ),
-                  ),
-                )
+    <Stack gap="md">
+      <div className="toolbar-row">
+        <TextInput
+          size="md"
+          aria-label="Buscar produtos"
+          placeholder="Buscar por nome ou código"
+          leftSection={<IconSearch size={18} stroke={1.5} />}
+          value={query}
+          onChange={(event) => {
+            setQuery(event.currentTarget.value);
+            setPage(1);
+          }}
+          style={{ flex: 1, minWidth: 260 }}
+        />
+        <SegmentedControl
+          value={stockFilter}
+          onChange={(value) => {
+            setStockFilter((value as StockFilter) || "COM_ESTOQUE");
+            setPage(1);
+          }}
+          data={STOCK_OPTIONS.map((item) => ({
+            value: item.value,
+            label: item.label,
+          }))}
+        />
+        <Popover position="bottom-end" width={260}>
+          <Popover.Target>
+            <Button
+              variant="default"
+              leftSection={<IconAdjustmentsHorizontal size={16} stroke={1.5} />}
+              rightSection={
+                optionsCount > 0 ? (
+                  <Badge size="xs" circle variant="filled">
+                    {optionsCount}
+                  </Badge>
+                ) : undefined
               }
-              w={160}
-            />
-          )}
-          <Button
-            variant="subtle"
-            onClick={() => {
-              setQuery("");
-              setStatus("ATIVO");
-              setStockFilter("COM_ESTOQUE");
-              setPage(1);
-              setSelectedIds([]);
-              setManualCopiesById({});
-            }}
-          >
-            Limpar filtros
-          </Button>
-        </Group>
-      </FilterToolbar>
+            >
+              Opções
+            </Button>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <Stack gap="sm">
+              <Select
+                label="Status do produto"
+                data={STATUS_OPTIONS}
+                value={status}
+                allowDeselect={false}
+                onChange={(value) => {
+                  setStatus((value as ProductStatusFilter) || "ATIVO");
+                  setPage(1);
+                }}
+                comboboxProps={IN_POPOVER}
+              />
+              <Select
+                label="Itens por página"
+                data={["10", "20", "50", "100"]}
+                value={pageSize}
+                allowDeselect={false}
+                onChange={(value) => {
+                  if (!value) return;
+                  setPageSize(value);
+                  setPage(1);
+                }}
+                comboboxProps={IN_POPOVER}
+              />
+              <Button
+                variant="subtle"
+                color="gray"
+                size="xs"
+                onClick={() => {
+                  setQuery("");
+                  setStatus("ATIVO");
+                  setStockFilter("COM_ESTOQUE");
+                  setPage(1);
+                  setSelectedIds([]);
+                  setManualCopiesById({});
+                }}
+              >
+                Limpar filtros e seleção
+              </Button>
+            </Stack>
+          </Popover.Dropdown>
+        </Popover>
+      </div>
 
-      <DataTable minWidth={980}>
-        <Table striped highlightOnHover withTableBorder>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>
-                <Checkbox
-                  checked={allVisibleSelected}
-                  indeterminate={
-                    selectedVisibleCount > 0 && !allVisibleSelected
-                  }
-                  onChange={(event) =>
-                    toggleSelectAllVisible(event.currentTarget.checked)
-                  }
-                />
-              </Table.Th>
-              <Table.Th>ID</Table.Th>
-              <Table.Th>Nome</Table.Th>
-              {locations.map((loc) => (
-                <Table.Th key={loc.id}>{loc.name}</Table.Th>
-              ))}
-              <Table.Th>Total</Table.Th>
-              <Table.Th>Copias</Table.Th>
-              <Table.Th>Acoes</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {rows.map((product) => {
-              const checked = selectedSet.has(product.id);
-              return (
-                <Table.Tr key={product.id}>
-                  <Table.Td>
-                    <Checkbox
-                      checked={checked}
-                      onChange={(event) =>
-                        toggleRow(product.id, event.currentTarget.checked)
-                      }
+      <div className="table-shell">
+        <Table.ScrollContainer minWidth={820}>
+          <Table verticalSpacing="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th w={44}>
+                  <Checkbox
+                    size="xs"
+                    aria-label="Selecionar todos visíveis"
+                    checked={allVisibleSelected}
+                    indeterminate={
+                      selectedVisibleCount > 0 && !allVisibleSelected
+                    }
+                    onChange={(event) =>
+                      toggleSelectAllVisible(event.currentTarget.checked)
+                    }
+                  />
+                </Table.Th>
+                <Table.Th>Produto</Table.Th>
+                {locations.map((loc) => (
+                  <Table.Th key={loc.id} w={100} ta="right">
+                    {loc.label || loc.name}
+                  </Table.Th>
+                ))}
+                <Table.Th w={80} ta="right">
+                  Total
+                </Table.Th>
+                <Table.Th w={120} ta="right">
+                  Cópias
+                </Table.Th>
+                <Table.Th w={56} />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {rows.map((product) => {
+                const checked = selectedSet.has(product.id);
+                return (
+                  <Table.Tr
+                    key={product.id}
+                    className={checked ? "row-selected" : undefined}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => toggleRow(product.id, !checked)}
+                  >
+                    <Table.Td onClick={(event) => event.stopPropagation()}>
+                      <Checkbox
+                        size="xs"
+                        aria-label={`Selecionar ${product.nome}`}
+                        checked={checked}
+                        onChange={(event) =>
+                          toggleRow(product.id, event.currentTarget.checked)
+                        }
+                      />
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" fw={500} lineClamp={1}>
+                        {product.nome}
+                      </Text>
+                      <Text size="xs" c="dimmed" className="mono">
+                        #{product.id}
+                      </Text>
+                    </Table.Td>
+                    {locations.map((loc) => {
+                      const qty = product.inventories?.[loc.id] ?? 0;
+                      return (
+                        <Table.Td key={loc.id} ta="right">
+                          <Text
+                            size="sm"
+                            className="num"
+                            fw={qty > 0 ? 600 : 400}
+                            c={qty > 0 ? "var(--success)" : "var(--text-subtle)"}
+                          >
+                            {qty > 0 ? qty : "—"}
+                          </Text>
+                        </Table.Td>
+                      );
+                    })}
+                    <Table.Td ta="right" fw={600} className="num">
+                      {product.total_stock}
+                    </Table.Td>
+                    <Table.Td ta="right" onClick={(event) => event.stopPropagation()}>
+                      {copiesMode === "MANUAL" ? (
+                        <NumberInput
+                          size="xs"
+                          aria-label="Cópias"
+                          min={1}
+                          max={MAX_COPIES_PER_ITEM}
+                          value={resolveManualCopies(product.id)}
+                          onChange={(value) =>
+                            setManualCopies(product.id, Number(value || 1))
+                          }
+                          w={90}
+                          ml="auto"
+                        />
+                      ) : (
+                        <Text size="sm" className="num" c="dimmed">
+                          ×{resolveCopies(product)}
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td onClick={(event) => event.stopPropagation()}>
+                      <Group justify="flex-end" className="row-actions">
+                        <Tooltip label="Imprimir só este item">
+                          <ActionIcon
+                            color="gray"
+                            onClick={() => runPrintSingle(product)}
+                            aria-label={`Imprimir etiqueta do item ${product.id}`}
+                          >
+                            <IconBarcode size={16} stroke={1.5} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+              {listQuery.isError && (
+                <Table.Tr>
+                  <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
+                    <EmptyState
+                      message="Falha ao carregar itens"
+                      description={loadError}
+                      actionLabel="Tentar novamente"
+                      onAction={() => void listQuery.refetch()}
                     />
                   </Table.Td>
-                  <Table.Td>{product.id}</Table.Td>
-                  <Table.Td>{product.nome}</Table.Td>
-                  {locations.map((loc) => (
-                    <Table.Td key={loc.id}>
-                      {product.inventories?.[loc.id] ?? 0}
-                    </Table.Td>
-                  ))}
-                  <Table.Td>{product.total_stock}</Table.Td>
-                  <Table.Td>
-                    {copiesMode === "MANUAL" ? (
-                      <NumberInput
-                        min={1}
-                        max={MAX_COPIES_PER_ITEM}
-                        value={resolveManualCopies(product.id)}
-                        onChange={(value) =>
-                          setManualCopies(product.id, Number(value || 1))
-                        }
-                        w={110}
-                      />
-                    ) : (
-                      <Badge variant="light">{resolveCopies(product)}</Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Tooltip label="Gerar etiqueta deste item">
-                      <ActionIcon
-                        variant="light"
-                        onClick={() => runPrintSingle(product)}
-                        aria-label={`Gerar etiqueta do item ${product.id}`}
-                      >
-                        <IconBarcode size={16} />
-                      </ActionIcon>
-                    </Tooltip>
+                </Table.Tr>
+              )}
+              {!listQuery.isError && rows.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
+                    <EmptyState message="Nenhum item encontrado" />
                   </Table.Td>
                 </Table.Tr>
-              );
-            })}
-            {listQuery.isError && (
-              <Table.Tr>
-                <Table.Td colSpan={5 + locations.length}>
-                  <EmptyState
-                    message={loadError}
-                    actionLabel="Tentar novamente"
-                    onAction={() => void listQuery.refetch()}
-                  />
-                </Table.Td>
-              </Table.Tr>
-            )}
-            {!listQuery.isError && rows.length === 0 && (
-              <Table.Tr>
-                <Table.Td colSpan={5 + locations.length}>
-                  <EmptyState message="Nenhum item encontrado para os filtros selecionados." />
-                </Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
-      </DataTable>
+              )}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      </div>
 
       <Group justify="space-between">
-        <Text size="sm" c="dimmed">
-          Total: {listQuery.data?.meta?.total_items ?? 0}
+        <Text size="xs" c="dimmed" className="num">
+          {(listQuery.data?.meta?.total_items ?? 0).toLocaleString("pt-BR")} itens
         </Text>
-        <Pagination value={page} onChange={setPage} total={totalPages} />
+        {totalPages > 1 && (
+          <Pagination size="sm" value={page} onChange={setPage} total={totalPages} />
+        )}
       </Group>
-    </>
+    </Stack>
   );
 }

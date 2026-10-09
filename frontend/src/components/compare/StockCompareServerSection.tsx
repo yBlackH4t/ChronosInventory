@@ -1,19 +1,23 @@
 import {
   ActionIcon,
-  Badge,
   Button,
-  Card,
   Group,
   SimpleGrid,
   Stack,
   Table,
   Text,
   TextInput,
-  Title,
 } from "@mantine/core";
-import { IconTrash } from "@tabler/icons-react";
+import {
+  IconArrowsDiff,
+  IconRefresh,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 import dayjs from "dayjs";
 
+import Panel from "../ui/Panel";
+import StatusDot, { KeyValue } from "../ui/StatusDot";
 import type {
   CompareServerStatusOut,
   PublishedCompareBaseOut,
@@ -77,302 +81,229 @@ export default function StockCompareServerSection({
   deletingHistoryManifestPath,
   formatBytes,
 }: Props) {
+  const localSnapshot = compareServerStatus?.local_snapshot;
+  const remoteManifest = remoteServerInfo?.compare_manifest;
+
   return (
-    <Card withBorder>
-      <Stack gap="md">
-        <Title order={4}>Comparacao por servidor local</Title>
-        <Text size="sm" c="dimmed">
-          Cada maquina publica o proprio snapshot. Do outro lado, basta informar
-          o endereco do servidor remoto e comparar.
-        </Text>
-
-        <SimpleGrid cols={{ base: 1, md: 2 }}>
-          <Card withBorder>
-            <Stack gap={6}>
-              <Group justify="space-between" align="start">
-                <Text fw={600}>Minha maquina</Text>
-                <Group gap="xs">
-                  <Badge
-                    variant="light"
-                    color={
-                      compareServerStatus?.server_running ? "green" : "orange"
-                    }
-                  >
-                    Servidor{" "}
-                    {compareServerStatus?.server_running ? "ativo" : "parado"}
-                  </Badge>
-                  <Badge
-                    variant="light"
-                    color={
-                      compareServerStatus?.local_snapshot_available
-                        ? "blue"
-                        : "gray"
-                    }
-                  >
-                    {compareServerStatus?.local_snapshot_available
-                      ? "Snapshot publicado"
-                      : "Sem snapshot"}
-                  </Badge>
-                  {compareServerStatus?.local_snapshot_available ? (
-                    <Badge variant="light" color="green">
-                      LATEST
-                    </Badge>
-                  ) : null}
-                </Group>
-              </Group>
-              <Text size="sm">
-                Maquina: {compareServerStatus?.machine_label || "-"}
-              </Text>
-              <Text size="sm">Perfil atual: {activeProfileName}</Text>
-              <Text size="sm">
-                Porta: {compareServerStatus?.server_port || "-"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                {currentDbPath}
-              </Text>
-              {compareServerStatus?.server_urls?.length ? (
-                <Text size="sm" c="dimmed">
-                  Endereco(s): {compareServerStatus.server_urls.join(" | ")}
-                </Text>
-              ) : null}
-              <Text size="sm" c="dimmed">
-                Ultima confirmacao local:{" "}
-                {localStatusConfirmedAt || "Aguardando"}
-              </Text>
-              <Text size="sm" c="dimmed">
-                Historico local: {compareServerStatus?.history_items_count ?? 0}{" "}
-                snapshot(s) | Retencao automatica:{" "}
-                {compareServerStatus?.history_retention_limit ?? 10}
-              </Text>
-              {compareServerStatus?.local_snapshot ? (
-                <>
-                  <Text size="sm" c="dimmed">
-                    Ultima publicacao:{" "}
-                    {dayjs(
-                      compareServerStatus.local_snapshot.manifest.published_at,
-                    ).format("DD/MM/YYYY HH:mm")}
-                  </Text>
-                  <Text size="sm" c="dimmed">
-                    Comparacoes remotas usam sempre este snapshot latest
-                    enquanto voce nao publicar outro.
-                  </Text>
-                </>
-              ) : (
-                <Text size="sm" c="dimmed">
-                  Esta maquina ainda nao publicou snapshot de comparacao.
-                </Text>
-              )}
-              <Group>
-                <Button
-                  onClick={onPublishSnapshot}
-                  loading={publishSnapshotLoading}
-                >
-                  Publicar minha base para comparacao
-                </Button>
-                <Button
-                  variant="light"
-                  color="red"
-                  onClick={onDeleteLatestSnapshot}
-                  disabled={!compareServerStatus?.local_snapshot_available}
-                  loading={deleteLatestSnapshotLoading}
-                >
-                  Excluir snapshot atual
-                </Button>
-              </Group>
-            </Stack>
-          </Card>
-
-          <Card withBorder>
-            <Stack gap={6}>
-              <Group justify="space-between" align="start">
-                <Text fw={600}>Servidor remoto</Text>
-                <Badge
-                  variant="light"
-                  color={
-                    remoteReachable === null
-                      ? "gray"
-                      : remoteReachable
-                        ? "green"
-                        : "red"
-                  }
-                >
-                  {remoteReachable === null
-                    ? "Nao verificado"
-                    : remoteReachable
-                      ? "Online"
-                      : "Offline"}
-                </Badge>
-              </Group>
-              <TextInput
-                label="Endereco do servidor"
-                placeholder="http://192.168.0.15:8765"
-                value={remoteServerUrl}
-                onChange={(event) =>
-                  onRemoteServerUrlChange(event.currentTarget.value)
+    <Stack gap="md">
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+        {/* Esta máquina */}
+        <Panel
+          title="Esta máquina"
+          subtitle="Publique o snapshot para que outro computador possa comparar com você."
+        >
+          <Stack gap="sm">
+            <Group gap="lg" wrap="wrap">
+              <StatusDot tone={compareServerStatus?.server_running ? "success" : "neutral"}>
+                Servidor {compareServerStatus?.server_running ? "ativo" : "parado"}
+              </StatusDot>
+              <StatusDot tone={compareServerStatus?.local_snapshot_available ? "info" : "neutral"}>
+                {compareServerStatus?.local_snapshot_available
+                  ? "Snapshot publicado"
+                  : "Sem snapshot"}
+              </StatusDot>
+            </Group>
+            <Stack gap={0}>
+              <KeyValue label="Máquina" value={compareServerStatus?.machine_label || "—"} />
+              <KeyValue label="Perfil" value={activeProfileName} />
+              <KeyValue label="Porta" value={compareServerStatus?.server_port || "—"} />
+              <KeyValue
+                label="Último snapshot"
+                value={
+                  localSnapshot
+                    ? dayjs(localSnapshot.manifest.published_at).format("DD/MM/YYYY HH:mm")
+                    : "—"
                 }
               />
-              <Text size="sm" c="dimmed">
-                Ultima confirmacao remota:{" "}
-                {remoteStatusCheckedAt || "Ainda nao consultado"}
-              </Text>
-              {remoteServerInfo ? (
-                <>
-                  <Text size="sm">
-                    Maquina: {remoteServerInfo.machine_label || "-"} | App:{" "}
-                    {remoteServerInfo.app_version || "-"}
-                  </Text>
-                  <Text size="sm">
-                    Porta: {remoteServerInfo.server_port || "-"}
-                  </Text>
-                  <Text size="sm">
-                    Snapshot remoto:{" "}
-                    {remoteServerInfo.compare_manifest
-                      ? dayjs(
-                          remoteServerInfo.compare_manifest.published_at,
-                        ).format("DD/MM/YYYY HH:mm")
-                      : "nao publicado"}
-                  </Text>
-                  {remoteServerInfo.compare_manifest ? (
-                    <Group gap="xs">
-                      <Badge variant="light" color="green" w="fit-content">
-                        Usando snapshot latest do servidor remoto
-                      </Badge>
-                      {remoteSnapshotIsOlder ? (
-                        <Badge variant="light" color="orange" w="fit-content">
-                          Remoto mais antigo que o latest local
-                        </Badge>
-                      ) : null}
-                    </Group>
-                  ) : null}
-                  {remoteServerInfo.compare_manifest ? (
-                    <Text size="sm" c="dimmed">
-                      Snapshot latest publicado por{" "}
-                      {remoteServerInfo.compare_manifest.machine_label ||
-                        remoteServerInfo.machine_label ||
-                        "maquina remota"}{" "}
-                      em{" "}
-                      {dayjs(
-                        remoteServerInfo.compare_manifest.published_at,
-                      ).format("DD/MM/YYYY HH:mm:ss")}
-                      .
-                    </Text>
-                  ) : null}
-                  {remoteServerInfo.compare_manifest ? (
-                    <Text size="sm">
-                      Itens: {remoteServerInfo.compare_manifest.total_items} |
-                      Ativos: {remoteServerInfo.compare_manifest.active_items} |
-                      Com estoque:{" "}
-                      {remoteServerInfo.compare_manifest.with_stock_items}
-                    </Text>
-                  ) : null}
-                </>
-              ) : (
-                <Text size="sm" c="dimmed">
-                  Consulte o servidor remoto para conferir se ele ja publicou o
-                  snapshot.
-                </Text>
-              )}
-              {remoteCheckError ? (
-                <Text size="sm" c="red">
-                  {remoteCheckError}
-                </Text>
-              ) : null}
-              <Group>
-                <Button
-                  variant="light"
-                  onClick={onInspectRemoteServer}
-                  loading={inspectRemoteLoading}
-                  disabled={!remoteServerUrl.trim()}
-                >
-                  Consultar servidor
-                </Button>
-                <Button
-                  onClick={onCompareRemote}
-                  loading={compareRemoteLoading}
-                  disabled={!remoteServerUrl.trim()}
-                >
-                  Comparar com servidor remoto
-                </Button>
-              </Group>
+              <KeyValue label="Confirmado em" value={localStatusConfirmedAt || "—"} />
             </Stack>
-          </Card>
-        </SimpleGrid>
-
-        <Card withBorder>
-          <Stack gap="sm">
-            <Group justify="space-between" align="start">
-              <div>
-                <Text fw={600}>Historico local de snapshots</Text>
-                <Text size="sm" c="dimmed">
-                  O servidor mantem automaticamente apenas os ultimos{" "}
-                  {compareServerStatus?.history_retention_limit ?? 10}{" "}
-                  snapshots.
-                </Text>
-              </div>
-              <Button variant="subtle" size="xs" onClick={onRefreshHistory}>
-                Atualizar historico
+            {compareServerStatus?.server_urls?.length ? (
+              <Text size="xs" c="dimmed" className="mono">
+                {compareServerStatus.server_urls.join("  ·  ")}
+              </Text>
+            ) : null}
+            <Text size="xs" c="dimmed" className="mono" truncate="end" title={currentDbPath}>
+              {currentDbPath}
+            </Text>
+            <Group justify="space-between" mt={4}>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                onClick={onDeleteLatestSnapshot}
+                disabled={!compareServerStatus?.local_snapshot_available}
+                loading={deleteLatestSnapshotLoading}
+              >
+                Excluir snapshot
+              </Button>
+              <Button
+                leftSection={<IconUpload size={16} stroke={1.5} />}
+                onClick={onPublishSnapshot}
+                loading={publishSnapshotLoading}
+              >
+                Publicar snapshot
               </Button>
             </Group>
-
-            {historyLoading ? (
-              <Text size="sm" c="dimmed">
-                Carregando historico...
-              </Text>
-            ) : compareServerHistory.length === 0 ? (
-              <Text size="sm" c="dimmed">
-                Ainda nao existe historico de snapshots nesta maquina.
-              </Text>
-            ) : (
-              <Table.ScrollContainer minWidth={720}>
-                <Table striped highlightOnHover withTableBorder>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Publicado em</Table.Th>
-                      <Table.Th>Itens</Table.Th>
-                      <Table.Th>Ativos</Table.Th>
-                      <Table.Th>Com estoque</Table.Th>
-                      <Table.Th>Tamanho</Table.Th>
-                      <Table.Th>Acoes</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {compareServerHistory.map((item) => (
-                      <Table.Tr key={item.manifest_path}>
-                        <Table.Td>
-                          {dayjs(item.manifest.published_at).format(
-                            "DD/MM/YYYY HH:mm",
-                          )}
-                        </Table.Td>
-                        <Table.Td>{item.manifest.total_items}</Table.Td>
-                        <Table.Td>{item.manifest.active_items}</Table.Td>
-                        <Table.Td>{item.manifest.with_stock_items}</Table.Td>
-                        <Table.Td>
-                          {formatBytes(item.manifest.file_size)}
-                        </Table.Td>
-                        <Table.Td>
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            onClick={() =>
-                              onDeleteHistorySnapshot(item.manifest_path)
-                            }
-                            loading={
-                              deleteHistorySnapshotLoading &&
-                              deletingHistoryManifestPath === item.manifest_path
-                            }
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Table.ScrollContainer>
-            )}
           </Stack>
-        </Card>
-      </Stack>
-    </Card>
+        </Panel>
+
+        {/* Servidor remoto */}
+        <Panel
+          title="Outro computador"
+          subtitle="Informe o endereço do servidor do colega e compare com o snapshot dele."
+          actions={
+            <StatusDot
+              tone={remoteReachable === null ? "neutral" : remoteReachable ? "success" : "danger"}
+            >
+              {remoteReachable === null
+                ? "Não verificado"
+                : remoteReachable
+                  ? "Online"
+                  : "Offline"}
+            </StatusDot>
+          }
+        >
+          <Stack gap="sm">
+            <TextInput
+              label="Endereço do servidor"
+              placeholder="http://192.168.0.15:8765"
+              value={remoteServerUrl}
+              onChange={(event) => onRemoteServerUrlChange(event.currentTarget.value)}
+            />
+            {remoteServerInfo ? (
+              <Stack gap={0}>
+                <KeyValue
+                  label="Máquina"
+                  value={`${remoteServerInfo.machine_label || "—"} · app ${remoteServerInfo.app_version || "—"}`}
+                />
+                <KeyValue
+                  label="Snapshot"
+                  value={
+                    remoteManifest
+                      ? dayjs(remoteManifest.published_at).format("DD/MM/YYYY HH:mm")
+                      : "Não publicado"
+                  }
+                />
+                {remoteManifest ? (
+                  <KeyValue
+                    label="Itens"
+                    value={`${remoteManifest.total_items} · ${remoteManifest.active_items} ativos · ${remoteManifest.with_stock_items} com estoque`}
+                  />
+                ) : null}
+                <KeyValue label="Consultado em" value={remoteStatusCheckedAt || "—"} />
+              </Stack>
+            ) : (
+              <Text size="xs" c="dimmed">
+                Consulte o servidor para conferir se ele já publicou o snapshot.
+              </Text>
+            )}
+            {remoteSnapshotIsOlder && (
+              <StatusDot tone="warning" size="xs">
+                O snapshot remoto é mais antigo que o desta máquina
+              </StatusDot>
+            )}
+            {remoteCheckError ? (
+              <Text size="xs" c="var(--danger)">
+                {remoteCheckError}
+              </Text>
+            ) : null}
+            <Group justify="flex-end" gap="xs" mt={4}>
+              <Button
+                variant="default"
+                onClick={onInspectRemoteServer}
+                loading={inspectRemoteLoading}
+                disabled={!remoteServerUrl.trim()}
+              >
+                Consultar
+              </Button>
+              <Button
+                leftSection={<IconArrowsDiff size={16} stroke={1.5} />}
+                onClick={onCompareRemote}
+                loading={compareRemoteLoading}
+                disabled={!remoteServerUrl.trim()}
+              >
+                Comparar
+              </Button>
+            </Group>
+          </Stack>
+        </Panel>
+      </SimpleGrid>
+
+      <Panel
+        flush
+        title="Histórico de snapshots"
+        subtitle={`Mantém automaticamente os últimos ${compareServerStatus?.history_retention_limit ?? 10}.`}
+        actions={
+          <ActionIcon
+            color="gray"
+            aria-label="Atualizar histórico"
+            onClick={onRefreshHistory}
+            loading={historyLoading}
+          >
+            <IconRefresh size={16} stroke={1.5} />
+          </ActionIcon>
+        }
+      >
+        {compareServerHistory.length === 0 ? (
+          <Text size="sm" c="dimmed" px="lg" py="md">
+            {historyLoading
+              ? "Carregando…"
+              : "Ainda não existe histórico de snapshots nesta máquina."}
+          </Text>
+        ) : (
+          <Table.ScrollContainer minWidth={640}>
+            <Table verticalSpacing="xs">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Publicado em</Table.Th>
+                  <Table.Th ta="right">Itens</Table.Th>
+                  <Table.Th ta="right">Ativos</Table.Th>
+                  <Table.Th ta="right">Com estoque</Table.Th>
+                  <Table.Th ta="right">Tamanho</Table.Th>
+                  <Table.Th w={56} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {compareServerHistory.map((item) => (
+                  <Table.Tr key={item.manifest_path}>
+                    <Table.Td className="num">
+                      {dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}
+                    </Table.Td>
+                    <Table.Td ta="right" className="num">
+                      {item.manifest.total_items}
+                    </Table.Td>
+                    <Table.Td ta="right" className="num">
+                      {item.manifest.active_items}
+                    </Table.Td>
+                    <Table.Td ta="right" className="num">
+                      {item.manifest.with_stock_items}
+                    </Table.Td>
+                    <Table.Td ta="right" c="dimmed" className="num">
+                      {formatBytes(item.manifest.file_size)}
+                    </Table.Td>
+                    <Table.Td>
+                      <Group justify="flex-end" className="row-actions">
+                        <ActionIcon
+                          color="gray"
+                          className="action-danger"
+                          aria-label="Excluir snapshot"
+                          onClick={() => onDeleteHistorySnapshot(item.manifest_path)}
+                          loading={
+                            deleteHistorySnapshotLoading &&
+                            deletingHistoryManifestPath === item.manifest_path
+                          }
+                        >
+                          <IconTrash size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+        )}
+      </Panel>
+    </Stack>
   );
 }

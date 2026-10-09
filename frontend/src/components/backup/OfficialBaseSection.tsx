@@ -1,8 +1,8 @@
 import {
+  Accordion,
   Alert,
-  Badge,
   Button,
-  Card,
+  CopyButton,
   Group,
   Loader,
   NumberInput,
@@ -10,11 +10,18 @@ import {
   SimpleGrid,
   Stack,
   Switch,
+  Table,
   Text,
   TextInput,
   Textarea,
-  Title,
 } from "@mantine/core";
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconCopy,
+  IconDownload,
+  IconUpload,
+} from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import type {
@@ -25,6 +32,8 @@ import type {
 } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
 import { OfficialBaseHistoryTable } from "./OfficialBaseHistoryTable";
+import Panel from "../ui/Panel";
+import StatusDot from "../ui/StatusDot";
 
 type OfficialBaseSectionProps = {
   loading: boolean;
@@ -103,380 +112,332 @@ export function OfficialBaseSection({
   onDeleteHistory,
   onDeleteLatest,
 }: OfficialBaseSectionProps) {
-  const latestOfficialManifest = status?.server_latest_manifest;
+  const latest = status?.server_latest_manifest;
+  const isPublisher = roleInput === "publisher";
+  const emptyDatabase = (status?.current_products_count ?? 0) === 0;
 
   if (loading) {
     return (
-      <Card withBorder>
-        <Stack>
-          <Title order={4}>Base oficial compartilhada</Title>
-          <Loader size="sm" />
-        </Stack>
-      </Card>
+      <Group justify="center" p="xl">
+        <Loader size="sm" />
+      </Group>
     );
   }
 
   if (errorMessage) {
     return (
-      <Card withBorder>
-        <Stack>
-          <Title order={4}>Base oficial compartilhada</Title>
-          <EmptyState
-            message={errorMessage}
-            actionLabel="Tentar novamente"
-            onAction={onRetry}
-          />
-        </Stack>
-      </Card>
+      <EmptyState
+        message="Falha ao carregar a base oficial"
+        description={errorMessage}
+        actionLabel="Tentar novamente"
+        onAction={onRetry}
+      />
     );
   }
 
+  const comparisonRows: { label: string; local: string; published: string }[] = [
+    {
+      label: "Produtos",
+      local: String(status?.current_products_count ?? 0),
+      published: latest ? String(latest.products_count ?? 0) : "—",
+    },
+    {
+      label: "Com estoque",
+      local: String(status?.current_products_with_stock_count ?? 0),
+      published: latest ? String(latest.products_with_stock_count ?? 0) : "—",
+    },
+    {
+      label: "Movimentações",
+      local: String(status?.current_movements_count ?? 0),
+      published: latest ? String(latest.movements_count ?? 0) : "—",
+    },
+    {
+      label: "Tamanho",
+      local: formatBytes(status?.current_database_size ?? 0),
+      published: latest ? formatBytes(latest.database_size ?? 0) : "—",
+    },
+  ];
+
   return (
-    <Card withBorder>
-      <Stack>
-        <Title order={4}>Base oficial compartilhada</Title>
-
-        <Alert
-          color={status?.server_running ? "blue" : "orange"}
-          variant="light"
-        >
-          {status?.server_running
-            ? "Servidor local ativo. Quem estiver na rede pode usar o endereco abaixo para baixar a base oficial ou comparar snapshots."
-            : "Ligue o servidor local desta maquina para distribuir a base oficial sem depender de pasta compartilhada."}
-        </Alert>
-
-        <Group gap="sm" wrap="wrap">
-          <Badge
-            variant="light"
-            color={status?.role === "publisher" ? "blue" : "gray"}
-          >
-            Papel: {status?.role === "publisher" ? "Publisher" : "Consumer"}
-          </Badge>
-          <Badge
-            variant="light"
-            color={status?.server_running ? "green" : "orange"}
-          >
-            Servidor {status?.server_running ? "ativo" : "parado"}
-          </Badge>
-          <Badge
-            variant="light"
-            color={status?.server_latest_available ? "green" : "gray"}
-          >
-            {status?.server_latest_available
-              ? "Base oficial local publicada"
-              : "Sem base oficial local"}
-          </Badge>
-          <Badge
-            variant="light"
-            color={status?.remote_server_url ? "indigo" : "gray"}
-          >
-            {status?.remote_server_url
-              ? "Servidor remoto configurado"
-              : "Sem servidor remoto"}
-          </Badge>
-          {status?.app_compatible_with_server_latest === false && (
-            <Badge variant="light" color="red">
-              App local incompativel com a ultima base
-            </Badge>
-          )}
-        </Group>
-
-        <Group align="end" wrap="wrap">
-          <Select
-            label="Papel desta maquina"
-            data={[
-              { value: "consumer", label: "Consumer" },
-              { value: "publisher", label: "Publisher" },
-            ]}
-            value={roleInput}
-            onChange={(value) =>
-              onRoleChange((value as OfficialBaseRole) || "consumer")
-            }
-            w={160}
-            allowDeselect={false}
-          />
-          <TextInput
-            label="Identificacao da maquina"
-            value={machineLabelInput}
-            onChange={(event) =>
-              onMachineLabelChange(event.currentTarget.value)
-            }
-            w={220}
-          />
-          <TextInput
-            label="Nome do publicador"
-            value={publisherNameInput}
-            onChange={(event) =>
-              onPublisherNameChange(event.currentTarget.value)
-            }
-            w={220}
-          />
-          <NumberInput
-            label="Porta do servidor"
-            value={serverPortInput ?? undefined}
-            onChange={(value) =>
-              onServerPortChange(typeof value === "number" ? value : null)
-            }
-            min={1024}
-            max={65535}
-            w={160}
-          />
-          <TextInput
-            label="Servidor remoto"
-            placeholder="http://192.168.0.15:8765"
-            value={remoteServerUrlInput}
-            onChange={(event) =>
-              onRemoteServerUrlChange(event.currentTarget.value)
-            }
-            w={320}
-          />
-          <Button onClick={onSaveConfig} loading={saveConfigLoading}>
-            Salvar configuracao
-          </Button>
+    <Stack gap="md">
+      {/* Servidor desta máquina */}
+      <Panel
+        title="Servidor desta máquina"
+        subtitle={
+          serverIsRunning
+            ? "Quem estiver na mesma rede pode baixar a base oficial pelos endereços abaixo."
+            : "Ligue o servidor para distribuir a base oficial sem depender de pasta compartilhada."
+        }
+        actions={
           <Switch
             label={serverSwitchLabel}
-            description={
-              serverIsRunning
-                ? "Servidor ativo nesta maquina"
-                : "Servidor parado nesta maquina"
-            }
             checked={serverIsRunning}
             onChange={(event) => onToggleServer(event.currentTarget.checked)}
             disabled={serverToggleBusy}
-            size="md"
-            onLabel="ON"
-            offLabel="OFF"
+            labelPosition="left"
           />
-          <Button
-            variant="light"
-            onClick={onTestRemoteServer}
-            loading={testRemoteLoading}
-            disabled={!remoteServerUrlInput.trim()}
-          >
-            Testar servidor remoto
-          </Button>
-        </Group>
-
-        <Text size="sm" c="dimmed">
-          Config local: {status?.config_path || "-"}
-        </Text>
-
-        {status?.server_urls?.length ? (
-          <Alert
-            color={status?.server_running ? "green" : "gray"}
-            variant="light"
-          >
-            <Stack gap={4}>
-              <Text size="sm">
-                Enderecos desta maquina: {status.server_urls.join(" | ")}
-              </Text>
-            </Stack>
-          </Alert>
-        ) : null}
-
-        {remoteStatus && (
-          <Alert
-            color={remoteStatus.official_available ? "green" : "orange"}
-            variant="light"
-          >
-            <Stack gap={4}>
-              <Text size="sm">{remoteStatus.message}</Text>
-              <Text size="sm">
-                Servidor: {remoteStatus.server_url} | Maquina:{" "}
-                {remoteStatus.machine_label || "-"}
-              </Text>
-              {remoteStatus.official_manifest && (
-                <Text size="sm">
-                  Base remota:{" "}
-                  {dayjs(remoteStatus.official_manifest.published_at).format(
-                    "DD/MM/YYYY HH:mm",
-                  )}{" "}
-                  | Produtos:{" "}
-                  {remoteStatus.official_manifest.products_count ?? 0}
-                </Text>
-              )}
-            </Stack>
-          </Alert>
-        )}
-
-        <Card withBorder bg="var(--surface-muted)">
-          <Stack gap="xs">
-            <Text fw={600}>Base ativa desta maquina</Text>
-            <Text size="sm">
-              Banco em uso: {status?.current_database_path || "-"}
-            </Text>
-            <Group gap="sm" wrap="wrap">
-              <Badge variant="light" color="blue">
-                Produtos: {status?.current_products_count ?? 0}
-              </Badge>
-              <Badge variant="light" color="teal">
-                Com estoque: {status?.current_products_with_stock_count ?? 0}
-              </Badge>
-              <Badge variant="light" color="grape">
-                Movimentacoes: {status?.current_movements_count ?? 0}
-              </Badge>
-              <Badge variant="light" color="gray">
-                Tamanho: {formatBytes(status?.current_database_size ?? 0)}
-              </Badge>
-            </Group>
-            {(status?.current_products_count ?? 0) === 0 && (
-              <Alert color="red" variant="light">
-                Esta base esta vazia. Se voce publicar agora, vai distribuir um
-                estoque zerado. Se estiver em modo dev, confirme se o app esta
-                apontando para o banco certo antes de publicar.
-              </Alert>
+        }
+      >
+        <Stack gap="sm">
+          <Group gap="lg" wrap="wrap">
+            <StatusDot tone={serverIsRunning ? "success" : "neutral"}>
+              Servidor {serverIsRunning ? "ativo" : "parado"}
+            </StatusDot>
+            <StatusDot tone={isPublisher ? "info" : "neutral"}>
+              {isPublisher ? "Publica a base" : "Consome a base"}
+            </StatusDot>
+            <StatusDot tone={status?.remote_server_url ? "info" : "neutral"}>
+              {status?.remote_server_url ? "Servidor remoto configurado" : "Sem servidor remoto"}
+            </StatusDot>
+            {status?.app_compatible_with_server_latest === false && (
+              <StatusDot tone="danger">App incompatível com a última base</StatusDot>
             )}
-          </Stack>
-        </Card>
-
-        {latestOfficialManifest ? (
-          <Card withBorder bg="var(--surface-muted)">
-            <Stack gap="xs">
-              <Group justify="space-between" wrap="wrap">
-                <Group gap="xs">
-                  <Text fw={600}>Ultima base publicada neste servidor</Text>
-                  <Badge color="green" variant="light">
-                    LATEST
-                  </Badge>
-                </Group>
-                <Group gap="xs">
-                  <Text size="sm" c="dimmed">
-                    {dayjs(latestOfficialManifest.published_at).format(
-                      "DD/MM/YYYY HH:mm",
-                    )}
-                  </Text>
-                  {roleInput === "publisher" && (
-                    <Button
-                      size="xs"
-                      color="red"
-                      variant="light"
-                      onClick={onDeleteLatest}
-                      loading={deletePending}
+          </Group>
+          {status?.server_urls?.length ? (
+            <Group gap="xs" wrap="wrap">
+              {status.server_urls.map((url) => (
+                <CopyButton key={url} value={url} timeout={1500}>
+                  {({ copied, copy }) => (
+                    <button
+                      type="button"
+                      className="code-chip"
+                      data-copied={copied || undefined}
+                      onClick={copy}
+                      title="Copiar endereço"
                     >
-                      Excluir base atual
-                    </Button>
+                      {url}
+                      <span className="code-chip-icon">
+                        {copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+                      </span>
+                    </button>
                   )}
-                </Group>
-              </Group>
-              <Text size="sm">
-                Publicada por:{" "}
-                {latestOfficialManifest.publisher_name ||
-                  latestOfficialManifest.publisher_machine}
-              </Text>
-              <Text size="sm">
-                App minimo: {latestOfficialManifest.min_app_version} | Banco:{" "}
-                {latestOfficialManifest.db_version}
-              </Text>
-              <Text size="sm">
-                Notas: {latestOfficialManifest.notes || "Sem observacoes."}
-              </Text>
-              <Group gap="sm" wrap="wrap">
-                <Badge variant="light" color="blue">
-                  Produtos: {latestOfficialManifest.products_count ?? 0}
-                </Badge>
-                <Badge variant="light" color="teal">
-                  Com estoque:{" "}
-                  {latestOfficialManifest.products_with_stock_count ?? 0}
-                </Badge>
-                <Badge variant="light" color="grape">
-                  Movimentacoes: {latestOfficialManifest.movements_count ?? 0}
-                </Badge>
-                <Badge variant="light" color="gray">
-                  Tamanho:{" "}
-                  {formatBytes(latestOfficialManifest.database_size ?? 0)}
-                </Badge>
-              </Group>
-            </Stack>
-          </Card>
-        ) : (
-          <Text size="sm" c="dimmed">
-            Nenhuma base oficial publicada neste servidor ainda.
-          </Text>
-        )}
-
-        {latestOfficialManifest && (
-          <SimpleGrid cols={{ base: 1, md: 2 }}>
-            <Card withBorder>
-              <Stack gap={4}>
-                <Text fw={600}>Comparativo rapido</Text>
-                <Text size="sm">
-                  Produtos locais: {status?.current_products_count ?? 0} |
-                  publicados: {latestOfficialManifest.products_count ?? 0}
-                </Text>
-                <Text size="sm">
-                  Com estoque local:{" "}
-                  {status?.current_products_with_stock_count ?? 0} | publicados:{" "}
-                  {latestOfficialManifest.products_with_stock_count ?? 0}
-                </Text>
-                <Text size="sm">
-                  Movimentacoes locais: {status?.current_movements_count ?? 0} |
-                  publicadas: {latestOfficialManifest.movements_count ?? 0}
-                </Text>
-              </Stack>
-            </Card>
-            <Card withBorder>
-              <Stack gap={4}>
-                <Text fw={600}>Leitura operacional</Text>
-                <Text size="sm">
-                  Se estes numeros divergirem muito, confira antes de publicar
-                  ou aplicar a base.
-                </Text>
-                <Text size="sm" c="dimmed">
-                  Isso ajuda a evitar sobrescrever o colega com uma base errada
-                  ou desatualizada.
-                </Text>
-              </Stack>
-            </Card>
-          </SimpleGrid>
-        )}
-
-        {roleInput === "publisher" && (
-          <Textarea
-            label="Observacao da publicacao"
-            placeholder="Ex: base conferida apos inventario de Canoas"
-            minRows={2}
-            value={notesInput}
-            onChange={(event) => onNotesChange(event.currentTarget.value)}
-          />
-        )}
-
-        <Group>
-          {roleInput === "publisher" && (
-            <Button
-              onClick={onPublish}
-              loading={publishLoading}
-              disabled={(status?.current_products_count ?? 0) === 0}
-            >
-              Publicar base oficial neste servidor
-            </Button>
-          )}
-          <Button
-            variant="light"
-            color="orange"
-            onClick={onApply}
-            loading={applyLoading}
-            disabled={!remoteServerUrlInput.trim()}
-          >
-            Baixar base oficial do servidor remoto
-          </Button>
-        </Group>
-
-        <Card withBorder>
-          <Stack gap="sm">
-            <Group justify="space-between" wrap="wrap">
-              <Text fw={600}>Historico recente de publicacoes</Text>
-              {historyLoading && <Loader size="xs" />}
+                </CopyButton>
+              ))}
             </Group>
-            <OfficialBaseHistoryTable
-              items={historyItems}
-              loading={historyLoading}
-              canDelete={canDeleteHistory}
-              deletePending={deletePending}
-              onDelete={onDeleteHistory}
+          ) : null}
+        </Stack>
+      </Panel>
+
+      {/* Comparativo */}
+      <Panel
+        flush
+        title="Esta máquina × base publicada"
+        subtitle={
+          latest
+            ? `Publicada em ${dayjs(latest.published_at).format("DD/MM/YYYY HH:mm")} por ${latest.publisher_name || latest.publisher_machine} · app mínimo ${latest.min_app_version} · banco ${latest.db_version}`
+            : "Nenhuma base oficial publicada neste servidor ainda."
+        }
+        actions={
+          latest && isPublisher ? (
+            <Button
+              size="xs"
+              variant="subtle"
+              color="red"
+              onClick={onDeleteLatest}
+              loading={deletePending}
+            >
+              Excluir base publicada
+            </Button>
+          ) : undefined
+        }
+      >
+        <Table verticalSpacing="xs">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th />
+              <Table.Th ta="right">Esta máquina</Table.Th>
+              <Table.Th ta="right">Publicada</Table.Th>
+            </Table.Tr>
+          </Table.Thead>
+          <Table.Tbody>
+            {comparisonRows.map((row) => (
+              <Table.Tr key={row.label}>
+                <Table.Td c="dimmed">{row.label}</Table.Td>
+                <Table.Td ta="right" fw={600} className="num">
+                  {row.local}
+                </Table.Td>
+                <Table.Td ta="right" className="num">
+                  {row.published}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        <Stack gap={4} px="lg" py="sm">
+          <Text size="xs" c="dimmed" className="mono" truncate="end">
+            {status?.current_database_path || "—"}
+          </Text>
+          {latest?.notes ? (
+            <Text size="xs" c="dimmed">
+              Notas da publicação: {latest.notes}
+            </Text>
+          ) : null}
+          <Text size="xs" c="dimmed">
+            Se os números divergirem muito, confira antes de publicar ou aplicar a base.
+          </Text>
+        </Stack>
+      </Panel>
+
+      {emptyDatabase && (
+        <Alert
+          color="red"
+          variant="light"
+          icon={<IconAlertTriangle size={18} />}
+          title="Esta base está vazia"
+        >
+          Publicar agora distribuiria um estoque zerado. Confirme se o app está
+          apontando para o banco certo antes de publicar.
+        </Alert>
+      )}
+
+      {/* Ações */}
+      <Panel title="Sincronizar">
+        <Stack gap="sm">
+          {isPublisher && (
+            <Textarea
+              label="Observação da publicação"
+              placeholder="Ex: base conferida após inventário de Canoas"
+              autosize
+              minRows={2}
+              value={notesInput}
+              onChange={(event) => onNotesChange(event.currentTarget.value)}
             />
-          </Stack>
-        </Card>
-      </Stack>
-    </Card>
+          )}
+          <Group gap="xs" wrap="wrap">
+            {isPublisher && (
+              <Button
+                leftSection={<IconUpload size={16} stroke={1.5} />}
+                onClick={onPublish}
+                loading={publishLoading}
+                disabled={emptyDatabase}
+              >
+                Publicar base oficial
+              </Button>
+            )}
+            <Button
+              variant="default"
+              leftSection={<IconDownload size={16} stroke={1.5} />}
+              onClick={onApply}
+              loading={applyLoading}
+              disabled={!remoteServerUrlInput.trim()}
+            >
+              Baixar do servidor remoto
+            </Button>
+          </Group>
+          {remoteStatus && (
+            <Stack gap={2}>
+              <StatusDot tone={remoteStatus.official_available ? "success" : "warning"}>
+                {remoteStatus.message}
+              </StatusDot>
+              <Text size="xs" c="dimmed">
+                {remoteStatus.server_url} · {remoteStatus.machine_label || "—"}
+                {remoteStatus.official_manifest
+                  ? ` · base de ${dayjs(remoteStatus.official_manifest.published_at).format("DD/MM/YYYY HH:mm")} · ${remoteStatus.official_manifest.products_count ?? 0} produtos`
+                  : ""}
+              </Text>
+            </Stack>
+          )}
+        </Stack>
+      </Panel>
+
+      {/* Configuração (recolhida) */}
+      <div className="surface-panel" style={{ overflow: "hidden" }}>
+        <Accordion chevronPosition="right">
+          <Accordion.Item value="config" style={{ borderBottom: 0 }}>
+            <Accordion.Control>
+              <Text size="sm" fw={600}>
+                Configuração da conexão
+              </Text>
+              <Text size="xs" c="dimmed">
+                Papel, identificação, porta e servidor remoto
+              </Text>
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack gap="sm">
+                <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+                  <Select
+                    label="Papel desta máquina"
+                    data={[
+                      { value: "consumer", label: "Consome a base" },
+                      { value: "publisher", label: "Publica a base" },
+                    ]}
+                    value={roleInput}
+                    onChange={(value) =>
+                      onRoleChange((value as OfficialBaseRole) || "consumer")
+                    }
+                    allowDeselect={false}
+                  />
+                  <TextInput
+                    label="Identificação da máquina"
+                    value={machineLabelInput}
+                    onChange={(event) =>
+                      onMachineLabelChange(event.currentTarget.value)
+                    }
+                  />
+                  <TextInput
+                    label="Nome do publicador"
+                    value={publisherNameInput}
+                    onChange={(event) =>
+                      onPublisherNameChange(event.currentTarget.value)
+                    }
+                  />
+                  <NumberInput
+                    label="Porta do servidor"
+                    value={serverPortInput ?? undefined}
+                    onChange={(value) =>
+                      onServerPortChange(typeof value === "number" ? value : null)
+                    }
+                    min={1024}
+                    max={65535}
+                  />
+                  <TextInput
+                    label="Servidor remoto"
+                    placeholder="http://192.168.0.15:8765"
+                    value={remoteServerUrlInput}
+                    onChange={(event) =>
+                      onRemoteServerUrlChange(event.currentTarget.value)
+                    }
+                    style={{ gridColumn: "span 2" }}
+                  />
+                </SimpleGrid>
+                <Group justify="space-between" wrap="wrap">
+                  <Text size="xs" c="dimmed" className="mono" truncate="end">
+                    {status?.config_path || ""}
+                  </Text>
+                  <Group gap="xs">
+                    <Button
+                      variant="default"
+                      onClick={onTestRemoteServer}
+                      loading={testRemoteLoading}
+                      disabled={!remoteServerUrlInput.trim()}
+                    >
+                      Testar servidor remoto
+                    </Button>
+                    <Button onClick={onSaveConfig} loading={saveConfigLoading}>
+                      Salvar configuração
+                    </Button>
+                  </Group>
+                </Group>
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
+      </div>
+
+      {/* Histórico */}
+      <Panel
+        flush
+        title="Histórico de publicações"
+        actions={historyLoading ? <Loader size="xs" /> : undefined}
+      >
+        <OfficialBaseHistoryTable
+          items={historyItems}
+          loading={historyLoading}
+          canDelete={canDeleteHistory}
+          deletePending={deletePending}
+          onDelete={onDeleteHistory}
+        />
+      </Panel>
+    </Stack>
   );
 }

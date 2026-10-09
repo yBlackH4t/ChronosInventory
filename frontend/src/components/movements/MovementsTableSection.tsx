@@ -1,12 +1,14 @@
 import {
-  Badge,
-  Button,
+  ActionIcon,
   Group,
   Loader,
   Pagination,
+  Stack,
   Table,
   Text,
+  Tooltip,
 } from "@mantine/core";
+import { IconArrowBackUp, IconArrowRight, IconHistory } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef, useState } from "react";
@@ -14,13 +16,14 @@ import { useRef, useState } from "react";
 import type { MovementOut } from "../../lib/api";
 import {
   adjustmentReasonLabel,
-  movementColor,
   movementNatureLabel,
+  signedQuantity,
   type ResolvedMovementTableLayout,
 } from "../../lib/movements";
 import EmptyState from "../ui/EmptyState";
 import { useLocations } from "../../hooks/useLocations";
 import EstornoModal from "./EstornoModal";
+import MovementTypeTag from "./MovementTypeTag";
 
 type Props = {
   loading: boolean;
@@ -38,13 +41,14 @@ type Props = {
   openHistory: (productId: number) => void;
 };
 
+const ROW_HEIGHT = 56;
+
 export default function MovementsTableSection({
   loading,
   errorMessage,
   onRetry,
   rows,
   tableLayout,
-  tableColumnCount,
   activeViewCount,
   clearFilters,
   totalItems,
@@ -60,10 +64,14 @@ export default function MovementsTableSection({
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 60,
+    estimateSize: () => ROW_HEIGHT,
     overscan: 10,
   });
 
+  const locationName = (id?: number | null) =>
+    id ? (locations.find((l) => l.id === id)?.name ?? `#${id}`) : null;
+
+  const columnCount = tableLayout.showExtraColumns ? 8 : 7;
   const virtualItems = rowVirtualizer.getVirtualItems();
   const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
   const paddingBottom = virtualItems.length > 0
@@ -71,135 +79,151 @@ export default function MovementsTableSection({
     : 0;
 
   return (
-    <>
+    <Stack gap="sm">
       {loading ? (
         <Group justify="center" mt="xl">
-          <Loader />
+          <Loader size="sm" />
         </Group>
       ) : errorMessage ? (
         <EmptyState
-          message={`Falha ao carregar movimentacoes: ${errorMessage}`}
+          message="Falha ao carregar movimentações"
+          description={errorMessage}
           actionLabel="Tentar novamente"
           onAction={onRetry}
         />
       ) : (
-        <div 
-          ref={parentRef} 
-          style={{ 
-            height: 'calc(100vh - 350px)', 
-            overflow: 'auto',
-            border: '1px solid var(--mantine-color-default-border)',
-            borderRadius: 'var(--mantine-radius-md)',
-          }}
+        <div
+          ref={parentRef}
+          className="table-shell"
+          style={{ height: "calc(100vh - 330px)", minHeight: 320, overflow: "auto" }}
         >
-          <Table striped highlightOnHover withTableBorder style={{ border: 0 }}>
-            <Table.Thead style={{ position: 'sticky', top: 0, zIndex: 1, backgroundColor: 'var(--mantine-color-body)' }}>
+          <Table stickyHeader verticalSpacing={0} miw={980}>
+            <Table.Thead>
               <Table.Tr>
-                <Table.Th>ID</Table.Th>
+                <Table.Th w={130}>Data</Table.Th>
                 <Table.Th>Produto</Table.Th>
-                <Table.Th>Tipo</Table.Th>
-                <Table.Th>Natureza</Table.Th>
-                <Table.Th>Qtd</Table.Th>
-                <Table.Th>Origem</Table.Th>
-                <Table.Th>Destino</Table.Th>
-                <Table.Th>Documento</Table.Th>
+                <Table.Th w={170}>Tipo</Table.Th>
+                <Table.Th w={70} ta="right">
+                  Qtd
+                </Table.Th>
+                <Table.Th w={200}>Origem → destino</Table.Th>
+                <Table.Th w={tableLayout.showExtraColumns ? 160 : 220}>
+                  Documento / obs.
+                </Table.Th>
                 {tableLayout.showExtraColumns && (
-                  <Table.Th>Motivo ajuste</Table.Th>
+                  <Table.Th w={170}>Ajuste / externo</Table.Th>
                 )}
-                {tableLayout.showExtraColumns && (
-                  <Table.Th>Local externo</Table.Th>
-                )}
-                <Table.Th>Observacao</Table.Th>
-                <Table.Th>Data</Table.Th>
-                <Table.Th>Acoes</Table.Th>
+                <Table.Th w={84} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {paddingTop > 0 && (
                 <Table.Tr>
-                  <Table.Td style={{ height: paddingTop, padding: 0 }} colSpan={tableColumnCount} />
+                  <Table.Td style={{ height: paddingTop, padding: 0 }} colSpan={columnCount} />
                 </Table.Tr>
               )}
 
               {virtualItems.map((virtualRow) => {
                 const mov = rows[virtualRow.index];
+                const origem = locationName(mov.origem_location_id);
+                const destino = locationName(mov.destino_location_id);
+                const isEstorno = mov.natureza === "ESTORNO";
                 return (
-                  <Table.Tr key={mov.id} style={{ height: `${virtualRow.size}px` }}>
-                    <Table.Td>{mov.id}</Table.Td>
+                  <Table.Tr key={mov.id} style={{ height: ROW_HEIGHT }}>
+                    <Table.Td>
+                      <Text size="sm" className="num">
+                        {dayjs(mov.data).format("DD/MM/YYYY")}
+                      </Text>
+                      <Text size="xs" c="dimmed" className="num">
+                        {dayjs(mov.data).format("HH:mm")} · #{mov.id}
+                      </Text>
+                    </Table.Td>
                     <Table.Td>
                       <Text
                         size="sm"
+                        fw={500}
+                        truncate="end"
+                        maw={tableLayout.productMaxWidth + 120}
                         title={mov.produto_nome || `ID ${mov.produto_id}`}
-                        maw={tableLayout.productMaxWidth}
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
                       >
                         {mov.produto_nome || `ID ${mov.produto_id}`}
                       </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color={movementColor(mov.tipo)} variant="light">
-                        {mov.tipo}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{movementNatureLabel(mov.natureza)}</Table.Td>
-                    <Table.Td>{mov.quantidade}</Table.Td>
-                    <Table.Td>
-                      {locations.find((l) => l.id === mov.origem_location_id)
-                        ?.name || "-"}
-                    </Table.Td>
-                    <Table.Td>
-                      {locations.find((l) => l.id === mov.destino_location_id)
-                        ?.name || "-"}
-                    </Table.Td>
-                    <Table.Td>{mov.documento || "-"}</Table.Td>
-                    {tableLayout.showExtraColumns && (
-                      <Table.Td>
-                        {adjustmentReasonLabel(mov.motivo_ajuste)}
-                      </Table.Td>
-                    )}
-                    {tableLayout.showExtraColumns && (
-                      <Table.Td>{mov.local_externo || "-"}</Table.Td>
-                    )}
-                    <Table.Td>
-                      <Text
-                        size="sm"
-                        title={String(mov.observacao || "-")}
-                        maw={tableLayout.observationMaxWidth}
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {String(mov.observacao || "-")}
+                      <Text size="xs" c="dimmed" className="mono">
+                        #{mov.produto_id}
                       </Text>
                     </Table.Td>
                     <Table.Td>
-                      {dayjs(mov.data).format("DD/MM/YYYY HH:mm")}
+                      <MovementTypeTag tipo={mov.tipo} />
+                      <Text size="xs" c="dimmed" truncate="end">
+                        {movementNatureLabel(mov.natureza)}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td ta="right">
+                      <Text size="sm" fw={600} className="num">
+                        {signedQuantity(mov.tipo, mov.quantidade)}
+                      </Text>
                     </Table.Td>
                     <Table.Td>
-                      <Group gap="xs" wrap="nowrap">
-                        <Button
+                      <Group gap={6} wrap="nowrap">
+                        <Text size="sm" c={origem ? undefined : "var(--text-subtle)"} truncate="end">
+                          {origem ?? "—"}
+                        </Text>
+                        <IconArrowRight size={12} stroke={1.5} color="var(--text-subtle)" style={{ flexShrink: 0 }} />
+                        <Text size="sm" c={destino ? undefined : "var(--text-subtle)"} truncate="end">
+                          {destino ?? "—"}
+                        </Text>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" truncate="end" c={mov.documento ? undefined : "var(--text-subtle)"}>
+                        {mov.documento || "—"}
+                      </Text>
+                      {mov.observacao ? (
+                        <Text
                           size="xs"
-                          variant="light"
-                          onClick={() => openHistory(mov.produto_id)}
+                          c="dimmed"
+                          truncate="end"
+                          maw={tableLayout.observationMaxWidth}
+                          title={String(mov.observacao)}
                         >
-                          Historico
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="subtle"
-                          color="red"
-                          onClick={() => setEstornoMovement(mov)}
-                          disabled={mov.natureza === "ESTORNO"}
-                          title={mov.natureza === "ESTORNO" ? "Essa movimentacao ja e um estorno" : "Estornar"}
-                        >
-                          Estornar
-                        </Button>
+                          {String(mov.observacao)}
+                        </Text>
+                      ) : null}
+                    </Table.Td>
+                    {tableLayout.showExtraColumns && (
+                      <Table.Td>
+                        <Text size="xs" c="dimmed" truncate="end">
+                          {mov.motivo_ajuste ? adjustmentReasonLabel(mov.motivo_ajuste) : "—"}
+                        </Text>
+                        {mov.local_externo ? (
+                          <Text size="xs" c="dimmed" truncate="end">
+                            {mov.local_externo}
+                          </Text>
+                        ) : null}
+                      </Table.Td>
+                    )}
+                    <Table.Td>
+                      <Group gap={2} justify="flex-end" wrap="nowrap" className="row-actions">
+                        <Tooltip label="Histórico do produto">
+                          <ActionIcon
+                            color="gray"
+                            aria-label="Histórico do produto"
+                            onClick={() => openHistory(mov.produto_id)}
+                          >
+                            <IconHistory size={16} stroke={1.5} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label={isEstorno ? "Já é um estorno" : "Estornar movimentação"}>
+                          <ActionIcon
+                            color="gray"
+                            className="action-danger"
+                            aria-label="Estornar movimentação"
+                            onClick={() => setEstornoMovement(mov)}
+                            disabled={isEstorno}
+                          >
+                            <IconArrowBackUp size={16} stroke={1.5} />
+                          </ActionIcon>
+                        </Tooltip>
                       </Group>
                     </Table.Td>
                   </Table.Tr>
@@ -208,18 +232,19 @@ export default function MovementsTableSection({
 
               {paddingBottom > 0 && (
                 <Table.Tr>
-                  <Table.Td style={{ height: paddingBottom, padding: 0 }} colSpan={tableColumnCount} />
+                  <Table.Td style={{ height: paddingBottom, padding: 0 }} colSpan={columnCount} />
                 </Table.Tr>
               )}
 
               {rows.length === 0 && (
                 <Table.Tr>
-                  <Table.Td colSpan={tableColumnCount}>
+                  <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
                     <EmptyState
-                      message="Nenhuma movimentacao encontrada"
-                      actionLabel={
-                        activeViewCount > 0 ? "Limpar filtros" : undefined
+                      message="Nenhuma movimentação encontrada"
+                      description={
+                        activeViewCount > 0 ? "Ajuste ou limpe os filtros aplicados." : undefined
                       }
+                      actionLabel={activeViewCount > 0 ? "Limpar filtros" : undefined}
                       onAction={activeViewCount > 0 ? clearFilters : undefined}
                     />
                   </Table.Td>
@@ -230,11 +255,13 @@ export default function MovementsTableSection({
         </div>
       )}
 
-      <Group justify="space-between" mt="md">
-        <Text size="sm" c="dimmed">
-          Total: {totalItems}
+      <Group justify="space-between">
+        <Text size="xs" c="dimmed" className="num">
+          {totalItems.toLocaleString("pt-BR")} movimentações
         </Text>
-        <Pagination value={page} onChange={setPage} total={totalPages} />
+        {totalPages > 1 && (
+          <Pagination size="sm" value={page} onChange={setPage} total={totalPages} />
+        )}
       </Group>
 
       <EstornoModal
@@ -242,6 +269,6 @@ export default function MovementsTableSection({
         onClose={() => setEstornoMovement(null)}
         movement={estornoMovement}
       />
-    </>
+    </Stack>
   );
 }

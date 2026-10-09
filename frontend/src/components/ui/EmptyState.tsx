@@ -1,4 +1,4 @@
-import { Button, Stack, Text, ThemeIcon, Box } from "@mantine/core";
+import { Button, Stack, Text } from "@mantine/core";
 import { IconPackageOff } from "@tabler/icons-react";
 import React from "react";
 
@@ -18,33 +18,34 @@ export default function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <Stack gap="sm" align="center" py="xl" px="md">
-      <Box
+    <Stack gap={6} align="center" py="xl" px="md" className="empty-state">
+      <div
         style={{
-          background: "var(--surface-muted)",
-          padding: "1rem",
-          borderRadius: "50%",
-          boxShadow: "0 0 0 1px var(--line-soft), 0 8px 16px rgba(0,0,0,0.1)",
+          width: 44,
+          height: 44,
+          borderRadius: 12,
+          display: "grid",
+          placeItems: "center",
+          background: "var(--surface-2)",
+          color: "var(--text-subtle)",
+          marginBottom: 6,
         }}
-        mb="sm"
       >
-        <ThemeIcon size={64} radius="50%" variant="light" color="gray">
-          {icon || <IconPackageOff size={32} stroke={1.5} />}
-        </ThemeIcon>
-      </Box>
+        {icon || <IconPackageOff size={22} stroke={1.5} />}
+      </div>
 
-      <Text fw={700} size="lg" ta="center">
+      <Text fw={600} size="md" ta="center" c="var(--text)">
         {message}
       </Text>
 
       {description && (
-        <Text c="dimmed" size="sm" ta="center" maw={400} mb="xs">
+        <Text c="dimmed" size="sm" ta="center" maw={400}>
           {description}
         </Text>
       )}
 
       {actionLabel && onAction ? (
-        <Button size="sm" variant="light" onClick={onAction}>
+        <Button size="xs" variant="default" mt={6} onClick={onAction}>
           {actionLabel}
         </Button>
       ) : null}

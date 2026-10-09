@@ -1,16 +1,16 @@
 import { useState } from "react";
 import {
   ActionIcon,
+  Alert,
   Button,
-  Card,
   Group,
+  Loader,
   Modal,
   Stack,
+  Switch,
   Table,
   Text,
   TextInput,
-  Switch,
-  Alert,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,8 @@ import type { InventoryLocation } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
 import PageHeader from "../components/ui/PageHeader";
 import EmptyState from "../components/ui/EmptyState";
+import Panel from "../components/ui/Panel";
+import StatusDot from "../components/ui/StatusDot";
 import { useLocations } from "../hooks/useLocations";
 
 export default function LocationsPage() {
@@ -119,8 +121,8 @@ export default function LocationsPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        title="Meus Locais"
-        subtitle="Gerencie os locais onde seu estoque e armazenado (Maximo: 5)."
+        title="Filiais e locais"
+        subtitle={`Onde o estoque fica armazenado · ${activeLocations.length} de 5 ativos`}
         actions={
           <Button
             leftSection={<IconPlus size={16} />}
@@ -132,78 +134,87 @@ export default function LocationsPage() {
         }
       />
 
-      <Card withBorder p="md">
-        <Group justify="flex-end" mb="md">
+      <Panel
+        flush
+        title="Locais"
+        actions={
           <Switch
-            label="Mostrar locais inativos"
+            label="Mostrar inativos"
+            labelPosition="left"
             checked={showInactive}
             onChange={(e) => setShowInactive(e.currentTarget.checked)}
             size="sm"
           />
-        </Group>
-
+        }
+      >
         {isLoading ? (
-          <Text>Carregando locais...</Text>
+          <Group justify="center" p="xl">
+            <Loader size="sm" />
+          </Group>
         ) : displayLocations.length === 0 ? (
           <EmptyState
-            message="Nenhum local encontrado."
+            message="Nenhum local encontrado"
             actionLabel="Criar local"
             onAction={handleCreate}
           />
         ) : (
-          <Stack gap="md">
-            <Table.ScrollContainer minWidth={500}>
-              <Table verticalSpacing="sm">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>ID</Table.Th>
-                    <Table.Th>Nome</Table.Th>
-                    <Table.Th>Status</Table.Th>
-                    <Table.Th style={{ width: 100 }}>Acoes</Table.Th>
+          <Table.ScrollContainer minWidth={480}>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Nome</Table.Th>
+                  <Table.Th w={140}>Status</Table.Th>
+                  <Table.Th w={96} />
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {displayLocations.map((loc) => (
+                  <Table.Tr key={loc.id}>
+                    <Table.Td>
+                      <Text size="sm" fw={500}>
+                        {loc.label || loc.name}
+                      </Text>
+                      <Text size="xs" c="dimmed" className="mono">
+                        #{loc.id}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <StatusDot tone={loc.ativo ? "success" : "neutral"}>
+                        {loc.ativo ? "Ativo" : "Inativo"}
+                      </StatusDot>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap={2} justify="flex-end" wrap="nowrap" className="row-actions">
+                        <ActionIcon
+                          color="gray"
+                          aria-label="Editar local"
+                          onClick={() => handleEdit(loc)}
+                        >
+                          <IconEdit size={16} stroke={1.5} />
+                        </ActionIcon>
+                        <ActionIcon
+                          color="gray"
+                          className="action-danger"
+                          aria-label="Remover local"
+                          onClick={() => confirmDelete(loc)}
+                          disabled={locations.length === 1}
+                        >
+                          <IconTrash size={16} stroke={1.5} />
+                        </ActionIcon>
+                      </Group>
+                    </Table.Td>
                   </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {displayLocations.map((loc) => (
-                    <Table.Tr key={loc.id}>
-                      <Table.Td>{loc.id}</Table.Td>
-                      <Table.Td fw={500}>{loc.label || loc.name}</Table.Td>
-                      <Table.Td>
-                        <Text c={loc.ativo ? "green" : "red"} size="sm">
-                          {loc.ativo ? "Ativo" : "Inativo"}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Group gap="xs" wrap="nowrap">
-                          <ActionIcon
-                            variant="subtle"
-                            color="blue"
-                            onClick={() => handleEdit(loc)}
-                          >
-                            <IconEdit size={16} />
-                          </ActionIcon>
-                          <ActionIcon
-                            variant="subtle"
-                            color="red"
-                            onClick={() => confirmDelete(loc)}
-                            disabled={locations.length === 1}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          </Stack>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
-      </Card>
+      </Panel>
 
       <Modal
         opened={modalOpened}
         onClose={closeModal}
-        title={editingLoc ? "Editar Local" : "Novo Local"}
+        title={editingLoc ? "Editar local" : "Novo local"}
       >
         <Stack gap="md">
           <TextInput
@@ -215,13 +226,13 @@ export default function LocationsPage() {
           {editingLoc && (
             <Switch
               label="Local ativo"
-              description="Locais inativos nao aparecem em novos relatorios ou operacoes, mas o historico e mantido."
+              description="Locais inativos não aparecem em novas operações e relatórios, mas o histórico é mantido."
               checked={isActive}
               onChange={(e) => setIsActive(e.currentTarget.checked)}
             />
           )}
           <Group justify="flex-end" mt="md">
-            <Button variant="subtle" onClick={closeModal}>
+            <Button variant="default" onClick={closeModal}>
               Cancelar
             </Button>
             <Button
@@ -238,7 +249,7 @@ export default function LocationsPage() {
         <Modal
           opened={deleteModalOpened}
           onClose={closeDeleteModal}
-          title="Remover Local"
+          title="Remover local"
           centered
         >
           <Stack>
@@ -249,7 +260,7 @@ export default function LocationsPage() {
                   banco de dados? Esta ação não pode ser desfeita.
                 </Text>
                 <Group justify="flex-end" mt="md">
-                  <Button variant="subtle" onClick={closeDeleteModal}>
+                  <Button variant="default" onClick={closeDeleteModal}>
                     Cancelar
                   </Button>
                   <Button
@@ -257,7 +268,7 @@ export default function LocationsPage() {
                     onClick={() => deleteMutation.mutate({ force: false, hard: true })}
                     loading={deleteMutation.isPending}
                   >
-                    Excluir Permanentemente
+                    Excluir permanentemente
                   </Button>
                 </Group>
               </>
@@ -268,7 +279,7 @@ export default function LocationsPage() {
                   <strong>{locToDelete?.label || locToDelete?.name}</strong>?
                 </Text>
                 <Group justify="flex-end" mt="md">
-                  <Button variant="subtle" onClick={closeDeleteModal}>
+                  <Button variant="default" onClick={closeDeleteModal}>
                     Cancelar
                   </Button>
                   <Button
@@ -284,20 +295,19 @@ export default function LocationsPage() {
               <>
                 <Alert
                   icon={<IconAlertTriangle size={16} />}
-                  title="Este local possui estoque ativo!"
+                  title="Este local ainda tem estoque"
                   color="orange"
                 >
-                  Nao e possivel deletar permanentemente um local que ainda possui
+                  Não é possível excluir permanentemente um local que ainda possui
                   produtos associados.
                 </Alert>
                 <Text size="sm" mt="sm">
-                  Voce pode transferir o estoque para outro local primeiro, ou
-                  voce pode inativar este local. Ao inativar (soft-delete), o
-                  local some das listas de operacao, e seu estoque nao contara
-                  mais no total ativo, mas o historico sera mantido.
+                  Transfira o estoque para outro local primeiro, ou inative este
+                  local. Inativo, ele some das operações e o estoque deixa de
+                  contar no total ativo, mas o histórico é mantido.
                 </Text>
                 <Group justify="flex-end" mt="md">
-                  <Button variant="subtle" onClick={closeDeleteModal}>
+                  <Button variant="default" onClick={closeDeleteModal}>
                     Cancelar
                   </Button>
                   <Button
@@ -305,7 +315,7 @@ export default function LocationsPage() {
                     onClick={() => deleteMutation.mutate({ force: true, hard: false })}
                     loading={deleteMutation.isPending}
                   >
-                    Inativar local (Soft-delete)
+                    Inativar local
                   </Button>
                 </Group>
               </>

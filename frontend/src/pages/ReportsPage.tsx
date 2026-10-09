@@ -1,5 +1,11 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Badge, Button, Group, Loader, Stack, Tabs } from "@mantine/core";
+import { Button, Grid, Group, Loader, Stack, Tabs, Text } from "@mantine/core";
+import {
+  IconBuildingWarehouse,
+  IconCash,
+  IconHourglassEmpty,
+  IconListCheck,
+} from "@tabler/icons-react";
 import { useDebouncedValue } from "@mantine/hooks";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -29,6 +35,18 @@ type SelectedReportProduct = Pick<
   Product,
   "id" | "nome" | "inventories" | "total_stock"
 >;
+
+const REPORT_TYPES: {
+  value: "estoque" | "selecionados" | "vendas" | "parados";
+  label: string;
+  hint: string;
+  icon: typeof IconCash;
+}[] = [
+  { value: "estoque", label: "Estoque atual", hint: "Saldos por filial", icon: IconBuildingWarehouse },
+  { value: "vendas", label: "Vendas reais", hint: "Saídas de operação normal", icon: IconCash },
+  { value: "parados", label: "Estoque parado", hint: "Itens sem giro no período", icon: IconHourglassEmpty },
+  { value: "selecionados", label: "Lista personalizada", hint: "Itens escolhidos por você", icon: IconListCheck },
+];
 
 type ReportsTabState = {
   activeSection: "estoque" | "selecionados" | "vendas" | "parados";
@@ -294,18 +312,43 @@ export default function ReportsPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Relatorios"
-        subtitle="Documentos prontos para conferencia interna, vendas reais, itens parados e listas personalizadas."
+        title="Relatórios"
+        subtitle="Documentos em PDF para conferência, vendas reais, itens parados e listas personalizadas."
         actions={
-          <>
-            <Badge variant="light">Filtros salvos nesta sessao</Badge>
-            <Button size="xs" variant="subtle" onClick={resetView}>
-              Resetar visao
-            </Button>
-          </>
+          <Button variant="subtle" color="gray" onClick={resetView}>
+            Restaurar padrão
+          </Button>
         }
       />
 
+      <Grid gutter="lg">
+        <Grid.Col span={{ base: 12, md: 4, lg: 3 }}>
+          <div className="surface-panel" style={{ overflow: "hidden" }}>
+            {REPORT_TYPES.map((report) => (
+              <button
+                key={report.value}
+                type="button"
+                className="settings-item"
+                data-active={activeSection === report.value || undefined}
+                onClick={() => setActiveSection(report.value)}
+              >
+                <span className="settings-item-icon">
+                  <report.icon size={18} stroke={1.5} />
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <Text size="sm" fw={600}>
+                    {report.label}
+                  </Text>
+                  <Text size="xs" c="dimmed" truncate>
+                    {report.hint}
+                  </Text>
+                </span>
+              </button>
+            ))}
+          </div>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, md: 8, lg: 9 }}>
       <Tabs
         value={activeSection}
         onChange={(value) =>
@@ -314,14 +357,7 @@ export default function ReportsPage() {
           )
         }
       >
-        <Tabs.List>
-          <Tabs.Tab value="estoque">Estoque</Tabs.Tab>
-          <Tabs.Tab value="selecionados">Selecionados</Tabs.Tab>
-          <Tabs.Tab value="vendas">Vendas reais</Tabs.Tab>
-          <Tabs.Tab value="parados">Estoque parado</Tabs.Tab>
-        </Tabs.List>
-
-        <Tabs.Panel value="estoque" pt="md">
+        <Tabs.Panel value="estoque">
           <Suspense fallback={<ReportSectionFallback />}>
             <ReportsStockSection
               onGenerate={() => stockReportMutation.mutate()}
@@ -330,7 +366,7 @@ export default function ReportsPage() {
           </Suspense>
         </Tabs.Panel>
 
-        <Tabs.Panel value="selecionados" pt="md">
+        <Tabs.Panel value="selecionados">
           <Suspense fallback={<ReportSectionFallback />}>
             <ReportsSelectedItemsSection
               selectedItems={selectedItems}
@@ -358,7 +394,7 @@ export default function ReportsPage() {
           </Suspense>
         </Tabs.Panel>
 
-        <Tabs.Panel value="vendas" pt="md">
+        <Tabs.Panel value="vendas">
           <Suspense fallback={<ReportSectionFallback />}>
             <ReportsSalesSection
               salesDateFrom={salesDateFrom}
@@ -370,7 +406,7 @@ export default function ReportsPage() {
                 setSalesScope(val === "AMBOS" ? null : Number(val))
               }
               scopeOptions={[
-                { value: "AMBOS", label: "Todos os Locais" },
+                { value: "AMBOS", label: "Todas as filiais" },
                 ...locations.map((loc) => ({
                   value: String(loc.id),
                   label: loc.label || loc.name,
@@ -382,7 +418,7 @@ export default function ReportsPage() {
           </Suspense>
         </Tabs.Panel>
 
-        <Tabs.Panel value="parados" pt="md">
+        <Tabs.Panel value="parados">
           <Suspense fallback={<ReportSectionFallback />}>
             <ReportsInactiveSection
               inactiveDays={inactiveDays}
@@ -396,7 +432,7 @@ export default function ReportsPage() {
                 setInactiveScope(val === "AMBOS" ? null : Number(val))
               }
               scopeOptions={[
-                { value: "AMBOS", label: "Todos os Locais" },
+                { value: "AMBOS", label: "Todas as filiais" },
                 ...locations.map((loc) => ({
                   value: String(loc.id),
                   label: loc.label || loc.name,
@@ -408,6 +444,8 @@ export default function ReportsPage() {
           </Suspense>
         </Tabs.Panel>
       </Tabs>
+        </Grid.Col>
+      </Grid>
     </Stack>
   );
 }

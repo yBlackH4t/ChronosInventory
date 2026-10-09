@@ -1,9 +1,8 @@
 import { type FormEventHandler, useState } from "react";
 import {
   ActionIcon,
-  Badge,
   Button,
-  Divider,
+  Card,
   Drawer,
   FileButton,
   Group,
@@ -11,7 +10,7 @@ import {
   Loader,
   Modal,
   NumberInput,
-  ScrollArea,
+  SegmentedControl,
   Select,
   SimpleGrid,
   Stack,
@@ -19,13 +18,22 @@ import {
   Text,
   TextInput,
   Textarea,
-  Title,
   Tooltip,
 } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
-import { IconStar, IconStarFilled, IconTrash, IconArrowDownRight, IconArrowUpRight, IconArrowsExchange } from "@tabler/icons-react";
-import { Card } from "@mantine/core";
+import {
+  IconBook2,
+  IconHistory,
+  IconNote,
+  IconPhoto,
+  IconPlus,
+  IconStar,
+  IconStarFilled,
+  IconTrash,
+} from "@tabler/icons-react";
 import { ImageGalleryModal } from "./ImageGalleryModal";
+import { ProductCatalogTab } from "./ProductCatalogTab";
+import { ProductHistoryTable } from "./ProductHistoryTable";
 
 import type {
   MovementCreate,
@@ -33,7 +41,6 @@ import type {
   Product,
   ProductImageItem,
 } from "../../lib/api";
-import { ProductHistoryTable } from "./ProductHistoryTable";
 
 type MovementType = "ENTRADA" | "SAIDA" | "TRANSFERENCIA";
 type MovementNature =
@@ -106,9 +113,6 @@ export function ProductDetailsDrawer({
   onObservacaoChange,
   onSaveObservacao,
   saveObservacaoLoading,
-  descriptionOpened,
-  onOpenDescription,
-  onCloseDescription,
   imagesLoading,
   imageItems,
   imagesTotal,
@@ -129,7 +133,7 @@ export function ProductDetailsDrawer({
   createMovementLoading,
   pageSizes,
   historyPageSize,
-  onHistoryPageChange: onHistoryPageSizeChange,
+  onHistoryPageSizeChange,
   historyLoading,
   historyErrorMessage,
   historyRows,
@@ -145,329 +149,195 @@ export function ProductDetailsDrawer({
   const [galleryOpened, setGalleryOpened] = useState(false);
   const [gallerySlide, setGallerySlide] = useState(0);
 
+  // Modais dedicados para reduzir a sobrecarga visual
+  const [movementModalOpened, setMovementModalOpened] = useState(false);
+  const [photosModalOpened, setPhotosModalOpened] = useState(false);
+  const [notesModalOpened, setNotesModalOpened] = useState(false);
+
+  const handleOpenMovementModal = () => {
+    if (!action) {
+      onSelectAction("ENTRADA");
+    }
+    setMovementModalOpened(true);
+  };
+
+  const hasAnyStock = (currentProduct?.total_stock ?? 0) > 0;
+
   return (
     <>
       <Drawer
         opened={opened}
         onClose={onClose}
-        title={
-          currentProduct
-            ? `Produto ${currentProduct.nome}`
-            : "Detalhes do produto"
-        }
         position="right"
         size="xl"
+        padding="lg"
+        title={
+          currentProduct ? (
+            <Stack gap={2}>
+              <Text fw={650} size="lg" lineClamp={1}>
+                {currentProduct.nome}
+              </Text>
+              <Text size="xs" c="dimmed" className="mono">
+                #{currentProduct.id}
+              </Text>
+            </Stack>
+          ) : (
+            "Detalhes do produto"
+          )
+        }
       >
-        {loading && (
-          <Group justify="center" mt="md">
-            <Loader />
+        {loading && !currentProduct && (
+          <Group justify="center" mt="xl">
+            <Loader size="sm" />
           </Group>
         )}
 
         {currentProduct && (
-          <Stack gap="md">
-            <Group align="flex-start" justify="space-between" wrap="wrap">
-              <Stack gap="md" style={{ flex: 1, minWidth: 320 }}>
-                <Group mb={-8}>
-                  <Badge size="lg" variant="light" color="indigo" radius="sm">
-                    ID: {currentProduct.id}
-                  </Badge>
-                </Group>
-
-                <SimpleGrid cols={2} spacing="sm">
-                  {locations.map((loc) => {
-                    const qty = currentProduct.inventories?.[Number(loc.value)] ?? 0;
-                    const hasStock = qty > 0;
-                    const color = hasStock ? "teal" : "red";
-                    return (
-                      <Card 
-                        key={loc.value} 
-                        p="sm" 
-                        radius="md" 
-                        withBorder
-                        style={{ 
-                          backgroundColor: 'var(--surface-muted)',
-                          borderColor: `var(--mantine-color-${color}-outline)`,
-                          borderWidth: '1.5px'
-                        }}
-                      >
-                        <Text size="xs" c={color} tt="uppercase" fw={800} mb={4} opacity={0.8}>
-                          {loc.label}
-                        </Text>
-                        <Text size="xl" fw={900} c={color}>
-                          {qty} <Text component="span" size="sm" fw={600} opacity={0.6}>un</Text>
-                        </Text>
-                      </Card>
-                    );
-                  })}
-                  <Card 
-                    p="sm" 
-                    radius="md" 
-                    withBorder
-                    style={{ 
-                      backgroundColor: 'var(--surface-muted)',
-                      borderColor: 'var(--mantine-color-blue-outline)',
-                      borderWidth: '1.5px'
-                    }}
-                  >
-                    <Text size="xs" tt="uppercase" fw={800} mb={4} c="blue" opacity={0.8}>
-                      TOTAL
-                    </Text>
-                    <Text size="xl" fw={900} c="blue">
-                      {currentProduct.total_stock} <Text component="span" size="sm" fw={600} opacity={0.6}>un</Text>
-                    </Text>
-                  </Card>
-                </SimpleGrid>
-
-                <Stack gap="xs" mt="sm">
-                  <Textarea
-                    label="Descricao interna"
-                    value={observacao}
-                    onChange={(event) =>
-                      onObservacaoChange(event.currentTarget.value)
+          <Stack gap="lg">
+            {/* 1. Disponibilidade imediata por filial */}
+            <Stack gap={8}>
+              <Group justify="space-between" align="center">
+                <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.06em">
+                  Disponibilidade
+                </Text>
+                <Group gap={6}>
+                  <span
+                    className="status-dot"
+                    style={
+                      hasAnyStock
+                        ? { boxShadow: "none" }
+                        : { boxShadow: "none", background: "var(--text-subtle)" }
                     }
-                    minRows={3}
-                    placeholder="Adicione anotacoes sobre este produto..."
                   />
-                  <Group gap="xs">
-                    <Button
-                      variant="light"
-                      onClick={onSaveObservacao}
-                      loading={saveObservacaoLoading}
-                    >
-                      Salvar descricao
-                    </Button>
-                    <Button variant="subtle" onClick={onOpenDescription}>
-                      Ver tela cheia
-                    </Button>
-                  </Group>
-                </Stack>
-              </Stack>
-
-              <Stack gap="xs" maw={420}>
-                <Group justify="space-between" align="center">
-                  <Text size="sm" c="dimmed">
-                    Imagens
+                  <Text
+                    size="xs"
+                    fw={600}
+                    c={hasAnyStock ? "var(--success)" : "dimmed"}
+                  >
+                    {hasAnyStock ? "Disponível para venda" : "Sem estoque"}
                   </Text>
-                  <Badge variant="light">
-                    {imagesTotal}/{maxImages}
-                  </Badge>
                 </Group>
-
-                {imagesLoading && <Loader size="sm" />}
-
-                {!imagesLoading && imageItems.length === 0 && (
-                  <Text size="sm" c="dimmed">
-                    Sem imagem cadastrada.
-                  </Text>
-                )}
-
-                {imageItems.length > 0 && (
-                  <SimpleGrid cols={2} spacing="sm">
-                    {imageItems.map((img, idx) => (
-                      <Stack key={img.id} gap={4}>
-                        <Image
-                          src={`data:${img.mime_type};base64,${img.image_base64}`}
-                          alt={`${currentProduct.nome} ${img.id}`}
-                          fit="cover"
-                          h={120}
-                          radius="sm"
-                          style={{ cursor: "pointer", transition: "transform 0.2s" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.02)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                          onClick={() => {
-                            setGallerySlide(idx);
-                            setGalleryOpened(true);
-                          }}
-                        />
-                        <Group justify="space-between" wrap="nowrap">
-                          <Tooltip
-                            label={
-                              img.is_primary
-                                ? "Imagem principal"
-                                : "Definir como principal"
-                            }
-                          >
-                            <ActionIcon
-                              variant="light"
-                              color={img.is_primary ? "yellow" : "gray"}
-                              onClick={() =>
-                                !img.is_primary && onSetPrimaryImage(img.id)
-                              }
-                              loading={setPrimaryImageLoading}
-                            >
-                              {img.is_primary ? (
-                                <IconStarFilled size={16} />
-                              ) : (
-                                <IconStar size={16} />
-                              )}
-                            </ActionIcon>
-                          </Tooltip>
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            onClick={() => onDeleteImage(img.id)}
-                            loading={deleteImageLoading}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Group>
-                      </Stack>
-                    ))}
-                  </SimpleGrid>
-                )}
-
-                <FileButton
-                  multiple
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(files) =>
-                    onAddImages((files as File[] | null) ?? null)
-                  }
-                >
-                  {(props) => (
-                    <Button
-                      {...props}
-                      variant="light"
-                      loading={uploadImagesLoading}
-                      disabled={imagesTotal >= maxImages}
-                    >
-                      Adicionar imagens
-                    </Button>
-                  )}
-                </FileButton>
-              </Stack>
-            </Group>
-
-            <Divider />
-
-            <Stack gap="sm">
-              <Title order={4} mb="xs">Registrar Movimentacao</Title>
-              <Group gap="sm">
-                <Button
-                  leftSection={<IconArrowDownRight size={18} />}
-                  variant={action === "ENTRADA" ? "filled" : "light"}
-                  onClick={() => onSelectAction("ENTRADA")}
-                  color="teal"
-                  radius="md"
-                >
-                  Entrada
-                </Button>
-                <Button
-                  leftSection={<IconArrowUpRight size={18} />}
-                  color="red"
-                  variant={action === "SAIDA" ? "filled" : "light"}
-                  onClick={() => onSelectAction("SAIDA")}
-                  radius="md"
-                >
-                  Saida
-                </Button>
-                <Button
-                  leftSection={<IconArrowsExchange size={18} />}
-                  color="blue"
-                  variant={action === "TRANSFERENCIA" ? "filled" : "light"}
-                  onClick={() => onSelectAction("TRANSFERENCIA")}
-                  radius="md"
-                >
-                  Transferencia
-                </Button>
               </Group>
 
-              {action && (
-                <form onSubmit={onSubmitMovement}>
-                  <Group align="end" wrap="wrap" mt="sm">
-                    <NumberInput
-                      label="Quantidade"
-                      min={1}
-                      w={140}
-                      {...movementForm.getInputProps("quantidade")}
-                    />
-                    {action !== "ENTRADA" && (
-                      <Select
-                        label="Origem"
-                        data={locations}
-                        w={160}
-                        {...movementForm.getInputProps("origem_location_id")}
-                      />
-                    )}
-                    {action !== "SAIDA" && (
-                      <Select
-                        label="Destino"
-                        data={locations}
-                        w={160}
-                        {...movementForm.getInputProps("destino_location_id")}
-                      />
-                    )}
-                    <Select
-                      label="Natureza"
-                      data={movementNatureOptionsByType(
-                        movementForm.values.tipo as MovementType,
-                      )}
-                      w={220}
-                      {...movementForm.getInputProps("natureza")}
-                    />
-                    {movementForm.values.natureza ===
-                      "TRANSFERENCIA_EXTERNA" && (
-                      <TextInput
-                        label="Local externo"
-                        w={220}
-                        placeholder="Ex: Matriz, Maringa"
-                        {...movementForm.getInputProps("local_externo")}
-                      />
-                    )}
-                    {movementForm.values.natureza === "AJUSTE" && (
-                      <Select
-                        label="Motivo do ajuste"
-                        data={adjustmentReasonOptions}
-                        w={220}
-                        {...movementForm.getInputProps("motivo_ajuste")}
-                      />
-                    )}
-                    <TextInput
-                      label="Documento (NF)"
-                      w={180}
-                      placeholder="Ex: NF 12345"
-                      {...movementForm.getInputProps("documento")}
-                    />
-                    {(movementForm.values.natureza === "DEVOLUCAO" || movementForm.values.natureza === "ESTORNO") && (
-                      <NumberInput
-                        label="Mov. referencia"
-                        min={1}
-                        w={170}
-                        {...movementForm.getInputProps("movimento_ref_id")}
-                      />
-                    )}
-                    <TextInput
-                      label="Observacao"
-                      w={240}
-                      {...movementForm.getInputProps("observacao")}
-                    />
-                    <Button type="submit" loading={createMovementLoading}>
-                      Confirmar
-                    </Button>
-                  </Group>
-                </form>
-              )}
+              <SimpleGrid
+                cols={{ base: 2, sm: Math.min(locations.length + 1, 4) }}
+                spacing="xs"
+              >
+                {locations.map((loc) => {
+                  const qty = currentProduct.inventories?.[Number(loc.value)] ?? 0;
+                  return (
+                    <div key={loc.value} className="stock-tile">
+                      <Text size="xs" c="dimmed" fw={500} lineClamp={1}>
+                        {loc.label}
+                      </Text>
+                      <Text
+                        fz={26}
+                        fw={650}
+                        lh={1.2}
+                        className="num"
+                        c={qty > 0 ? "var(--success)" : "var(--text-subtle)"}
+                      >
+                        {qty}
+                      </Text>
+                    </div>
+                  );
+                })}
+
+                <div className="stock-tile">
+                  <Text size="xs" c="dimmed" fw={500}>
+                    Total
+                  </Text>
+                  <Text
+                    fz={26}
+                    fw={650}
+                    lh={1.2}
+                    className="num"
+                    c={hasAnyStock ? undefined : "var(--text-subtle)"}
+                  >
+                    {currentProduct.total_stock}
+                  </Text>
+                </div>
+              </SimpleGrid>
             </Stack>
 
-            <Divider />
+            {/* 2. Ações rápidas */}
+            <Group gap="xs" wrap="wrap">
+              <Button
+                leftSection={<IconPlus size={16} />}
+                onClick={handleOpenMovementModal}
+              >
+                Registrar movimentação
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconPhoto size={16} stroke={1.5} />}
+                onClick={() => setPhotosModalOpened(true)}
+              >
+                Fotos
+                <Text component="span" size="xs" c="dimmed" ml={6} className="num">
+                  {imagesTotal}/{maxImages}
+                </Text>
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconNote size={16} stroke={1.5} />}
+                rightSection={
+                  observacao.trim() ? (
+                    <span
+                      className="status-dot"
+                      style={{
+                        width: 6,
+                        height: 6,
+                        boxShadow: "none",
+                        background: "var(--accent)",
+                      }}
+                    />
+                  ) : undefined
+                }
+                onClick={() => setNotesModalOpened(true)}
+              >
+                Anotações
+              </Button>
+            </Group>
 
-            <Tabs defaultValue="historico">
+            {/* 3. Catálogo em destaque + histórico */}
+            <Tabs defaultValue="catalogo" keepMounted={false}>
               <Tabs.List>
-                <Tabs.Tab value="historico">Historico</Tabs.Tab>
+                <Tabs.Tab
+                  value="catalogo"
+                  leftSection={<IconBook2 size={16} stroke={1.5} />}
+                >
+                  Catálogo e equivalências
+                </Tabs.Tab>
+                <Tabs.Tab
+                  value="historico"
+                  leftSection={<IconHistory size={16} stroke={1.5} />}
+                >
+                  Histórico
+                </Tabs.Tab>
               </Tabs.List>
+
+              <Tabs.Panel value="catalogo" pt="md">
+                <ProductCatalogTab productId={currentProduct.id} />
+              </Tabs.Panel>
 
               <Tabs.Panel value="historico" pt="md">
                 <Stack gap="sm">
-                  <Group align="end" wrap="wrap">
+                  <Group justify="space-between" align="center">
+                    <Text size="xs" c="dimmed" className="num">
+                      {historyTotalItems} registros
+                    </Text>
                     <Select
-                      label="Por pagina"
+                      size="xs"
                       data={pageSizes}
                       value={historyPageSize}
+                      allowDeselect={false}
                       onChange={(value) => {
                         if (!value) return;
-                        onHistoryPageSizeChange(Number(value));
+                        onHistoryPageSizeChange(value);
                       }}
-                      w={120}
+                      w={90}
+                      aria-label="Registros por página"
                     />
                   </Group>
 
@@ -495,24 +365,293 @@ export function ProductDetailsDrawer({
         )}
       </Drawer>
 
+      {/* MODAL 1: REGISTRAR MOVIMENTAÇÃO (FOCADO E LIMPO) */}
       <Modal
-        opened={descriptionOpened}
-        onClose={onCloseDescription}
-        title="Descricao"
+        opened={movementModalOpened}
+        onClose={() => setMovementModalOpened(false)}
+        title={
+          <Stack gap={0}>
+            <Text fw={650} size="md">
+              Registrar movimentação
+            </Text>
+            <Text size="xs" c="dimmed" lineClamp={1}>
+              {currentProduct?.nome}
+            </Text>
+          </Stack>
+        }
         size="lg"
       >
-        <Stack gap="sm">
-          <ScrollArea h={260} offsetScrollbars>
-            <Text style={{ whiteSpace: "pre-wrap" }} size="md">
-              {observacao || "Sem descricao."}
+        <Stack gap="md" pt="xs">
+          {/* Seletor de tipo de movimentação */}
+          <SegmentedControl
+            fullWidth
+            value={action ?? ""}
+            onChange={(value) => onSelectAction(value as MovementType)}
+            data={[
+              { label: "Entrada", value: "ENTRADA" },
+              { label: "Saída", value: "SAIDA" },
+              { label: "Transferência", value: "TRANSFERENCIA" },
+            ]}
+          />
+
+          {action && (
+            <form
+              onSubmit={(e) => {
+                onSubmitMovement(e);
+                // Não fechamos imediatamente para permitir ver validações do formulário
+              }}
+            >
+              <Stack gap="sm">
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  <NumberInput
+                    label="Quantidade"
+                    min={1}
+                    required
+                    {...movementForm.getInputProps("quantidade")}
+                  />
+
+                  {action !== "ENTRADA" && (
+                    <Select
+                      label="Filial de Origem"
+                      data={locations}
+                      required
+                      {...movementForm.getInputProps("origem_location_id")}
+                    />
+                  )}
+
+                  {action !== "SAIDA" && (
+                    <Select
+                      label="Filial de Destino"
+                      data={locations}
+                      required
+                      {...movementForm.getInputProps("destino_location_id")}
+                    />
+                  )}
+
+                  <Select
+                    label="Natureza da Operação"
+                    data={movementNatureOptionsByType(
+                      movementForm.values.tipo as MovementType,
+                    )}
+                    required
+                    {...movementForm.getInputProps("natureza")}
+                  />
+
+                  <TextInput
+                    label="Documento / Nota Fiscal"
+                    placeholder="Ex: NF 12345"
+                    {...movementForm.getInputProps("documento")}
+                  />
+
+                  {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
+                    <TextInput
+                      label="Local Externo"
+                      placeholder="Ex: Matriz, Maringá"
+                      required
+                      {...movementForm.getInputProps("local_externo")}
+                    />
+                  )}
+
+                  {movementForm.values.natureza === "AJUSTE" && (
+                    <Select
+                      label="Motivo do Ajuste"
+                      data={adjustmentReasonOptions}
+                      required
+                      {...movementForm.getInputProps("motivo_ajuste")}
+                    />
+                  )}
+
+                  {(movementForm.values.natureza === "DEVOLUCAO" ||
+                    movementForm.values.natureza === "ESTORNO") && (
+                    <NumberInput
+                      label="Movimento de Referência"
+                      min={1}
+                      required
+                      {...movementForm.getInputProps("movimento_ref_id")}
+                    />
+                  )}
+                </SimpleGrid>
+
+                <TextInput
+                  label="Observação"
+                  placeholder="Informações adicionais sobre esta movimentação"
+                  {...movementForm.getInputProps("observacao")}
+                />
+
+                <Group justify="flex-end" mt="md">
+                  <Button
+                    variant="default"
+                    onClick={() => setMovementModalOpened(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="submit" loading={createMovementLoading}>
+                    Confirmar {action === "ENTRADA" ? "Entrada" : action === "SAIDA" ? "Saída" : "Transferência"}
+                  </Button>
+                </Group>
+              </Stack>
+            </form>
+          )}
+        </Stack>
+      </Modal>
+
+      {/* MODAL 2: FOTOS DO PRODUTO */}
+      <Modal
+        opened={photosModalOpened}
+        onClose={() => setPhotosModalOpened(false)}
+        title={
+          <Text fw={650} size="md">
+            Fotos do produto{" "}
+            <Text component="span" size="sm" c="dimmed" className="num">
+              {imagesTotal}/{maxImages}
             </Text>
-          </ScrollArea>
-          <Button
-            variant="light"
-            onClick={() => navigator.clipboard.writeText(observacao || "")}
-          >
-            Copiar descricao
-          </Button>
+          </Text>
+        }
+        size="lg"
+      >
+        <Stack gap="md">
+          {imagesLoading && (
+            <Group justify="center" p="xl">
+              <Loader size="sm" />
+            </Group>
+          )}
+
+          {!imagesLoading && imageItems.length === 0 && (
+            <div className="stock-tile" style={{ padding: 32 }}>
+              <Stack align="center" gap="xs">
+                <IconPhoto size={28} stroke={1.5} color="var(--text-subtle)" />
+                <Text size="sm" c="dimmed">
+                  Nenhuma imagem cadastrada para este produto.
+                </Text>
+              </Stack>
+            </div>
+          )}
+
+          {imageItems.length > 0 && (
+            <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="sm">
+              {imageItems.map((img, idx) => (
+                <Card key={img.id} p="xs" radius="md" withBorder>
+                  <Image
+                    src={`data:${img.mime_type};base64,${img.image_base64}`}
+                    alt={`${currentProduct?.nome} ${img.id}`}
+                    fit="cover"
+                    h={140}
+                    radius="sm"
+                    className="photo-thumb"
+                    onClick={() => {
+                      setGallerySlide(idx);
+                      setGalleryOpened(true);
+                    }}
+                  />
+                  <Group justify="space-between" mt="xs">
+                    <Tooltip
+                      label={
+                        img.is_primary
+                          ? "Imagem principal"
+                          : "Definir como principal"
+                      }
+                    >
+                      <ActionIcon
+                        color={img.is_primary ? "yellow" : "gray"}
+                        onClick={() => !img.is_primary && onSetPrimaryImage(img.id)}
+                        loading={setPrimaryImageLoading}
+                      >
+                        {img.is_primary ? (
+                          <IconStarFilled size={16} />
+                        ) : (
+                          <IconStar size={16} />
+                        )}
+                      </ActionIcon>
+                    </Tooltip>
+                    <ActionIcon
+                      color="gray"
+                      className="action-danger"
+                      aria-label="Excluir imagem"
+                      onClick={() => onDeleteImage(img.id)}
+                      loading={deleteImageLoading}
+                    >
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Group>
+                </Card>
+              ))}
+            </SimpleGrid>
+          )}
+
+          <Group justify="space-between" mt="sm">
+            <FileButton
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(files) => onAddImages((files as File[] | null) ?? null)}
+            >
+              {(props) => (
+                <Button
+                  {...props}
+                  leftSection={<IconPlus size={16} />}
+                  loading={uploadImagesLoading}
+                  disabled={imagesTotal >= maxImages}
+                >
+                  Adicionar fotos
+                </Button>
+              )}
+            </FileButton>
+
+            <Button variant="default" onClick={() => setPhotosModalOpened(false)}>
+              Fechar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* MODAL 3: ANOTAÇÕES INTERNAS */}
+      <Modal
+        opened={notesModalOpened}
+        onClose={() => setNotesModalOpened(false)}
+        title={
+          <Text fw={650} size="md">
+            Anotações internas
+          </Text>
+        }
+        size="md"
+      >
+        <Stack gap="md">
+          <Textarea
+            aria-label="Anotações internas do produto"
+            value={observacao}
+            onChange={(event) => onObservacaoChange(event.currentTarget.value)}
+            minRows={6}
+            maxRows={12}
+            autosize
+            placeholder="Insira detalhes sobre medidas especiais, clientes, montagens ou histórico deste produto..."
+          />
+          <Group justify="space-between">
+            <Button
+              variant="subtle"
+              color="gray"
+              onClick={() => {
+                if (observacao) {
+                  navigator.clipboard.writeText(observacao);
+                }
+              }}
+              disabled={!observacao.trim()}
+            >
+              Copiar texto
+            </Button>
+            <Group gap="xs">
+              <Button variant="default" onClick={() => setNotesModalOpened(false)}>
+                Fechar
+              </Button>
+              <Button
+                onClick={() => {
+                  onSaveObservacao();
+                  setNotesModalOpened(false);
+                }}
+                loading={saveObservacaoLoading}
+              >
+                Salvar anotação
+              </Button>
+            </Group>
+          </Group>
         </Stack>
       </Modal>
 

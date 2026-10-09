@@ -9,16 +9,13 @@ import {
 } from "react";
 import {
   Card,
-  Grid,
   Group,
   Loader,
-  Skeleton,
   Stack,
   Text,
   SegmentedControl,
-  ThemeIcon,
 } from "@mantine/core";
-import { IconBox, IconAlertTriangle, IconPackage, IconTrendingUp } from "@tabler/icons-react";
+import { IconCalendar, IconPackageOff } from "@tabler/icons-react";
 import { DatePickerInput } from "@mantine/dates";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -26,8 +23,9 @@ import { api } from "../lib/apiClient";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
 import { useProfileScope } from "../state/profileScope";
 import { useLocations } from "../hooks/useLocations";
-import FilterToolbar from "../components/ui/FilterToolbar";
 import PageHeader from "../components/ui/PageHeader";
+import StatTile from "../components/ui/StatTile";
+import { useLocationColor } from "../lib/chartTheme";
 import type {
   FlowPoint,
   StockDistribution,
@@ -43,12 +41,6 @@ import { notifyError } from "../lib/notify";
 const DashboardVisuals = lazy(
   () => import("../components/dashboard/DashboardVisuals"),
 );
-
-const COLORS = {
-  total: "#2ecc71",
-  zerado: "#e03131",
-  locs: ["#1f77b4", "#f39c12", "#9b59b6", "#34495e", "#e67e22"],
-};
 
 type Scope = number | null;
 type PeriodMode = "week" | "month";
@@ -73,8 +65,9 @@ const DEFAULT_DASHBOARD_TAB_STATE: DashboardTabState = {
 type SummaryCard = {
   label: string;
   value: number;
-  color: string;
-  icon: React.ReactNode;
+  accent?: string;
+  hint?: string;
+  icon?: React.ReactNode;
 };
 
 function getQueryErrorMessage(error: unknown): string | null {
@@ -87,6 +80,7 @@ function getQueryErrorMessage(error: unknown): string | null {
 export default function DashboardPage() {
   const { profileScopeKey } = useProfileScope();
   const { activeLocations: locations } = useLocations();
+  const { colorFor } = useLocationColor();
   const lastErrorToastRef = useRef<string | null>(null);
   const persistedState = useMemo(
     () =>
@@ -285,37 +279,44 @@ export default function DashboardPage() {
   const summaryCards = useMemo<SummaryCard[]>(() => {
     if (!summary || !summary.locations) return [];
 
+    const zeroCard: SummaryCard = {
+      label: "Itens sem estoque",
+      value: summary.zerados ?? 0,
+      hint: "Produtos com saldo zero",
+      icon: <IconPackageOff size={16} stroke={1.5} />,
+    };
+
     if (scope !== null) {
       const location = summary.locations.find((l) => l.location_id === scope);
-      const total = location ? location.total : summary.total_geral;
-      const locName = location ? location.location_name : "Local";
       return [
-        { label: `Total em ${locName}`, value: total, color: COLORS.locs[0], icon: <IconBox size={20} /> },
         {
-          label: `Itens zerados em ${locName}`,
-          value: summary.zerados ?? 0,
-          color: COLORS.zerado,
-          icon: <IconAlertTriangle size={20} />
+          label: `Estoque em ${location ? location.location_name : "local"}`,
+          value: location ? location.total : summary.total_geral,
+          accent: location ? colorFor(location.location_name) : undefined,
+          hint: "Unidades disponíveis",
         },
+        zeroCard,
       ];
     }
 
-    const cards: SummaryCard[] = summary.locations.map((loc, idx) => {
-      return {
-        label: `Total ${loc.location_name}`,
-        value: loc.total,
-        color: COLORS.locs[idx % COLORS.locs.length],
-        icon: <IconPackage size={20} />
-      };
-    });
+    const cards: SummaryCard[] = summary.locations.map((loc) => ({
+      label: loc.location_name,
+      value: loc.total,
+      accent: colorFor(loc.location_name),
+      hint: "Unidades em estoque",
+    }));
 
     cards.push(
-      { label: "Total Geral", value: summary.total_geral, color: COLORS.total, icon: <IconTrendingUp size={20} /> },
-      { label: "Itens zerados", value: summary.zerados, color: COLORS.zerado, icon: <IconAlertTriangle size={20} /> },
+      {
+        label: "Total geral",
+        value: summary.total_geral,
+        hint: "Todas as filiais",
+      },
+      zeroCard,
     );
 
     return cards;
-  }, [scope, summary]);
+  }, [colorFor, scope, summary]);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -367,89 +368,70 @@ export default function DashboardPage() {
     <Stack gap="lg">
       <PageHeader
         title="Dashboard"
-        subtitle="Visao consolidada do estoque e movimentacoes por periodo."
+        subtitle="Visão consolidada do estoque e das movimentações no período."
       />
 
-      <FilterToolbar>
-        <Group justify="space-between" align="end" wrap="wrap">
-          <Group>
-            <SegmentedControl
-              value={periodMode}
-              onChange={(value) => setPeriodMode(value as PeriodMode)}
-              data={[
-                { value: "week", label: "Semana" },
-                { value: "month", label: "Mes" },
-              ]}
-            />
-            <DatePickerInput
-              value={selectedDate}
-              onChange={setSelectedDate}
-              label="Data base"
-              w={180}
-            />
-          </Group>
-          <SegmentedControl
-            value={scope === null ? "AMBOS" : String(scope)}
-            onChange={(value) =>
-              setScope(value === "AMBOS" ? null : Number(value))
-            }
-            data={[
-              { value: "AMBOS", label: "Todos os Locais" },
-              ...locations.map((loc) => ({
-                value: String(loc.id),
-                label: loc.label || loc.name,
-              })),
-            ]}
-          />
-        </Group>
-      </FilterToolbar>
+      <div className="toolbar-row">
+        <SegmentedControl
+          value={scope === null ? "AMBOS" : String(scope)}
+          onChange={(value) =>
+            setScope(value === "AMBOS" ? null : Number(value))
+          }
+          data={[
+            { value: "AMBOS", label: "Todas as filiais" },
+            ...locations.map((loc) => ({
+              value: String(loc.id),
+              label: loc.label || loc.name,
+            })),
+          ]}
+        />
+        <div className="toolbar-spacer" />
+        <Text size="xs" c="dimmed" className="num">
+          {dayjs(dateFrom).format("DD/MM")} – {dayjs(dateTo).format("DD/MM/YYYY")}
+        </Text>
+        <SegmentedControl
+          value={periodMode}
+          onChange={(value) => setPeriodMode(value as PeriodMode)}
+          data={[
+            { value: "week", label: "Semana" },
+            { value: "month", label: "Mês" },
+          ]}
+        />
+        <DatePickerInput
+          value={selectedDate}
+          onChange={setSelectedDate}
+          aria-label="Data base"
+          valueFormat="DD/MM/YYYY"
+          leftSection={<IconCalendar size={16} stroke={1.5} />}
+          w={160}
+        />
+      </div>
 
-      <Grid>
+      <div className="stat-grid">
         {summaryQuery.isLoading
           ? Array.from(
               { length: scope === null ? locations.length + 2 : 2 },
-              (_, index) => (
-                <Grid.Col
-                  key={index}
-                  span={{ base: 12, md: scope === null ? 3 : 6 }}
-                >
-                  <Card className="kpi-card">
-                    <Skeleton h={30} mt={8} />
-                  </Card>
-                </Grid.Col>
-              ),
+              (_, index) => <StatTile key={index} label="Carregando" value="" loading />,
             )
           : summaryCards.map((card) => (
-              <Grid.Col
+              <StatTile
                 key={card.label}
-                span={{ base: 12, md: scope === null ? 3 : 6 }}
-              >
-                <Card className="kpi-card" p="lg" radius="lg">
-                  <Group justify="space-between" align="flex-start" wrap="nowrap">
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Text size="sm" c="dimmed" fw={600} tt="uppercase" truncate="end">
-                        {card.label}
-                      </Text>
-                      <Text fw={800} size="h1" mt="xs" c={card.color} truncate="end">
-                        {card.value.toLocaleString()}
-                      </Text>
-                    </div>
-                    <ThemeIcon color={card.color} variant="light" size="xl" radius="md">
-                      {card.icon}
-                    </ThemeIcon>
-                  </Group>
-                </Card>
-              </Grid.Col>
+                label={card.label}
+                value={card.value.toLocaleString("pt-BR")}
+                hint={card.hint}
+                accent={card.accent}
+                icon={card.icon}
+              />
             ))}
-      </Grid>
+      </div>
 
       <Suspense
         fallback={
-          <Card withBorder>
+          <Card>
             <Group gap="sm">
               <Loader size="sm" />
               <Text size="sm" c="dimmed">
-                Carregando blocos visuais do dashboard...
+                Carregando gráficos…
               </Text>
             </Group>
           </Card>

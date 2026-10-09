@@ -1,14 +1,15 @@
 import type { KeyboardEvent, RefObject } from "react";
 import {
   Button,
+  Card,
   Group,
+  Kbd,
   Select,
   Stack,
   Text,
   TextInput,
-  Title,
-  Card,
 } from "@mantine/core";
+import { IconSearch } from "@tabler/icons-react";
 
 import type {
   InventoryAdjustmentReason,
@@ -17,7 +18,6 @@ import type {
   InventorySessionSummaryOut,
   InventoryStatusFilter,
 } from "../../lib/api";
-import FilterToolbar from "../ui/FilterToolbar";
 import { InventoryCollectorPanel } from "./InventoryCollectorPanel";
 import { InventoryCountsTable } from "./InventoryCountsTable";
 import { InventorySummaryCards } from "./InventorySummaryCards";
@@ -133,98 +133,122 @@ export function InventorySessionDetailSection({
   itemsTotalPages,
   onItemsPageChange,
 }: InventorySessionDetailSectionProps) {
+  const statusLabel =
+    session.status === "ABERTO"
+      ? "Em contagem"
+      : session.status === "FECHADO"
+        ? "Fechada"
+        : session.status === "APLICADO"
+          ? "Ajuste aplicado"
+          : session.status;
+  const sessionOpen = session.status === "ABERTO";
+
   return (
-    <Card withBorder>
-      <Stack>
-        <Group justify="space-between" wrap="wrap">
-          <Stack gap={2}>
-            <Title order={4}>Contagens da sessao #{session.id}</Title>
-            <Text size="sm" c="dimmed">
-              {session.nome} |{" "}
-              {session.local_label ?? `Local #${session.location_id}`} | Status:{" "}
-              {session.status}
-            </Text>
+    <Stack gap="md">
+      <Group justify="space-between" align="flex-end" wrap="wrap" mt="sm">
+        <Stack gap={2}>
+          <Text size="xs" c="dimmed" className="num">
+            Sessão #{session.id} ·{" "}
+            {session.local_label ?? `Local #${session.location_id}`} · {statusLabel}
+          </Text>
+          <Text fw={650} size="lg">
+            {session.nome}
+          </Text>
+          <Group gap={6} mt={2}>
+            <Kbd size="xs">Ctrl F</Kbd>
             <Text size="xs" c="dimmed">
-              Atalhos: Ctrl+F busca | Ctrl+B campo do bip | Ctrl+S salvar
-              contagens
+              busca
             </Text>
-          </Stack>
-          <Group>
-            <Button
-              variant="light"
-              onClick={onSaveCounts}
-              loading={saveCountsLoading}
-              disabled={session.status !== "ABERTO"}
-            >
-              Salvar contagens
-            </Button>
-            <Button
-              color="orange"
-              onClick={onApplyAdjustments}
-              loading={applyLoading}
-              disabled={session.status !== "ABERTO"}
-            >
-              Aplicar ajustes
-            </Button>
+            <Kbd size="xs">Ctrl B</Kbd>
+            <Text size="xs" c="dimmed">
+              bip
+            </Text>
+            <Kbd size="xs">Ctrl S</Kbd>
+            <Text size="xs" c="dimmed">
+              salvar
+            </Text>
           </Group>
+        </Stack>
+        <Group gap="xs">
+          <Button
+            variant="default"
+            onClick={onSaveCounts}
+            loading={saveCountsLoading}
+            disabled={!sessionOpen}
+          >
+            Salvar contagens
+          </Button>
+          <Button
+            onClick={onApplyAdjustments}
+            loading={applyLoading}
+            disabled={!sessionOpen}
+          >
+            Aplicar ajustes
+          </Button>
         </Group>
+      </Group>
 
-        {summary && (
-          <InventorySummaryCards
-            summary={summary}
-            onSelectFilter={onSelectSummaryFilter}
-          />
-        )}
-
-        <InventoryCollectorPanel
-          active={collectorModeActive}
-          initializing={collectorInitializing}
-          loading={collectorLoading}
-          sessionStatus={session.status}
-          collectorInput={collectorInput}
-          onCollectorInputChange={onCollectorInputChange}
-          onCollectorInputKeyDown={onCollectorInputKeyDown}
-          collectorInputRef={collectorInputRef}
-          collectorStep={collectorStep}
-          onCollectorStepChange={onCollectorStepChange}
-          onInitialize={onInitializeCollectorMode}
-          onStop={onStopCollectorMode}
-          onRun={onRunCollector}
-          log={collectorLog}
-          onClearLog={onClearCollectorLog}
+      {summary && (
+        <InventorySummaryCards
+          summary={summary}
+          activeFilter={statusFilter}
+          onSelectFilter={onSelectSummaryFilter}
         />
+      )}
 
-        <FilterToolbar>
-          <Group align="end" wrap="wrap">
-            <Select
-              label="Filtro da contagem"
-              data={statusFilterOptions}
-              value={statusFilter}
-              onChange={(value) =>
-                onStatusFilterChange(
-                  (value as InventoryStatusFilter) || "DIVERGENT",
-                )
-              }
-              w={220}
-              allowDeselect={false}
-            />
-            <TextInput
-              label="Buscar item"
-              placeholder="Nome ou ID"
-              ref={searchInputRef}
-              value={search}
-              onChange={(event) => onSearchChange(event.currentTarget.value)}
-              w={260}
-            />
-            <Button
-              variant="subtle"
-              onClick={onClearFilters}
-              disabled={activeFilterCount === 0}
-            >
-              Limpar filtros
+      <InventoryCollectorPanel
+        active={collectorModeActive}
+        initializing={collectorInitializing}
+        loading={collectorLoading}
+        sessionStatus={session.status}
+        collectorInput={collectorInput}
+        onCollectorInputChange={onCollectorInputChange}
+        onCollectorInputKeyDown={onCollectorInputKeyDown}
+        collectorInputRef={collectorInputRef}
+        collectorStep={collectorStep}
+        onCollectorStepChange={onCollectorStepChange}
+        onInitialize={onInitializeCollectorMode}
+        onStop={onStopCollectorMode}
+        onRun={onRunCollector}
+        log={collectorLog}
+        onClearLog={onClearCollectorLog}
+      />
+
+      <Card p={0} style={{ overflow: "hidden" }}>
+        <Group
+          gap="sm"
+          wrap="wrap"
+          px="lg"
+          py="sm"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <TextInput
+            placeholder="Buscar item por nome ou ID"
+            aria-label="Buscar item"
+            leftSection={<IconSearch size={16} stroke={1.5} />}
+            ref={searchInputRef}
+            value={search}
+            onChange={(event) => onSearchChange(event.currentTarget.value)}
+            style={{ flex: 1, minWidth: 220 }}
+          />
+          <Select
+            aria-label="Filtro da contagem"
+            data={statusFilterOptions}
+            value={statusFilter}
+            onChange={(value) =>
+              onStatusFilterChange(
+                (value as InventoryStatusFilter) || "DIVERGENT",
+              )
+            }
+            w={220}
+            allowDeselect={false}
+          />
+          {activeFilterCount > 0 && (
+            <Button variant="subtle" color="gray" onClick={onClearFilters}>
+              Limpar
             </Button>
-          </Group>
-        </FilterToolbar>
+          )}
+        </Group>
 
         <InventoryCountsTable
           loading={itemsLoading}
@@ -239,7 +263,7 @@ export function InventorySessionDetailSection({
           totalPages={itemsTotalPages}
           onPageChange={onItemsPageChange}
         />
-      </Stack>
-    </Card>
+      </Card>
+    </Stack>
   );
 }

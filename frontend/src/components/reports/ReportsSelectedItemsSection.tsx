@@ -1,7 +1,7 @@
+import type { ReactNode } from "react";
 import {
   ActionIcon,
   Button,
-  Card,
   Group,
   Loader,
   ScrollArea,
@@ -9,19 +9,21 @@ import {
   Table,
   Text,
   TextInput,
-  Badge,
-  ThemeIcon,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconArrowDown,
   IconArrowUp,
+  IconCheck,
+  IconFileTypePdf,
   IconPlus,
-  IconTrash,
-  IconListCheck,
+  IconSearch,
+  IconX,
 } from "@tabler/icons-react";
 
 import type { Product } from "../../lib/api";
 import { useLocations } from "../../hooks/useLocations";
+import ReportShell from "./ReportShell";
 
 type SelectedReportProduct = Pick<
   Product,
@@ -45,6 +47,14 @@ type Props = {
   generateSelectedReport: () => void;
 };
 
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.06em">
+      {children}
+    </Text>
+  );
+}
+
 export default function ReportsSelectedItemsSection({
   selectedItems,
   selectedIds,
@@ -62,252 +72,180 @@ export default function ReportsSelectedItemsSection({
   generateSelectedReport,
 }: Props) {
   const { locations } = useLocations();
+  const searching = selectedSearch.trim().length >= 2;
 
   return (
-    <Card 
-      withBorder 
-      shadow="sm"
-      p="xl"
-      style={{
-        background: 'rgba(255, 255, 255, 0.03)',
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: 'var(--mantine-radius-xl)',
-        overflow: 'hidden'
-      }}
-    >
-      <div
-        style={{
-          position: "absolute",
-          top: "-50px",
-          right: "-50px",
-          width: "150px",
-          height: "150px",
-          background: "radial-gradient(circle, rgba(156, 39, 176, 0.15) 0%, rgba(0,0,0,0) 70%)",
-          borderRadius: "50%",
-          zIndex: 0,
-        }}
-      />
-
-      <Stack gap="lg" style={{ position: 'relative', zIndex: 1 }}>
-        <Group justify="space-between" align="flex-start">
-          <Group>
-            <ThemeIcon size={48} radius="md" variant="light" color="grape">
-              <IconListCheck size={24} />
-            </ThemeIcon>
-            <div>
-              <Text fw={700} size="lg" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                Relatório de Itens Selecionados
-              </Text>
-              <Text size="sm" c="dimmed">
-                Monte sua própria lista de conferência
-              </Text>
-            </div>
-          </Group>
-          <Badge variant="gradient" gradient={{ from: 'grape', to: 'pink' }}>
-            Selecionados: {selectedItems.length}
-          </Badge>
-        </Group>
-
-        <TextInput
-          label="Buscar item"
-          placeholder="Digite codigo ou nome da peca"
-          value={selectedSearch}
-          onChange={(event) => setSelectedSearch(event.currentTarget.value)}
-          size="md"
-          variant="filled"
-        />
-
-        <Card 
-          withBorder 
-          radius="md" 
-          p="md"
-          style={{ background: 'rgba(0, 0, 0, 0.02)' }}
+    <ReportShell
+      title="Lista personalizada"
+      description="Monte uma lista de conferência com os itens que quiser, na ordem que preferir."
+      footerHint={`${selectedItems.length} ${selectedItems.length === 1 ? "item" : "itens"} na lista · usa os saldos do momento da geração`}
+      action={
+        <Button
+          onClick={generateSelectedReport}
+          loading={loadingGenerate}
+          disabled={selectedItems.length === 0}
+          leftSection={<IconFileTypePdf size={16} stroke={1.5} />}
         >
-          <Stack gap="xs">
-            <Group justify="space-between">
-              <Text fw={500}>Resultados da busca</Text>
-              {loadingSearch && selectedSearch.trim().length >= 2 ? (
-                <Loader size="xs" color="grape" />
-              ) : null}
-            </Group>
+          Gerar PDF
+        </Button>
+      }
+    >
+      <Stack gap="lg">
+        <Stack gap="xs">
+          <TextInput
+            placeholder="Buscar peça por código ou nome"
+            aria-label="Buscar item"
+            leftSection={<IconSearch size={16} stroke={1.5} />}
+            rightSection={loadingSearch && searching ? <Loader size="xs" /> : undefined}
+            value={selectedSearch}
+            onChange={(event) => setSelectedSearch(event.currentTarget.value)}
+          />
 
-            {selectedSearch.trim().length < 2 ? (
-              <Text size="sm" c="dimmed">
-                Digite ao menos 2 letras para localizar produtos e adicionar ao
-                relatorio.
-              </Text>
-            ) : lookupErrorMessage ? (
-              <Text size="sm" c="red">
+          {searching &&
+            (lookupErrorMessage ? (
+              <Text size="sm" c="var(--danger)">
                 Falha ao buscar produtos: {lookupErrorMessage}
               </Text>
-            ) : searchResults.length === 0 ? (
+            ) : searchResults.length === 0 && !loadingSearch ? (
               <Text size="sm" c="dimmed">
-                Nenhum item encontrado para essa busca.
+                Nenhum item encontrado.
               </Text>
             ) : (
-              <ScrollArea.Autosize mah={240} offsetScrollbars>
-                <Table striped highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>ID</Table.Th>
-                      <Table.Th>Produto</Table.Th>
-                      {locations.map((loc) => (
-                        <Table.Th key={loc.id}>{loc.name}</Table.Th>
-                      ))}
-                      <Table.Th>Total</Table.Th>
-                      <Table.Th>Acoes</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {searchResults.map((product) => {
-                      const alreadySelected = selectedIds.has(product.id);
-                      return (
-                        <Table.Tr key={product.id}>
-                          <Table.Td>{product.id}</Table.Td>
-                          <Table.Td>{product.nome}</Table.Td>
-                          {locations.map((loc) => (
-                            <Table.Td key={loc.id}>
-                              {product.inventories?.[loc.id] ?? 0}
-                            </Table.Td>
-                          ))}
-                          <Table.Td>{product.total_stock}</Table.Td>
-                          <Table.Td>
-                            <Button
-                              size="xs"
-                              color="grape"
-                              variant={alreadySelected ? "light" : "filled"}
-                              leftSection={<IconPlus size={14} />}
-                              disabled={alreadySelected}
-                              onClick={() => addSelectedItem(product)}
-                            >
-                              {alreadySelected ? "Selecionado" : "Selecionar"}
-                            </Button>
-                          </Table.Td>
-                        </Table.Tr>
-                      );
-                    })}
-                  </Table.Tbody>
-                </Table>
-              </ScrollArea.Autosize>
-            )}
-          </Stack>
-        </Card>
+              <div className="table-shell">
+                <ScrollArea.Autosize mah={220}>
+                  {searchResults.map((product) => {
+                    const alreadySelected = selectedIds.has(product.id);
+                    return (
+                      <Group
+                        key={product.id}
+                        justify="space-between"
+                        wrap="nowrap"
+                        px="md"
+                        py={8}
+                        style={{ borderBottom: "1px solid var(--border)" }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <Text size="sm" lineClamp={1}>
+                            {product.nome}
+                          </Text>
+                          <Text size="xs" c="dimmed" className="num">
+                            #{product.id} · {product.total_stock} em estoque
+                          </Text>
+                        </div>
+                        <Button
+                          size="xs"
+                          variant={alreadySelected ? "subtle" : "default"}
+                          color={alreadySelected ? "gray" : undefined}
+                          leftSection={
+                            alreadySelected ? <IconCheck size={14} /> : <IconPlus size={14} />
+                          }
+                          disabled={alreadySelected}
+                          onClick={() => addSelectedItem(product)}
+                        >
+                          {alreadySelected ? "Na lista" : "Adicionar"}
+                        </Button>
+                      </Group>
+                    );
+                  })}
+                </ScrollArea.Autosize>
+              </div>
+            ))}
+        </Stack>
 
-        <Card 
-          withBorder 
-          radius="md" 
-          p="md"
-          style={{ background: 'rgba(0, 0, 0, 0.02)' }}
-        >
-          <Stack gap="xs">
-            <Group justify="space-between">
-              <Text fw={500}>Itens escolhidos para o relatorio</Text>
-              <Button
-                variant="subtle"
-                color="red"
-                size="xs"
-                onClick={clearSelectedItems}
-                disabled={selectedItems.length === 0}
-              >
-                Limpar selecionados
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <SectionLabel>Itens do relatório</SectionLabel>
+            {selectedItems.length > 0 && (
+              <Button variant="subtle" color="gray" size="xs" onClick={clearSelectedItems}>
+                Limpar lista
               </Button>
-            </Group>
+            )}
+          </Group>
 
-            {selectedItems.length === 0 ? (
-              <Text size="sm" c="dimmed">
-                Nenhum item selecionado ainda. Busque acima e clique em
-                Selecionar.
-              </Text>
-            ) : (
-              <ScrollArea.Autosize mah={260} offsetScrollbars>
-                <Table striped highlightOnHover>
+          {selectedItems.length === 0 ? (
+            <Text size="sm" c="dimmed">
+              Nenhum item ainda. Busque acima e clique em Adicionar.
+            </Text>
+          ) : (
+            <div className="table-shell">
+              <ScrollArea.Autosize mah={320}>
+                <Table verticalSpacing="xs">
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th>ID</Table.Th>
+                      <Table.Th w={36}>#</Table.Th>
                       <Table.Th>Produto</Table.Th>
                       {locations.map((loc) => (
-                        <Table.Th key={loc.id}>{loc.name}</Table.Th>
+                        <Table.Th key={loc.id} w={90} ta="right">
+                          {loc.label || loc.name}
+                        </Table.Th>
                       ))}
-                      <Table.Th>Total</Table.Th>
-                      <Table.Th>Onde tem</Table.Th>
-                      <Table.Th>Ordem</Table.Th>
-                      <Table.Th>Acoes</Table.Th>
+                      <Table.Th w={70} ta="right">
+                        Total
+                      </Table.Th>
+                      <Table.Th w={110} />
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {selectedItems.map((item, index) => (
                       <Table.Tr key={item.id}>
-                        <Table.Td>{item.id}</Table.Td>
-                        <Table.Td>{item.nome}</Table.Td>
+                        <Table.Td c="dimmed" className="num">
+                          {index + 1}
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" lineClamp={1}>
+                            {item.nome}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            #{item.id} · {locationLabel(item.inventories ?? {})}
+                          </Text>
+                        </Table.Td>
                         {locations.map((loc) => (
-                          <Table.Td key={loc.id}>
+                          <Table.Td key={loc.id} ta="right" className="num">
                             {item.inventories?.[loc.id] ?? 0}
                           </Table.Td>
                         ))}
-                        <Table.Td>{item.total_stock}</Table.Td>
-                        <Table.Td>
-                          {locationLabel(item.inventories ?? {})}
+                        <Table.Td ta="right" fw={600} className="num">
+                          {item.total_stock}
                         </Table.Td>
                         <Table.Td>
-                          <Group gap={4} wrap="nowrap">
+                          <Group gap={2} justify="flex-end" wrap="nowrap" className="row-actions">
                             <ActionIcon
-                              variant="light"
                               color="gray"
                               onClick={() => moveSelectedItem(item.id, "up")}
                               aria-label={`Subir ${item.nome}`}
                               disabled={index === 0}
                             >
-                              <IconArrowUp size={16} />
+                              <IconArrowUp size={15} stroke={1.5} />
                             </ActionIcon>
                             <ActionIcon
-                              variant="light"
                               color="gray"
                               onClick={() => moveSelectedItem(item.id, "down")}
                               aria-label={`Descer ${item.nome}`}
                               disabled={index === selectedItems.length - 1}
                             >
-                              <IconArrowDown size={16} />
+                              <IconArrowDown size={15} stroke={1.5} />
                             </ActionIcon>
+                            <Tooltip label="Remover da lista">
+                              <ActionIcon
+                                color="gray"
+                                className="action-danger"
+                                onClick={() => removeSelectedItem(item.id)}
+                                aria-label={`Remover ${item.nome}`}
+                              >
+                                <IconX size={15} stroke={1.5} />
+                              </ActionIcon>
+                            </Tooltip>
                           </Group>
-                        </Table.Td>
-                        <Table.Td>
-                          <ActionIcon
-                            color="red"
-                            variant="light"
-                            onClick={() => removeSelectedItem(item.id)}
-                            aria-label={`Remover ${item.nome}`}
-                          >
-                            <IconTrash size={16} />
-                          </ActionIcon>
                         </Table.Td>
                       </Table.Tr>
                     ))}
                   </Table.Tbody>
                 </Table>
               </ScrollArea.Autosize>
-            )}
-          </Stack>
-        </Card>
-
-        <Group justify="space-between" align="center" mt="sm">
-          <Text size="sm" c="dimmed">
-            O PDF final sempre usa os saldos atuais do sistema no momento da
-            geracao.
-          </Text>
-          <Button
-            onClick={generateSelectedReport}
-            loading={loadingGenerate}
-            disabled={selectedItems.length === 0}
-            variant="gradient"
-            gradient={{ from: 'grape', to: 'pink' }}
-            size="md"
-            radius="md"
-          >
-            Gerar Relatório dos Selecionados
-          </Button>
-        </Group>
+            </div>
+          )}
+        </Stack>
       </Stack>
-    </Card>
+    </ReportShell>
   );
 }

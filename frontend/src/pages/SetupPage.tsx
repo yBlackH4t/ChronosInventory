@@ -27,26 +27,24 @@ export default function SetupPage() {
   });
 
   return (
-    <Center h="100vh" bg="gray.0">
-      <Paper p="xl" shadow="sm" radius="md" w={400} withBorder>
+    <Center h="100vh" bg="var(--bg)" px="md">
+      <Paper p="xl" radius="lg" w={420} maw="100%" withBorder>
         <Stack align="center" gap="md">
-          <IconBuildingStore
-            size={48}
-            stroke={1.5}
-            color="var(--mantine-color-blue-6)"
-          />
-          <Title order={2} ta="center">
-            Bem-vindo ao Chronos!
+          <span className="topbar-brand-mark" style={{ width: 44, height: 44, borderRadius: 12 }}>
+            <IconBuildingStore size={22} stroke={1.75} />
+          </span>
+          <Title order={3} ta="center">
+            Bem-vindo ao Chronos
           </Title>
           <Text c="dimmed" ta="center" size="sm">
-            Para comecar a usar o aplicativo, voce precisa criar o seu primeiro
-            local de estoque.
+            Para começar, crie o primeiro local de estoque (filial, loja ou
+            depósito).
           </Text>
 
           <TextInput
             w="100%"
             label="Nome do local"
-            placeholder="Ex: Matriz, Loja 1, Deposito..."
+            placeholder="Ex: Canoas, Matriz, Depósito…"
             value={name}
             onChange={(e) => setName(e.currentTarget.value)}
             disabled={mutation.isPending}
@@ -59,7 +57,7 @@ export default function SetupPage() {
             loading={mutation.isPending}
             disabled={!name.trim()}
           >
-            Comecar
+            Começar
           </Button>
         </Stack>
       </Paper>

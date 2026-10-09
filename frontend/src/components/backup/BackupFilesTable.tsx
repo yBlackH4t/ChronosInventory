@@ -2,7 +2,6 @@ import { Table } from "@mantine/core";
 import dayjs from "dayjs";
 
 import type { BackupListItemOut } from "../../lib/api";
-import DataTable from "../ui/DataTable";
 import EmptyState from "../ui/EmptyState";
 
 function bytesToHuman(size: number): string {
@@ -19,34 +18,40 @@ type BackupFilesTableProps = {
 
 export function BackupFilesTable({ backups }: BackupFilesTableProps) {
   return (
-    <DataTable minWidth={720}>
-      <Table striped highlightOnHover withTableBorder>
+    <Table.ScrollContainer minWidth={640}>
+      <Table verticalSpacing="xs">
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>Nome</Table.Th>
-            <Table.Th>Tamanho</Table.Th>
-            <Table.Th>Data</Table.Th>
+            <Table.Th>Arquivo</Table.Th>
+            <Table.Th w={120} ta="right">
+              Tamanho
+            </Table.Th>
+            <Table.Th w={170}>Criado em</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
           {backups.map((item) => (
             <Table.Tr key={item.name}>
-              <Table.Td>{item.name}</Table.Td>
-              <Table.Td>{bytesToHuman(item.size)}</Table.Td>
-              <Table.Td>
+              <Table.Td className="mono" fz="sm">
+                {item.name}
+              </Table.Td>
+              <Table.Td ta="right" c="dimmed" className="num">
+                {bytesToHuman(item.size)}
+              </Table.Td>
+              <Table.Td c="dimmed" className="num">
                 {dayjs(item.created_at).format("DD/MM/YYYY HH:mm")}
               </Table.Td>
             </Table.Tr>
           ))}
           {backups.length === 0 && (
             <Table.Tr>
-              <Table.Td colSpan={3}>
-                <EmptyState message="Nenhum backup encontrado." />
+              <Table.Td colSpan={3} style={{ borderBottom: 0 }}>
+                <EmptyState message="Nenhum backup encontrado" />
               </Table.Td>
             </Table.Tr>
           )}
         </Table.Tbody>
       </Table>
-    </DataTable>
+    </Table.ScrollContainer>
   );
 }

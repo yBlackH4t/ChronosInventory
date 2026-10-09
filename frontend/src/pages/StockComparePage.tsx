@@ -448,7 +448,7 @@ export default function StockComparePage() {
     <Stack gap="lg">
       <PageHeader
         title="Comparar estoques"
-        subtitle="Publique um snapshot nesta maquina e compare com outro computador usando apenas o endereco do servidor local."
+        subtitle="Compare o estoque desta máquina com o de outro computador da rede."
       />
 
       <StockCompareOverviewCards

@@ -286,7 +286,7 @@ export default function BatchMovementModal({
         </Box>
 
         {items.length > 0 ? (
-          <Table striped highlightOnHover>
+          <Table verticalSpacing="xs">
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Produto</Table.Th>
@@ -307,7 +307,7 @@ export default function BatchMovementModal({
                     />
                   </Table.Td>
                   <Table.Td>
-                    <ActionIcon color="red" variant="subtle" onClick={() => handleRemove(item.product.id)}>
+                    <ActionIcon color="gray" className="action-danger" aria-label="Remover item" onClick={() => handleRemove(item.product.id)}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Table.Td>
