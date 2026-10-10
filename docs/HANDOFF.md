@@ -67,10 +67,22 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — base de conhecimento do especialista, admin e histórico (backend) prontos; próxima: distribuir o conhecimento e Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — busca direta responde primeiro; ponte WhatsApp com QR no navegador; roteiro em `docs/TESTE_ASSISTENTE.md`. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | WhatsApp do assistente, propostas e ajustes rápidos | em andamento | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Mudou (2026-10-09, busca direta primeiro):** o formato do `POST /assistente/chat` não mudou,
+  mas `modo` = `busca_direta` com `aviso` = `null` passou a ser a resposta **normal**: a busca
+  direta responde primeiro quando entende a pergunta (código, veículo/motor, "temos essa daí?",
+  resposta a "Qual é o motor?"). `modo` = `ia` só quando ela não entende (frase diferente, fora do
+  assunto). `aviso` preenchido continua significando que a IA falhou. Motivo: na avaliação com o
+  Groq real, o modelo gratuito errou 7 de 17 perguntas (trocava códigos ao copiar, buscava sem o
+  "440"); com a busca direta primeiro, 17 de 17. Pedido de ajuste na seção 5.
+
+- **Novo (2026-10-09, WhatsApp e propostas):** endpoints `/assistente/whatsapp/*` (status com
+  QR, iniciar, parar, desconectar) e `/assistente/propostas` (listar, aprovar, recusar), todos
+  de admin. Contrato em `docs/API_DOCS.md` ("Propostas" e "WhatsApp (modo copiloto)").
 
 - **Novo (2026-10-09, base de conhecimento):** admin, conhecimento, revisão e histórico do
   assistente. Contrato completo em `docs/API_DOCS.md` ("Admin do assistente", "Base de
@@ -151,6 +163,35 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
+- [ ] **[Claude Code → Antigravity] Assistente: dois ajustes rápidos (fazer primeiro).**
+  Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
+  só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
+  - **Selo do chat** (`AssistantPage.tsx`): "Busca direta (sem IA)" agora apareceria em quase toda
+    resposta e parece defeito. Mostrar o selo e o alerta **só quando vier `aviso`** (a IA falhou).
+    Sem aviso, nada de selo; o modo de cada resposta continua visível no Histórico do admin.
+  - **Texto errado** em `AssistantAdminPanel.tsx` (~linha 261): "Configurações > Base oficial" →
+    "Backup > Base oficial > Papel desta máquina: Publica a base" (é onde fica a opção).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
+- [ ] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
+  Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
+  - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
+    - estado em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao
+      número X", "Desconectado do celular — conecte de novo", "Erro: …");
+    - botão **"Conectar WhatsApp"** (`POST /whatsapp/iniciar`) e, enquanto o estado for
+      `aguardando_qr`, **desenhar o QR code** a partir do texto `qr` (biblioteca de QR para
+      React; atualizar a cada 2–3 s com `GET /whatsapp/status`, porque o código muda);
+      instrução: "No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho";
+    - quando conectado: **"Desligar"** (`/whatsapp/parar`) e **"Desconectar este computador"**
+      (`/whatsapp/desconectar`, com confirmação);
+    - um quadro curto "Como usar": reagir com 🤖 na mensagem do cliente; comandos na conversa
+      "Mensagem para mim" (`/ajuda`, `/pendentes`, `/ensinar`);
+    - aviso fixo: "Conexão não oficial: o WhatsApp pode bloquear o número. Use com moderação."
+  - **Propostas** (no topo de "Para revisar"): `GET /assistente/propostas` → cartões
+    "Código A — relação — Código B (observação), enviada pelo WhatsApp em <data>", com
+    **"Aprovar"** (`POST /propostas/{id}/aprovar`) e **"Recusar"** (`/recusar`).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
 - [x] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
   Branch: `ag/assistente-chat`, criada a partir de `feature/assistente-ia`
   (`git checkout -b ag/assistente-chat feature/assistente-ia`).
@@ -193,7 +234,8 @@ npm run lint
   visível sempre, com três abas internas: **Para revisar**, **Conhecimento**, **Histórico**.
   - **Entrada:** `GET /assistente/admin/status`.
     - `maquina_publicadora = false` → explicar: "Para ensinar o assistente, esta máquina precisa
-      ser a publicadora da base oficial (Configurações > Base oficial)." e mostrar o
+      ser a publicadora da base oficial (Backup > Base oficial > Papel desta máquina: Publica a
+      base)." e mostrar o
       Conhecimento só para leitura.
     - `senha_definida = false` → formulário "Criar senha de admin" (`POST /admin/senha`).
     - senão → campo de senha e "Entrar" (`POST /admin/login`); botão "Sair" (`/admin/logout`).
@@ -217,6 +259,7 @@ npm run lint
     (`assistente_historico.jsonl`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
+
 - [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
   - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
@@ -230,6 +273,35 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — Assistente: busca direta primeiro e roteiro de teste
+- Branch: `feature/assistente-ia`
+- O que foi feito: avaliação com o Groq real mostrou 10 de 17 acertos (o modelo gratuito trocava
+  códigos e nomes ao copiar o texto pronto e montava buscas erradas). Agora a busca direta
+  responde primeiro quando entende a pergunta e a IA só entra quando ela não entende; se a IA
+  estragar o texto pronto, vale o texto pronto; pergunta de preço ganha a nota "Não tenho
+  informação de preço" pelo próprio sistema; com o motor já informado ("dc13"), a resposta
+  lista as opções sem perguntar o motor de novo. `assistente_dev.py whatsapp` abre o QR numa
+  página do navegador (no terminal o QR saía deformado e o celular não lia). Roteiro de teste
+  para o dono em `docs/TESTE_ASSISTENTE.md`.
+- Arquivos principais: `app/services/assistant_chat_service.py`, `assistant_direct_service.py`,
+  `assistant_common.py`, `assistant_answer_format.py`, `scripts/assistente_dev.py`,
+  `scripts/assistente_avaliacao.py`.
+- Verificações: pytest ok (148 testes); avaliação com o Groq real 17/17 (15 pela busca direta,
+  2 pela IA: fora do assunto e pergunta vaga).
+- Para o Antigravity: pedido "dois ajustes rápidos" na seção 5; contrato inalterado (seção 4).
+
+### 2026-10-09 — Claude Code — Assistente: ponte WhatsApp (modo copiloto)
+- Branch: `feature/assistente-ia`
+- O que foi feito: ponte WhatsApp que entra como aparelho conectado (neonize) e só responde
+  quando alguém reage com 🤖 na mensagem do cliente; junta código colado + áudio, transcreve
+  pelo Whisper do Groq, responde citando a mensagem. Comandos na "Mensagem para mim":
+  `/ajuda`, `/pendentes`, `/ensinar` (vira proposta para o admin aprovar). Endpoints de
+  WhatsApp e de propostas; `assistente_dev.py whatsapp` para testar com QR no terminal.
+- Nova dependência: `neonize==0.5.2` (traz a DLL para Windows); `--collect-all neonize` no build.
+- Verificações: pytest ok (144 testes); conversão das mensagens da neonize conferida offline.
+  **Ainda não testado com um celular de verdade.**
+- Para o Antigravity: pedido novo na seção 5 (aba WhatsApp com QR e propostas).
 
 ### 2026-10-09 — Antigravity — Assistente: área do admin (ensinar o assistente)
 - Branch: `ag/assistente-chat`
@@ -287,6 +359,7 @@ npm run lint
 - Arquivos principais: `frontend/src/pages/AssistantPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`, `frontend/src/app/router.tsx`, `frontend/src/app/routePreload.ts`, `frontend/src/app/navigation.ts`.
 - Verificações: build ok / lint com erros apenas em arquivos antigos/preexistentes (nada na nova feature).
 - Pendências ou observações para o outro agente: A interface está pronta e utilizando mock com sucesso. Aguardando a Fase 2 no backend para testar integração real.
+
 
 ### 2026-10-09 — Claude Code — Assistente: conhecimento do especialista, admin e histórico
 - Branch: `feature/assistente-ia`

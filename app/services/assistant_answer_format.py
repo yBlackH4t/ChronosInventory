@@ -130,6 +130,16 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _engine_given(output: Dict[str, Any], items: List[Dict[str, Any]]) -> bool:
+    """A pergunta ja dizia o motor? (uma palavra dela esta no motor de todas as opcoes, ex.: "dc13")"""
+    common: Optional[set] = None
+    for item in items:
+        app = (item.get("aplicacoes") or [{}])[0]
+        words = set(search_words(str(app.get("motor") or ""))) - set(search_words(str(app.get("veiculo") or "")))
+        common = words if common is None else common & words
+    return bool(common and common & set(output.get("termos_usados") or []))
+
+
 def format_application_answer(output: Dict[str, Any], core_question: bool = False) -> str:
     """Resposta para buscar_por_aplicacao."""
     if "erro" in output:
@@ -170,7 +180,8 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
         lines.append(f"• {_application_label(first_app)} → {_kind(item)} {item.get('modelo') or ''}: {status}")
 
     any_stock = any(has_stock(i) for i in items[:MAX_LINES])
-    if len(engines) > 1:
+    # Motor ja informado ("scania 440" + "dc13") e ainda ha opcoes: lista sem perguntar de novo.
+    if len(engines) > 1 and not _engine_given(output, items[:MAX_LINES]):
         header = "Depende do motor:"
         footer = "Qual é o motor do cliente?"
     else:

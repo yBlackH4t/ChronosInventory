@@ -13,10 +13,13 @@ from app.services.assistant_chat_service import AssistantChatService
 from app.services.assistant_common import MAX_TOOL_ROUNDS, NO_ANSWER_TEXT, REFUSAL_TEXT
 from app.services.assistant_config_store import AssistantConfigStore
 from app.services.assistant_direct_service import HELP_TEXT, AssistantDirectService
+from app.services.assistant_tools_service import COMPACT_LIMITS
 from backend.app.api.deps import get_assistant_chat_service
 from test_assistant_tools import tools  # noqa: F401  (fixture: catalogo + produtos de teste)
 
 GROQ_KEY = "gsk_chave-de-teste-groq-5678"
+# Mensagem que a busca direta nao entende: e ai que a IA entra (as comuns a busca direta responde).
+VAGUE = "me ajuda com uma coisa"
 CLAUDE_KEY = "sk-ant-api03-chave-de-teste-1234"
 
 
@@ -86,13 +89,14 @@ def test_groq_runs_tools_and_returns_cited_products(tools, store):  # noqa: F811
             _completion("Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas."),
         ]
     )
-    result = _groq_service(tools, store, fake).chat("temos turbina 4031196?")
+    result = _groq_service(tools, store, fake).chat(VAGUE)
 
     assert result["modo"] == "ia"
     assert result["aviso"] is None
-    assert result["resposta"] == "Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas."
+    # A IA resumiu e perdeu linhas do texto pronto: vale o texto pronto da busca.
+    assert result["resposta"].startswith("*4031196*: temos.\n• *TURBINA HOLSET HX55W 4031196* — 2 em Canoas")
     assert result["ferramentas_usadas"] == ["buscar_por_codigo"]
-    assert [p["nome"] for p in result["produtos"]] == ["TURBINA HOLSET HX55W 4031196"]
+    assert [p["nome"] for p in result["produtos"]] == ["TURBINA HOLSET HX55W 4031196", "TURBO HOLSET HX55W 4044318"]
 
     first, second = fake.calls
     assert first["url"] == "https://api.groq.com/openai/v1/chat/completions"
@@ -102,7 +106,7 @@ def test_groq_runs_tools_and_returns_cited_products(tools, store):  # noqa: F811
     assert body["reasoning_effort"] == "low"
     assert body["tool_choice"] == "auto"
     assert body["messages"][0]["role"] == "system"
-    assert body["messages"][1] == {"role": "user", "content": "temos turbina 4031196?"}
+    assert body["messages"][1] == {"role": "user", "content": VAGUE}
     assert {t["function"]["name"] for t in body["tools"]} == {
         "buscar_por_codigo", "buscar_por_aplicacao", "detalhe_produto"
     }
@@ -125,10 +129,39 @@ def test_ai_answers_are_converted_to_whatsapp_format(tools, store):  # noqa: F81
             )
         ]
     )
-    result = _groq_service(tools, store, fake).chat("4031196")
+    result = _groq_service(tools, store, fake).chat(VAGUE)
     assert result["resposta"] == (
         "Sim. Temos *TURBINA HOLSET HX55W 4031196* – 2 unidades em Canoas.\n• conferir o motor"
     )
+
+
+def test_ai_can_add_to_the_ready_text_but_not_garble_it(tools, store):  # noqa: F811
+    ready = tools.with_limits(COMPACT_LIMITS).search_by_code("4031196")["texto_pronto"]
+
+    # Estragou ao copiar (trocou o nome): vale o texto pronto.
+    garbled = FakePost(
+        [
+            _completion(tool_calls=[_call("c1", "buscar_por_codigo", {"codigo": "4031196"})]),
+            _completion("*4031196*: temos.\n• *TURBO K26  ***  **  ***"),
+        ]
+    )
+    assert _groq_service(tools, store, garbled).chat(VAGUE)["resposta"] == ready
+
+    # Copiou certo e acrescentou uma frase: fica a resposta da IA.
+    added = FakePost(
+        [
+            _completion(tool_calls=[_call("c1", "buscar_por_codigo", {"codigo": "4031196"})]),
+            _completion(ready + "\nPosso separar para o cliente."),
+        ]
+    )
+    assert _groq_service(tools, store, added).chat(VAGUE)["resposta"] == ready + "\nPosso separar para o cliente."
+
+
+def test_price_questions_get_a_note(tools, store):  # noqa: F811
+    store.update(provedor="nenhum")
+    answer = AssistantChatService(tools=tools, config_store=store).chat("quanto custa a 4031196?")["resposta"]
+    assert answer.startswith("*4031196*: temos.")
+    assert answer.endswith("Não tenho informação de preço; só de estoque.")
 
 
 def test_groq_uses_compact_tool_results(tools, store):  # noqa: F811
@@ -138,7 +171,7 @@ def test_groq_uses_compact_tool_results(tools, store):  # noqa: F811
             _completion("Depende do motor."),
         ]
     )
-    _groq_service(tools, store, fake).chat("scania 440")
+    _groq_service(tools, store, fake).chat(VAGUE)
     output = json.loads(fake.calls[1]["json"]["messages"][3]["content"])
     for item in output["fichas_catalogo"]:
         assert all(len(numbers) <= 3 for numbers in item["referencias"].values())
@@ -160,14 +193,14 @@ def test_rate_limit_waits_briefly_then_falls_back_to_direct_search(tools, store)
             _completion("Sim, temos."),
         ]
     )
-    assert _groq_service(tools, store, short_wait, sleeps).chat("4031196")["modo"] == "ia"
+    assert _groq_service(tools, store, short_wait, sleeps).chat(VAGUE)["modo"] == "ia"
     assert sleeps == [3.0]
 
     long_wait = FakePost([_http(429, {"error": {"message": "rate limit"}}, {"retry-after": "600"})])
-    result = _groq_service(tools, store, long_wait).chat("temos turbina 4031196?")
+    result = _groq_service(tools, store, long_wait).chat(VAGUE)
     assert result["modo"] == "busca_direta"
     assert "Limite de uso do Groq atingido" in result["aviso"]
-    assert "*TURBINA HOLSET HX55W 4031196* — 2 em Canoas" in result["resposta"]
+    assert result["resposta"] == HELP_TEXT
 
 
 @pytest.mark.parametrize(
@@ -180,7 +213,7 @@ def test_rate_limit_waits_briefly_then_falls_back_to_direct_search(tools, store)
     ],
 )
 def test_provider_errors_fall_back_to_direct_search(tools, store, fake, expected):  # noqa: F811
-    result = _groq_service(tools, store, fake).chat("temos turbina 4031196?")
+    result = _groq_service(tools, store, fake).chat(VAGUE)
     assert result["modo"] == "busca_direta"
     assert expected in result["aviso"]
     assert "Resposta pela busca direta" in result["aviso"]
@@ -188,7 +221,7 @@ def test_provider_errors_fall_back_to_direct_search(tools, store, fake, expected
 
 def test_missing_key_falls_back_and_env_key_is_used(tools, store, monkeypatch):  # noqa: F811
     service = AssistantChatService(tools=tools, config_store=store, http_post=FakePost())
-    result = service.chat("temos turbina 4031196?")
+    result = service.chat(VAGUE)
     assert result["modo"] == "busca_direta"
     assert "falta a chave" in result["aviso"]
 
@@ -203,8 +236,24 @@ def test_endless_tool_loop_stops(tools, store):  # noqa: F811
     fake = FakePost(
         [_completion(tool_calls=[_call(f"c{i}", "buscar_por_codigo", {"codigo": "4031196"})]) for i in range(10)]
     )
-    assert _groq_service(tools, store, fake).chat("4031196")["resposta"] == NO_ANSWER_TEXT
+    # A IA nao terminou, mas a busca ja tinha a resposta: vale o texto pronto (e nao "nao consegui").
+    answer = _groq_service(tools, store, fake).chat(VAGUE)["resposta"]
+    assert answer != NO_ANSWER_TEXT and answer.startswith("*4031196*: temos.")
     assert len(fake.calls) == MAX_TOOL_ROUNDS
+
+
+def test_direct_search_answers_first_without_spending_the_ai(tools, store):  # noqa: F811
+    fake = FakePost()
+    service = _groq_service(tools, store, fake)
+
+    for question, start in (
+        ("temos turbina 4031196?", "*4031196*: temos."),
+        ("temos turbina do scania 440?", "Depende do motor:"),
+    ):
+        result = service.chat(question)
+        assert result["modo"] == "busca_direta" and result["aviso"] is None
+        assert result["resposta"].startswith(start)
+    assert fake.calls == []  # a IA nem foi chamada
 
 
 def test_provider_none_answers_only_by_direct_search(tools, store):  # noqa: F811
@@ -260,10 +309,11 @@ def test_claude_runs_tools_with_fallback_and_cache(tools, store):  # noqa: F811
             _response("end_turn", _text("Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas.")),
         ]
     )
-    result = _claude_service(tools, store, fake, esforco="medium").chat("temos turbina 4031196?")
+    result = _claude_service(tools, store, fake, esforco="medium").chat(VAGUE)
 
     assert result["modo"] == "ia"
-    assert [p["nome"] for p in result["produtos"]] == ["TURBINA HOLSET HX55W 4031196"]
+    assert result["resposta"].startswith("*4031196*: temos.")  # texto pronto (a IA resumiu demais)
+    assert [p["nome"] for p in result["produtos"]] == ["TURBINA HOLSET HX55W 4031196", "TURBO HOLSET HX55W 4044318"]
     first, second = fake.calls
     assert first["model"] == "claude-opus-5-5"
     assert first["output_config"] == {"effort": "medium"}
@@ -276,17 +326,17 @@ def test_claude_runs_tools_with_fallback_and_cache(tools, store):  # noqa: F811
 
 
 def test_claude_history_refusal_and_models_without_fallback(tools, store):  # noqa: F811
-    fake = FakeClaude([_response("end_turn", _text("Qual é o motor?"))])
+    fake = FakeClaude([_response("end_turn", _text("Qual delas?"))])
     history = [
         {"papel": "assistente", "texto": "Olá!"},
-        {"papel": "usuario", "texto": "temos turbina do scania 440?"},
-        {"papel": "assistente", "texto": "Depende do motor: DC13 ou DT12?"},
+        {"papel": "usuario", "texto": "tem a 4031196?"},
+        {"papel": "assistente", "texto": "Sim, 2 em Canoas."},
     ]
-    _claude_service(tools, store, fake).chat("DC13", history)
+    _claude_service(tools, store, fake).chat("e a outra?", history)
     assert fake.calls[0]["messages"] == [
-        {"role": "user", "content": "temos turbina do scania 440?"},
-        {"role": "assistant", "content": "Depende do motor: DC13 ou DT12?"},
-        {"role": "user", "content": "DC13"},
+        {"role": "user", "content": "tem a 4031196?"},
+        {"role": "assistant", "content": "Sim, 2 em Canoas."},
+        {"role": "user", "content": "e a outra?"},
     ]
 
     refused = FakeClaude([_response("refusal")])
@@ -302,7 +352,7 @@ def test_claude_errors_fall_back_to_direct_search(tools, store):  # noqa: F811
     bad_key = FakeClaude(
         error=anthropic.AuthenticationError("invalid x-api-key", response=httpx2.Response(401, request=request), body=None)
     )
-    result = _claude_service(tools, store, bad_key).chat("temos turbina 4031196?")
+    result = _claude_service(tools, store, bad_key).chat(VAGUE)
     assert result["modo"] == "busca_direta"
     assert "chave da Claude foi recusada" in result["aviso"]
 
@@ -401,13 +451,17 @@ def test_config_endpoints_never_return_keys(client):
 
 
 def test_chat_endpoint(client, tools):  # noqa: F811
-    # Sem chave: responde pela busca direta, com aviso.
+    # Pergunta comum: a busca direta responde (sem IA e sem aviso).
     direct = client.post("/assistente/chat", json={"mensagem": "temos turbina 4031196?"})
     assert direct.status_code == 200, direct.text
     data = direct.json()["data"]
     assert data["modo"] == "busca_direta"
-    assert data["aviso"]
+    assert data["aviso"] is None
     assert data["produtos"][0]["nome"] == "TURBINA HOLSET HX55W 4031196"
+
+    # Mensagem que a busca nao entende e sem chave da IA: ajuda + aviso.
+    vague = client.post("/assistente/chat", json={"mensagem": VAGUE}).json()["data"]
+    assert vague["resposta"] == HELP_TEXT and "falta a chave" in vague["aviso"]
 
     assert client.post("/assistente/chat", json={"mensagem": ""}).status_code == 422
     assert client.post("/assistente/chat", json={"mensagem": "   "}).status_code == 422
@@ -425,7 +479,7 @@ def test_chat_endpoint(client, tools):  # noqa: F811
         response = client.post(
             "/assistente/chat",
             json={
-                "mensagem": "temos turbina do scania 440?",
+                "mensagem": "aquela do caminhao do cliente de ontem",
                 "historico": [{"papel": "usuario", "texto": "oi"}, {"papel": "assistente", "texto": "Olá!"}],
             },
         )

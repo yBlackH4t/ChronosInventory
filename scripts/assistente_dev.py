@@ -11,6 +11,7 @@ assistente pelo terminal, sem precisar do banco real da empresa.
     python scripts/assistente_dev.py cobertura
     python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"
     python scripts/assistente_dev.py perguntar --sem-ia "temos turbina 4031196?"
+    python scripts/assistente_dev.py whatsapp
 
 `perguntar` usa o provedor de IA configurado (padrao: Groq, gratuito; chave em
 GROQ_API_KEY ou salva pela tela de Configuracoes). Sem chave ou sem internet, a
@@ -207,6 +208,84 @@ def ask(folder: str, question: str, direct: bool) -> None:
         print(f"[produto #{product['id']}: {product['nome']} - {product['estoque_por_local'] or 'sem estoque'}]")
 
 
+def _write_qr_page(path: str, body: str, refresh: bool) -> None:
+    """Pagina local com o QR (o terminal deforma o QR e o celular nao le)."""
+    meta = '<meta http-equiv="refresh" content="2">' if refresh else ""
+    html = (
+        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+        f"<title>Conectar WhatsApp - Chronos</title>{meta}"
+        "<style>body{font-family:Segoe UI,sans-serif;text-align:center;padding:24px;"
+        "background:#fff;color:#111}img{width:360px;height:360px}</style></head>"
+        f"<body>{body}</body></html>"
+    )
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(html)
+    os.replace(tmp, path)
+
+
+def whatsapp(folder: str) -> None:
+    """Liga a ponte WhatsApp (modo copiloto) no banco de teste, com o QR code numa janela do navegador."""
+    if not os.path.exists(os.path.join(folder, "estoque.db")):
+        raise SystemExit(f"Banco nao encontrado em {folder}. Rode primeiro: gerar-banco")
+    _use_dir(folder)
+    import webbrowser
+    from pathlib import Path
+
+    import segno
+
+    from app.services.whatsapp_bridge_service import WhatsAppBridge
+    from app.services.whatsapp_neonize_transport import NeonizeTransport
+
+    holder: Dict = {"aberto": False, "conectado": False}
+    page = os.path.join(folder, "whatsapp_qr.html")
+
+    def on_qr(code: str) -> None:
+        image = segno.make_qr(code).svg_data_uri(scale=8, border=4)
+        _write_qr_page(
+            page,
+            "<h2>Conectar o WhatsApp ao Chronos</h2>"
+            "<p>No celular: WhatsApp &gt; Configurações &gt; Aparelhos conectados &gt; Conectar um aparelho</p>"
+            f'<img src="{image}" alt="QR code">'
+            "<p>O código muda a cada ~20 segundos; esta página se atualiza sozinha.</p>",
+            refresh=True,
+        )
+        if not holder["aberto"]:
+            holder["aberto"] = True
+            webbrowser.open(Path(page).as_uri())
+            print("[whatsapp] QR code aberto no navegador. Escaneie por la (atualiza sozinho).")
+
+    def on_state(state: str) -> None:
+        print(f"[whatsapp] {state}")
+        if state == "conectado":
+            holder["conectado"] = True
+            _write_qr_page(page, "<h2>Conectado ✅</h2><p>Pode fechar esta janela.</p>", refresh=False)
+            print(
+                "\nPronto. Teste na conversa 'Mensagem para mim':\n"
+                "  1. mande um codigo (ex.: 805314) e depois um audio 'temos essa dai?'\n"
+                "  2. reaja com 🤖 no audio: a resposta chega na mesma conversa\n"
+                "  3. mande /ajuda para ver os comandos\n"
+                "Ctrl+C para sair."
+            )
+
+    transport = NeonizeTransport(
+        os.path.join(folder, "whatsapp_sessao.db"),
+        on_message=lambda message: holder["bridge"].handle(message),
+        on_qr=on_qr,
+        on_state=on_state,
+    )
+    holder["bridge"] = WhatsAppBridge(transport)
+    print("Conectando ao WhatsApp... (o assistente usa a chave do Groq de GROQ_API_KEY ou das Configuracoes)")
+    try:
+        transport.client.connect()  # fica aqui ate Ctrl+C
+    except KeyboardInterrupt:
+        transport.stop()
+        return
+    if not holder["conectado"]:
+        _write_qr_page(page, "<h2>O QR code expirou</h2><p>Rode o comando de novo.</p>", refresh=False)
+        print("\n[whatsapp] O QR code expirou sem ser escaneado. Rode o comando de novo.")
+
+
 def coverage(folder: str) -> None:
     """Quantos produtos ativos (e com estoque) estao ligados a uma ficha do catalogo."""
     if not os.path.exists(os.path.join(folder, "estoque.db")):
@@ -292,12 +371,15 @@ def main() -> None:
     ask_parser = sub.add_parser("perguntar", help="Pergunta para o assistente (IA configurada ou busca direta)")
     ask_parser.add_argument("pergunta")
     ask_parser.add_argument("--sem-ia", action="store_true", help="So a busca direta, sem chamar a IA")
+    sub.add_parser("whatsapp", help="Liga a ponte WhatsApp (modo copiloto) no banco de teste, QR no terminal")
 
     args = parser.parse_args()
     if args.comando == "gerar-banco":
         generate_database(args.pasta, args.produtos, args.seed, args.substituir)
     elif args.comando == "perguntar":
         ask(args.pasta, args.pergunta, args.sem_ia)
+    elif args.comando == "whatsapp":
+        whatsapp(args.pasta)
     elif args.comando == "cobertura":
         coverage(args.pasta)
     elif args.comando == "codigo":

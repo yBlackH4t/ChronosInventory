@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.services.assistant_answer_format import format_application_answer
 from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
 from core.catalog.bundle import relink_catalog
 from core.catalog.normalization import search_words
@@ -186,6 +187,31 @@ def test_application_search_splits_same_vehicle_by_engine(tools):
     narrowed = tools.search_by_application("scania r440 dc13")
     assert [f["ficha"] for f in narrowed["fichas_catalogo"]] == ["805310"]
     assert "atencao" not in narrowed
+
+
+def test_application_answer_does_not_ask_the_engine_again():
+    def item(motor, obs, product):
+        return {
+            "tipo": "TURBO",
+            "atendemos_marca": True,
+            "modelo": "GTA42S",
+            "aplicacoes": [{"veiculo": "Scania R 440", "motor": motor, "obs": obs}],
+            "nossos_produtos": [product] if product else [],
+        }
+
+    ours = {"nome": "TURBO GTA42S - 779839-0025", "estoque_total": 2, "estoque_por_local": {"Canoas": 2}}
+    items = [item("DLC6 / DC13 SCR Euro 5", "A partir de 2012", ours), item("DCL6 / DC13 SCR Euro 5", "Europa", None)]
+
+    # "scania 440" + "dc13": as duas opcoes sao DC13, entao lista sem perguntar o motor de novo.
+    text = format_application_answer({"termos_usados": ["SCANIA", "440", "DC", "13"], "fichas_catalogo": items})
+    assert text.startswith("Temos:")
+    assert "*TURBO GTA42S - 779839-0025* — 2 em Canoas" in text
+    assert "?" not in text
+
+    # So "scania 440" (o 440 esta no veiculo, nao no motor): continua perguntando.
+    text = format_application_answer({"termos_usados": ["SCANIA", "440"], "fichas_catalogo": items})
+    assert text.startswith("Depende do motor:")
+    assert text.endswith("Qual é o motor do cliente?")
 
 
 def test_application_search_synonyms_and_model_numbers(tools):

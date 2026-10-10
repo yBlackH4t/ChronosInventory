@@ -144,3 +144,23 @@ class ConversationOut(BaseModel):
 class CorrectionIn(BaseModel):
     resposta_correta: str = Field(min_length=1, max_length=4000)
     observacao: str | None = Field(default=None, max_length=1000)
+
+
+class ProposalOut(BaseModel):
+    id: int
+    criado_em: str
+    autor: str | None = None
+    codigo_a: str
+    codigo_b: str
+    tipo: str
+    observacao: str | None = None
+    status: Literal["pendente", "aprovada", "recusada"]
+    decidido_em: str | None = None
+
+
+class WhatsAppStatusOut(BaseModel):
+    estado: Literal["parado", "conectando", "aguardando_qr", "conectado", "reconectando", "desconectado", "erro"]
+    qr: str | None = None
+    numero: str | None = None
+    erro: str | None = None
+    ativo: bool
