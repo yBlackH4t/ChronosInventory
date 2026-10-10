@@ -67,10 +67,22 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente de IA — Fases 0, 1 e 2 (backend) prontas; próxima: Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Tela "Assistente" (chat com a IA) | concluído | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente de IA — Fase 2 trocada para IA gratuita (Groq) + busca direta de reserva; próxima: Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | Assistente: provedor gratuito e busca direta na tela | em andamento | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Mudou (2026-10-09, custo zero):** o provedor padrão agora é o **Groq gratuito**, e quando a IA
+  não responde o backend responde pela **busca direta** (sem IA). Para o frontend:
+  - `POST /assistente/chat` **não devolve mais `503`**. A resposta ganhou `"modo": "ia" | "busca_direta"`
+    e `"aviso": string | null` (motivo de a IA não ter respondido, ex.: "Limite de uso do Groq
+    atingido. Resposta pela busca direta (sem IA).").
+  - `GET /assistente/config` ganhou `provedor` e `provedores` (lista). Os campos antigos
+    (`configurado`, `origem_chave`, `chave_mascarada`, `modelo`, `esforco`) continuam no nível de
+    cima e valem para o provedor atual — a tela de Configurações atual continua funcionando.
+  - `PUT /assistente/config` aceita `provedor` (`groq`, `gemini`, `ollama`, `anthropic`, `nenhum`);
+    `api_key` e `modelo` valem para o provedor enviado (ou o atual).
+  - Pedido novo na seção 5 para mostrar isso na tela.
 
 - **Novo (Fase 2, implementado na branch `feature/assistente-ia`):** `POST /assistente/chat`,
   `GET /assistente/config` e `PUT /assistente/config`. Plano completo em `docs/PLANO_IA.md`;
@@ -113,8 +125,7 @@ npm run lint
     `estoque_por_local` só traz locais com quantidade > 0.
 
   Erros (envelope padrão `{ "error": { "code", "message", "details" } }`):
-  - `503` `assistente_indisponivel` — IA não configurada (sem chave) ou sem internet.
-    Mostrar a `message` e um atalho para Configurações.
+  - ~~`503` `assistente_indisponivel`~~ — não acontece mais (ver "Mudou" acima).
   - `422` — mensagem vazia ou longa demais (limite: 1000 caracteres).
   - A resposta pode levar de alguns segundos a mais de 30 s (a IA pode fazer várias buscas).
     Não usar timeout curto no cliente; usar no mínimo 120 s.
@@ -151,6 +162,21 @@ npm run lint
   - Fora do escopo agora: configurações do WhatsApp (QR code, números autorizados), que vêm
     com a Fase 3.
 
+- [ ] **[Claude Code → Antigravity] Assistente: provedor gratuito e busca direta na tela.**
+  Mesma branch `ag/assistente-chat` (traga as mudanças com `git merge feature/assistente-ia`).
+  Contrato em "Mudou (2026-10-09)", seção 4.
+  - Chat: quando `modo` = `busca_direta`, mostrar um selo discreto "Busca direta (sem IA)" na
+    resposta e, se houver `aviso`, o texto do aviso em tom informativo (não é erro) com atalho
+    para Configurações. O tratamento de `503` pode ficar, mas não deve mais aparecer.
+  - Configurações → Assistente de IA: select de **provedor** a partir de `provedores`
+    (mostrar "gratuito" quando `gratuito` = true; padrão Groq). Ao trocar, `PUT { provedor }`.
+    O campo de chave e o modelo passam a valer para o provedor selecionado; esconder o campo de
+    chave quando `precisa_chave` = false (Ollama, "nenhum").
+  - Para o Groq, texto de ajuda: "Crie uma chave gratuita em console.groq.com → API Keys (não
+    pede cartão)".
+  - O esforço só faz diferença para Groq e Claude; pode ficar como está.
+  - Mock: atualizar com `modo` e `aviso`.
+
 - [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
   - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
@@ -178,6 +204,20 @@ npm run lint
 - Arquivos principais: `frontend/src/pages/AssistantPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`, `frontend/src/app/router.tsx`, `frontend/src/app/routePreload.ts`, `frontend/src/app/navigation.ts`.
 - Verificações: build ok / lint com erros apenas em arquivos antigos/preexistentes (nada na nova feature).
 - Pendências ou observações para o outro agente: A interface está pronta e utilizando mock com sucesso. Aguardando a Fase 2 no backend para testar integração real.
+
+### 2026-10-09 — Claude Code — Assistente: IA gratuita (Groq) + busca direta
+- Branch: `feature/assistente-ia`
+- O que foi feito: o dono não quer custo, então o provedor padrão virou o plano gratuito do Groq
+  (sem cartão). Integração genérica no formato de API do OpenAI (Groq, Gemini, Ollama) via
+  `requests`; Claude continua como opção. Busca direta (sem IA) responde quando a IA falha ou
+  quando o provedor é "nenhum". Ferramentas com modo compacto para o limite do Groq.
+- Arquivos principais: `app/services/assistant_chat_service.py`, `assistant_openai_compat.py`,
+  `assistant_direct_service.py`, `assistant_anthropic.py`, `assistant_common.py`,
+  `assistant_config_store.py`, `backend/tests/test_assistant_chat.py`.
+- Verificações: pytest ok (118 testes). Groq e Claude simulados nos testes; ainda sem teste com
+  chave real.
+- Para o Antigravity: contrato atualizado (seção 4, "Mudou") sem quebrar a tela atual de
+  Configurações; pedido novo na seção 5.
 
 ### 2026-10-09 — Claude Code — Assistente de IA: Fase 2 (backend)
 - Branch: `feature/assistente-ia`
