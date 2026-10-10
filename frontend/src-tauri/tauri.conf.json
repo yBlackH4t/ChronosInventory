@@ -10,6 +10,9 @@
     "externalBin": [
       "bin/estoque_backend"
     ],
+    "resources": {
+      "bin/estoque_backend_lib": "estoque_backend_lib"
+    },
     "targets": [
       "msi"
     ],

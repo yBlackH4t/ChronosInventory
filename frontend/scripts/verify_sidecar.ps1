@@ -63,6 +63,12 @@ if ($found.Count -eq 0) {
   throw "Sidecar nao encontrado em $binDir. Execute: .\\build_backend.ps1"
 }
 
+# Build em pasta (onedir): o exe nao abre sem as bibliotecas ao lado.
+$libDir = Join-Path $binDir "estoque_backend_lib"
+if (!(Test-Path $libDir)) {
+  throw "Bibliotecas do sidecar nao encontradas em $libDir. Execute: .\\build_backend.ps1"
+}
+
 Write-Host "Sidecar OK:"
 $found | ForEach-Object { Write-Host (" - " + $_) }
 
