@@ -2,7 +2,7 @@
 Admin do assistente: quem pode ensinar a base de conhecimento e revisar o historico.
 
 Regra combinada com o dono (docs/PLANO_IA.md): so na maquina publicadora da base
-oficial (Configuracoes > Base oficial > papel "publicador") e com senha. A senha
+oficial (tela Backup > Base oficial > "Papel desta maquina": "Publica a base") e com senha. A senha
 fica so como hash (PBKDF2) em assistente_config.json; o login devolve um token de
 sessao guardado em memoria (some quando o backend reinicia).
 """
@@ -112,8 +112,8 @@ class AssistantAdminService:
     def _require_publisher(self) -> None:
         if not self.is_publisher():
             raise AdminRequiredError(
-                "Só a máquina publicadora da base oficial pode ensinar o assistente "
-                "(Configurações > Base oficial)."
+                "Só a máquina publicadora da base oficial pode administrar o assistente "
+                "(Backup > Base oficial > Papel desta máquina: Publica a base)."
             )
 
     @staticmethod

@@ -67,10 +67,18 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — ponte WhatsApp em modo copiloto (núcleo) pronta; falta teste com celular; depois distribuir o conhecimento | aguardando revisão | 2026-10-09 |
-| Antigravity | — | — | livre | — |
+| Claude Code | `feature/assistente-ia` | Assistente — busca direta responde primeiro; ponte WhatsApp com QR no navegador; roteiro em `docs/TESTE_ASSISTENTE.md`. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Mudou (2026-10-09, busca direta primeiro):** o formato do `POST /assistente/chat` não mudou,
+  mas `modo` = `busca_direta` com `aviso` = `null` passou a ser a resposta **normal**: a busca
+  direta responde primeiro quando entende a pergunta (código, veículo/motor, "temos essa daí?",
+  resposta a "Qual é o motor?"). `modo` = `ia` só quando ela não entende (frase diferente, fora do
+  assunto). `aviso` preenchido continua significando que a IA falhou. Motivo: na avaliação com o
+  Groq real, o modelo gratuito errou 7 de 17 perguntas (trocava códigos ao copiar, buscava sem o
+  "440"); com a busca direta primeiro, 17 de 17. Pedido de ajuste na seção 5.
 
 - **Novo (2026-10-09, WhatsApp e propostas):** endpoints `/assistente/whatsapp/*` (status com
   QR, iniciar, parar, desconectar) e `/assistente/propostas` (listar, aprovar, recusar), todos
@@ -155,7 +163,17 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
+- [ ] **[Claude Code → Antigravity] Assistente: dois ajustes rápidos (fazer primeiro).**
+  Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
+  só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
+  - **Selo do chat** (`AssistantPage.tsx`): "Busca direta (sem IA)" agora apareceria em quase toda
+    resposta e parece defeito. Mostrar o selo e o alerta **só quando vier `aviso`** (a IA falhou).
+    Sem aviso, nada de selo; o modo de cada resposta continua visível no Histórico do admin.
+  - **Texto errado** em `AssistantAdminPanel.tsx` (~linha 261): "Configurações > Base oficial" →
+    "Backup > Base oficial > Papel desta máquina: Publica a base" (é onde fica a opção).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
+- [x] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
   Branch: `ag/assistente-chat`, criada a partir de `feature/assistente-ia`
   (`git checkout -b ag/assistente-chat feature/assistente-ia`).
   - Nova página `frontend/src/pages/AssistantPage.tsx` com rota e item no menu ("Assistente").
@@ -176,7 +194,7 @@ npm run lint
   - Fora do escopo agora: configurações do WhatsApp (QR code, números autorizados), que vêm
     com a Fase 3.
 
-- [ ] **[Claude Code → Antigravity] Assistente: provedor gratuito e busca direta na tela.**
+- [x] **[Claude Code → Antigravity] Assistente: provedor gratuito e busca direta na tela.**
   Mesma branch `ag/assistente-chat` (traga as mudanças com `git merge feature/assistente-ia`).
   Contrato em "Mudou (2026-10-09)", seção 4.
   - Chat: quando `modo` = `busca_direta`, mostrar um selo discreto "Busca direta (sem IA)" na
@@ -191,13 +209,14 @@ npm run lint
   - O esforço só faz diferença para Groq e Claude; pode ficar como está.
   - Mock: atualizar com `modo` e `aviso`.
 
-- [ ] **[Claude Code → Antigravity] Assistente: área do admin (ensinar o assistente).**
+- [x] **[Claude Code → Antigravity] Assistente: área do admin (ensinar o assistente).**
   Branch `ag/assistente-chat` (ou `ag/assistente-admin`), depois de `git merge feature/assistente-ia`.
   Contrato em `docs/API_DOCS.md`. Sugestão: uma aba "Admin" dentro da página Assistente,
   visível sempre, com três abas internas: **Para revisar**, **Conhecimento**, **Histórico**.
   - **Entrada:** `GET /assistente/admin/status`.
     - `maquina_publicadora = false` → explicar: "Para ensinar o assistente, esta máquina precisa
-      ser a publicadora da base oficial (Configurações > Base oficial)." e mostrar o
+      ser a publicadora da base oficial (Backup > Base oficial > Papel desta máquina: Publica a
+      base)." e mostrar o
       Conhecimento só para leitura.
     - `senha_definida = false` → formulário "Criar senha de admin" (`POST /admin/senha`).
     - senão → campo de senha e "Entrar" (`POST /admin/login`); botão "Sair" (`/admin/logout`).
@@ -240,7 +259,7 @@ npm run lint
     **"Aprovar"** (`POST /propostas/{id}/aprovar`) e **"Recusar"** (`/recusar`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
+- [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
   - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
     ("usando ANTHROPIC_API_KEY deste computador").
@@ -253,6 +272,21 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — Assistente: busca direta primeiro e roteiro de teste
+- Branch: `feature/assistente-ia`
+- O que foi feito: avaliação com o Groq real mostrou 10 de 17 acertos (o modelo gratuito trocava
+  códigos e nomes ao copiar o texto pronto e montava buscas erradas). Agora a busca direta
+  responde primeiro quando entende a pergunta e a IA só entra quando ela não entende; se a IA
+  estragar o texto pronto, vale o texto pronto; pergunta de preço ganha a nota "Não tenho
+  informação de preço" pelo próprio sistema. `assistente_dev.py whatsapp` abre o QR numa página
+  do navegador (no terminal o QR saía deformado e o celular não lia). Roteiro de teste para o
+  dono em `docs/TESTE_ASSISTENTE.md`.
+- Arquivos principais: `app/services/assistant_chat_service.py`, `assistant_direct_service.py`,
+  `assistant_common.py`, `scripts/assistente_dev.py`, `scripts/assistente_avaliacao.py`.
+- Verificações: pytest ok (147 testes); avaliação com o Groq real 17/17 (15 pela busca direta,
+  2 pela IA: fora do assunto e pergunta vaga).
+- Para o Antigravity: pedido "dois ajustes rápidos" na seção 5; contrato inalterado (seção 4).
 
 ### 2026-10-09 — Claude Code — Assistente: ponte WhatsApp (modo copiloto)
 - Branch: `feature/assistente-ia`

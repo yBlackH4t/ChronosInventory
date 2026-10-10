@@ -31,6 +31,9 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 6. **Custo zero.** O provedor padrão é o plano gratuito do Groq, que não pede cartão, então
    não há como gerar cobrança. Quando a IA não responde (limite gratuito do dia, sem
    internet, sem chave), a **busca direta** (sem IA) responde no lugar: sempre há resposta.
+7. **Busca direta primeiro.** O que ela entende (código, veículo/motor, "temos essa daí?",
+   resposta a "Qual é o motor?") ela responde: na hora, sem gastar o limite gratuito e sem o
+   risco de o modelo errar. A IA só entra quando a busca direta não entende a mensagem.
 
 ## 2. Arquitetura
 
@@ -47,11 +50,12 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
                             │
                             ▼
                 AssistantChatService (Fase 2)
-                 - escolhe o provedor de IA (padrão: Groq gratuito;
-                   opções: Gemini, Ollama local, Claude, nenhum)
-                 - prompt com as regras do negócio + tool use
-                 - se a IA falhar → AssistantDirectService
-                   (busca direta, sem IA, textos prontos)
+                 - 1º AssistantDirectService (busca direta, sem IA,
+                   textos prontos): se entendeu a pergunta, responde
+                 - senão, o provedor de IA (padrão: Groq gratuito;
+                   opções: Gemini, Ollama local, Claude, nenhum),
+                   prompt com as regras do negócio + tool use
+                 - se a IA falhar → busca direta com aviso
                             │  pede ferramentas
                             ▼
                 AssistantToolsService (Fase 1)  ──► SQLite (produtos, estoque, catálogo)
@@ -66,13 +70,13 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 |---|---|---|---|
 | 0 | Banco de teste gerado a partir do catálogo embutido | Claude Code | ✅ pronto |
 | 1 | Ferramentas de busca determinísticas + testes | Claude Code | ✅ pronto |
-| 2 | Cérebro (IA gratuita via Groq + busca direta de reserva), `POST /assistente/chat` e configuração | Claude Code | ✅ pronto (falta testar com chave real) |
-| 2 | Tela de chat e configuração da IA no app | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
-| 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | em andamento (Groq real: 10/13 → corrigido com `texto_pronto`) |
+| 2 | Cérebro (busca direta primeiro + IA gratuita via Groq), `POST /assistente/chat` e configuração | Claude Code | ✅ pronto (testado com o Groq real) |
+| 2 | Tela de chat e configuração da IA no app | Antigravity | ✅ pronto |
+| 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | em andamento (Groq real: 17/17 nos casos de teste; faltam as perguntas reais) |
 | 2b | Base de conhecimento do especialista, admin, histórico, "Para revisar" (backend) | Claude Code | ✅ pronto |
-| 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
+| 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | ✅ pronto |
 | 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | a fazer |
-| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | núcleo pronto; falta testar com celular |
+| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | núcleo pronto (QR no navegador); falta testar com celular |
 | 3 | Tela WhatsApp (QR, ligar/desligar) e propostas na área do admin | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
 
@@ -134,10 +138,18 @@ chamado com `requests`, sem dependência nova), `assistant_anthropic.py` (Claude
 `assistant_direct_service.py` (busca direta), `assistant_common.py` (prompt e partes
 comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/test_assistant_chat.py`.
 
-- **Como funciona:** a pergunta vai para o provedor com as três ferramentas. O modelo pede
-  buscas, o backend executa e devolve o JSON (compacto); isso se repete até a resposta final
-  (no máximo 6 rodadas). A lista `produtos` vem dos resultados das ferramentas, filtrada
-  pelos nomes que a resposta cita — não do texto do modelo.
+- **Como funciona:** primeiro a busca direta. Se ela entendeu a pergunta (achou código na
+  mensagem ou na anterior, com "essa daí", ou a busca por veículo/motor achou fichas), a
+  resposta é dela (`modo` = `busca_direta`, sem aviso). Senão, a pergunta vai para o provedor
+  com as três ferramentas: o modelo pede buscas, o backend executa e devolve o JSON
+  (compacto); isso se repete até a resposta final (no máximo 6 rodadas). A lista `produtos`
+  vem dos resultados das ferramentas, filtrada pelos nomes que a resposta cita — não do texto
+  do modelo.
+- **Por que a busca direta vem primeiro (2026-10-09):** na avaliação com o Groq real, o modelo
+  gratuito errou 7 de 17 perguntas mesmo com o `texto_pronto`: estragava o texto ao copiar
+  (código trocado, "*999999610*?", caracteres invisíveis) e montava buscas erradas (tirava o
+  "440" ou o "conjunto"). A busca direta acertava as 17. Com ela primeiro: 17 de 17, e só as
+  perguntas que ela não entende gastam o limite gratuito.
 - **Limite gratuito do Groq:** as ferramentas devolvem respostas menores (modo compacto) e o
   raciocínio do modelo fica em `low`. Se o Groq pedir para esperar até 20 s (limite por
   minuto), o backend espera e tenta de novo; se for mais que isso ou acabar o limite do dia,
@@ -147,7 +159,7 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   motor?"), junta a pergunta anterior com a resposta ("scania 440" + "dc13"). Textos prontos
   no estilo WhatsApp. Conjunto central só aparece numa pergunta de turbina quando tem estoque.
 - **Resposta da API:** `modo` (`ia` ou `busca_direta`) e `aviso` (por que a IA não
-  respondeu). O chat não devolve mais `503`.
+  respondeu). `busca_direta` sem aviso é o caso normal. O chat não devolve mais `503`.
 - **"A IA entende, o sistema responde."** O modelo gratuito segue o prompt com pouco rigor
   (no primeiro teste real: "Sim, temos" para o Scania 440 sem perguntar o motor, modelo da
   turbina no lugar do nome do produto, perguntas desnecessárias). Por isso cada busca devolve
@@ -159,7 +171,11 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   - `buscar_por_codigo` separa o código do texto ("HE200WG 3785294" → 3785294) e avisa se
     vieram vários códigos;
   - a resposta da IA passa por `whatsapp_text`: `**x**` → `*x*`, títulos e marcadores
-    markdown → texto e "•", e frases finais de cortesia ("Se precisar, avise") são removidas.
+    markdown → texto e "•", e frases finais de cortesia ("Se precisar, avise") são removidas;
+  - a IA pode acrescentar ao `texto_pronto` das buscas que fez, mas não estragá-lo: se a
+    resposta não trouxer cada linha dele inteira, vale o `texto_pronto` (`keeps_ready_texts`);
+  - pergunta de preço ("quanto custa", "valor"): o sistema acrescenta "Não tenho informação de
+    preço; só de estoque." (o banco não tem preço).
 - **Palavras da pergunta:** palavras de conversa ("com", "meu", "tio") são ignoradas, e as
   ignoradas voltam em `termos_ignorados`; número desconhecido continua obrigatório
   ("scania 999" não vira "qualquer Scania"); ano é filtro opcional (ignorado se nenhuma
@@ -175,17 +191,19 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
 **Avaliação:** `python scripts/assistente_avaliacao.py` roda as perguntas de
 `scripts/assistente_casos.json` no banco de teste e confere cada resposta (o que precisa
 aparecer, o que não pode aparecer, se tem que perguntar o motor). `--sem-ia` avalia só a
-busca direta (15/15 hoje). Com IA, espera 40 s entre perguntas por causa do limite por
-minuto do Groq; uma rodada gasta uns 75 mil dos 200 mil tokens diários.
+busca direta (17/17). Com IA, espera 40 s depois de cada pergunta que usou a IA (limite por
+minuto do Groq); hoje só 2 dos 17 casos vão para a IA, então a rodada leva uns 2 minutos.
 
-**Primeira avaliação com o Groq real (2026-10-09):** 10 de 13 ok antes do `texto_pronto`.
-Falhas: código junto com texto, modelo da turbina no lugar do produto, "Depende do motor"
-com o motor já informado. Corrigidas pelo `texto_pronto`; falta rodar de novo.
+**Avaliações com o Groq real (2026-10-09):**
+- 10 de 13 antes do `texto_pronto` (código junto com texto, modelo da turbina no lugar do
+  produto, "Depende do motor" com o motor já informado);
+- 10 de 17 com o `texto_pronto` (o modelo estragava o texto ao copiar e montava buscas erradas);
+- **17 de 17 com a busca direta primeiro** (15 pela busca direta, na hora; 2 pela IA: pergunta
+  fora do assunto e pergunta vaga).
 
 Falta:
-- rodar a avaliação de novo com a chave real do Groq;
 - acrescentar as 20–30 perguntas reais do chefe em `scripts/assistente_casos.json`;
-- tela de chat e configuração no app (Antigravity), com a escolha do provedor.
+- o teste do dono (`docs/TESTE_ASSISTENTE.md`).
 
 ### Fase 2b — Base de conhecimento do especialista (pronto no backend)
 
@@ -249,8 +267,9 @@ Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
   `/ensinar <código> <igual|similar|diferente> <código> [observação]`. Como colegas também usam o
   WhatsApp da empresa, `/ensinar` cria uma **proposta**; ela só vira regra quando o admin aprova
   no app (com senha). Assim continua valendo "só o admin ensina".
-- **Testar sozinho, com um WhatsApp comum:** `python scripts/assistente_dev.py whatsapp` mostra o
-  QR no terminal e liga a ponte no banco de teste. Na conversa "Mensagem para mim": mande um
+- **Testar sozinho, com um WhatsApp comum:** `python scripts/assistente_dev.py whatsapp` abre o
+  QR numa página do navegador (que se atualiza sozinha; no terminal o QR saía deformado e o
+  celular não lia) e liga a ponte no banco de teste. Na conversa "Mensagem para mim": mande um
   código, depois um áudio, e reaja com 🤖 no áudio.
 - Grupos ficam de fora. A ponte só enxerga mensagens que chegaram com ela ligada.
 
@@ -293,15 +312,18 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
 ## 5. Pendências com o dono do projeto
 
 - [x] Chave gratuita do Groq (console.groq.com → API Keys), sem cartão.
-- [ ] Marcar a máquina do admin como **publicadora** (Configurações > Base oficial) e definir a
-      senha de admin (quando a tela estiver pronta).
+- [ ] Testar seguindo o roteiro `docs/TESTE_ASSISTENTE.md` (banco de teste).
+- [ ] Marcar a máquina do admin como **publicadora** (Backup > Base oficial > "Papel desta
+      máquina": "Publica a base") e definir a senha de admin (Assistente > Admin).
 - [ ] Ensinar as primeiras regras (ex.: 5327-988-7101 similar 5327-988-7210).
 - [ ] Lista de perguntas reais do chefe (do histórico do WhatsApp) para a avaliação.
 - [ ] Testar no banco real. Copie o `estoque.db` da empresa para uma pasta separada (nunca use
       o original: abrir o banco pelo app aplica migrações) e rode:
       `python scripts/assistente_dev.py --pasta <pasta da cópia> cobertura`,
       depois `... codigo 4031196` e `... aplicacao "scania 440"`.
-- [ ] Testar a ponte num WhatsApp comum (`python scripts/assistente_dev.py whatsapp`).
+- [ ] Testar a ponte num WhatsApp comum (`python scripts/assistente_dev.py whatsapp`; o QR
+      abre no navegador).
 - [ ] Decidir se o WhatsApp da empresa usa a ponte não oficial (risco de banimento) ou a
       coexistência oficial da Meta.
-- [ ] A resposta deve informar preço? (hoje o banco não tem preço.)
+- [ ] A resposta deve informar preço? (o banco não tem preço; hoje o assistente responde o
+      estoque e avisa "Não tenho informação de preço; só de estoque.")

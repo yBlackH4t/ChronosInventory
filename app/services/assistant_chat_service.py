@@ -1,10 +1,13 @@
 """
-Assistente de IA: escolhe o provedor e garante que sempre ha resposta (docs/PLANO_IA.md).
+Assistente de IA: escolhe quem responde e garante que sempre ha resposta (docs/PLANO_IA.md).
 
-- Provedor configurado (padrao: Groq, gratuito) responde com tool use sobre as
-  buscas de `AssistantToolsService`.
+- A busca direta (sem IA) tenta primeiro: se entendeu a pergunta (codigo, veiculo/motor,
+  "essa daí", resposta a uma pergunta), ela responde (`modo` = busca_direta, sem aviso).
+- Se nao entendeu, o provedor configurado (padrao: Groq, gratuito) interpreta com tool use
+  sobre as buscas de `AssistantToolsService`; a resposta dele so vale se trouxer o texto
+  pronto das buscas inteiro.
 - Se a IA nao puder responder (sem chave, limite gratuito atingido, sem internet...),
-  a busca direta (sem IA) responde e a resposta traz um `aviso`.
+  a busca direta responde e a resposta traz um `aviso`.
 - Provedor "nenhum": so busca direta.
 
 O backend nao guarda o contexto da conversa: o historico chega como texto a cada
@@ -15,15 +18,17 @@ assistente (AssistantHistoryService), usado na revisao do admin e exportavel em 
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.assistant_common import (
     MODE_AI,
     AssistantUnavailableError,
     cited_products,
     history_messages,
+    keeps_ready_texts,
     make_result,
     whatsapp_text,
+    with_price_note,
 )
 from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
@@ -54,19 +59,32 @@ def _summarize_call(name: str, arguments: Any, output: Dict[str, Any]) -> Dict[s
 
 
 class _RecordingTools:
-    """Repassa as chamadas para as ferramentas e anota cada uma (para o historico)."""
+    """
+    Repassa as chamadas para as ferramentas e anota cada uma: o resumo vai para o
+    historico e o texto pronto serve para conferir a resposta da IA.
+    """
 
-    def __init__(self, inner: Any, calls: List[Dict[str, Any]]) -> None:
+    def __init__(self, inner: Any, calls: List[Dict[str, Any]], ready: Optional[List[Tuple[str, bool]]] = None) -> None:
         self.inner = inner
         self.calls = calls
+        self.ready: List[Tuple[str, bool]] = ready if ready is not None else []
 
     def run_tool(self, name: str, arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         output = self.inner.run_tool(name, arguments)
         self.calls.append(_summarize_call(name, arguments, output))
+        if output.get("texto_pronto"):
+            # Busca por aplicacao sem nenhuma ficha (a IA vai tentar de novo) nao conta como resposta.
+            useful = "erro" not in output and output.get("total_fichas", 1) != 0
+            self.ready.append((output["texto_pronto"], useful))
         return output
 
+    def ready_texts(self) -> List[str]:
+        useful = [text for text, ok in self.ready if ok]
+        chosen = useful or [text for text, _ in self.ready][-1:]
+        return list(dict.fromkeys(chosen))
+
     def with_limits(self, limits: Any) -> "_RecordingTools":
-        return _RecordingTools(self.inner.with_limits(limits), self.calls)
+        return _RecordingTools(self.inner.with_limits(limits), self.calls, self.ready)
 
 
 class AssistantChatService:
@@ -147,16 +165,38 @@ class AssistantChatService:
         provider = config["provedor"]
         direct = AssistantDirectService(tools)
         if PROVIDERS[provider]["tipo"] == "nenhum":
-            return direct.answer(mensagem, historico)
+            result = direct.answer(mensagem, historico)
+            result["resposta"] = with_price_note(mensagem, result["resposta"])
+            return result
 
+        # Busca direta primeiro: acerta as perguntas do dia a dia (codigo, veiculo/motor,
+        # "temos essa daí?", resposta a uma pergunta) sem gastar o limite gratuito. Na avaliacao
+        # com o Groq real, o modelo gratuito errava a busca ou estragava o texto; a busca direta, nao.
+        quick = direct.try_answer(mensagem, historico)
+        if quick is not None:
+            quick["resposta"] = with_price_note(mensagem, quick["resposta"])
+            return quick
+
+        # A busca direta nao entendeu a mensagem: a IA interpreta (frase diferente, varios
+        # veiculos, assunto fora do estoque...). So conta o que ela mesma buscar.
+        if hasattr(tools, "ready"):
+            tools.ready.clear()
         try:
             text, found, tools_used = self._run_provider(provider, config, mensagem, historico, tools)
         except AssistantUnavailableError as exc:
             LOG.warning("assistente: %s -> respondendo pela busca direta", exc)
             result = direct.answer(mensagem, historico)
+            result["resposta"] = with_price_note(mensagem, result["resposta"])
             result["aviso"] = f"{exc} Resposta pela busca direta (sem IA)."
             return result
         text = whatsapp_text(text)
+        # A IA so pode acrescentar ao texto pronto, nao estraga-lo (o modelo gratuito as vezes
+        # troca codigos e nomes ao copiar): se nao veio inteiro, vale o texto pronto.
+        ready = tools.ready_texts() if hasattr(tools, "ready_texts") else []
+        if ready and not keeps_ready_texts(text, ready):
+            LOG.info("assistente: resposta da IA nao trouxe o texto pronto inteiro; usando o texto pronto")
+            text = "\n\n".join(ready)
+        text = with_price_note(mensagem, text)
         return make_result(text, cited_products(text, found), tools_used, MODE_AI)
 
     def _run_provider(

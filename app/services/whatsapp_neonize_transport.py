@@ -43,6 +43,8 @@ class NeonizeTransport:
         from neonize.client import NewClient
         from neonize.events import ConnectedEv, DisconnectedEv, LoggedOutEv, MessageEv, PairStatusEv
 
+        # Sem FFmpeg a neonize avisa que nao gera figurinhas/audios; so baixamos o audio, que nao precisa.
+        logging.getLogger("neonize.utils.ffmpeg").setLevel(logging.ERROR)
         self.client = NewClient(session_path)
         self._on_message = on_message
         self._on_qr = on_qr

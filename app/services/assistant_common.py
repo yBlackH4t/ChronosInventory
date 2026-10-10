@@ -54,6 +54,30 @@ _COURTESY = re.compile(
 )
 
 
+_PRICE_WORDS = {"PRECO", "PRECOS", "VALOR", "CUSTA", "CUSTO", "QUANTO"}
+PRICE_NOTE = "Não tenho informação de preço; só de estoque."
+
+
+def with_price_note(question: str, text: str) -> str:
+    """Pergunta de preco: o banco nao tem preco, entao o sistema avisa (nao depende da IA lembrar)."""
+    from core.catalog.normalization import search_words
+
+    if _PRICE_WORDS & set(search_words(question)) and "preço" not in (text or "").lower():
+        return f"{text}\n{PRICE_NOTE}" if text else PRICE_NOTE
+    return text
+
+
+def _flat(text: str) -> str:
+    # O modelo as vezes troca o hifen comum pelo hifen sem quebra (U+2011).
+    return re.sub(r"\s+", " ", (text or "").replace("‑", "-")).strip()
+
+
+def keeps_ready_texts(answer: str, ready_texts: List[str]) -> bool:
+    """A resposta da IA traz, sem estragar, todas as linhas dos textos prontos das buscas?"""
+    flat_answer = _flat(answer)
+    return all(_flat(line) in flat_answer for text in ready_texts for line in text.splitlines() if _flat(line))
+
+
 def whatsapp_text(text: str) -> str:
     """
     Ajusta a resposta da IA ao formato do WhatsApp, sem depender do modelo obedecer:
@@ -63,7 +87,7 @@ def whatsapp_text(text: str) -> str:
     text = _MD_BOLD.sub(r"*\1*", text or "")
     text = _MD_HEADING.sub("", text)
     text = _MD_BULLET.sub("• ", text)
-    lines = text.strip().splitlines()
+    lines = [line.rstrip() for line in text.strip().splitlines()]
     while lines and (not lines[-1].strip() or _COURTESY.match(lines[-1].strip())):
         lines.pop()
     return "\n".join(lines).strip()

@@ -109,10 +109,10 @@ Regras:
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)
 
 ## Assistente de IA
-Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). Sem IA disponivel, responde pela busca direta.
+Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A busca direta (sem IA) responde primeiro quando entende a pergunta (codigo, veiculo/motor, "essa dai"); a IA so entra quando ela nao entende. Sem IA disponivel, responde pela busca direta.
 - `POST /assistente/chat` - body `{ "mensagem": str (1-1000), "historico": [{ "papel": "usuario"|"assistente", "texto": str }] }`.
   Resposta `{ resposta, produtos: [{ id, nome, categoria, estoque_total, estoque_por_local }], ferramentas_usadas, modo: "ia"|"busca_direta", aviso: str|null }`.
-  O backend nao guarda conversa: a tela envia o historico a cada pergunta. Nao retorna 503: se a IA falhar, `modo` = `busca_direta` e `aviso` explica.
+  O backend nao guarda conversa: a tela envia o historico a cada pergunta. Nao retorna 503. `modo` = `busca_direta` com `aviso` null e o caso normal (a busca direta entendeu); com `aviso`, a IA falhou e a busca direta respondeu no lugar.
 - `GET /assistente/config` - `{ provedor, configurado, origem_chave, chave_mascarada, modelo, esforco, provedores: [{ id, nome, gratuito, precisa_chave, configurado, origem_chave, chave_mascarada, modelo }] }`.
   Os campos do nivel de cima sao do provedor atual. Nunca devolve chaves.
 - `PUT /assistente/config` - body parcial `{ provedor?: "groq"|"gemini"|"ollama"|"anthropic"|"nenhum", api_key?, modelo?, esforco?: "low"|"medium"|"high"|"xhigh"|"max" }`.

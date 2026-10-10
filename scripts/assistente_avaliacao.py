@@ -7,9 +7,9 @@ scripts/assistente_casos.json e confere cada resposta.
     python scripts/assistente_avaliacao.py --casos codigo-com-estoque,veiculo-com-varias-turbinas
 
 Usa o banco de teste de `python scripts/assistente_dev.py gerar-banco` (pasta padrao
-%TEMP%/chronos_assistente). Com IA, espera entre as perguntas (--pausa) para nao
-estourar o limite por minuto do plano gratuito do Groq; cada rodada completa gasta
-uma parte do limite diario (uns 15 x 5 mil tokens).
+%TEMP%/chronos_assistente). A busca direta responde primeiro; depois de cada pergunta
+que foi para a IA, espera (--pausa) para nao estourar o limite por minuto do plano
+gratuito do Groq. Resposta com `aviso` (a IA falhou) conta como pulada.
 """
 
 from __future__ import annotations
@@ -78,7 +78,9 @@ def main() -> None:
     parser.add_argument("--pasta", default=DEFAULT_DIR, help=f"Pasta do banco de teste (padrao: {DEFAULT_DIR})")
     parser.add_argument("--sem-ia", action="store_true", help="Avalia so a busca direta (sem IA, sem limite)")
     parser.add_argument("--casos", default="", help="Ids separados por virgula (padrao: todos)")
-    parser.add_argument("--pausa", type=float, default=None, help="Segundos entre perguntas (padrao: 40 com IA, 0 sem)")
+    parser.add_argument(
+        "--pausa", type=float, default=None, help="Segundos de espera depois de uma pergunta que usou a IA (padrao: 40)"
+    )
     args = parser.parse_args()
 
     if not os.path.exists(os.path.join(args.pasta, "estoque.db")):
@@ -103,8 +105,9 @@ def main() -> None:
     chat = AssistantChatService()
     direct = AssistantDirectService()
     passed = failed = skipped = 0
-    for index, case in enumerate(cases):
-        if index and pause:
+    used_ai = False
+    for case in cases:
+        if used_ai and pause:  # so espera depois de gastar o limite por minuto da IA
             print(f"\n(aguardando {pause:.0f}s por causa do limite por minuto do plano gratuito...)", flush=True)
             time.sleep(pause)
         history = case.get("historico", [])
@@ -115,9 +118,11 @@ def main() -> None:
             result = chat.chat(case["pergunta"], history, canal="teste")
         elapsed = time.perf_counter() - started
 
+        used_ai = result["modo"] == "ia" or bool(result.get("aviso"))
         print(f"\n=== {case['id']}: {case['pergunta']}  ({result['modo']}, {elapsed:.1f}s)")
         print(result["resposta"])
-        if not args.sem_ia and result["modo"] != "ia":
+        # Busca direta sem aviso e o caminho normal (ela responde primeiro); com aviso, a IA falhou.
+        if not args.sem_ia and result.get("aviso"):
             skipped += 1
             print(f"-> PULADO (IA nao respondeu): {result.get('aviso')}")
             continue
