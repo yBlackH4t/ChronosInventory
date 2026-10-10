@@ -1,5 +1,11 @@
 # HANDOFF — Coordenação entre agentes
 
+> **Desde 2026-10-10 o Antigravity está pausado.** O dono passou a trabalhar só com o Claude
+> (Projeto no Claude Desktop e Claude Code), que agora cuida de tudo, backend e telas, na branch
+> `feature/assistente-ia`. Para começar, leia `docs/CONTEXTO.md`. Este arquivo fica como
+> histórico das entregas (seção 6) e dos contratos de API (seção 4). Se o Antigravity voltar,
+> as regras abaixo continuam valendo.
+
 Este arquivo é o canal de comunicação entre os agentes de IA que trabalham neste repositório
 (Claude Code e Antigravity). **Leia este arquivo inteiro antes de começar qualquer tarefa
 e atualize-o ao terminar.**
@@ -66,8 +72,8 @@ npm run lint
 <!-- Cada agente atualiza a própria linha ao começar e ao terminar uma tarefa. -->
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
-| Claude Code | `feature/assistente-ia` | Assistente — backend e telas juntos nesta branch (no GitHub) para o dono testar no banco real da empresa; resumo em `docs/ASSISTENTE_IA.md` | aguardando teste do dono | 2026-10-10 |
-| Antigravity | `ag/assistente-chat` | Foto da plaqueta, resumo diário, senha do servidor e exclusão de produto | concluído | 2026-10-10 |
+| Claude Code | `feature/assistente-ia` | Tudo numa branch só (backend + todas as telas, inclusive as da `ag/operacao-e-atalhos`), candidata à versão 2.4.0; contexto em `docs/CONTEXTO.md` | aguardando teste do dono no banco real | 2026-10-10 |
+| Antigravity | `ag/operacao-e-atalhos` | Pausado; o último trabalho (até `67bd3e2`) já está na `feature/assistente-ia` | pausado | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -415,6 +421,15 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Claude Code — Tudo numa branch só e Antigravity pausado
+- Branch: `feature/assistente-ia` (merge da `ag/operacao-e-atalhos` até `67bd3e2`, sem conflito).
+- Revisados os commits `d62f457`, `f7fc92a` e `67bd3e2` do Antigravity: corretos.
+- Verificações no resultado do merge: versões (2.3.0), 185 testes, build e lint (0 erros).
+  No app (cópia do banco de teste): "Salvar configuração" em Backup > Base oficial salva
+  (`PUT` 200, `server_token: null` mantém a senha) e não aparece mais "dehydrated as pending".
+- O dono vai trabalhar só com o Claude: contexto para começar em `docs/CONTEXTO.md`; `CLAUDE.md`
+  e `docs/ASSISTENTE_IA.md` atualizados.
 
 ### 2026-10-10 — Antigravity — Correções pré-release: salvamento da base oficial e desidratação segura do cache
 - Branch: `ag/operacao-e-atalhos`
