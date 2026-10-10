@@ -40,6 +40,7 @@ import ProductLinkModal from "../components/products/ProductLinkModal";
 import { QuickMovementModal } from "../components/products/QuickMovementModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
+import { MAX_PRODUCT_IMAGES, useProductImages } from "../hooks/useProductImages";
 import { useScanner } from "../lib/useScanner";
 import {
   adjustmentReasonLabel,
@@ -53,8 +54,6 @@ import type {
   MovementOut,
   Product,
   ProductCreate,
-  ProductImageItem,
-  ProductImagesUploadOut,
   ProductStatusBulkOut,
   SuccessResponse,
 } from "../lib/api";
@@ -79,7 +78,6 @@ const SORT_OPTIONS = [
   { value: "-total_stock", label: "Maior estoque total" },
   { value: "total_stock", label: "Menor estoque total" },
 ];
-const MAX_IMAGES = 5;
 
 const PRODUCTS_TAB_ID = "products";
 
@@ -420,81 +418,13 @@ export default function ProductsPage() {
 
   const currentProduct = detailQuery.data?.data ?? selectedSnapshot;
 
-  const imagesQuery = useQuery<
-    SuccessResponse<{
-      items: ProductImageItem[];
-      total: number;
-      max_images: number;
-    }>
-  >({
-    queryKey: ["produto-imagens", profileScopeKey, selectedId],
-    queryFn: ({ signal }) => api.listProductImages(selectedId!, { signal }),
-    enabled: !!selectedId,
-    retry: false,
-  });
-
-  const uploadImagesMutation = useMutation<
-    SuccessResponse<ProductImagesUploadOut>,
-    Error,
-    File[]
-  >({
-    mutationFn: (files: File[]) => api.uploadProductImages(selectedId!, files),
-    onSuccess: () => {
-      notifySuccess("Imagem(ns) adicionada(s)");
-      queryClient.invalidateQueries({
-        queryKey: ["produto-imagens", profileScopeKey, selectedId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["produtos", profileScopeKey],
-      });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const setPrimaryImageMutation = useMutation<
-    SuccessResponse<{ id: number; message: string }>,
-    Error,
-    number
-  >({
-    mutationFn: (imageId: number) =>
-      api.setPrimaryProductImage(selectedId!, imageId),
-    onSuccess: () => {
-      notifySuccess("Imagem principal definida");
-      queryClient.invalidateQueries({
-        queryKey: ["produto-imagens", profileScopeKey, selectedId],
-      });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const deleteImageMutation = useMutation<
-    SuccessResponse<{ id: number; message: string }>,
-    Error,
-    number
-  >({
-    mutationFn: (imageId: number) =>
-      api.deleteProductImage(selectedId!, imageId),
-    onSuccess: () => {
-      notifySuccess("Imagem removida");
-      queryClient.invalidateQueries({
-        queryKey: ["produto-imagens", profileScopeKey, selectedId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["produtos", profileScopeKey],
-      });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const handleAddImages = (files: File[] | null) => {
-    if (!files || files.length === 0) return;
-    const currentTotal = imagesQuery.data?.data?.total ?? 0;
-    if (currentTotal + files.length > MAX_IMAGES) {
-      notifyError(new Error(`Limite de ${MAX_IMAGES} imagens por produto.`));
-      return;
-    }
-    uploadImagesMutation.mutate(files);
-  };
+  const {
+    imagesQuery,
+    uploadImagesMutation,
+    setPrimaryImageMutation,
+    deleteImageMutation,
+    handleAddImages,
+  } = useProductImages(selectedId, profileScopeKey);
 
   const [observacaoDraft, setObservacaoDraft] = useState<{
     productId: number | null;
@@ -960,7 +890,7 @@ export default function ProductsPage() {
         imagesLoading={imagesQuery.isLoading}
         imageItems={imagesQuery.data?.data?.items ?? []}
         imagesTotal={imagesQuery.data?.data?.total ?? 0}
-        maxImages={MAX_IMAGES}
+        maxImages={MAX_PRODUCT_IMAGES}
         onAddImages={handleAddImages}
         onSetPrimaryImage={(imageId) => setPrimaryImageMutation.mutate(imageId)}
         setPrimaryImageLoading={setPrimaryImageMutation.isPending}
