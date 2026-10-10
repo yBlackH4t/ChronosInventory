@@ -333,9 +333,12 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
 - Os vínculos automáticos vêm dos códigos no nome do produto. Nome sem código não vincula.
   Código com espaços no meio (`5304 970 0077`) também não: precisa estar colado
   (`53049700077`) ou com hífen (`466646-5041S`). O comando `cobertura` lista esses casos.
-- Na pergunta, código com espaços no meio ("5327 988 7101", que a transcrição do áudio pode
-  escrever) não é reconhecido pela busca direta; aí a IA entra e normalmente acerta (a busca por
-  código junta os pedaços). Nos testes, o Whisper escreveu com hífens ou colado.
+- Código com espaços no meio ("5327 988 7101", que a transcrição do áudio pode escrever): a busca
+  direta junta os pedaços, mas só aceita se o código existir exatamente assim (sem completar pelo
+  final), para "scania 440 2015" continuar sendo veículo.
+- Número de chassi (17 caracteres): não é tratado como código de peça, a não ser que o admin tenha
+  ensinado uma regra para ele. Com veículo junto, vale o veículo; só o chassi, a resposta pede o
+  código da plaqueta ou o veículo e o motor.
 
 ## 5. Pendências com o dono do projeto
 

@@ -31,6 +31,28 @@ from core.catalog.normalization import canonical_code, extract_codes_from_name, 
 MAX_CODES_PER_MESSAGE = 3
 # Palavras que apontam para o codigo da mensagem anterior ("temos essa daí?").
 REFERENCE_WORDS = {"ESSA", "ESSE", "ESTA", "ESTE", "DESSA", "DESSE", "DESTA", "DESTE", "DAI", "ELA", "ELE", "ISSO", "MESMA"}
+# Numero de chassi (VIN): 17 caracteres, sem I, O e Q. Nao e codigo de peca.
+_VIN = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
+# Codigo falado que a transcricao escreveu com espacos: "5327 988 7101".
+_SPACED_DIGITS = re.compile(r"(?<![\w.,])\d{2,7}(?: \d{2,7}){1,4}(?![\w.,])")
+_YEAR = re.compile(r"^(19[5-9]\d|20[0-4]\d)$")
+MIN_SPACED_CODE_LENGTH = 6
+MAX_SPACED_CODE_LENGTH = 13
+CHASSIS_TEXT = (
+    "Pelo número do chassi não consigo achar a turbina. Mande o código da turbina (da plaqueta) "
+    "ou o veículo e o motor (ex.: agrale 9200 mwm 4.10)."
+)
+
+
+def is_chassis_number(code: str) -> bool:
+    return bool(_VIN.match(code or "")) and any(c.isalpha() for c in code) and any(c.isdigit() for c in code)
+
+
+def _found_something(output: Dict[str, Any]) -> bool:
+    return bool(
+        "erro" not in output
+        and (output.get("produtos") or output.get("fichas_catalogo") or output.get("conhecimento_especialista"))
+    )
 
 
 def _typed_code(message: str, code: str) -> str:
@@ -60,12 +82,23 @@ class AssistantDirectService:
 
         codes = extract_codes_from_name(mensagem, expand_family=False)[:MAX_CODES_PER_MESSAGE]
         code_source = mensagem
-        if not codes:
+        search_text = mensagem
+        # Chassi so vale como codigo se o admin ensinou algo sobre ele; senao a busca vai pelo veiculo.
+        chassis = [c for c in codes if is_chassis_number(c) and not self._known_code(c, tools_used)]
+        if chassis:
+            codes = [c for c in codes if c not in chassis]
+            for vin in chassis:
+                search_text = re.sub(re.escape(vin), " ", search_text, flags=re.IGNORECASE)
+        if not codes and not chassis:
             # "temos essa daí?" logo depois de colar um código: usa o código da mensagem anterior.
             previous = self._previous_user_text(historico or [])
             if previous and REFERENCE_WORDS & set(search_words(mensagem)):
                 codes = extract_codes_from_name(previous, expand_family=False)[:MAX_CODES_PER_MESSAGE]
                 code_source = previous
+        if not codes:
+            spaced = self._spaced_codes(search_text, tools_used)
+            if spaced:
+                codes, code_source = spaced, " ".join(spaced)
         if codes:
             parts = []
             for code in codes:
@@ -78,19 +111,50 @@ class AssistantDirectService:
             understood = True
         else:
             output = None
-            for query in self._application_queries(mensagem, historico or []):
+            for query in self._application_queries(search_text, historico or []):
                 output = self.tools.run_tool("buscar_por_aplicacao", {"texto": query})
                 tools_used.append("buscar_por_aplicacao")
                 if "erro" not in output and output.get("total_fichas"):
                     break
             understood = bool(output and "erro" not in output and output.get("total_fichas"))
-            if output is None or "erro" in output:
+            useful_words = bool(output and "erro" not in output and output.get("termos_usados"))
+            if chassis and not understood and not useful_words:
+                # So o chassi, sem veiculo nem motor: explica o que mandar (a IA tambem nao acharia).
+                text, understood = CHASSIS_TEXT, True
+            elif output is None or "erro" in output:
                 text = HELP_TEXT
             else:
                 collect_products(output, found)
                 text = output.get("texto_pronto") or format_application_answer(output, wants_core(mensagem))
 
         return make_result(text, cited_products(text, found), tools_used, MODE_DIRECT), understood
+
+    def _known_code(self, code: str, tools_used: List[str]) -> bool:
+        """
+        A busca acha esse codigo exato (produto, catalogo ou o que o especialista ensinou)? Sem
+        completar pelo final: um numero qualquer nao pode virar um codigo parecido.
+        """
+        output = self.tools.run_tool("buscar_por_codigo", {"codigo": code})
+        tools_used.append("buscar_por_codigo")
+        completed = "codigo_digitado" in output or "codigos_possiveis" in output
+        return _found_something(output) and not completed
+
+    def _spaced_codes(self, text: str, tools_used: List[str]) -> List[str]:
+        """
+        Codigo falado que a transcricao escreveu com espacos ("5327 988 7101"). So vale se a
+        busca achar o codigo junto: "scania 440 2015" ou "460 500" continuam sendo veiculo.
+        """
+        codes: List[str] = []
+        for match in _SPACED_DIGITS.finditer(text or ""):
+            groups = match.group(0).split()
+            joined = "".join(groups)
+            if any(_YEAR.match(g) for g in groups):
+                continue
+            if not MIN_SPACED_CODE_LENGTH <= len(joined) <= MAX_SPACED_CODE_LENGTH:
+                continue
+            if self._known_code(joined, tools_used):
+                codes.append(joined)
+        return codes[:MAX_CODES_PER_MESSAGE]
 
     @staticmethod
     def _previous_user_text(historico: List[Dict[str, str]]) -> Optional[str]:

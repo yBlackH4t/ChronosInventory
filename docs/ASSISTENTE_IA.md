@@ -196,10 +196,11 @@ migrações novas no banco. Sempre numa **cópia**.
   precisa de QR de novo.
 - **Limite gratuito do Groq:** perguntas de código e veículo não gastam (busca direta); só as que
   a busca direta não entende vão para a IA. Sem IA, o assistente continua respondendo.
-- **Mensagem que mistura veículo e código** (ex.: chassi): vale o código; o resto é ignorado.
-- **Código falado com espaços** ("5327 988 7101") não é reconhecido pela busca direta; a IA
-  resolve. Nos testes, o Whisper escreveu com hífens ou colado.
-- **Regras pelo número de chassi** só valem para aquele caminhão; ensine de código para código.
+- **Mensagem que mistura veículo e código de peça:** vale o código; o resto é ignorado.
+- **Número de chassi** não é código de peça: com veículo junto, vale o veículo; só o chassi, a
+  resposta pede o código da plaqueta ou o veículo e o motor. Uma regra ensinada para o chassi
+  vale só para aquele caminhão; ensine de código para código.
+- **Código falado com espaços** ("5327 988 7101"): a busca direta junta, se o código existir.
 - **WhatsApp não oficial:** pode bloquear o número. Por isso só responde com 🤖 de alguém da
   equipe, sem mensagens em massa. A alternativa oficial (coexistência da Meta) está descrita
   em `docs/PLANO_IA.md`, Fase 3.

@@ -384,6 +384,34 @@ def test_direct_search_by_code(tools):  # noqa: F811
     assert unknown == "*999999999*: não encontrei no estoque nem no catálogo. Confira o número."
 
 
+def test_direct_search_joins_spoken_codes_with_spaces(tools):  # noqa: F811
+    direct = AssistantDirectService(tools)
+    # A transcricao do audio escreveu o codigo em pedacos.
+    spoken = direct.try_answer("5327 988 7116 temos?")
+    assert spoken is not None and spoken["resposta"].startswith("*53279887116*: temos.")
+    # Numeros que nao formam um codigo conhecido continuam sendo veiculo/motor.
+    vehicle = direct.answer("temos turbina do scania 440 2015?")["resposta"]
+    assert vehicle.startswith("Depende do motor:")
+    # "460 500" nao e codigo: continua sendo busca por veiculo/motor (aqui, o MD13 460/480/500 HP).
+    assert not direct.answer("tem turbina 460 500?")["resposta"].startswith("*460500*")
+
+
+def test_chassis_number_is_not_a_part_code(tools):  # noqa: F811
+    direct = AssistantDirectService(tools)
+    vin = "9BYC31Y2F7C000805"
+    # So o chassi: explica o que mandar, sem gastar a IA.
+    alone = direct.try_answer(f"tem turbina pro chassi {vin}?")
+    assert alone is not None and alone["resposta"].startswith("Pelo número do chassi")
+    # Chassi + veiculo: vale o veiculo.
+    with_vehicle = direct.answer(f"turbina do scania 440 chassi {vin}")["resposta"]
+    assert with_vehicle.startswith("Depende do motor:")
+    # Se o admin ensinou uma regra para o chassi, ela vale.
+    tools.knowledge.add_rule(vin, "53279887116", "igual", "so este caminhao")
+    taught = direct.answer(f"chassi {vin}")["resposta"]
+    assert taught.startswith(f"*{vin}*: não temos esse código, mas temos:")
+    assert "*TURBO K27 - 53279887116*" in taught
+
+
 def test_direct_search_by_application(tools):  # noqa: F811
     direct = AssistantDirectService(tools)
 
