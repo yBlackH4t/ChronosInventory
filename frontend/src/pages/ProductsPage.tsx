@@ -37,6 +37,7 @@ import { ProductDetailsDrawer } from "../components/products/ProductDetailsDrawe
 import { ProductFormModal } from "../components/products/ProductFormModal";
 import { ProductsListTable } from "../components/products/ProductsListTable";
 import ProductLinkModal from "../components/products/ProductLinkModal";
+import { QuickMovementModal } from "../components/products/QuickMovementModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
 import { useScanner } from "../lib/useScanner";
@@ -134,22 +135,30 @@ export default function ProductsPage() {
   const { listen } = useScanner();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // ?search= (from Ctrl+K) seeds the search once, then is removed from the URL.
-  const searchParam = searchParams.get("search");
+  const [hoveredProduct, setHoveredProduct] = useState<Product | null>(null);
+  const [quickMoveProduct, setQuickMoveProduct] = useState<Product | null>(null);
+  const [quickMoveOpened, setQuickMoveOpened] = useState(false);
+
+  const handleOpenQuickMove = (product: Product) => {
+    setQuickMoveProduct(product);
+    setQuickMoveOpened(true);
+  };
+
+  // ?search= (do Ctrl+K ou chat) preenche a busca; ?openId= abre direto o Drawer de detalhes
+  const searchParam = searchParams.get("search") || searchParams.get("q");
+  const openIdParam = searchParams.get("openId") || searchParams.get("id");
   const [appliedSearchParam, setAppliedSearchParam] = useState<string | null>(null);
-  if (searchParam !== appliedSearchParam) {
+  if (searchParam && searchParam !== appliedSearchParam) {
     setAppliedSearchParam(searchParam);
-    if (searchParam) {
-      setQuery(searchParam);
-      setPage(1);
-    }
+    setQuery(searchParam);
+    setPage(1);
   }
 
   useEffect(() => {
-    if (searchParam) {
+    if (searchParam || openIdParam) {
       setSearchParams({}, { replace: true });
     }
-  }, [searchParam, setSearchParams]);
+  }, [searchParam, openIdParam, setSearchParams]);
 
   const productsQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["produtos", profileScopeKey, debounced, page, pageSize, sort, stockFilter],
@@ -313,12 +322,26 @@ export default function ProductsPage() {
     });
   };
 
-  const [drawerOpened, setDrawerOpened] = useState<boolean>(
-    persistedState.drawerOpened,
-  );
-  const [selectedId, setSelectedId] = useState<number | null>(
-    persistedState.selectedId,
-  );
+  const [drawerOpened, setDrawerOpened] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const raw =
+        new URLSearchParams(window.location.search).get("openId") ||
+        new URLSearchParams(window.location.search).get("id");
+      if (raw && Number(raw) > 0) return true;
+    }
+    return persistedState.drawerOpened;
+  });
+
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const raw =
+        new URLSearchParams(window.location.search).get("openId") ||
+        new URLSearchParams(window.location.search).get("id");
+      if (raw && Number(raw) > 0) return Number(raw);
+    }
+    return persistedState.selectedId;
+  });
+
   const [selectedSnapshot, setSelectedSnapshot] = useState<Product | null>(
     null,
   );
@@ -494,6 +517,24 @@ export default function ProductsPage() {
     });
   }, [listen]);
 
+  useEffect(() => {
+    if (!openIdParam) return;
+    const idNum = Number(openIdParam);
+    if (idNum > 0) {
+      api
+        .getProduct(idNum)
+        .then((res) => {
+          if (res.data) {
+            setSelectedId(idNum);
+            setSelectedSnapshot(res.data);
+            setDrawerOpened(true);
+            setHistoryPage(1);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [openIdParam]);
+
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
     queryKey: [
       "historico",
@@ -609,11 +650,41 @@ export default function ProductsPage() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         searchInputRef.current?.focus();
+        return;
+      }
+
+      // Atalho N para movimentar estoque rápido
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          (activeEl as HTMLElement).isContentEditable);
+
+      if (isInput) return;
+
+      if (
+        event.key.toLowerCase() === "n" &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
+      ) {
+        const target =
+          hoveredProduct ||
+          (drawerOpened && currentProduct ? currentProduct : null) ||
+          selectedSnapshot ||
+          (rows.length > 0 ? rows[0] : null);
+
+        if (target) {
+          event.preventDefault();
+          handleOpenQuickMove(target);
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [hoveredProduct, drawerOpened, currentProduct, selectedSnapshot, rows]);
 
   const resetView = () => {
     setQuery(DEFAULT_PRODUCTS_TAB_STATE.query);
@@ -802,6 +873,8 @@ export default function ProductsPage() {
           setLinkModalProduct(product);
           openLinkModal();
         }}
+        onQuickMove={handleOpenQuickMove}
+        onHoverProduct={setHoveredProduct}
         onPageChange={setPage}
         locations={locations}
       />
@@ -887,6 +960,19 @@ export default function ProductsPage() {
         product={linkModalProduct}
         onSuccess={() => {
           closeLinkModal();
+          queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+        }}
+      />
+
+      <QuickMovementModal
+        opened={quickMoveOpened}
+        onClose={() => {
+          setQuickMoveOpened(false);
+          setQuickMoveProduct(null);
+        }}
+        product={quickMoveProduct}
+        locations={locations}
+        onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
         }}
       />

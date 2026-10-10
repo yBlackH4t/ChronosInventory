@@ -46,7 +46,9 @@ function ProductCard({ product }: { product: AssistantProduct }) {
   const navigate = useNavigate();
 
   const handleOpenProduct = () => {
-    navigate(`/produtos?q=${encodeURIComponent(product.nome)}`);
+    navigate(
+      `/produtos?search=${encodeURIComponent(product.nome)}&openId=${product.id}`,
+    );
   };
 
   return (

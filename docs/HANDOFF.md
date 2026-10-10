@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 | Claude Code | `feature/assistente-ia` | Assistente — backend e telas juntos nesta branch (no GitHub) para o dono testar no banco real da empresa; resumo em `docs/ASSISTENTE_IA.md` | aguardando teste do dono | 2026-10-10 |
-| Antigravity | `ag/assistente-chat` | Assistente: formulários do admin | concluído | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Foto da plaqueta, resumo diário, senha do servidor e exclusão de produto | em andamento | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -371,6 +371,32 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Antigravity — Operação ágil: atalho N de movimentação, integração Assistente ➔ Produtos, Spotlight ao vivo, SyncStatusBadge e equivalências
+- Branch: `ag/operacao-e-atalhos`
+- O que foi feito:
+  - **Atalho de movimentação rápida (tecla N)**:
+    - Criação de `QuickMovementModal.tsx` com seleção dinâmica de operação (Baixa/Saída [Alt+S], Entrada [Alt+E], Transferência [Alt+T]), exibição de saldos por filial, pré-seleção inteligente da filial com maior estoque, foco automático imediato na quantidade e confirmação ágil com Enter.
+    - Rastreamento de hover do mouse (`onMouseEnter`/`onMouseLeave`) e foco na tabela de produtos (`ProductsListTable.tsx`), permitindo passar o mouse sobre qualquer produto (ex.: 4031195) e pressionar `N` para abrir a baixa/entrada na hora, além de botão dedicado de ação rápida na linha.
+  - **Integração Assistente ➔ Produtos**:
+    - Ajustado o clique no card de produto do chat (`AssistantPage.tsx`) para navegar com `search` e `openId`, abrindo diretamente o Drawer lateral de detalhes (`ProductDetailsDrawer`) com o produto selecionado e seu estoque por filial.
+  - **Spotlight Global (`Ctrl+K` / `Ctrl+P` / `/`) enriquecido**:
+    - Busca em tempo real de produtos no `GlobalSpotlight.tsx` com debounce, exibindo código `#ID`, marca, condição, saldo total e saldo por filial com badges visuais diretamente na lista do Spotlight, permitindo abrir o produto com um clique ou Enter.
+  - **Indicador de Sincronização & Conexão no Header (`SyncStatusBadge.tsx`)**:
+    - Componente no TopBar informando status da Base Oficial e conhecimento (Publicadora / Cliente sincronizado / Sync pendente), com Popover contendo detalhes da fonte, total de regras aprendidas, data do último sync e botão "Sincronizar agora".
+  - **Visualizador de Equivalências Turbina ⇄ Conjunto Central (`ProductCatalogTab.tsx`)**:
+    - Componente `RelatedPieceCard` verificando disponibilidade de estoque em tempo real para cada peça relacionada (conjunto central ou turbo compatível), exibindo badge de saldo e botão para abrir a peça relacionada diretamente no catálogo.
+- Arquivos principais:
+  - `frontend/src/components/products/QuickMovementModal.tsx`
+  - `frontend/src/components/products/ProductsListTable.tsx`
+  - `frontend/src/pages/ProductsPage.tsx`
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/components/common/GlobalSpotlight.tsx`
+  - `frontend/src/components/shell/SyncStatusBadge.tsx`
+  - `frontend/src/components/shell/TopBar.tsx`
+  - `frontend/src/components/products/ProductCatalogTab.tsx`
+- Verificações: `npm run build` ok (`7.42s`) / `npx eslint` ok sem erros nos arquivos da tarefa.
+- Pendências ou observações para o outro agente: nenhuma pendência. Funcionalidades integradas e prontas.
 
 ### 2026-10-10 — Claude Code — Assistente: foto da plaqueta, resumo diário, ajustes e instalador
 - Branch: `feature/assistente-ia`
