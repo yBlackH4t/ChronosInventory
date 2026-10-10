@@ -123,10 +123,15 @@ class NeonizeTransport:
             self._state("erro")
 
     def stop(self) -> None:
-        try:
-            self.client.disconnect()
-        except Exception:
-            LOG.exception("whatsapp: falha ao desconectar")
+        """
+        Fecha a conexao e encerra a chamada da biblioteca: so desconectar deixava a thread dela
+        presa esperando, e o backend podia travar ao fechar.
+        """
+        for action in (self.client.disconnect, self.client.stop):
+            try:
+                action()
+            except Exception:
+                LOG.exception("whatsapp: falha ao desligar")
 
     def logout(self) -> None:
         """Desconecta este aparelho do WhatsApp (sai da lista de aparelhos conectados)."""

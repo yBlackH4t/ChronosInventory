@@ -280,7 +280,11 @@ npm run lint
   citação agora leva o autor no mesmo tipo de endereço da conversa (número ou LID) e só o
   conteúdo da mensagem citada; o 🤖 sai com a mesma chave que o WhatsApp da equipe mandou.
   O aparelho conectado passa a se chamar "Chronos" (conexões novas). O teste grava um registro
-  com endereços mascarados em `whatsapp_dev.log`.
+  com endereços mascarados em `whatsapp_dev.log`. Também: "Desligar" agora encerra a conexão da
+  biblioteca (antes a thread dela ficava presa e o backend podia travar ao fechar), e
+  `POST /whatsapp/iniciar` depois de o celular remover o aparelho abre uma conexão nova com QR
+  (antes ficava preso no estado "desconectado" até reiniciar o backend). O
+  `assistente_dev.py whatsapp` sai sozinho, explicando, quando o aparelho foi removido ou o QR expirou.
 - Arquivos principais: `app/services/whatsapp_neonize_transport.py`, `scripts/assistente_dev.py`,
   `backend/tests/test_whatsapp_neonize_transport.py` (monta as mensagens da neonize sem conectar).
 - Verificações: pytest ok (153 testes). **Falta confirmar no celular.**

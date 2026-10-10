@@ -33,6 +33,7 @@ import random
 import re
 import sys
 import tempfile
+import threading
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -41,6 +42,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 DEFAULT_DIR = os.path.join(tempfile.gettempdir(), "chronos_assistente")
+# O primeiro QR vale 60 s e os seguintes 20 s; sem QR novo nesse tempo, o WhatsApp desistiu.
+QR_EXPIRY_SECONDS = 65
 SERVED_BRANDS = ("GARRETT", "HOLSET", "BORGWARNER")
 
 # Nomes reais da empresa (padrao de cadastro) com estoque ficticio.
@@ -253,10 +256,11 @@ def whatsapp(folder: str) -> None:
     from app.services.whatsapp_bridge_service import WhatsAppBridge
     from app.services.whatsapp_neonize_transport import NeonizeTransport
 
-    holder: Dict = {"aberto": False, "conectado": False}
+    holder: Dict = {"aberto": False, "conectado": False, "pareado": False, "desconectado": False, "ultimo_qr": None}
     page = os.path.join(folder, "whatsapp_qr.html")
 
     def on_qr(code: str) -> None:
+        holder["ultimo_qr"] = time.time()
         image = segno.make_qr(code).svg_data_uri(scale=8, border=4)
         _write_qr_page(
             page,
@@ -273,6 +277,10 @@ def whatsapp(folder: str) -> None:
 
     def on_state(state: str) -> None:
         print(f"[whatsapp] {state}")
+        if state == "pareado":
+            holder["pareado"] = True
+        if state == "desconectado":
+            holder["desconectado"] = True
         if state == "conectado":
             holder["conectado"] = True
             _write_qr_page(page, "<h2>Conectado ✅</h2><p>Pode fechar esta janela.</p>", refresh=False)
@@ -293,15 +301,38 @@ def whatsapp(folder: str) -> None:
         on_state=on_state,
     )
     holder["bridge"] = WhatsAppBridge(transport)
+
+    def monitor() -> None:
+        """A biblioteca nao sai sozinha quando a conexao morre: encerra e explica o motivo."""
+        while not holder.get("fim"):
+            time.sleep(1)
+            waiting_qr = not (holder["conectado"] or holder["pareado"]) and holder["ultimo_qr"]
+            if holder["desconectado"]:
+                holder["motivo"] = "desconectado"
+            elif waiting_qr and time.time() - holder["ultimo_qr"] > QR_EXPIRY_SECONDS:
+                holder["motivo"] = "qr_expirou"
+            if holder.get("motivo"):
+                transport.stop()  # faz o connect() abaixo retornar
+                return
+
+    threading.Thread(target=monitor, name="whatsapp-monitor", daemon=True).start()
     print("Conectando ao WhatsApp... (o assistente usa a chave do Groq de GROQ_API_KEY ou das Configuracoes)")
     try:
         transport.client.connect()  # fica aqui ate Ctrl+C
     except KeyboardInterrupt:
         transport.stop()
-        return
-    if not holder["conectado"]:
+    holder["fim"] = True
+    if holder.get("motivo") == "desconectado":
+        _write_qr_page(page, "<h2>Desconectado</h2><p>Rode o comando de novo para um QR novo.</p>", refresh=False)
+        print(
+            "\n[whatsapp] Este computador foi tirado dos aparelhos conectados no celular, entao a conexao\n"
+            "salva nao vale mais. Rode o comando de novo: vai abrir um QR novo no navegador."
+        )
+    elif holder.get("motivo") == "qr_expirou":
         _write_qr_page(page, "<h2>O QR code expirou</h2><p>Rode o comando de novo.</p>", refresh=False)
         print("\n[whatsapp] O QR code expirou sem ser escaneado. Rode o comando de novo.")
+    else:
+        print("\n[whatsapp] Desligado.")
 
 
 def coverage(folder: str) -> None:
