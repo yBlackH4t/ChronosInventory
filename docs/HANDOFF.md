@@ -66,9 +66,8 @@ npm run lint
 <!-- Cada agente atualiza a própria linha ao começar e ao terminar uma tarefa. -->
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
-|---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Assistente: formulários do admin | concluído | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -170,7 +169,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
+- [x] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
   Achado no teste do dono: em "Ensinar outro código", ao digitar o código, a tela quebra e o app
   recarrega (o login de admin, que fica em memória, se perde; o `POST /assistente/conhecimento`
   nem chega ao backend). Causa: `e.currentTarget.value` lido **dentro** do atualizador do
@@ -184,7 +183,7 @@ npm run lint
   - Os `setX(e.currentTarget.value)` diretos estão certos. Testar digitando em cada modal;
     `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
+- [x] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
   Branch `ag/assistente-chat`. No tema escuro, cartões com fundo claro fixo recebem o texto claro
   do tema: a barra do admin ("Admin Autenticado", "Máquina Publicadora", "Sair") e as sugestões de
   "Para revisar" (nome, código, estoque e os botões "É igual"/"É similar"/"Não serve") ficam quase
@@ -202,7 +201,7 @@ npm run lint
   - Conferir as telas do assistente nos dois temas (botão de tema no topo); `npm run build` e
     `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Assistente: ajustes rápidos (fazer primeiro).**
+- [x] **[Claude Code → Antigravity] Assistente: ajustes rápidos (fazer primeiro).**
   Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
   só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
   - **Selo do chat** (`AssistantPage.tsx`): "Busca direta (sem IA)" agora apareceria em quase toda
@@ -213,6 +212,36 @@ npm run lint
   - **Formato dos códigos** (decisão do dono): em exemplos, placeholders e mocks, só dígitos
     (53279887101); só a Garrett usa hífen (796155-5002). Hoje o mock em `assistantAdminApi.ts`
     usa "5327-988-7101". As respostas do backend já vêm nesse formato.
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
+- [x] **[Claude Code → Antigravity] Assistente: conhecimento nas outras máquinas (status e botão).**
+  Contrato em "Novo (Fase 2c)", seção 4. Na aba **Conhecimento** (que as outras máquinas veem só
+  para leitura), uma linha de status com `GET /assistente/conhecimento/sincronizacao`:
+  - `papel` = `publisher`: "Publicado para as outras máquinas (<fonte>) em <atualizado_em> —
+    <total_regras> regras";
+  - senão: "Recebido da máquina <maquina> (<fonte>) em <atualizado_em> — <total_regras> regras";
+  - `erro` preenchido: mostrar o texto num aviso (ele diz o que configurar em Backup > Base oficial);
+  - botão **"Sincronizar agora"** (`POST /assistente/conhecimento/sincronizar`), que atualiza a
+    linha e, nas outras máquinas, recarrega a lista de regras.
+  - Datas no formato do app (vêm em ISO). Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
+- [x] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
+  Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
+  - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
+    - estado em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao
+      número X", "Desconectado do celular — conecte de novo", "Erro: …");
+    - botão **"Conectar WhatsApp"** (`POST /whatsapp/iniciar`) e, enquanto o estado for
+      `aguardando_qr`, **desenhar o QR code** a partir do texto `qr` (biblioteca de QR para
+      React; atualizar a cada 2–3 s com `GET /whatsapp/status`, porque o código muda);
+      instrução: "No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho";
+    - quando conectado: **"Desligar"** (`/whatsapp/parar`) e **"Desconectar este computador"**
+      (`/whatsapp/desconectar`, com confirmação);
+    - um quadro curto "Como usar": reagir com 🤖 na mensagem do cliente; comandos na conversa
+      "Mensagem para mim" (`/ajuda`, `/pendentes`, `/ensinar`);
+    - aviso fixo: "Conexão não oficial: o WhatsApp pode bloquear o número. Use com moderação."
+  - **Propostas** (no topo de "Para revisar"): `GET /assistente/propostas` → cartões
+    "Código A — relação — Código B (observação), enviada pelo WhatsApp em <data>", com
+    **"Aprovar"** (`POST /propostas/{id}/aprovar`) e **"Recusar"** (`/recusar`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
@@ -282,35 +311,7 @@ npm run lint
     (`assistente_historico.jsonl`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Assistente: conhecimento nas outras máquinas (status e botão).**
-  Contrato em "Novo (Fase 2c)", seção 4. Na aba **Conhecimento** (que as outras máquinas veem só
-  para leitura), uma linha de status com `GET /assistente/conhecimento/sincronizacao`:
-  - `papel` = `publisher`: "Publicado para as outras máquinas (<fonte>) em <atualizado_em> —
-    <total_regras> regras";
-  - senão: "Recebido da máquina <maquina> (<fonte>) em <atualizado_em> — <total_regras> regras";
-  - `erro` preenchido: mostrar o texto num aviso (ele diz o que configurar em Backup > Base oficial);
-  - botão **"Sincronizar agora"** (`POST /assistente/conhecimento/sincronizar`), que atualiza a
-    linha e, nas outras máquinas, recarrega a lista de regras.
-  - Datas no formato do app (vêm em ISO). Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
-  Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
-  - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
-    - estado em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao
-      número X", "Desconectado do celular — conecte de novo", "Erro: …");
-    - botão **"Conectar WhatsApp"** (`POST /whatsapp/iniciar`) e, enquanto o estado for
-      `aguardando_qr`, **desenhar o QR code** a partir do texto `qr` (biblioteca de QR para
-      React; atualizar a cada 2–3 s com `GET /whatsapp/status`, porque o código muda);
-      instrução: "No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho";
-    - quando conectado: **"Desligar"** (`/whatsapp/parar`) e **"Desconectar este computador"**
-      (`/whatsapp/desconectar`, com confirmação);
-    - um quadro curto "Como usar": reagir com 🤖 na mensagem do cliente; comandos na conversa
-      "Mensagem para mim" (`/ajuda`, `/pendentes`, `/ensinar`);
-    - aviso fixo: "Conexão não oficial: o WhatsApp pode bloquear o número. Use com moderação."
-  - **Propostas** (no topo de "Para revisar"): `GET /assistente/propostas` → cartões
-    "Código A — relação — Código B (observação), enviada pelo WhatsApp em <data>", com
-    **"Aprovar"** (`POST /propostas/{id}/aprovar`) e **"Recusar"** (`/recusar`).
-  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
@@ -326,6 +327,41 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-10 — Antigravity — Assistente: correção de digitação nos formulários do admin (urgente)
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - Correção do acesso assíncrono ao SyntheticEvent do React (`e.currentTarget.value`) dentro de callbacks funcionais do `setState` (`(prev) => ({ ...prev, campo: ... })`), que causava `TypeError: Cannot read properties of null (reading 'value')` e quebrava o app/perdia o login em memória ao digitar:
+    - `AdminReviewTab.tsx`: captura de `const value = e.currentTarget.value` antes do `setState` no campo de ressalva do modal "É similar" (linha 571), no código equivalente do modal "Ensinar relação" (linha 608) e no campo de observação livre (linha 635).
+    - `AdminHistoryTab.tsx`: captura de `const value = e.currentTarget.value` antes do `setState` no campo de resposta correta do especialista (linha 382) e no campo de observação interna (linha 398) do modal "Corrigir resposta".
+  - Testado e validado interativamente nos modais de revisão e correção sem nenhum erro ou crash de renderização.
+- Arquivos principais:
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminHistoryTab.tsx`
+- Verificações: `npm run build` ok (`7.35s`) / `npx eslint` ok sem erros.
+- Pendências ou observações para o outro agente: nenhuma pendência. Modais funcionando com digitação fluida.
+
+### 2026-10-10 — Antigravity — Assistente: telas legíveis no tema escuro (urgente)
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - Substituição de fundos claros fixos (`gray-0`, `teal-0`, `blue-0`, `green-0`, `bg="white"`, `c="black"`) por tokens e variáveis dinâmicos do Mantine 7 que acompanham automaticamente os temas claro e escuro:
+    - `AssistantAdminPanel.tsx`: barra superior do admin trocada para `bg="var(--mantine-color-default-hover)"`.
+    - `AdminReviewTab.tsx`: cartões de propostas do WhatsApp atualizados para `bg="var(--mantine-color-teal-light)"` com borda `var(--mantine-color-teal-light-border)` e cartões de sugestões de códigos para `bg="var(--mantine-color-default-hover)"`.
+    - `AdminKnowledgeTab.tsx`: cartão de legenda de relações atualizado para `bg="var(--mantine-color-blue-light)"`, borda `var(--mantine-color-blue-light-border)` e texto `c="var(--mantine-color-blue-light-color)"`; cartão de status de sincronização para `bg="var(--mantine-color-default-hover)"`.
+    - `AdminHistoryTab.tsx`: balão de resposta enviada trocado para `bg="var(--mantine-color-default-hover)"`; cartão de resposta correta do especialista atualizado para `bg="var(--mantine-color-green-light)"`, borda `var(--mantine-color-green-light-border)` e título `c="var(--mantine-color-green-light-color)"`.
+    - `AdminWhatsAppTab.tsx`: Paper de conexão pareada atualizado para `bg="var(--mantine-color-green-light)"` com texto e borda adaptáveis; quadro "Como usar" trocado para `bg="var(--mantine-color-default-hover)"`; no painel de QR code, fundo branco isolado estritamente ao redor do `QRCodeSVG` com `p="xs"` e bordas arredondadas (garantindo leitura por celular sem clarear o Paper de carregamento).
+    - `AssistantPage.tsx`: balão de mensagem do assistente trocado para `bg="var(--mantine-color-default-hover)"` e remoção do `c="black"` estático (herda a cor do tema).
+    - `settings/AssistantSettingsPanel.tsx`: cartão de chave da API do assistente atualizado para `bg="var(--mantine-color-default-hover)"`.
+- Arquivos principais:
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminKnowledgeTab.tsx`
+  - `frontend/src/components/assistant/AdminWhatsAppTab.tsx`
+  - `frontend/src/components/assistant/AdminHistoryTab.tsx`
+  - `frontend/src/components/settings/AssistantSettingsPanel.tsx`
+- Verificações: `npm run build` ok (`9.67s`) / `npx eslint` ok sem erros nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma pendência. Todas as telas do assistente e do admin plenamente legíveis e integradas no tema escuro e claro.
+
 ### 2026-10-10 — Claude Code — Tela travada pedindo reinício no teste
 - Branch: `feature/assistente-ia`
 - O que foi feito: com `CHRONOS_APP_DIR` (banco de teste do roteiro), `GET /sistema/estoques`
@@ -333,6 +369,35 @@ npm run lint
   o app ficava travado com "Reinicie o sistema". Agora, com o banco fixado pela variável, não pede
   reinício. Arquivo: `app/services/stock_profile_service.py`; teste em `test_api.py`.
 - Verificações: pytest ok (162 testes).
+
+### 2026-10-09 — Antigravity — Assistente: sincronização de conhecimento (Fase 2c), ajustes rápidos e revisão final
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - **Assistente: ajustes rápidos**:
+    - Selo "Busca direta (sem IA)" e alerta informativo na tela de chat (`AssistantPage.tsx`) exibidos estritamente quando vier `aviso` (a IA falhou), mantendo as respostas diretas sem poluição visual.
+    - Orientação de máquina publicadora em `AssistantAdminPanel.tsx` ajustada para `Backup > Base oficial > Papel desta máquina: Publica a base`.
+    - Formato de códigos automotivos ajustado em mocks e componentes (`assistantAdminApi.ts`, `AdminReviewTab.tsx`, `AdminKnowledgeTab.tsx`): códigos de fabricantes como BorgWarner e Holset com dígitos puros (ex.: `53279887101`, `4031196`) e apenas Garrett com hífen (ex.: `779839-0025`, `452174-0001`, `758160-0007`).
+  - **Assistente: conhecimento nas outras máquinas (Fase 2c)**:
+    - Integrados endpoints `GET /assistente/conhecimento/sincronizacao` e `POST /assistente/conhecimento/sincronizar` (sem autenticação de admin) em `assistantAdminApi.ts` e tipos em `types/assistantAdmin.ts`.
+    - Na aba **Conhecimento** (`AdminKnowledgeTab.tsx`), adicionada linha de status de sincronização:
+      - Publicadora: "Publicado para as outras máquinas (<fonte>) em <atualizado_em> — <total_regras> regras".
+      - Demais máquinas: "Recebido da máquina <maquina> (<fonte>) em <atualizado_em> — <total_regras> regras".
+      - Alerta visual caso venha `erro` retornado pelo backend (orienta configuração em Backup > Base oficial).
+      - Botão **"Sincronizar agora"** chamando `POST /assistente/conhecimento/sincronizar`, atualizando a linha de status e recarregando a lista de regras de conhecimento.
+      - Datas formatadas em pt-BR a partir de ISO (`toLocaleString("pt-BR")`).
+  - **WhatsApp do assistente e propostas na área do admin**:
+    - Aba "WhatsApp" (`AdminWhatsAppTab.tsx`) com QR code em tempo real via `qrcode.react`, estados em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao número X", "Desconectado do celular — conecte de novo", "Erro: …"), botões Iniciar, Parar e Desconectar com confirmação, além de quadro de instruções do copiloto e aviso fixo.
+    - Propostas enviadas pelo WhatsApp (`/ensinar`) exibidas no topo de "Para revisar" (`AdminReviewTab.tsx`) com ações de "Aprovar" (`POST /assistente/propostas/{id}/aprovar`) e "Recusar" (`POST /assistente/propostas/{id}/recusar`).
+- Arquivos principais:
+  - `frontend/src/types/assistantAdmin.ts`
+  - `frontend/src/lib/assistantAdminApi.ts`
+  - `frontend/src/components/assistant/AdminKnowledgeTab.tsx`
+  - `frontend/src/components/assistant/AdminWhatsAppTab.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/pages/AssistantPage.tsx`
+- Verificações: `npm run build` ok (`6.61s`) / `npx eslint` ok sem erros nem warnings nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma pendência. Todas as entregas solicitadas concluídas.
 
 ### 2026-10-09 — Claude Code — Assistente: conhecimento nas outras máquinas (Fase 2c)
 - Branch: `feature/assistente-ia`
@@ -381,6 +446,32 @@ npm run lint
 - Verificações: pytest ok (153 testes). **Confirmado no celular** (segundo teste): a resposta cita
   o áudio, o 🤖 sai, e o código falado no áudio é entendido.
 
+### 2026-10-09 — Antigravity — WhatsApp do assistente, propostas e ajustes rápidos
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - **Ajustes rápidos**:
+    - Selo "Busca direta (sem IA)" e alerta informativo na tela de chat (`AssistantPage.tsx`) agora só são exibidos quando vier `aviso` (a IA falhou), mantendo a resposta limpa no fluxo padrão de busca direta.
+    - Correção do texto de orientação de máquina publicadora em `AssistantAdminPanel.tsx` para indicar `Backup > Base oficial > Papel desta máquina: Publica a base`.
+  - **Propostas (/ensinar via WhatsApp)**:
+    - Integrado no topo da aba "Para revisar" (`AdminReviewTab.tsx`): listagem das propostas pendentes enviadas pelo WhatsApp com data, código A, relação, código B, observação e autor.
+    - Ações de "Aprovar" (`POST /assistente/propostas/{id}/aprovar`) e "Recusar" (`POST /assistente/propostas/{id}/recusar`).
+    - Contador de propostas pendentes integrado ao badge da aba "Para revisar" em `AssistantAdminPanel.tsx`.
+  - **Aba WhatsApp do assistente**:
+    - Nova aba "WhatsApp" no painel do admin (`AdminWhatsAppTab.tsx`) com status dinâmico em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao número X", "Desconectado do celular — conecte de novo", "Erro: …").
+    - Renderização do QR code com `qrcode.react` (`QRCodeSVG`) com atualização periódica (polling a cada 2.5s) enquanto aguarda leitura.
+    - Ações para iniciar (`/whatsapp/iniciar`), desligar (`/whatsapp/parar`) e desconectar o computador com confirmação (`/whatsapp/desconectar`).
+    - Quadro explicativo "Como usar o Modo Copiloto" e aviso fixo sobre conexão não oficial.
+  - Mock de testes em `assistantAdminApi.ts` atualizado para suportar todo o ciclo de vida do WhatsApp e propostas.
+- Arquivos principais:
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminWhatsAppTab.tsx`
+  - `frontend/src/lib/assistantAdminApi.ts`
+  - `frontend/src/types/assistantAdmin.ts`
+- Verificações: `npm run build` ok (`6.72s`) / `npx eslint` ok sem erros nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma pendência. Tudo pronto e integrado.
+
 ### 2026-10-09 — Claude Code — Assistente: busca direta primeiro e roteiro de teste
 - Branch: `feature/assistente-ia`
 - O que foi feito: avaliação com o Groq real mostrou 10 de 17 acertos (o modelo gratuito trocava
@@ -409,6 +500,64 @@ npm run lint
 - Verificações: pytest ok (144 testes); conversão das mensagens da neonize conferida offline.
   **Ainda não testado com um celular de verdade.**
 - Para o Antigravity: pedido novo na seção 5 (aba WhatsApp com QR e propostas).
+
+### 2026-10-09 — Antigravity — Assistente: área do admin (ensinar o assistente)
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - Adicionada aba "Admin (Especialista)" na tela do Assistente (`AssistantPage.tsx`), com controle de permissão e sessão:
+    - Verificação de máquina publicadora (`GET /assistente/admin/status`). Se `maquina_publicadora = false`, exibe alerta orientando sobre Configurações > Base oficial e expõe a base de conhecimento apenas em modo leitura.
+    - Criação de senha de admin inicial (`POST /admin/senha`) quando `senha_definida = false`.
+    - Login do admin (`POST /admin/login`) com token guardado estritamente em memória (`useAdminSession`). Ao receber `403 admin_necessario`, a sessão local é limpa e um aviso explicativo é exibido. Opção de logout (`POST /admin/logout`) e troca de senha de admin (`POST /admin/senha`).
+    - Exclusão do prefixo `assistant-admin` na persistência do IndexedDB no `AppProviders` para máxima segurança/privacidade.
+  - Criadas 3 abas internas no admin:
+    - **Para revisar** (`AdminReviewTab.tsx`): cartões por código pesquisado sem estoque, contagem de buscas, data formatada, exemplo de pergunta e tags de conhecimento prévio. Ações rápidas nas sugestões ("É igual", "É similar" com modal de ressalva, "Não serve"), ação livre "Ensinar outro código" e "Nada a fazer" (`POST /revisao/{codigo}/concluir`).
+    - **Conhecimento** (`AdminKnowledgeTab.tsx`): legenda clara de relações, busca instantânea por código, listagem tabular completa, modal para cadastrar nova regra e exclusão com diálogo de confirmação.
+    - **Histórico** (`AdminHistoryTab.tsx`): lista de conversas (App e WhatsApp), renderização do texto no padrão WhatsApp (`*negrito*`), códigos pesquisados sem estoque, modo/aviso, formulário para "Corrigir resposta" do especialista (gabarito) e botão "Exportar JSONL" fazendo download de `assistente_historico.jsonl`.
+  - Mocks atualizados em `assistantAdminApi.ts` simulando toda a suíte de endpoints do admin com estado em memória.
+- Arquivos principais:
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminKnowledgeTab.tsx`
+  - `frontend/src/components/assistant/AdminHistoryTab.tsx`
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/lib/assistantAdminApi.ts`
+  - `frontend/src/lib/assistantFormat.tsx`
+  - `frontend/src/state/assistantAdminSession.ts`
+  - `frontend/src/types/assistantAdmin.ts`
+  - `frontend/src/app/providers.tsx`
+- Verificações: `npm run build` ok / `npm run lint` ok sem erros nos arquivos da funcionalidade.
+- Pendências ou observações para o outro agente: nenhuma pendência. Tudo pronto e integrado.
+
+### 2026-10-09 — Antigravity — Assistente: provedor gratuito e busca direta na tela
+- Branch: `ag/assistente-chat` (com merge de `feature/assistente-ia`)
+- O que foi feito: no chat, respostas com `modo = busca_direta` ganham o selo "Busca direta (sem IA)"
+  e, se houver `aviso`, um alerta informativo (azul, não é erro) com atalho para Configurações. Em
+  Configurações → Assistente de IA: select de provedor a partir de `provedores` (marca "gratuito"),
+  troca com `PUT { provedor }`; chave e modelo valem para o provedor atual; campo de chave oculto
+  quando `precisa_chave = false`; ajuda do Groq (console.groq.com). Aviso de chave do ambiente usa o
+  nome da variável do provedor. Mock atualizado com `modo`/`aviso` e provedores (estado em memória;
+  mensagem com "busca" ou provedor sem chave → resposta por busca direta).
+- Arquivos principais: `frontend/src/pages/AssistantPage.tsx`,
+  `frontend/src/components/settings/AssistantSettingsPanel.tsx`, `frontend/src/lib/assistantApi.ts`,
+  `frontend/src/types/assistant.ts`.
+- Verificações: build ok / lint sem infrações nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma. Nomes das variáveis de ambiente exibidos
+  (`GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) conferidos com `assistant_config_store.py`.
+
+### 2026-10-09 — Antigravity — Seção Assistente de IA em Configurações
+- Branch: `ag/assistente-chat`
+- O que foi feito: Implementada a seção "Assistente de IA" na tela de Configurações. Adicionados campos de `api_key` mascarada (com função salvar/remover), seleção do Modelo e do Esforço de busca. Atualizado cliente da API com funções `getAssistantConfig` e `updateAssistantConfig` e suporte ao mock da feature flag.
+- Arquivos principais: `frontend/src/components/settings/AssistantSettingsPanel.tsx`, `frontend/src/pages/SettingsPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`.
+- Verificações: build ok / lint sem novas infrações.
+- Pendências ou observações para o outro agente: Tudo pronto, integrado e utilizando mock.
+
+### 2026-10-09 — Antigravity — Tela Assistente de IA
+- Branch: `ag/assistente-chat`
+- O que foi feito: Implementada a UI de chat do assistente na tela "Assistente". Foi criado o cliente mock para consumo da IA baseado na flag `VITE_ASSISTENTE_MOCK`. Tratamento de mensagens com markdown de negrito e formatação em linhas, renderização de cards de produtos (com navegação para `/produtos`), envio de histórico de mensagens e função "Nova conversa".
+- Arquivos principais: `frontend/src/pages/AssistantPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`, `frontend/src/app/router.tsx`, `frontend/src/app/routePreload.ts`, `frontend/src/app/navigation.ts`.
+- Verificações: build ok / lint com erros apenas em arquivos antigos/preexistentes (nada na nova feature).
+- Pendências ou observações para o outro agente: A interface está pronta e utilizando mock com sucesso. Aguardando a Fase 2 no backend para testar integração real.
+
 
 ### 2026-10-09 — Claude Code — Assistente: conhecimento do especialista, admin e histórico
 - Branch: `feature/assistente-ia`

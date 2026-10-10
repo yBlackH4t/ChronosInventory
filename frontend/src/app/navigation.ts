@@ -16,6 +16,7 @@ import {
   IconReport,
   IconSettings,
   IconTool,
+  IconMessageChatbot,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
 import { useProfileScope } from "../state/profileScope";
@@ -77,6 +78,13 @@ export const PRIMARY_NAV: NavItem[] = [
     icon: IconReport,
     description: "Estoque, vendas e itens parados",
     hotkey: "alt+6",
+  },
+  {
+    label: "Assistente",
+    to: "/assistente",
+    icon: IconMessageChatbot,
+    description: "Assistente de IA",
+    hotkey: "alt+7",
   },
 ];
 

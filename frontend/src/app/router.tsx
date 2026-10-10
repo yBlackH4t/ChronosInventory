@@ -32,6 +32,7 @@ const LabelsPage = lazyPage("/etiquetas");
 const LocationsPage = lazyPage("/locais");
 const SetupPage = lazyPage("/setup");
 const SettingsPage = lazyPage("/configuracoes");
+const AssistantPage = lazyPage("/assistente");
 
 function RouteLoader() {
   return (
@@ -74,6 +75,7 @@ export function AppRouter() {
           <Route path="/locais" element={<PageTransition><LocationsPage /></PageTransition>} />
           <Route path="/setup" element={<PageTransition><SetupPage /></PageTransition>} />
           <Route path="/configuracoes" element={<PageTransition><SettingsPage /></PageTransition>} />
+          <Route path="/assistente" element={<PageTransition><AssistantPage /></PageTransition>} />
         </Routes>
       </AnimatePresence>
     </Suspense>
