@@ -13,7 +13,7 @@ import { MantineProvider, localStorageColorSchemeManager } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import { ModalsProvider } from "@mantine/modals";
 import { Notifications } from "@mantine/notifications";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del } from "idb-keyval";
@@ -56,7 +56,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
         maxAge: 1000 * 60 * 60 * 24,
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {
-            return !String(query.queryKey[0]).startsWith("assistant-admin");
+            return (
+              defaultShouldDehydrateQuery(query) &&
+              !String(query.queryKey[0]).startsWith("assistant-admin")
+            );
           },
         },
       }} // 24 hours

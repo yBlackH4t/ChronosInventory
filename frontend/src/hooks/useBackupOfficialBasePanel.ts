@@ -302,8 +302,10 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   const saveOfficialBaseConfig = useCallback(
     (tokenOverride?: string | null) => {
       let tokenToSend: string | null | undefined = undefined;
-      if (tokenOverride !== undefined) {
+      if (typeof tokenOverride === "string") {
         tokenToSend = tokenOverride;
+      } else if (tokenOverride === null) {
+        tokenToSend = null;
       } else if (officialServerTokenInput.trim()) {
         if (officialServerTokenInput.trim().length < 6) {
           notifyError(

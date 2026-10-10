@@ -480,7 +480,7 @@ export function OfficialBaseSection({
                     >
                       Testar servidor remoto
                     </Button>
-                    <Button onClick={onSaveConfig} loading={saveConfigLoading}>
+                    <Button onClick={() => onSaveConfig()} loading={saveConfigLoading}>
                       Salvar configuração
                     </Button>
                   </Group>

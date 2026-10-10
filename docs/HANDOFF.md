@@ -242,7 +242,7 @@ npm run lint
     lista", e quando a exclusão falhar com esse motivo, oferecer o botão **Inativar** ali mesmo.
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Antes da versão nova: 2 correções na `ag/operacao-e-atalhos` (f7fc92a).**
+- [x] **[Claude Code → Antigravity] Antes da versão nova: 2 correções na `ag/operacao-e-atalhos` (f7fc92a).**
   Revisados os commits `d62f457` e `f7fc92a`: as 4 correções da revisão do `0f60808` estão certas;
   testes (185), build e lint passam. Faltam:
   1. **"Salvar configuração" da Base oficial quebrou (bloqueia a versão).** Testado no app: o
@@ -415,6 +415,18 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Antigravity — Correções pré-release: salvamento da base oficial e desidratação segura do cache
+- Branch: `ag/operacao-e-atalhos`
+- O que foi feito:
+  - **Correção no salvamento da base oficial (`OfficialBaseSection.tsx` e `useBackupOfficialBasePanel.ts`)**:
+    - Ajustado o botão "Salvar configuração" para `onClick={() => onSaveConfig()}`, impedindo que o evento de clique do React seja repassado como argumento e tratado como `tokenOverride`.
+    - Adicionada blindagem adicional em `saveOfficialBaseConfig` validando estritamente `typeof tokenOverride === "string"` ou `null`, prevenindo erro de serialização circular ("Converting circular structure to JSON").
+    - Testado no app: o clique em "Salvar configuração" em Backup > Base oficial salva com sucesso exibindo a notificação "Configuracao da base oficial salva." sem nenhum erro.
+  - **Desidratação segura de queries no cache (`app/providers.tsx`)**:
+    - Atualizado `shouldDehydrateQuery` para usar `defaultShouldDehydrateQuery(query) && !String(query.queryKey[0]).startsWith("assistant-admin")`.
+    - Evita que queries em estado pendente sejam desidratadas para o IndexedDB e rejeitadas na recuperação.
+- Validação: `npm run build` e `npm run lint` executados com sucesso (0 erros). Testado no navegador com confirmação visual.
 
 ### 2026-10-10 — Antigravity — Correções da revisão do commit 0f60808: movimentação rápida, atalho N e status de conhecimento
 - Branch: `ag/operacao-e-atalhos`
