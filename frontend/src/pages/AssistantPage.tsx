@@ -240,7 +240,7 @@ export default function AssistantPage() {
                             {formatWhatsAppText(msg.texto)}
                           </Text>
                         </Paper>
-                        {!isUser && msg.modo === "busca_direta" && (
+                        {!isUser && msg.aviso && (
                           <Stack gap={6} mt={6}>
                             <Group gap={6}>
                               <Badge
@@ -253,27 +253,25 @@ export default function AssistantPage() {
                                 Busca direta (sem IA)
                               </Badge>
                             </Group>
-                            {msg.aviso && (
-                              <Alert
-                                variant="light"
-                                color="blue"
-                                p="xs"
-                                radius="md"
-                                icon={<IconInfoCircle size={16} />}
-                              >
-                                <Group justify="space-between" gap="xs" wrap="nowrap">
-                                  <Text size="xs">{msg.aviso}</Text>
-                                  <Button
-                                    size="compact-xs"
-                                    variant="subtle"
-                                    leftSection={<IconSettings size={12} />}
-                                    onClick={() => navigate(SETTINGS_PATH)}
-                                  >
-                                    Configurações
-                                  </Button>
-                                </Group>
-                              </Alert>
-                            )}
+                            <Alert
+                              variant="light"
+                              color="blue"
+                              p="xs"
+                              radius="md"
+                              icon={<IconInfoCircle size={16} />}
+                            >
+                              <Group justify="space-between" gap="xs" wrap="nowrap">
+                                <Text size="xs">{msg.aviso}</Text>
+                                <Button
+                                  size="compact-xs"
+                                  variant="subtle"
+                                  leftSection={<IconSettings size={12} />}
+                                  onClick={() => navigate(SETTINGS_PATH)}
+                                >
+                                  Configurações
+                                </Button>
+                              </Group>
+                            </Alert>
                           </Stack>
                         )}
                         {!isUser && msg.produtos && msg.produtos.length > 0 && (

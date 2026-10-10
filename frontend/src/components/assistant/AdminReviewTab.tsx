@@ -24,16 +24,21 @@ import {
   IconPlus,
   IconSparkles,
   IconInfoCircle,
+  IconBrandWhatsapp,
 } from "@tabler/icons-react";
 import {
   getReviewList,
   concludeReview,
   addKnowledgeRule,
+  listProposals,
+  approveProposal,
+  rejectProposal,
 } from "../../lib/assistantAdminApi";
 import type {
   ReviewItem,
   ReviewSuggestion,
   KnowledgeRelation,
+  Proposal,
 } from "../../types/assistantAdmin";
 
 export default function AdminReviewTab() {
@@ -78,10 +83,54 @@ export default function AdminReviewTab() {
     queryFn: getReviewList,
   });
 
+  const { data: proposals, isLoading: proposalsLoading } = useQuery({
+    queryKey: ["assistant-admin-proposals"],
+    queryFn: () => listProposals("pendente"),
+  });
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["assistant-admin-review"] });
     queryClient.invalidateQueries({ queryKey: ["assistant-admin-knowledge"] });
+    queryClient.invalidateQueries({ queryKey: ["assistant-admin-proposals"] });
   };
+
+  const approveProposalMutation = useMutation({
+    mutationFn: approveProposal,
+    onSuccess: (_, id) => {
+      notifications.show({
+        title: "Proposta aprovada",
+        message: `Proposta #${id} aprovada e incorporada à base de conhecimento.`,
+        color: "green",
+      });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      notifications.show({
+        title: "Erro ao aprovar proposta",
+        message: err.message || "Não foi possível aprovar a proposta.",
+        color: "red",
+      });
+    },
+  });
+
+  const rejectProposalMutation = useMutation({
+    mutationFn: rejectProposal,
+    onSuccess: (_, id) => {
+      notifications.show({
+        title: "Proposta recusada",
+        message: `Proposta #${id} recusada.`,
+        color: "blue",
+      });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      notifications.show({
+        title: "Erro ao recusar proposta",
+        message: err.message || "Não foi possível recusar a proposta.",
+        color: "red",
+      });
+    },
+  });
 
   const addRuleMutation = useMutation({
     mutationFn: addKnowledgeRule,
@@ -188,13 +237,13 @@ export default function AdminReviewTab() {
     });
   };
 
-  if (isLoading) {
+  if (isLoading || proposalsLoading) {
     return (
       <Card withBorder p="xl" radius="md">
         <Group justify="center" gap="sm">
           <Loader size="sm" />
           <Text size="sm" c="dimmed">
-            Carregando itens para revisão...
+            Carregando itens para revisão e propostas...
           </Text>
         </Group>
       </Card>
@@ -218,15 +267,17 @@ export default function AdminReviewTab() {
     );
   }
 
-  if (!items || items.length === 0) {
+  const hasItems = items && items.length > 0;
+  const hasProposals = proposals && proposals.length > 0;
+
+  if (!hasItems && !hasProposals) {
     return (
       <Card withBorder p="xl" radius="md" style={{ textAlign: "center" }}>
         <Stack align="center" gap="xs">
           <IconSparkles size={36} color="var(--mantine-color-blue-5)" />
           <Text fw={500}>Tudo em dia!</Text>
           <Text size="sm" c="dimmed" maw={480}>
-            Nenhum código pendente de revisão. O assistente traz para cá códigos
-            pesquisados pelos usuários que estavam sem estoque no momento.
+            Nenhum código pendente de revisão nem propostas enviadas pelo WhatsApp.
           </Text>
         </Stack>
       </Card>
@@ -235,12 +286,110 @@ export default function AdminReviewTab() {
 
   return (
     <Stack gap="md">
-      <Alert color="blue" variant="light" icon={<IconInfoCircle size={16} />}>
-        Estes códigos foram pesquisados mas não estavam em estoque. Ensine o assistente
-        relacionando-os com peças equivalentes ou descarte se não houver correlação.
-      </Alert>
+      {/* Seção de Propostas do WhatsApp */}
+      {hasProposals && (
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <Group gap="xs">
+              <IconBrandWhatsapp size={20} color="var(--mantine-color-teal-6)" />
+              <Text fw={700} size="sm">
+                Propostas de regras enviadas pelo WhatsApp (/ensinar)
+              </Text>
+            </Group>
+            <Badge color="teal" variant="light">
+              {proposals.length} pendente{proposals.length === 1 ? "" : "s"}
+            </Badge>
+          </Group>
 
-      {items.map((item: ReviewItem) => {
+          {proposals.map((prop: Proposal) => {
+            const dataEnvio = prop.criado_em
+              ? new Date(prop.criado_em).toLocaleString("pt-BR")
+              : "—";
+
+            return (
+              <Card
+                key={prop.id}
+                withBorder
+                p="sm"
+                radius="md"
+                bg="var(--mantine-color-teal-0)"
+                style={{ borderColor: "var(--mantine-color-teal-3)" }}
+              >
+                <Group justify="space-between" wrap="wrap">
+                  <div style={{ flex: 1, minWidth: 260 }}>
+                    <Group gap="xs" mb={4}>
+                      <Text fw={700} size="sm">
+                        {prop.codigo_a}
+                      </Text>
+                      <Badge
+                        color={
+                          prop.tipo === "igual"
+                            ? "green"
+                            : prop.tipo === "similar"
+                            ? "orange"
+                            : "red"
+                        }
+                        variant="filled"
+                        size="xs"
+                      >
+                        {prop.tipo}
+                      </Badge>
+                      <Text fw={700} size="sm">
+                        {prop.codigo_b}
+                      </Text>
+                      {prop.autor && (
+                        <Badge variant="outline" color="gray" size="xs">
+                          {prop.autor}
+                        </Badge>
+                      )}
+                    </Group>
+                    {prop.observacao && (
+                      <Text size="xs" mb={2}>
+                        Obs: {prop.observacao}
+                      </Text>
+                    )}
+                    <Text size="xs" c="dimmed">
+                      Enviada pelo WhatsApp em {dataEnvio}
+                    </Text>
+                  </div>
+
+                  <Group gap="xs">
+                    <Button
+                      size="xs"
+                      color="green"
+                      variant="light"
+                      leftSection={<IconCheck size={14} />}
+                      onClick={() => approveProposalMutation.mutate(prop.id)}
+                      loading={approveProposalMutation.isPending}
+                    >
+                      Aprovar
+                    </Button>
+                    <Button
+                      size="xs"
+                      color="red"
+                      variant="subtle"
+                      leftSection={<IconX size={14} />}
+                      onClick={() => rejectProposalMutation.mutate(prop.id)}
+                      loading={rejectProposalMutation.isPending}
+                    >
+                      Recusar
+                    </Button>
+                  </Group>
+                </Group>
+              </Card>
+            );
+          })}
+        </Stack>
+      )}
+
+      {hasItems && (
+        <Alert color="blue" variant="light" icon={<IconInfoCircle size={16} />}>
+          Estes códigos foram pesquisados mas não estavam em estoque. Ensine o assistente
+          relacionando-os com peças equivalentes ou descarte se não houver correlação.
+        </Alert>
+      )}
+
+      {hasItems && items.map((item: ReviewItem) => {
         const dataFormatada = item.ultima_vez
           ? new Date(item.ultima_vez).toLocaleString("pt-BR")
           : "—";

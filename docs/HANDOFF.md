@@ -68,7 +68,7 @@ npm run lint
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
 | Claude Code | `feature/assistente-ia` | Assistente — busca direta responde primeiro; ponte WhatsApp com QR no navegador; roteiro em `docs/TESTE_ASSISTENTE.md`. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | WhatsApp do assistente, propostas e ajustes rápidos | em andamento | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | WhatsApp do assistente, propostas e ajustes rápidos | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -163,7 +163,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Assistente: dois ajustes rápidos (fazer primeiro).**
+- [x] **[Claude Code → Antigravity] Assistente: dois ajustes rápidos (fazer primeiro).**
   Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
   só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
   - **Selo do chat** (`AssistantPage.tsx`): "Busca direta (sem IA)" agora apareceria em quase toda
@@ -173,7 +173,7 @@ npm run lint
     "Backup > Base oficial > Papel desta máquina: Publica a base" (é onde fica a opção).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
+- [x] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
   Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
   - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
     - estado em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao
@@ -273,6 +273,32 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Antigravity — WhatsApp do assistente, propostas e ajustes rápidos
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - **Ajustes rápidos**:
+    - Selo "Busca direta (sem IA)" e alerta informativo na tela de chat (`AssistantPage.tsx`) agora só são exibidos quando vier `aviso` (a IA falhou), mantendo a resposta limpa no fluxo padrão de busca direta.
+    - Correção do texto de orientação de máquina publicadora em `AssistantAdminPanel.tsx` para indicar `Backup > Base oficial > Papel desta máquina: Publica a base`.
+  - **Propostas (/ensinar via WhatsApp)**:
+    - Integrado no topo da aba "Para revisar" (`AdminReviewTab.tsx`): listagem das propostas pendentes enviadas pelo WhatsApp com data, código A, relação, código B, observação e autor.
+    - Ações de "Aprovar" (`POST /assistente/propostas/{id}/aprovar`) e "Recusar" (`POST /assistente/propostas/{id}/recusar`).
+    - Contador de propostas pendentes integrado ao badge da aba "Para revisar" em `AssistantAdminPanel.tsx`.
+  - **Aba WhatsApp do assistente**:
+    - Nova aba "WhatsApp" no painel do admin (`AdminWhatsAppTab.tsx`) com status dinâmico em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao número X", "Desconectado do celular — conecte de novo", "Erro: …").
+    - Renderização do QR code com `qrcode.react` (`QRCodeSVG`) com atualização periódica (polling a cada 2.5s) enquanto aguarda leitura.
+    - Ações para iniciar (`/whatsapp/iniciar`), desligar (`/whatsapp/parar`) e desconectar o computador com confirmação (`/whatsapp/desconectar`).
+    - Quadro explicativo "Como usar o Modo Copiloto" e aviso fixo sobre conexão não oficial.
+  - Mock de testes em `assistantAdminApi.ts` atualizado para suportar todo o ciclo de vida do WhatsApp e propostas.
+- Arquivos principais:
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminWhatsAppTab.tsx`
+  - `frontend/src/lib/assistantAdminApi.ts`
+  - `frontend/src/types/assistantAdmin.ts`
+- Verificações: `npm run build` ok (`6.72s`) / `npx eslint` ok sem erros nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma pendência. Tudo pronto e integrado.
 
 ### 2026-10-09 — Claude Code — Assistente: busca direta primeiro e roteiro de teste
 - Branch: `feature/assistente-ia`

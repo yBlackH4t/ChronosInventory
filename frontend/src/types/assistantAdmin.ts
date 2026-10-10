@@ -77,3 +77,35 @@ export interface CorrectionRequest {
   resposta_correta: string;
   observacao?: string;
 }
+
+export type ProposalStatus = "pendente" | "aprovada" | "recusada";
+
+export interface Proposal {
+  id: number;
+  criado_em: string;
+  autor: string | null;
+  codigo_a: string;
+  codigo_b: string;
+  tipo: KnowledgeRelation;
+  observacao: string | null;
+  status: ProposalStatus;
+  decidido_em: string | null;
+}
+
+export type WhatsAppState =
+  | "parado"
+  | "conectando"
+  | "aguardando_qr"
+  | "conectado"
+  | "reconectando"
+  | "desconectado"
+  | "erro";
+
+export interface WhatsAppStatus {
+  estado: WhatsAppState;
+  qr: string | null;
+  numero: string | null;
+  erro: string | null;
+  ativo: boolean;
+}
+

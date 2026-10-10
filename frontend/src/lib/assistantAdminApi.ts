@@ -9,7 +9,11 @@ import type {
   CorrectionRequest,
   KnowledgeRule,
   KnowledgeRuleRequest,
+  Proposal,
+  ProposalStatus,
   ReviewItem,
+  WhatsAppState,
+  WhatsAppStatus,
 } from "../types/assistantAdmin";
 
 export const ADMIN_TOKEN_HEADER = "X-Admin-Token";
@@ -109,6 +113,26 @@ const mock = {
       observacao_admin: null,
     };
   }),
+  proposals: [
+    {
+      id: 1,
+      criado_em: "2026-10-09T20:15:00",
+      autor: "+55 51 99999-1234",
+      codigo_a: "805314",
+      codigo_b: "805315",
+      tipo: "similar",
+      observacao: "mesmo conjunto rotativo, muda a carcaça",
+      status: "pendente",
+      decidido_em: null,
+    },
+  ] as Proposal[],
+  whatsapp: {
+    estado: "parado" as WhatsAppState,
+    qr: null as string | null,
+    numero: null as string | null,
+    erro: null as string | null,
+    ativo: false,
+  } as WhatsAppStatus,
 };
 
 function mockStatus(): AdminStatus {
@@ -302,3 +326,104 @@ async function adminRequestError(response: Response): Promise<never> {
   }
   throw new AssistantApiError("http_error", response.status, response.statusText || "Falha ao exportar.");
 }
+
+// ---------------------------------------------------------------------------
+// Propostas (/ensinar via WhatsApp)
+// ---------------------------------------------------------------------------
+
+export async function listProposals(status: ProposalStatus | "todas" = "pendente"): Promise<Proposal[]> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    return mock.proposals
+      .filter((p) => status === "todas" || p.status === status)
+      .map((p) => ({ ...p }));
+  }
+  return adminRequest<Proposal[]>(`/propostas?status=${status}`);
+}
+
+export async function approveProposal(proposalId: number): Promise<KnowledgeRule> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    const prop = mock.proposals.find((p) => p.id === proposalId);
+    if (!prop || prop.status !== "pendente") {
+      throw new AssistantApiError("not_found", 404, "Proposta pendente não encontrada.");
+    }
+    prop.status = "aprovada";
+    prop.decidido_em = new Date().toISOString();
+    return addKnowledgeRule({
+      codigo_a: prop.codigo_a,
+      codigo_b: prop.codigo_b,
+      tipo: prop.tipo,
+      observacao: prop.observacao || undefined,
+    });
+  }
+  return adminRequest<KnowledgeRule>(`/propostas/${proposalId}/aprovar`, { method: "POST" });
+}
+
+export async function rejectProposal(proposalId: number): Promise<void> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    const prop = mock.proposals.find((p) => p.id === proposalId);
+    if (!prop || prop.status !== "pendente") {
+      throw new AssistantApiError("not_found", 404, "Proposta pendente não encontrada.");
+    }
+    prop.status = "recusada";
+    prop.decidido_em = new Date().toISOString();
+    return;
+  }
+  await adminRequest<{ recusada: boolean }>(`/propostas/${proposalId}/recusar`, { method: "POST" });
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp (modo copiloto)
+// ---------------------------------------------------------------------------
+
+export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    return { ...mock.whatsapp };
+  }
+  return adminRequest<WhatsAppStatus>("/whatsapp/status");
+}
+
+export async function startWhatsApp(): Promise<WhatsAppStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    mock.whatsapp.ativo = true;
+    mock.whatsapp.estado = "aguardando_qr";
+    mock.whatsapp.qr = "2@mock-qr-code-whatsapp-pairing-chronos-1234567890";
+    return { ...mock.whatsapp };
+  }
+  return adminRequest<WhatsAppStatus>("/whatsapp/iniciar", { method: "POST" });
+}
+
+export async function stopWhatsApp(): Promise<WhatsAppStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    mock.whatsapp.ativo = false;
+    mock.whatsapp.estado = "parado";
+    mock.whatsapp.qr = null;
+    return { ...mock.whatsapp };
+  }
+  return adminRequest<WhatsAppStatus>("/whatsapp/parar", { method: "POST" });
+}
+
+export async function logoutWhatsApp(): Promise<WhatsAppStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    mock.whatsapp.ativo = false;
+    mock.whatsapp.estado = "desconectado";
+    mock.whatsapp.qr = null;
+    mock.whatsapp.numero = null;
+    return { ...mock.whatsapp };
+  }
+  return adminRequest<WhatsAppStatus>("/whatsapp/desconectar", { method: "POST" });
+}
+

@@ -26,6 +26,7 @@ import {
   IconDatabase,
   IconHistory,
   IconInfoCircle,
+  IconBrandWhatsapp,
 } from "@tabler/icons-react";
 import {
   getAdminStatus,
@@ -33,6 +34,7 @@ import {
   adminLogout,
   setAdminPassword,
   getReviewList,
+  listProposals,
 } from "../../lib/assistantAdminApi";
 import {
   useAdminSession,
@@ -41,6 +43,7 @@ import {
 import AdminReviewTab from "./AdminReviewTab";
 import AdminKnowledgeTab from "./AdminKnowledgeTab";
 import AdminHistoryTab from "./AdminHistoryTab";
+import AdminWhatsAppTab from "./AdminWhatsAppTab";
 
 export default function AssistantAdminPanel() {
   const queryClient = useQueryClient();
@@ -72,6 +75,12 @@ export default function AssistantAdminPanel() {
   const { data: reviewItems } = useQuery({
     queryKey: ["assistant-admin-review"],
     queryFn: getReviewList,
+    enabled: !!session.token && !!status?.maquina_publicadora,
+  });
+
+  const { data: pendingProposals } = useQuery({
+    queryKey: ["assistant-admin-proposals"],
+    queryFn: () => listProposals("pendente"),
     enabled: !!session.token && !!status?.maquina_publicadora,
   });
 
@@ -258,8 +267,8 @@ export default function AssistantAdminPanel() {
           variant="light"
         >
           Para ensinar o assistente, esta máquina precisa ser a publicadora da
-          base oficial (Configurações &gt; Base oficial). Nesta máquina, a base de
-          conhecimento fica disponível apenas para consulta.
+          base oficial (Backup &gt; Base oficial &gt; Papel desta máquina: Publica a base).
+          Nesta máquina, a base de conhecimento fica disponível apenas para consulta.
         </Alert>
 
         <Card withBorder p="md" radius="md">
@@ -376,7 +385,7 @@ export default function AssistantAdminPanel() {
   }
 
   // Caso 4: Autenticado como Administrador!
-  const pendingCount = reviewItems?.length ?? 0;
+  const pendingCount = (reviewItems?.length ?? 0) + (pendingProposals?.length ?? 0);
 
   return (
     <Stack gap="md">
@@ -415,7 +424,7 @@ export default function AssistantAdminPanel() {
         </Group>
       </Paper>
 
-      {/* Três abas internas do admin: Para revisar, Conhecimento, Histórico */}
+      {/* Quatro abas internas do admin: Para revisar, Conhecimento, Histórico, WhatsApp */}
       <Tabs defaultValue="revisao" variant="outline" radius="md">
         <Tabs.List mb="md">
           <Tabs.Tab
@@ -437,6 +446,9 @@ export default function AssistantAdminPanel() {
           <Tabs.Tab value="historico" leftSection={<IconHistory size={16} />}>
             Histórico
           </Tabs.Tab>
+          <Tabs.Tab value="whatsapp" leftSection={<IconBrandWhatsapp size={16} />}>
+            WhatsApp
+          </Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="revisao">
@@ -449,6 +461,10 @@ export default function AssistantAdminPanel() {
 
         <Tabs.Panel value="historico">
           <AdminHistoryTab />
+        </Tabs.Panel>
+
+        <Tabs.Panel value="whatsapp">
+          <AdminWhatsAppTab />
         </Tabs.Panel>
       </Tabs>
 
