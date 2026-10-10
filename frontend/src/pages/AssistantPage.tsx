@@ -172,7 +172,7 @@ export default function AssistantPage() {
           {errorMsg}
           {errorMsg.includes("indisponível") && (
             <Box mt="sm">
-              <Button size="xs" variant="outline" color="red" leftSection={<IconSettings size={14} />} onClick={() => navigate("/configuracoes")}>
+              <Button size="xs" variant="outline" color="red" leftSection={<IconSettings size={14} />} onClick={() => navigate("/configuracoes#assistant-settings")}>
                 Ir para Configurações
               </Button>
             </Box>

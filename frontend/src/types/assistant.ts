@@ -23,3 +23,17 @@ export interface AssistantChatResponse {
   produtos: AssistantProduct[];
   ferramentas_usadas: string[];
 }
+
+export interface AssistantConfig {
+  configurado: boolean;
+  origem_chave: "configuracoes" | "ambiente" | null;
+  chave_mascarada: string | null;
+  modelo: string;
+  esforco: "low" | "medium" | "high" | "xhigh" | "max";
+}
+
+export interface AssistantConfigUpdate {
+  api_key?: string;
+  modelo?: string;
+  esforco?: "low" | "medium" | "high" | "xhigh" | "max";
+}

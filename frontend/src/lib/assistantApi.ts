@@ -1,5 +1,5 @@
 import { baseUrl } from "./apiClient";
-import type { AssistantChatRequest, AssistantChatResponse } from "../types/assistant";
+import type { AssistantChatRequest, AssistantChatResponse, AssistantConfig, AssistantConfigUpdate } from "../types/assistant";
 import type { SuccessResponse, ErrorResponse } from "../types/api";
 
 export class AssistantApiError extends Error {
@@ -59,4 +59,55 @@ export async function sendAssistantMessage(req: AssistantChatRequest): Promise<A
   }
 
   return (json as SuccessResponse<AssistantChatResponse>).data;
+}
+
+export async function getAssistantConfig(): Promise<AssistantConfig> {
+  const isMock = import.meta.env.VITE_ASSISTENTE_MOCK === "1" || import.meta.env.VITE_ASSISTENTE_MOCK === "true";
+  if (isMock) {
+    return {
+      configurado: true,
+      origem_chave: "configuracoes",
+      chave_mascarada: "sk-ant-...mock",
+      modelo: "claude-opus-5-5",
+      esforco: "medium"
+    };
+  }
+
+  const response = await fetch(`${baseUrl}/assistente/config`);
+  const text = await response.text();
+  const json = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const err = (json as ErrorResponse)?.error || { code: "http_error", message: response.statusText };
+    throw new AssistantApiError(err.code, response.status, err.message);
+  }
+  return (json as SuccessResponse<AssistantConfig>).data;
+}
+
+export async function updateAssistantConfig(data: AssistantConfigUpdate): Promise<AssistantConfig> {
+  const isMock = import.meta.env.VITE_ASSISTENTE_MOCK === "1" || import.meta.env.VITE_ASSISTENTE_MOCK === "true";
+  if (isMock) {
+    return {
+      configurado: !!data.api_key,
+      origem_chave: data.api_key ? "configuracoes" : null,
+      chave_mascarada: data.api_key ? "sk-ant-...mock" : null,
+      modelo: data.modelo || "claude-opus-5-5",
+      esforco: data.esforco || "medium"
+    };
+  }
+
+  const response = await fetch(`${baseUrl}/assistente/config`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+
+  const text = await response.text();
+  const json = text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const err = (json as ErrorResponse)?.error || { code: "http_error", message: response.statusText };
+    throw new AssistantApiError(err.code, response.status, err.message);
+  }
+  return (json as SuccessResponse<AssistantConfig>).data;
 }

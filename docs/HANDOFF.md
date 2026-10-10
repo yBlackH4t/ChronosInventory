@@ -130,7 +130,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
+- [x] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
   Branch: `ag/assistente-chat`, criada a partir de `feature/assistente-ia`
   (`git checkout -b ag/assistente-chat feature/assistente-ia`).
   - Nova página `frontend/src/pages/AssistantPage.tsx` com rota e item no menu ("Assistente").
@@ -151,7 +151,7 @@ npm run lint
   - Fora do escopo agora: configurações do WhatsApp (QR code, números autorizados), que vêm
     com a Fase 3.
 
-- [ ] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
+- [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
   - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
     ("usando ANTHROPIC_API_KEY deste computador").
@@ -164,6 +164,13 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Antigravity — Seção Assistente de IA em Configurações
+- Branch: `ag/assistente-chat`
+- O que foi feito: Implementada a seção "Assistente de IA" na tela de Configurações. Adicionados campos de `api_key` mascarada (com função salvar/remover), seleção do Modelo e do Esforço de busca. Atualizado cliente da API com funções `getAssistantConfig` e `updateAssistantConfig` e suporte ao mock da feature flag.
+- Arquivos principais: `frontend/src/components/settings/AssistantSettingsPanel.tsx`, `frontend/src/pages/SettingsPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`.
+- Verificações: build ok / lint sem novas infrações.
+- Pendências ou observações para o outro agente: Tudo pronto, integrado e utilizando mock.
 
 ### 2026-10-09 — Antigravity — Tela Assistente de IA
 - Branch: `ag/assistente-chat`
