@@ -100,6 +100,7 @@ def main() -> None:
     passed = failed = skipped = 0
     for index, case in enumerate(cases):
         if index and pause:
+            print(f"\n(aguardando {pause:.0f}s por causa do limite por minuto do plano gratuito...)", flush=True)
             time.sleep(pause)
         history = case.get("historico", [])
         started = time.perf_counter()
