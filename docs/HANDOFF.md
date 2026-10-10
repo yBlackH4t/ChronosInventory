@@ -242,6 +242,22 @@ npm run lint
     lista", e quando a exclusão falhar com esse motivo, oferecer o botão **Inativar** ali mesmo.
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
+- [ ] **[Claude Code → Antigravity] Antes da versão nova: 2 correções na `ag/operacao-e-atalhos` (f7fc92a).**
+  Revisados os commits `d62f457` e `f7fc92a`: as 4 correções da revisão do `0f60808` estão certas;
+  testes (185), build e lint passam. Faltam:
+  1. **"Salvar configuração" da Base oficial quebrou (bloqueia a versão).** Testado no app: o
+     clique mostra "Converting circular structure to JSON" e nada é salvo. Causa:
+     `OfficialBaseSection.tsx` faz `<Button onClick={onSaveConfig}>`, e `saveOfficialBaseConfig`
+     (`useBackupOfficialBasePanel.ts`) agora recebe `tokenOverride`: o evento do clique vira a
+     senha. Corrigir com `onClick={() => onSaveConfig()}` (e o tipo da prop continua `() => void`).
+  2. **Cache das telas guarda consultas ainda carregando** (`app/providers.tsx`, desde `84bb741`):
+     o `shouldDehydrateQuery` próprio substitui o padrão, que só guarda consultas com sucesso. Em
+     Backup aparecem dezenas de "A query that was dehydrated as pending ended up rejecting" no
+     console. Usar `defaultShouldDehydrateQuery(query) && !String(query.queryKey[0]).startsWith("assistant-admin")`
+     (`defaultShouldDehydrateQuery` vem de `@tanstack/react-query`).
+  - Verificar com `npm run build` e `npm run lint`, clicar em "Salvar configuração" em Backup >
+    Base oficial e registrar na seção 6.
+
 - [x] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
   Achado no teste do dono: em "Ensinar outro código", ao digitar o código, a tela quebra e o app
   recarrega (o login de admin, que fica em memória, se perde; o `POST /assistente/conhecimento`
