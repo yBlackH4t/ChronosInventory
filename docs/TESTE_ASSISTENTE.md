@@ -79,10 +79,9 @@ npm run dev
 Abra **http://localhost:5173** e vá em **Assistente**.
 
 1. **Chat:** "temos turbina 4031196?", "temos turbina do scania 440?", depois responda "dc13".
-   Essas respostas vêm marcadas **"Busca direta (sem IA)"**, e isso é o normal: código e
-   veículo/motor são respondidos pela busca direta, na hora e sem gastar o limite gratuito
-   (o selo vai mudar; pedido ao Antigravity). Para ver a IA, pergunte algo fora do padrão,
-   ex.: "qual a capital da frança?" ou "tem turbina pro caminhão do meu tio?".
+   Código e veículo/motor são respondidos pela busca direta, na hora e sem gastar o limite
+   gratuito. O selo "Busca direta (sem IA)" só aparece quando a IA falhou. Para ver a IA,
+   pergunte algo fora do padrão, ex.: "qual a capital da frança?".
 2. **Configurações > Assistente de IA:** deve mostrar Groq, configurado (a chave já está salva).
    Teste trocar para "Sem IA (só busca direta)" e voltar.
 3. **Tornar esta máquina admin:** tela **Backup > Base oficial**, na configuração,
@@ -94,8 +93,21 @@ Abra **http://localhost:5173** e vá em **Assistente**.
    - clique **"É similar"** e escreva "muda o atuador";
    - no chat, pergunte "tem a 988-7210?" (só o final) → deve entender como 53279887210 e
      oferecer a K27 como similar.
-6. **Conhecimento:** a regra aparece; exclua e veja o chat deixar de oferecer a K27.
+6. **Conhecimento:** a regra aparece; exclua e veja o chat deixar de oferecer a K27. A linha de
+   status em cima diz "Publicado só nesta máquina..." com um aviso: em casa é o normal (não há
+   pasta compartilhada nem servidor ligado; isso é a parte D, na empresa).
 7. **Histórico:** as conversas aparecem; corrija uma resposta; exporte o JSONL.
+8. **WhatsApp** (aba dentro do Admin). **Feche antes o `assistente_dev.py whatsapp`**, se estiver
+   aberto: os dois juntos disputam a mesma conexão.
+   - **Conectar WhatsApp**: como a conexão do teste A ficou salva, deve ir direto para "Conectado
+     ao número ..." (se pedir QR, escaneie o QR da tela);
+   - na "Mensagem para mim", mande um código + áudio e reaja com 🤖: a resposta chega como no teste A;
+   - **Desligar** e conectar de novo. Só use **Desconectar este computador** no fim: ele tira o
+     aparelho do celular e aí precisa de QR de novo.
+9. **Propostas:** com o WhatsApp conectado, na "Mensagem para mim" mande
+   `/ensinar 4031195 igual 3790509 teste`. Em **Para revisar** aparece a proposta no topo:
+   **Aprovar** vira regra (aparece em Conhecimento, e "tem a 4031195?" passa a citar a 3790509
+   como igual); mande outra e **Recuse**.
 
 ---
 
@@ -122,16 +134,16 @@ Precisa do Chronos com o assistente nas duas máquinas, na mesma rede.
 4. Na máquina do colega, feche e abra o Chronos (ou espere até 10 min) e pergunte pelo código no
    chat: a resposta já usa a regra. Em Assistente > Admin > Conhecimento (só leitura) ela aparece.
 
-Se não chegar, `GET http://127.0.0.1:8000/assistente/conhecimento/sincronizacao` na máquina do
-colega mostra o motivo no campo `erro` (até a tela de status ficar pronta).
+Na aba Conhecimento das duas máquinas, a linha de status mostra de onde e quando o conhecimento
+foi publicado/recebido, com o botão **Sincronizar agora**. Se algo faltar, o aviso diz o que
+configurar em Backup > Base oficial.
 
 ---
 
-## Ainda não dá para testar
+## Ainda não dá para testar (em casa)
 
-- **Aba WhatsApp dentro do app** (QR na tela, ligar/desligar) e **aprovar propostas** do
-  `/ensinar`: o backend está pronto, as telas são o próximo pedido do Antigravity.
-- **Conhecimento nas máquinas dos colegas**: pronto no backend (Fase 2c), mas só dá para testar na
-  empresa, com duas máquinas (passo D). O status e o "Sincronizar agora" na tela são pedido do Antigravity.
+- **Conhecimento nas máquinas dos colegas**: pronto (backend e telas), mas só dá para testar na
+  empresa, com duas máquinas (passo D).
+- **Banco real**: precisa de uma cópia do `estoque.db` da empresa (nunca o original).
 - **Instalador**: para gerar o `.msi` com o assistente, o backend precisa ser empacotado de
   novo (`npm run build:app`), com `anthropic` e `neonize` instalados no venv do build.
