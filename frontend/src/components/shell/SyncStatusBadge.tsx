@@ -1,0 +1,249 @@
+import { useState } from "react";
+import {
+  Alert,
+  Badge,
+  Button,
+  Divider,
+  Group,
+  Loader,
+  Popover,
+  Stack,
+  Text,
+  Tooltip,
+} from "@mantine/core";
+import {
+  IconAlertCircle,
+  IconDatabase,
+  IconNetwork,
+  IconRefresh,
+} from "@tabler/icons-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { useNavigate } from "react-router-dom";
+
+import {
+  getKnowledgeSyncStatus,
+  syncKnowledge,
+} from "../../lib/assistantAdminApi";
+import { notifyError, notifySuccess } from "../../lib/notify";
+import type { KnowledgeSyncStatus } from "../../types/assistantAdmin";
+
+export function SyncStatusBadge() {
+  const [opened, setOpened] = useState(false);
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+
+  const { data, isLoading, isError, refetch } = useQuery<KnowledgeSyncStatus>({
+    queryKey: ["knowledge-sync-status"],
+    queryFn: getKnowledgeSyncStatus,
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: syncKnowledge,
+    onSuccess: (updated) => {
+      notifySuccess("Sincronização concluída com sucesso!");
+      queryClient.setQueryData(["knowledge-sync-status"], updated);
+      queryClient.invalidateQueries({ queryKey: ["assistant-knowledge"] });
+    },
+    onError: (err) => {
+      notifyError(err, "Falha ao sincronizar com a base oficial.");
+    },
+  });
+
+  const isPublisher = data?.papel === "publisher";
+  const hasError = Boolean(data?.erro) || isError;
+
+  const dotColor = hasError
+    ? "var(--mantine-color-orange-6)"
+    : isPublisher
+    ? "var(--mantine-color-blue-6)"
+    : "var(--mantine-color-teal-6)";
+
+  const label = hasError
+    ? "Sync pendente"
+    : isPublisher
+    ? "Publicadora"
+    : "Sincronizado";
+
+  const formattedDate = (iso?: string | null) => {
+    if (!iso) return "Não informado";
+    const parsed = dayjs(iso);
+    return parsed.isValid() ? parsed.format("DD/MM/YYYY [às] HH:mm") : iso;
+  };
+
+  return (
+    <Popover
+      opened={opened}
+      onChange={setOpened}
+      position="bottom-end"
+      withArrow
+      shadow="md"
+      radius="md"
+      width={300}
+    >
+      <Popover.Target>
+        <Tooltip
+          label={`Base Oficial: ${label} (clique para detalhes)`}
+          disabled={opened}
+        >
+          <button
+            type="button"
+            className="profile-pill"
+            onClick={() => setOpened((o) => !o)}
+            style={{
+              cursor: "pointer",
+              background: "transparent",
+              border: "1px solid var(--border-subtle)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "3px 8px",
+              borderRadius: 6,
+              fontSize: 12,
+              color: "inherit",
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                backgroundColor: dotColor,
+                display: "inline-block",
+                boxShadow: hasError ? "none" : `0 0 6px ${dotColor}`,
+              }}
+            />
+            <span>{label}</span>
+          </button>
+        </Tooltip>
+      </Popover.Target>
+
+      <Popover.Dropdown p="sm">
+        <Stack gap="xs">
+          <Group justify="space-between">
+            <Group gap={6}>
+              <IconNetwork size={16} color="var(--accent)" />
+              <Text fw={700} size="xs" tt="uppercase" c="dimmed">
+                Base Oficial & Conhecimento
+              </Text>
+            </Group>
+            {data && (
+              <Badge
+                size="xs"
+                variant="light"
+                color={isPublisher ? "blue" : "teal"}
+              >
+                {isPublisher ? "Publica a base" : "Cliente"}
+              </Badge>
+            )}
+          </Group>
+
+          <Divider />
+
+          {isLoading ? (
+            <Group justify="center" p="xs">
+              <Loader size="xs" />
+              <Text size="xs" c="dimmed">
+                Consultando sincronização...
+              </Text>
+            </Group>
+          ) : data ? (
+            <Stack gap={6}>
+              {data.erro && (
+                <Alert
+                  icon={<IconAlertCircle size={14} />}
+                  color="orange"
+                  variant="light"
+                  p="xs"
+                >
+                  <Text size="xs">{data.erro}</Text>
+                </Alert>
+              )}
+
+              <Group justify="space-between" wrap="nowrap">
+                <Text size="xs" c="dimmed">
+                  Papel:
+                </Text>
+                <Text size="xs" fw={600}>
+                  {isPublisher
+                    ? "Esta máquina publica as regras"
+                    : `Recebido de: ${data.maquina || "Servidor"}`}
+                </Text>
+              </Group>
+
+              {data.fonte && (
+                <Group justify="space-between" wrap="nowrap">
+                  <Text size="xs" c="dimmed">
+                    Fonte:
+                  </Text>
+                  <Text size="xs" truncate="end" maw={180}>
+                    {data.fonte}
+                  </Text>
+                </Group>
+              )}
+
+              <Group justify="space-between" wrap="nowrap">
+                <Text size="xs" c="dimmed">
+                  Regras aprendidas:
+                </Text>
+                <Badge size="xs" variant="outline" color="dark">
+                  {data.total_regras}{" "}
+                  {data.total_regras === 1 ? "regra" : "regras"}
+                </Badge>
+              </Group>
+
+              <Group justify="space-between" wrap="nowrap">
+                <Text size="xs" c="dimmed">
+                  Última atualização:
+                </Text>
+                <Text size="xs">
+                  {formattedDate(data.atualizado_em || data.publicado_em)}
+                </Text>
+              </Group>
+            </Stack>
+          ) : (
+            <Text size="xs" c="dimmed">
+              Informações de sincronização indisponíveis no momento.
+            </Text>
+          )}
+
+          <Divider mt={4} />
+
+          <Group justify="space-between">
+            <Button
+              size="xs"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconDatabase size={14} />}
+              onClick={() => {
+                setOpened(false);
+                navigate("/backup");
+              }}
+            >
+              Base oficial
+            </Button>
+
+            <Button
+              size="xs"
+              variant="light"
+              color={isPublisher ? "blue" : "teal"}
+              leftSection={<IconRefresh size={14} />}
+              loading={syncMutation.isPending}
+              onClick={() => {
+                if (data) {
+                  syncMutation.mutate();
+                } else {
+                  void refetch();
+                }
+              }}
+            >
+              Sincronizar agora
+            </Button>
+          </Group>
+        </Stack>
+      </Popover.Dropdown>
+    </Popover>
+  );
+}
