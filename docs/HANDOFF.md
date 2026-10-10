@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular (resposta e áudio ok); citação e tirar o 🤖 corrigidos, falta o dono confirmar. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular: resposta, áudio, citação e 🤖 ok. Próximo: teste das telas (parte B do roteiro) e distribuir o conhecimento (Fase 2c) | aguardando revisão | 2026-10-09 |
 | Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
@@ -287,7 +287,8 @@ npm run lint
   `assistente_dev.py whatsapp` sai sozinho, explicando, quando o aparelho foi removido ou o QR expirou.
 - Arquivos principais: `app/services/whatsapp_neonize_transport.py`, `scripts/assistente_dev.py`,
   `backend/tests/test_whatsapp_neonize_transport.py` (monta as mensagens da neonize sem conectar).
-- Verificações: pytest ok (153 testes). **Falta confirmar no celular.**
+- Verificações: pytest ok (153 testes). **Confirmado no celular** (segundo teste): a resposta cita
+  o áudio, o 🤖 sai, e o código falado no áudio é entendido.
 
 ### 2026-10-09 — Claude Code — Assistente: busca direta primeiro e roteiro de teste
 - Branch: `feature/assistente-ia`

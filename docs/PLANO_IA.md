@@ -76,7 +76,7 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 | 2b | Base de conhecimento do especialista, admin, histórico, "Para revisar" (backend) | Claude Code | ✅ pronto |
 | 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | ✅ pronto |
 | 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | a fazer |
-| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | testada com celular: resposta e áudio ok; citação e tirar o 🤖 corrigidos, falta confirmar |
+| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | ✅ testada com celular (WhatsApp comum) |
 | 3 | Tela WhatsApp (QR, ligar/desligar) e propostas na área do admin | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
 
@@ -278,6 +278,10 @@ Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
   a biblioteca misturava os dois tipos de endereço. Agora a citação usa o autor no mesmo tipo de
   endereço da conversa, e o 🤖 sai com a mesma chave que o WhatsApp da equipe mandou na reação.
   `assistente_dev.py whatsapp` grava `whatsapp_dev.log` (endereços mascarados) para conferir.
+- **Segundo teste (2026-10-09): tudo ok.** A resposta cita o áudio e o 🤖 sai. O registro mostrou
+  a conversa endereçada por LID, e a citação que o próprio WhatsApp monta tem o mesmo formato da
+  nossa. Só áudio, com o código falado, também funciona: o Whisper escreveu "532-7988-7101" e a
+  busca entendeu 53279887101 (a resposta mostra o código como foi transcrito).
 
 **Arquivos:** `whatsapp_bridge_service.py` (regras, sem depender da biblioteca),
 `whatsapp_neonize_transport.py` (biblioteca **neonize** = whatsmeow em Python; já traz a DLL
@@ -327,8 +331,7 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
       o original: abrir o banco pelo app aplica migrações) e rode:
       `python scripts/assistente_dev.py --pasta <pasta da cópia> cobertura`,
       depois `... codigo 4031196` e `... aplicacao "scania 440"`.
-- [ ] Testar a ponte num WhatsApp comum (`python scripts/assistente_dev.py whatsapp`; o QR
-      abre no navegador).
+- [x] Testar a ponte num WhatsApp comum (`python scripts/assistente_dev.py whatsapp`): ok.
 - [ ] Decidir se o WhatsApp da empresa usa a ponte não oficial (risco de banimento) ou a
       coexistência oficial da Meta.
 - [ ] A resposta deve informar preço? (o banco não tem preço; hoje o assistente responde o

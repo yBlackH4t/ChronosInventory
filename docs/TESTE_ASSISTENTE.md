@@ -51,9 +51,10 @@ O que conferir: o áudio foi entendido? A resposta veio certa, no formato do Wha
 **citando a mensagem**? O 🤖 **sumiu**? O registro do teste fica em
 `%TEMP%\chronos_assistente\whatsapp_dev.log` (endereços mascarados, sem os textos).
 
-**Primeiro teste (2026-10-09):** resposta, áudio e `/ajuda` ok; a resposta veio **sem citar** a
-mensagem e o 🤖 **não saiu**. Corrigido no código (citação com o autor no mesmo tipo de endereço da
-conversa; o 🤖 sai com a mesma chave que o WhatsApp mandou); falta confirmar no celular.
+**Testes (2026-10-09):** no primeiro, resposta, áudio e `/ajuda` ok, mas a resposta veio sem
+citar a mensagem e o 🤖 não saiu. Corrigido; no segundo teste, **tudo ok**: a resposta cita o áudio,
+o 🤖 sai, e o código falado no áudio é entendido ("532-7988-7101" → 53279887101). Números longos
+aparecem em verde na resposta porque o WhatsApp acha que são telefones; é do próprio WhatsApp.
 
 ---
 
