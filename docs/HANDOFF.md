@@ -66,7 +66,7 @@ npm run lint
 <!-- Cada agente atualiza a própria linha ao começar e ao terminar uma tarefa. -->
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
-| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-10 |
+| Claude Code | `feature/assistente-ia` | Assistente — backend e telas juntos nesta branch (no GitHub) para o dono testar no banco real da empresa; resumo em `docs/ASSISTENTE_IA.md` | aguardando teste do dono | 2026-10-10 |
 | Antigravity | `ag/assistente-chat` | Assistente: formulários do admin | concluído | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
@@ -326,6 +326,17 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Claude Code — Branch única para testar na empresa e resumo do assistente
+- Branch: `feature/assistente-ia` (enviada ao GitHub, junto com `ag/assistente-chat`).
+- O que foi feito: a pedido do dono, que vai testar no banco real da empresa sem levar nada para
+  a `main`, a `ag/assistente-chat` foi trazida para a `feature/assistente-ia` (merge sem
+  conflitos; telas idênticas às da `ag`). Agora a `feature/assistente-ia` tem backend e telas.
+  O Antigravity continua na `ag/assistente-chat`, trazendo a `feature/assistente-ia` como antes.
+  Novo `docs/ASSISTENTE_IA.md` (estado, decisões, arquivos, o que fica fora do git, teste no
+  banco real) e `CLAUDE.md` na raiz apontando para ele e para este HANDOFF.
+- Também: regra do conhecimento com dois códigos num campo ("A OU B") agora é recusada.
+- Verificações: pytest ok (162 testes), `check_versions` ok, nenhum segredo nem banco no que subiu.
 
 ### 2026-10-10 — Antigravity — Assistente: correção de digitação nos formulários do admin (urgente)
 - Branch: `ag/assistente-chat`
