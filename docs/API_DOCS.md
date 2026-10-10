@@ -153,6 +153,10 @@ Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login
 - `POST /assistente/propostas/{id}/aprovar` (admin) - vira regra da base de conhecimento (devolve a regra). 404 se nao estiver pendente.
 - `POST /assistente/propostas/{id}/recusar` (admin).
 
+### Resumo diario (Mensagem para mim)
+- `GET /assistente/resumo` - `{ texto, ativo, hora, ultimo_envio }`: o resumo de hoje (zeraram desde ontem, mais sairam em 7 dias, perguntaram e nao temos em 7 dias) e a configuracao.
+- `PUT /assistente/resumo` (admin) - `{ ativo?, hora? ("HH:MM") }`. Com o WhatsApp do app conectado, o resumo vai sozinho para a "Mensagem para mim" uma vez por dia, depois da hora. Comando `/resumo` manda na hora.
+
 ### WhatsApp (modo copiloto)
 Todas (admin): o QR code conecta o WhatsApp da empresa ao Chronos.
 - `GET /assistente/whatsapp/status` - `{ estado: parado|conectando|aguardando_qr|conectado|reconectando|desconectado|erro, qr, numero, erro, ativo }`. `qr` e o texto a desenhar como QR code (muda a cada ~20 s); so vem com `estado = aguardando_qr`.

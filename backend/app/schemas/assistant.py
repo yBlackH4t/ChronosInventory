@@ -173,6 +173,20 @@ class ProposalOut(BaseModel):
     decidido_em: str | None = None
 
 
+class DailySummaryOut(BaseModel):
+    """Resumo diario na "Mensagem para mim": o texto de hoje e a configuracao."""
+
+    texto: str
+    ativo: bool
+    hora: str
+    ultimo_envio: str | None = None
+
+
+class DailySummaryIn(BaseModel):
+    ativo: bool | None = None
+    hora: str | None = Field(default=None, max_length=5)
+
+
 class WhatsAppStatusOut(BaseModel):
     estado: Literal["parado", "conectando", "aguardando_qr", "conectado", "reconectando", "desconectado", "erro"]
     qr: str | None = None

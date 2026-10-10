@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
 from app.services.assistant_common import AssistantUnavailableError
+from app.services.assistant_daily_summary_service import AssistantDailySummaryService
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_knowledge_service import AssistantKnowledgeService
 from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
@@ -17,6 +18,7 @@ from app.services.whatsapp_service import WhatsAppService
 from backend.app.api.deps import (
     get_assistant_admin_service,
     get_assistant_chat_service,
+    get_assistant_daily_summary_service,
     get_assistant_history_service,
     get_assistant_knowledge_service,
     get_assistant_knowledge_sync_service,
@@ -36,6 +38,8 @@ from backend.app.schemas.assistant import (
     ChatOut,
     ConversationOut,
     CorrectionIn,
+    DailySummaryIn,
+    DailySummaryOut,
     KnowledgeRuleIn,
     KnowledgeRuleOut,
     KnowledgeSyncOut,
@@ -341,6 +345,24 @@ def reject_proposal(
 # ----------------------------------------------------------------------
 # WhatsApp (modo copiloto). So admin: o QR code conecta o WhatsApp da empresa.
 # ----------------------------------------------------------------------
+
+
+@router.get("/resumo", response_model=SuccessResponse[DailySummaryOut])
+def daily_summary(summary: AssistantDailySummaryService = Depends(get_assistant_daily_summary_service)):
+    """Resumo de hoje (o mesmo que vai na "Mensagem para mim") e a configuracao do envio."""
+    return ok(DailySummaryOut(texto=summary.build_text(), **summary.settings()))
+
+
+@router.put("/resumo", response_model=SuccessResponse[DailySummaryOut])
+def update_daily_summary(
+    payload: DailySummaryIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    summary: AssistantDailySummaryService = Depends(get_assistant_daily_summary_service),
+):
+    admin.require(_admin_token(request))
+    settings = summary.update_settings(ativo=payload.ativo, hora=payload.hora)
+    return ok(DailySummaryOut(texto=summary.build_text(), **settings))
 
 
 @router.get("/whatsapp/status", response_model=SuccessResponse[WhatsAppStatusOut])

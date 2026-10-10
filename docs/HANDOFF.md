@@ -179,6 +179,16 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
+- [ ] **[Claude Code → Antigravity] Assistente: resumo diário na aba WhatsApp.**
+  Rotas `GET /assistente/resumo` e `PUT /assistente/resumo` (admin), contrato em `docs/API_DOCS.md`.
+  Na aba WhatsApp do admin, um bloco "Resumo diário":
+  - interruptor "Mandar todo dia na 'Mensagem para mim'" (`ativo`) e horário (`hora`, HH:MM, padrão 08:00);
+  - "último envio: <data>" (`ultimo_envio`) e o botão **"Ver o resumo de hoje"**, que mostra o
+    `texto` renderizado como no chat (`*negrito*`, `•`);
+  - nota curta: "Sai só com o WhatsApp do app conectado. Na conversa, /resumo manda na hora."
+  - No quadro "Como usar", acrescentar `/resumo`. Verificar com `npm run build` e `npm run lint`;
+    registrar na seção 6.
+
 - [ ] **[Claude Code → Antigravity] Assistente: foto da plaqueta no chat do app.**
   Rota nova `POST /assistente/chat/foto` (multipart: `foto`, `mensagem?`, `historico?` em JSON;
   contrato em `docs/API_DOCS.md`). No chat (`AssistantPage.tsx`):

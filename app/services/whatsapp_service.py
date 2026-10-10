@@ -29,6 +29,9 @@ STATE_RECONNECTING = "reconectando"
 STATE_LOGGED_OUT = "desconectado"
 STATE_ERROR = "erro"
 
+# De quanto em quanto tempo confere se e hora do resumo diario.
+SUMMARY_CHECK_SECONDS = 60
+
 
 def _default_transport_factory(session_path: str, **callbacks: Any) -> Any:
     from app.services.whatsapp_neonize_transport import NeonizeTransport
@@ -40,6 +43,12 @@ def _default_bridge_factory(transport: Any) -> Any:
     from app.services.whatsapp_bridge_service import WhatsAppBridge
 
     return WhatsAppBridge(transport)
+
+
+def _default_summary_factory() -> Any:
+    from app.services.assistant_daily_summary_service import AssistantDailySummaryService
+
+    return AssistantDailySummaryService()
 
 
 class WhatsAppService:
@@ -59,17 +68,20 @@ class WhatsAppService:
         bridge_factory: Callable[[Any], Any] = _default_bridge_factory,
         config_store: Optional[AssistantConfigStore] = None,
         session_dir: Optional[str] = None,
+        summary_factory: Optional[Callable[[], Any]] = None,
     ) -> None:
         self.transport_factory = transport_factory
         self.bridge_factory = bridge_factory
         self.config_store = config_store or AssistantConfigStore()
         self.session_dir = session_dir
+        self.summary_factory = summary_factory or _default_summary_factory
         self.state = STATE_STOPPED
         self.qr: Optional[str] = None
         self.error: Optional[str] = None
         self._transport: Any = None
         self._bridge: Any = None
         self._lock = threading.Lock()
+        self._summary_stop: Optional[threading.Event] = None
 
     def session_path(self) -> str:
         return os.path.join(self.session_dir or FileUtils.get_app_directory(), SESSION_FILE)
@@ -98,10 +110,49 @@ class WhatsAppService:
                     self._transport = self._bridge = None
                     self.state, self.error = STATE_ERROR, str(exc)
                     return self.status()
+                self._start_summary_clock()
             self._set_enabled(True)
         return self.status()
 
+    # ------------------------------------------------------------------
+    # Resumo diario (na "Mensagem para mim", na hora configurada pelo admin)
+    # ------------------------------------------------------------------
+
+    def _start_summary_clock(self) -> None:
+        if self._summary_stop is not None:
+            return
+        stop = threading.Event()
+        self._summary_stop = stop
+
+        def loop() -> None:
+            while not stop.wait(SUMMARY_CHECK_SECONDS):
+                self.send_summary_if_due()
+
+        threading.Thread(target=loop, name="whatsapp-resumo", daemon=True).start()
+
+    def _stop_summary_clock(self) -> None:
+        if self._summary_stop is not None:
+            self._summary_stop.set()
+            self._summary_stop = None
+
+    def send_summary_if_due(self) -> bool:
+        """Manda o resumo do dia se estiver na hora (conectado, ligado e ainda nao saiu hoje)."""
+        transport = self._transport
+        if transport is None or self.state != STATE_CONNECTED:
+            return False
+        try:
+            summary = self.summary_factory()
+            if not summary.due():
+                return False
+            transport.send_to_self(summary.build_text())
+            summary.mark_sent()
+            return True
+        except Exception:
+            LOG.exception("whatsapp: falha ao mandar o resumo diario")
+            return False
+
     def _discard_transport(self) -> None:
+        self._stop_summary_clock()
         transport, self._transport, self._bridge = self._transport, None, None
         if transport is not None:
             try:

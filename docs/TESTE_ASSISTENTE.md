@@ -45,7 +45,8 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_dev.py whatsapp
    reaja com 🤖 na foto: a resposta traz o código lido e o estoque.
 4. **Responda** (arrastando para o lado) qualquer mensagem com "teste". Serve só para o registro:
    mostra como o WhatsApp oficial monta uma citação.
-5. Mande `/ajuda`, `/pendentes` e `/ensinar 53279887101 similar 53279887116 teste`.
+5. Mande `/ajuda`, `/pendentes`, `/resumo` (zerados, mais saídas e o que pediram e não temos) e
+   `/ensinar 53279887101 similar 53279887116 teste`.
 6. Ctrl+C para sair. Só quando terminar **todos** os testes, remova o aparelho conectado no
    celular ("Neonize" nas conexões antigas, "Chronos" nas novas); depois disso precisa de QR de novo.
 

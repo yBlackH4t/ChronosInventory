@@ -189,6 +189,23 @@ class AssistantHistoryService:
         ordered.sort(key=lambda i: -i["vezes"])  # mais perguntados primeiro; empate: mais recente
         return ordered[:limit]
 
+    def missing_codes_since(self, since: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Codigos perguntados que nao tinhamos desde `since` (ISO), mais pedidos primeiro (resumo diario)."""
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                "SELECT codigos_sem_estoque FROM conversas WHERE codigos_sem_estoque <> '' AND criado_em >= ?",
+                (since,),
+            ).fetchall()
+        finally:
+            conn.close()
+        counts: Dict[str, int] = {}
+        for row in rows:
+            for code in filter(None, row["codigos_sem_estoque"].split(",")):
+                counts[code] = counts.get(code, 0) + 1
+        ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        return [{"codigo": code, "vezes": times} for code, times in ordered[:limit]]
+
     def mark_reviewed(self, codes: Iterable[str]) -> None:
         conn = self._connect()
         try:

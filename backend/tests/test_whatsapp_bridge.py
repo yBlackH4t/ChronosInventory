@@ -244,6 +244,10 @@ def test_commands_only_in_the_self_chat(setup):
     _msg(s, ME, "c5", ME, from_me=True, text="/pendentes")
     assert s.transport.to_self[-1].startswith("Propostas esperando o admin: 1")
 
+    s.bridge.summary = SimpleNamespace(build_text=lambda: "*Resumo do estoque — hoje*")
+    _msg(s, ME, "c5b", ME, from_me=True, text="/resumo")
+    assert s.transport.to_self[-1] == "*Resumo do estoque — hoje*"
+
     # Mensagem repetida (o WhatsApp reenvia as vezes) nao roda o comando duas vezes.
     count = len(s.transport.to_self)
     _msg(s, ME, "c5", ME, from_me=True, text="/pendentes")

@@ -50,7 +50,8 @@ HELP_TEXT = (
     "• /ensinar <código> <igual|similar|diferente> <código> [observação]\n"
     "  ex.: /ensinar 53279887101 similar 53279887210 muda o atuador\n"
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
-    "• /pendentes: o que está esperando revisão do admin"
+    "• /pendentes: o que está esperando revisão do admin\n"
+    "• /resumo: o que zerou, o que mais saiu e o que pediram e não temos"
 )
 
 
@@ -95,7 +96,9 @@ class WhatsAppBridge:
         clock: Callable[[], float] = time.time,
         run_async: Optional[Callable[[Callable[[], None]], Any]] = None,
         vision: Any = None,
+        summary: Any = None,
     ) -> None:
+        self.summary = summary  # resumo diario (/resumo); criado so quando usado
         if chat_service is None:
             from app.services.assistant_chat_service import AssistantChatService
 
@@ -193,12 +196,21 @@ class WhatsAppBridge:
                 reply = self._teach(parts[1:])
             elif name in ("/pendentes", "/revisar"):
                 reply = self._pending()
+            elif name == "/resumo":
+                reply = self._summary().build_text()
             else:
                 reply = HELP_TEXT
         except Exception:
             LOG.exception("whatsapp: falha no comando %s", name)
             reply = "Não consegui executar o comando agora. Tente de novo."
         self._note_to_self(reply)
+
+    def _summary(self) -> Any:
+        if self.summary is None:
+            from app.services.assistant_daily_summary_service import AssistantDailySummaryService
+
+            self.summary = AssistantDailySummaryService(history=self.history)
+        return self.summary
 
     def _teach(self, args: List[str]) -> str:
         if len(args) < 3 or args[1].lower() not in TEACH_TYPES:

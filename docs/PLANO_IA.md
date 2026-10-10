@@ -324,7 +324,10 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
   (`POST /assistente/chat/foto`). O Groq lê a foto com um modelo com visão (`qwen/qwen3.8-27b`,
   gratuito, mesma chave), devolve só os códigos de peça (sem número de série) e a pergunta segue
   pela busca direta. Arquivo: `assistant_vision_service.py`.
-- **Resumo diário:** itens que zeraram e itens com muita saída (`movement_analytics_service`).
+- ~~**Resumo diário**~~ **pronto (2026-10-10):** na "Mensagem para mim", na hora que o admin
+  escolher (`PUT /assistente/resumo`), com o WhatsApp do app conectado: o que zerou desde ontem,
+  o que mais saiu em 7 dias e os códigos que perguntaram e não temos (pistas de compra).
+  `/resumo` manda na hora. Arquivo: `assistant_daily_summary_service.py`.
 - **Cotação:** para um veículo, sugerir as opções com estoque, incluindo nova × reman.
 
 ## 4. Limitações conhecidas
