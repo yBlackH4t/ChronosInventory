@@ -268,7 +268,7 @@ export default function BatchMovementModal({
           />
         </Group>
 
-        <Box style={{ border: "1px dashed #ccc", padding: "15px", borderRadius: "8px" }}>
+        <Box style={{ border: "1px dashed var(--border-strong)", padding: "15px", borderRadius: "8px" }}>
           <Stack gap="xs">
             <Text size="sm" fw={500}>Adicionar Itens ao Lote</Text>
             <Text size="xs" c="dimmed">

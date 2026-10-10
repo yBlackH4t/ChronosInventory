@@ -64,7 +64,7 @@ function ProductCard({ product }: { product: AssistantProduct }) {
   return (
     <Card shadow="sm" p="sm" radius="md" withBorder mt="xs" onClick={handleOpenProduct} style={{ cursor: "pointer" }}>
       <Group justify="space-between" mb="xs">
-        <Text fw={500} size="sm" lineClamp={1} style={{ flex: 1 }}>
+        <Text fw={500} size="sm" lineClamp={1} flex={1}>
           {product.nome}
         </Text>
         <Badge color="blue" variant="light">
@@ -405,6 +405,7 @@ export default function AssistantPage() {
                     variant="subtle"
                     onClick={handleRemovePhoto}
                     title="Remover foto"
+                    aria-label="Remover foto"
                   >
                     <IconX size={16} />
                   </ActionIcon>
@@ -440,13 +441,14 @@ export default function AssistantPage() {
                 minRows={1}
                 maxRows={4}
                 autosize
-                style={{ flex: 1 }}
+                flex={1}
               />
               <ActionIcon
                 color="blue"
                 size="lg"
                 radius="md"
                 onClick={handleSend}
+                aria-label="Enviar mensagem"
                 disabled={mutation.isPending || (!input.trim() && !selectedPhoto)}
               >
                 <IconSend size={18} />

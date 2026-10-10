@@ -552,7 +552,7 @@ export default function NfeLabelDesignerPanel() {
       {/* Barra do documento: XML carregado, layout e impressão */}
       <div className="surface-panel" style={{ padding: "12px 16px" }}>
         <Group justify="space-between" wrap="wrap" gap="sm">
-          <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+          <Group gap="sm" wrap="nowrap" miw={0}>
             <span className="settings-item-icon">
               <IconFileTypeXml size={18} stroke={1.5} />
             </span>
@@ -686,13 +686,13 @@ export default function NfeLabelDesignerPanel() {
                   maxWidth: "100%",
                   height: layout.heightPx,
                   border: layout.showBorder
-                    ? "1px solid #64748b"
-                    : "1px dashed #cbd5e1",
+                    ? "1px solid var(--mantine-color-slate-5)"
+                    : "1px dashed var(--mantine-color-slate-3)",
                   borderRadius: 6,
                   position: "relative",
                   overflow: "hidden",
-                  color: "#0f172a",
-                  backgroundColor: "#fff",
+                  color: "var(--mantine-color-slate-9)",
+                  backgroundColor: "var(--mantine-color-white)",
                   boxShadow: "0 1px 3px rgba(15, 23, 42, 0.12)",
                   backgroundImage:
                     "linear-gradient(to right, rgba(15,23,42,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(15,23,42,0.04) 1px, transparent 1px)",
@@ -737,7 +737,7 @@ export default function NfeLabelDesignerPanel() {
                         overflow: item.kind === "image" ? "hidden" : "visible",
                         lineHeight: 1.05,
                         border: isSelected
-                          ? "1px solid #4f46e5"
+                          ? "1px solid var(--accent)"
                           : "1px dashed transparent",
                         borderRadius: 4,
                         cursor: isActive
@@ -772,8 +772,8 @@ export default function NfeLabelDesignerPanel() {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              color: "#64748b",
-                              border: "1px dashed #cbd5e1",
+                              color: "var(--mantine-color-slate-5)",
+                              border: "1px dashed var(--mantine-color-slate-3)",
                               pointerEvents: "none",
                             }}
                           >
@@ -806,7 +806,7 @@ export default function NfeLabelDesignerPanel() {
                             bottom: -1,
                             width: 10,
                             height: 10,
-                            background: "#4f46e5",
+                            background: "var(--accent)",
                             borderRadius: 2,
                             cursor: "nwse-resize",
                           }}
@@ -877,7 +877,7 @@ export default function NfeLabelDesignerPanel() {
                         onChange={(value) =>
                           setTokenToAdd((value as ShippingLabelFieldToken) || "cliente")
                         }
-                        style={{ flex: 1 }}
+                        flex={1}
                       />
                       <Button
                         variant="default"

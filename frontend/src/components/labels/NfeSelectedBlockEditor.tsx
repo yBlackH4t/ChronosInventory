@@ -221,7 +221,7 @@ export default function NfeSelectedBlockEditor({
             />
             <SegmentedControl
               size="xs"
-              style={{ flex: 1 }}
+              flex={1}
               value={selectedItem.align}
               onChange={(value) =>
                 onUpdate( {

@@ -282,7 +282,7 @@ export default function DashboardVisuals({
                       distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0;
                     return (
                       <Group key={item.local} justify="space-between" wrap="nowrap">
-                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+                        <Group gap={8} wrap="nowrap" miw={0}>
                           <span
                             className="legend-swatch"
                             style={{ background: colorFor(item.local) }}
@@ -364,7 +364,7 @@ export default function DashboardVisuals({
                 {rankedSaidas.map((item, index) => (
                   <Stack key={item.produto_id} gap={6}>
                     <Group justify="space-between" wrap="nowrap" gap="sm">
-                      <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+                      <Group gap={10} wrap="nowrap" miw={0}>
                         <Text size="xs" c="dimmed" w={14} className="num">
                           {index + 1}
                         </Text>

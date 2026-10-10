@@ -38,6 +38,7 @@ export function ImageGalleryModal({
         variant="subtle"
         color="gray"
         onClick={onClose}
+        aria-label="Fechar galeria"
         style={{
           position: "absolute",
           top: 20,

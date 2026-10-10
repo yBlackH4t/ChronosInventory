@@ -167,7 +167,7 @@ export default function AssistantSettingsPanel() {
                 placeholder={KEY_PLACEHOLDERS[config.provedor] ?? "Cole a chave aqui"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.currentTarget.value)}
-                style={{ flex: 1 }}
+                flex={1}
                 disabled={mutation.isPending || usaAmbiente}
                 autoComplete="off"
               />

@@ -33,7 +33,7 @@ export default function Panel({
           pb={flush ? "md" : 0}
           style={flush ? { borderBottom: "1px solid var(--border)" } : undefined}
         >
-          <Stack gap={2} style={{ minWidth: 0 }}>
+          <Stack gap={2} miw={0}>
             {title && (
               <Text fw={600} size="sm">
                 {title}

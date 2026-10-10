@@ -257,7 +257,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
           leftSection={<IconSearch size={16} />}
           rightSection={
             busca ? (
-              <ActionIcon size="sm" variant="subtle" onClick={() => setBusca("")}>
+              <ActionIcon size="sm" variant="subtle" onClick={() => setBusca("")} aria-label="Limpar busca">
                 <IconX size={14} />
               </ActionIcon>
             ) : null
@@ -305,7 +305,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       )}
 
       {!isLoading && !isError && rules && rules.length === 0 && (
-        <Card withBorder p="xl" radius="md" style={{ textAlign: "center" }}>
+        <Card withBorder p="xl" radius="md" ta="center">
           <Stack align="center" gap="xs">
             <IconDatabase size={36} color="var(--mantine-color-gray-5)" />
             <Text fw={500}>Nenhuma regra encontrada</Text>
@@ -344,7 +344,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
                         {rule.codigo_a}
                       </Text>
                     </Table.Td>
-                    <Table.Td style={{ textAlign: "center" }}>
+                    <Table.Td ta="center">
                       {getRelationBadge(rule.tipo)}
                     </Table.Td>
                     <Table.Td>
@@ -370,6 +370,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
                             variant="subtle"
                             size="sm"
                             onClick={() => setDeleteConfirmId(rule.id)}
+                            aria-label="Excluir regra"
                           >
                             <IconTrash size={16} />
                           </ActionIcon>

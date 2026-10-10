@@ -439,7 +439,7 @@ export function OfficialBaseSection({
                         onChange={(event) =>
                           onServerTokenChange(event.currentTarget.value)
                         }
-                        style={{ flex: 1, minWidth: 260 }}
+                        flex={1} miw={260}
                       />
                       <Button
                         variant="light"
