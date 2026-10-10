@@ -1,25 +1,17 @@
 """
 Servico de geracao de relatorios em PDF.
-Responsabilidade: transformar datasets em documentos prontos para download ou salvar localmente.
+Responsabilidade: transformar datasets em PDFs entregues pela API.
 """
 
 from __future__ import annotations
 
-import os
 from io import BytesIO
 from typing import Any, Dict, Iterable, List
-from tkinter import filedialog
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-
-from core.constants import (
-    ABC_CLASSIFICATION,
-    APP_VERSION,
-    REPORT_COLUMN_WIDTHS_ABC,
-)
 
 from app.models.product import Product
 from core.database.connection import DatabaseConnection
@@ -48,21 +40,6 @@ class ReportService:
             fontSize=9,
             leading=11,
         )
-
-    def generate_stock_report(self, products: List[Product]) -> bool:
-        save_path = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            initialfile="Relatorio_Estoque.pdf",
-            filetypes=[("PDF", "*.pdf")],
-        )
-        if not save_path:
-            return False
-
-        pdf_bytes = self.generate_stock_report_bytes(products)
-        with open(save_path, "wb") as output:
-            output.write(pdf_bytes)
-        os.startfile(save_path)
-        return True
 
     def generate_stock_report_bytes(self, products: List[Product]) -> bytes:
         conn = DatabaseConnection().get_connection()
@@ -234,45 +211,6 @@ class ReportService:
             left_align_column=1,
             empty_message="Nenhum item parado encontrado para os filtros informados.",
         )
-
-    def generate_abc_report(
-        self,
-        products: List[Product],
-        exit_counts: Dict[str, int],
-    ) -> bool:
-        save_path = filedialog.asksaveasfilename(
-            defaultextension=".pdf",
-            initialfile="Relatorio_ABC.pdf",
-            filetypes=[("PDF", "*.pdf")],
-        )
-        if not save_path:
-            return False
-
-        data: List[List[Any]] = [["Produto", "Saidas", "Classe"]]
-        for product in products:
-            exits = exit_counts.get(product.nome, 0)
-            classification = self._classify_abc(exits)
-            data.append([self._paragraph(str(product.nome)), str(exits), classification])
-
-        pdf_bytes = self._build_pdf_bytes(
-            title="Relatorio de Giro (Curva ABC)",
-            subtitles=["Classificacao baseada em saidas acumuladas por produto."],
-            data=data,
-            col_widths=REPORT_COLUMN_WIDTHS_ABC,
-            left_align_column=0,
-            empty_message="Nenhum dado disponivel para o relatorio ABC.",
-        )
-        with open(save_path, "wb") as output:
-            output.write(pdf_bytes)
-        os.startfile(save_path)
-        return True
-
-    def _classify_abc(self, exits: int) -> str:
-        if exits >= ABC_CLASSIFICATION["A"]["min"]:
-            return "A"
-        if exits >= ABC_CLASSIFICATION["B"]["min"]:
-            return "B"
-        return "C"
 
     def _paragraph(self, value: str) -> Paragraph:
         return Paragraph(str(value or "-"), self.body_style)
