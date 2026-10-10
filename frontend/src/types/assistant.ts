@@ -26,6 +26,7 @@ export interface AssistantChatResponse {
   ferramentas_usadas: string[];
   modo: AssistantResponseMode;
   aviso: string | null;
+  leitura_foto?: string | null;
 }
 
 export type AssistantProviderId = "groq" | "gemini" | "ollama" | "anthropic" | "nenhum";

@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 | Claude Code | `feature/assistente-ia` | Assistente — backend e telas juntos nesta branch (no GitHub) para o dono testar no banco real da empresa; resumo em `docs/ASSISTENTE_IA.md` | aguardando teste do dono | 2026-10-10 |
-| Antigravity | `ag/assistente-chat` | Foto da plaqueta, resumo diário, senha do servidor e exclusão de produto | em andamento | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Foto da plaqueta, resumo diário, senha do servidor e exclusão de produto | concluído | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -179,7 +179,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Assistente: resumo diário na aba WhatsApp.**
+- [x] **[Claude Code → Antigravity] Assistente: resumo diário na aba WhatsApp.**
   Rotas `GET /assistente/resumo` e `PUT /assistente/resumo` (admin), contrato em `docs/API_DOCS.md`.
   Na aba WhatsApp do admin, um bloco "Resumo diário":
   - interruptor "Mandar todo dia na 'Mensagem para mim'" (`ativo`) e horário (`hora`, HH:MM, padrão 08:00);
@@ -189,7 +189,7 @@ npm run lint
   - No quadro "Como usar", acrescentar `/resumo`. Verificar com `npm run build` e `npm run lint`;
     registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Assistente: foto da plaqueta no chat do app.**
+- [x] **[Claude Code → Antigravity] Assistente: foto da plaqueta no chat do app.**
   Rota nova `POST /assistente/chat/foto` (multipart: `foto`, `mensagem?`, `historico?` em JSON;
   contrato em `docs/API_DOCS.md`). No chat (`AssistantPage.tsx`):
   - botão de câmera/clipe ao lado do campo de texto (aceitar `image/*`; no celular abre a câmera);
@@ -201,7 +201,7 @@ npm run lint
   - Na aba WhatsApp, no quadro "Como usar": "Foto da plaqueta: reaja com 🤖 na foto".
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
-- [ ] **[Claude Code → Antigravity] Senha do servidor e exclusão de produto (proteção de dados).**
+- [x] **[Claude Code → Antigravity] Senha do servidor e exclusão de produto (proteção de dados).**
   Contrato em "Novo (2026-10-10, proteção de dados)", seção 4. Fazer na `ag/assistente-chat`
   depois de `git merge feature/assistente-ia`.
   - **Backup > Base oficial**: campo de senha "Senha do servidor (a mesma em todas as máquinas)",
@@ -371,6 +371,32 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Antigravity — Senha do servidor, exclusão/inativação de produto, foto da plaqueta no chat e resumo diário na aba WhatsApp
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - **Senha do servidor e proteção de dados (Backup > Base oficial)**:
+    - Atualizados tipos `OfficialBaseStatusOut` (`server_token_set`) e `OfficialBaseConfigIn` (`server_token`).
+    - Adicionado campo protegido `PasswordInput` para "Senha do servidor (a mesma em todas as máquinas)" na seção de configuração (disponível tanto para publicadora quanto consumidora), sem nunca preencher a senha salva em texto claro.
+    - Exibição de indicador visual e status dot "Senha configurada" quando `server_token_set: true`.
+    - Botões dedicados "Salvar senha" (validação mínima de 6 caracteres) e "Remover senha" (`server_token: ""`).
+    - Alerta de advertência em destaque no painel do servidor quando este estiver em execução sem senha configurada: *"Sem senha: qualquer aparelho do Wi-Fi pode baixar o estoque"*.
+  - **Exclusão de produto e inativação no lugar (Produtos)**:
+    - Adicionado aviso preventivo no modal de confirmação de exclusão: *"Produtos com movimentações não podem ser excluídos; inative para tirar da lista"*.
+    - Ao tentar excluir um produto que possui histórico de movimentações (erro 400 com mensagem *"inative o produto"*), é aberto modal que oferece a ação imediata de **"Inativar produto"** chamando `api.bulkUpdateProductStatus` (`ativo: false`), permitindo inativar na hora sem perda de histórico e sem desorientar o operador.
+  - **Foto da plaqueta no chat do app (Assistente)**:
+    - Implementada rota `POST /assistente/chat/foto` multipart em `sendAssistantPhotoMessage` (`frontend/src/lib/assistantApi.ts`), enviando imagem (`foto`), mensagem opcional e histórico de mensagens em JSON.
+    - Adicionado botão de câmera (`FileButton` com `IconCamera` aceitando `image/*`) ao lado da caixa de mensagem no chat do app (`AssistantPage.tsx`).
+    - Miniatura de pré-visualização da foto com botão de cancelamento/remoção antes do envio.
+    - Miniatura da foto renderizada no balão de mensagem do usuário.
+    - Exibição discreta da identificação da peça (`leitura_foto`, ex.: *"Foto da plaqueta: 466646-5041S"*) logo acima da resposta do assistente.
+    - Indicador de carregamento adaptativo *"Lendo a foto…"* durante a análise da imagem.
+    - Tratamento de erro 422 (`foto_ilegivel`) exibindo a mensagem explicativa retornada pelo backend.
+  - **Resumo diário e comando WhatsApp (Admin)**:
+    - Integradas rotas `GET /assistente/resumo` e `PUT /assistente/resumo` com `X-Admin-Token` em `frontend/src/lib/assistantAdminApi.ts`.
+    - Adicionado card "Resumo diário" na aba WhatsApp do Admin com interruptor *"Mandar todo dia na 'Mensagem para mim'"*, campo de horário com validação (`HH:MM`), exibição do horário de último envio e botão *"Ver o resumo de hoje"* que abre modal renderizando o texto com formatação WhatsApp (`*negrito*`, `•`).
+    - Inclusão do comando `/resumo` e instrução de reação com robô em fotos de plaqueta (*"Foto da plaqueta: reaja com 🤖 na foto"*) no quadro informativo "Como usar o Modo Copiloto".
+  - **Validação**: `npm run build` e `npm run lint` executados com sucesso (0 erros).
 
 ### 2026-10-10 — Antigravity — Operação ágil: atalho N de movimentação, integração Assistente ➔ Produtos, Spotlight ao vivo, SyncStatusBadge e equivalências
 - Branch: `ag/operacao-e-atalhos`

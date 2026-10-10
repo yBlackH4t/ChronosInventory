@@ -16,6 +16,8 @@ import {
   Box,
   Title,
   Tabs,
+  FileButton,
+  Image,
 } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -27,9 +29,15 @@ import {
   IconSearch,
   IconMessageChatbot,
   IconShieldLock,
+  IconCamera,
+  IconX,
 } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import { sendAssistantMessage, AssistantApiError } from "../lib/assistantApi";
+import {
+  sendAssistantMessage,
+  sendAssistantPhotoMessage,
+  AssistantApiError,
+} from "../lib/assistantApi";
 import { formatWhatsAppText } from "../lib/assistantFormat";
 import AssistantAdminPanel from "../components/assistant/AssistantAdminPanel";
 import type { AssistantMessage, AssistantProduct, AssistantResponseMode } from "../types/assistant";
@@ -38,6 +46,8 @@ type ChatMessage = AssistantMessage & {
   produtos?: AssistantProduct[];
   modo?: AssistantResponseMode;
   aviso?: string | null;
+  fotoUrl?: string | null;
+  leitura_foto?: string | null;
 };
 
 const SETTINGS_PATH = "/configuracoes#assistant-settings";
@@ -79,24 +89,54 @@ export default function AssistantPage() {
   const [activeTab, setActiveTab] = useState<string>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const handlePhotoSelect = (file: File | null) => {
+    if (!file) return;
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setSelectedPhoto(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setErrorMsg(null);
+  };
+
+  const handleRemovePhoto = () => {
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setSelectedPhoto(null);
+    setPhotoPreview(null);
+  };
+
   const mutation = useMutation({
-    mutationFn: (msg: string) => {
+    mutationFn: async ({ msg, photo }: { msg: string; photo: File | null }) => {
       const history = messages.map((m) => ({ papel: m.papel, texto: m.texto }));
+      if (photo) {
+        return sendAssistantPhotoMessage(photo, msg, history);
+      }
       return sendAssistantMessage({ mensagem: msg, historico: history });
     },
     onSuccess: (data) => {
       setMessages((prev) => [
         ...prev,
-        { papel: "assistente", texto: data.resposta, produtos: data.produtos, modo: data.modo, aviso: data.aviso },
+        {
+          papel: "assistente",
+          texto: data.resposta,
+          produtos: data.produtos,
+          modo: data.modo,
+          aviso: data.aviso,
+          leitura_foto: data.leitura_foto,
+        },
       ]);
       setErrorMsg(null);
     },
     onError: (error) => {
-      if (error instanceof AssistantApiError && error.code === "assistente_indisponivel") {
+      if (error instanceof AssistantApiError) {
         setErrorMsg(error.message);
       } else {
         setErrorMsg("Ocorreu um erro inesperado ao se comunicar com o assistente.");
@@ -106,17 +146,31 @@ export default function AssistantPage() {
 
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || mutation.isPending) return;
+    if ((!trimmed && !selectedPhoto) || mutation.isPending) return;
 
     if (trimmed.length > 1000) {
       setErrorMsg("A mensagem não pode ter mais que 1000 caracteres.");
       return;
     }
 
-    setMessages((prev) => [...prev, { papel: "usuario", texto: trimmed }]);
+    const currentPhoto = selectedPhoto;
+    const currentPreview = photoPreview;
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        papel: "usuario",
+        texto: trimmed || (currentPhoto ? "Foto da plaqueta" : ""),
+        fotoUrl: currentPreview,
+      },
+    ]);
+
     setInput("");
+    setSelectedPhoto(null);
+    setPhotoPreview(null);
     setErrorMsg(null);
-    mutation.mutate(trimmed);
+
+    mutation.mutate({ msg: trimmed, photo: currentPhoto });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -127,6 +181,7 @@ export default function AssistantPage() {
   };
 
   const clearChat = () => {
+    handleRemovePhoto();
     setMessages([]);
     setErrorMsg(null);
   };
@@ -140,7 +195,7 @@ export default function AssistantPage() {
   const handleSuggestionClick = (suggestion: string) => {
     setMessages([{ papel: "usuario", texto: suggestion }]);
     setErrorMsg(null);
-    mutation.mutate(suggestion);
+    mutation.mutate({ msg: suggestion, photo: null });
   };
 
   useEffect(() => {
@@ -238,9 +293,31 @@ export default function AssistantPage() {
                           bg={isUser ? "blue.6" : "var(--mantine-color-default-hover)"}
                           c={isUser ? "white" : undefined}
                         >
-                          <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                            {formatWhatsAppText(msg.texto)}
-                          </Text>
+                          {isUser && msg.fotoUrl && (
+                            <Box mb={msg.texto ? "xs" : 0}>
+                              <Image
+                                src={msg.fotoUrl}
+                                alt="Foto da plaqueta"
+                                radius="sm"
+                                mah={160}
+                                maw={240}
+                                fit="cover"
+                              />
+                            </Box>
+                          )}
+                          {!isUser && msg.leitura_foto && (
+                            <Group gap={6} mb={6}>
+                              <IconCamera size={13} style={{ opacity: 0.7 }} />
+                              <Text size="xs" c="dimmed" fw={500}>
+                                {msg.leitura_foto}
+                              </Text>
+                            </Group>
+                          )}
+                          {msg.texto ? (
+                            <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                              {formatWhatsAppText(msg.texto)}
+                            </Text>
+                          ) : null}
                         </Paper>
                         {!isUser && msg.aviso && (
                           <Stack gap={6} mt={6}>
@@ -293,7 +370,7 @@ export default function AssistantPage() {
                     <Group gap="xs" p="sm">
                       <Loader size="sm" type="dots" />
                       <Text size="sm" c="dimmed">
-                        Assistente digitando...
+                        {mutation.variables?.photo ? "Lendo a foto…" : "Assistente digitando..."}
                       </Text>
                     </Group>
                   </Box>
@@ -301,7 +378,59 @@ export default function AssistantPage() {
               </Stack>
             </ScrollArea>
 
-            <Group align="flex-end" mt="md">
+            {photoPreview && (
+              <Paper withBorder p="xs" radius="md" mt="xs" bg="var(--mantine-color-default-hover)">
+                <Group justify="space-between" align="center">
+                  <Group gap="xs">
+                    <Image
+                      src={photoPreview}
+                      alt="Prévia da plaqueta"
+                      w={48}
+                      h={48}
+                      radius="sm"
+                      fit="cover"
+                    />
+                    <div>
+                      <Text size="xs" fw={500} lineClamp={1}>
+                        {selectedPhoto?.name || "Foto da plaqueta"}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        Foto pronta para envio
+                      </Text>
+                    </div>
+                  </Group>
+                  <ActionIcon
+                    size="sm"
+                    color="red"
+                    variant="subtle"
+                    onClick={handleRemovePhoto}
+                    title="Remover foto"
+                  >
+                    <IconX size={16} />
+                  </ActionIcon>
+                </Group>
+              </Paper>
+            )}
+
+            <Group align="flex-end" mt="md" gap="xs">
+              <FileButton
+                onChange={handlePhotoSelect}
+                accept="image/*"
+                disabled={mutation.isPending}
+              >
+                {(props) => (
+                  <ActionIcon
+                    {...props}
+                    variant="default"
+                    size="lg"
+                    radius="md"
+                    title="Enviar foto da plaqueta"
+                    aria-label="Foto da plaqueta"
+                  >
+                    <IconCamera size={18} />
+                  </ActionIcon>
+                )}
+              </FileButton>
               <Textarea
                 placeholder="Digite sua mensagem (Shift+Enter para pular linha)"
                 value={input}
@@ -318,7 +447,7 @@ export default function AssistantPage() {
                 size="lg"
                 radius="md"
                 onClick={handleSend}
-                disabled={mutation.isPending || !input.trim()}
+                disabled={mutation.isPending || (!input.trim() && !selectedPhoto)}
               >
                 <IconSend size={18} />
               </ActionIcon>

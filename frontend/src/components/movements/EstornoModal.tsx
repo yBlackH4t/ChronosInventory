@@ -52,7 +52,7 @@ export default function EstornoModal({
       onSuccess?.();
       onClose();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       notifications.show({
         title: "Erro",
         message: error.message || "Falha ao realizar estorno",

@@ -336,6 +336,7 @@ export default function DashboardPage() {
   }, [persistState]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setShowAllExternalTransfers(false);
   }, [dateFrom, dateTo, scope, externalTransferType]);
 

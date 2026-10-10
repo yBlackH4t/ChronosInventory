@@ -392,6 +392,7 @@ export type OfficialBaseStatusOut = {
   server_port?: number;
   server_running?: boolean;
   server_urls?: string[];
+  server_token_set?: boolean;
   remote_server_url?: string | null;
   can_publish: boolean;
   can_publish_server?: boolean;
@@ -424,6 +425,7 @@ export type OfficialBaseConfigIn = {
   server_port?: number | null;
   remote_server_url?: string | null;
   server_enabled?: boolean | null;
+  server_token?: string | null;
 };
 
 export type OfficialBasePublishIn = {

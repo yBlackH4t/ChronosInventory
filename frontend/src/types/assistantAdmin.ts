@@ -120,4 +120,16 @@ export interface KnowledgeSyncStatus {
   erro: string | null;
 }
 
+export interface DailySummary {
+  texto: string;
+  ativo: boolean;
+  hora: string;
+  ultimo_envio: string | null;
+}
+
+export interface DailySummaryUpdate {
+  ativo?: boolean;
+  hora?: string;
+}
+
 

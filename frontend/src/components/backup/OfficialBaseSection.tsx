@@ -6,6 +6,7 @@ import {
   Group,
   Loader,
   NumberInput,
+  PasswordInput,
   Select,
   SimpleGrid,
   Stack,
@@ -50,6 +51,10 @@ type OfficialBaseSectionProps = {
   onServerPortChange: (value: number | null) => void;
   remoteServerUrlInput: string;
   onRemoteServerUrlChange: (value: string) => void;
+  serverTokenInput: string;
+  onServerTokenChange: (value: string) => void;
+  onSaveServerToken: () => void;
+  onRemoveServerToken: () => void;
   onSaveConfig: () => void;
   saveConfigLoading: boolean;
   serverSwitchLabel: string;
@@ -89,6 +94,10 @@ export function OfficialBaseSection({
   onServerPortChange,
   remoteServerUrlInput,
   onRemoteServerUrlChange,
+  serverTokenInput,
+  onServerTokenChange,
+  onSaveServerToken,
+  onRemoveServerToken,
   onSaveConfig,
   saveConfigLoading,
   serverSwitchLabel,
@@ -189,10 +198,23 @@ export function OfficialBaseSection({
             <StatusDot tone={status?.remote_server_url ? "info" : "neutral"}>
               {status?.remote_server_url ? "Servidor remoto configurado" : "Sem servidor remoto"}
             </StatusDot>
+            <StatusDot tone={status?.server_token_set ? "success" : "warning"}>
+              {status?.server_token_set ? "Senha configurada" : "Sem senha"}
+            </StatusDot>
             {status?.app_compatible_with_server_latest === false && (
               <StatusDot tone="danger">App incompatível com a última base</StatusDot>
             )}
           </Group>
+          {serverIsRunning && !status?.server_token_set && (
+            <Alert
+              color="yellow"
+              variant="light"
+              icon={<IconAlertTriangle size={18} />}
+              title="Servidor desprotegido"
+            >
+              Sem senha: qualquer aparelho do Wi-Fi pode baixar o estoque.
+            </Alert>
+          )}
           {status?.server_urls?.length ? (
             <Group gap="xs" wrap="wrap">
               {status.server_urls.map((url) => (
@@ -399,6 +421,51 @@ export function OfficialBaseSection({
                     }
                     style={{ gridColumn: "span 2" }}
                   />
+                  <Stack gap="xs" style={{ gridColumn: "span 3" }}>
+                    <Group align="flex-end" gap="xs" wrap="wrap">
+                      <PasswordInput
+                        label="Senha do servidor (a mesma em todas as máquinas)"
+                        placeholder={
+                          status?.server_token_set
+                            ? "Senha configurada (digite para alterar)"
+                            : "Mínimo de 6 caracteres"
+                        }
+                        description={
+                          status?.server_token_set
+                            ? "Senha configurada. A mesma senha deve ser usada em todas as máquinas."
+                            : "Protege o servidor local contra acessos não autorizados no Wi-Fi/rede."
+                        }
+                        value={serverTokenInput}
+                        onChange={(event) =>
+                          onServerTokenChange(event.currentTarget.value)
+                        }
+                        style={{ flex: 1, minWidth: 260 }}
+                      />
+                      <Button
+                        variant="light"
+                        onClick={onSaveServerToken}
+                        loading={saveConfigLoading}
+                        disabled={serverTokenInput.trim().length < 6}
+                      >
+                        Salvar senha
+                      </Button>
+                      {status?.server_token_set && (
+                        <Button
+                          variant="subtle"
+                          color="red"
+                          onClick={onRemoveServerToken}
+                          loading={saveConfigLoading}
+                        >
+                          Remover senha
+                        </Button>
+                      )}
+                    </Group>
+                    {status?.server_token_set && (
+                      <Text size="xs" c="green.6" fw={500}>
+                        ✓ Senha configurada
+                      </Text>
+                    )}
+                  </Stack>
                 </SimpleGrid>
                 <Group justify="space-between" wrap="wrap">
                   <Text size="xs" c="dimmed" className="mono" truncate="end">

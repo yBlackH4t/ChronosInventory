@@ -99,7 +99,7 @@ export default function LocationsPage() {
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       closeDeleteModal();
     },
-    onError: (err: any) => {
+    onError: (err: Error & { response?: { status?: number } }) => {
       // Check if it's the "has stock" error
       if (err?.response?.status === 409 || err?.message?.includes("estoque")) {
         setDeleteHasStock(true);

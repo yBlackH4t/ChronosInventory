@@ -40,7 +40,7 @@ export default function ImportPage() {
   const [analysisData, setAnalysisData] = useState<{
     file_id: string;
     headers: string[];
-    preview: any[];
+    preview: Record<string, unknown>[];
   } | null>(null);
   const [matchBy, setMatchBy] = useState<string>("name");
   const [nameCol, setNameCol] = useState<string | null>(null);
@@ -347,7 +347,7 @@ export default function ImportPage() {
                           {analysisData.preview.map((row, i) => (
                             <Table.Tr key={i}>
                               {analysisData.headers.map((h) => (
-                                <Table.Td key={h}>{row[h]}</Table.Td>
+                                <Table.Td key={h}>{String(row[h] ?? "")}</Table.Td>
                               ))}
                             </Table.Tr>
                           ))}

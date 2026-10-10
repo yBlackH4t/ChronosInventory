@@ -15,6 +15,8 @@ import type {
   ReviewItem,
   WhatsAppState,
   WhatsAppStatus,
+  DailySummary,
+  DailySummaryUpdate,
 } from "../types/assistantAdmin";
 
 export const ADMIN_TOKEN_HEADER = "X-Admin-Token";
@@ -134,6 +136,12 @@ const mock = {
     erro: null as string | null,
     ativo: false,
   } as WhatsAppStatus,
+  dailySummary: {
+    texto: "Resumo do dia (10/10/2026):\n• *TURBO K31 53279887102* — zerou desde ontem\n• *TURBINA HOLSET HX55W 4031196* — 4 saídas em 7 dias\n• *53279887101* — 4 buscas sem estoque em 7 dias",
+    ativo: false,
+    hora: "08:00",
+    ultimo_envio: null as string | null,
+  } as DailySummary,
 };
 
 function mockStatus(): AdminStatus {
@@ -458,5 +466,28 @@ export async function logoutWhatsApp(): Promise<WhatsAppStatus> {
     return { ...mock.whatsapp };
   }
   return adminRequest<WhatsAppStatus>("/whatsapp/desconectar", { method: "POST" });
+}
+
+// ---------------------------------------------------------------------------
+// Resumo diário
+// ---------------------------------------------------------------------------
+
+export async function getDailySummary(): Promise<DailySummary> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    return { ...mock.dailySummary };
+  }
+  return adminRequest<DailySummary>("/resumo", { method: "GET" });
+}
+
+export async function updateDailySummary(body: DailySummaryUpdate): Promise<DailySummary> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    if (body.ativo !== undefined) mock.dailySummary.ativo = body.ativo;
+    if (body.hora !== undefined) mock.dailySummary.hora = body.hora;
+    return { ...mock.dailySummary };
+  }
+  return adminRequest<DailySummary>("/resumo", { method: "PUT", body });
 }
 

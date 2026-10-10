@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Card,
@@ -13,9 +13,12 @@ import {
   Title,
   Paper,
   Box,
+  Switch,
+  TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { QRCodeSVG } from "qrcode.react";
+import dayjs from "dayjs";
 import {
   IconBrandWhatsapp,
   IconAlertTriangle,
@@ -26,18 +29,76 @@ import {
   IconHelp,
   IconAlertCircle,
   IconDeviceMobile,
+  IconCalendarTime,
+  IconEye,
 } from "@tabler/icons-react";
 import {
   getWhatsAppStatus,
   startWhatsApp,
   stopWhatsApp,
   logoutWhatsApp,
+  getDailySummary,
+  updateDailySummary,
 } from "../../lib/assistantAdminApi";
+import { formatWhatsAppText } from "../../lib/assistantFormat";
 import type { WhatsAppState, WhatsAppStatus } from "../../types/assistantAdmin";
 
 export default function AdminWhatsAppTab() {
   const queryClient = useQueryClient();
   const [modalDesconectar, setModalDesconectar] = useState(false);
+  const [modalResumo, setModalResumo] = useState(false);
+  const [horaInput, setHoraInput] = useState<string>("");
+
+  const {
+    data: dailySummary,
+    isLoading: isLoadingSummary,
+  } = useQuery({
+    queryKey: ["assistant-admin-daily-summary"],
+    queryFn: getDailySummary,
+  });
+
+  useEffect(() => {
+    if (dailySummary?.hora) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHoraInput(dailySummary.hora);
+    }
+  }, [dailySummary?.hora]);
+
+  const updateSummaryMutation = useMutation({
+    mutationFn: updateDailySummary,
+    onSuccess: (data) => {
+      notifications.show({
+        title: "Resumo diário atualizado",
+        message: data.ativo
+          ? `Envio diário ativado para as ${data.hora}.`
+          : "Envio diário desativado.",
+        color: "teal",
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["assistant-admin-daily-summary"],
+      });
+    },
+    onError: (err: Error) => {
+      notifications.show({
+        title: "Erro ao atualizar",
+        message: err.message || "Não foi possível atualizar as configurações do resumo.",
+        color: "red",
+      });
+    },
+  });
+
+  const handleSaveHora = () => {
+    const trimmed = horaInput.trim();
+    if (/^\d{2}:\d{2}$/.test(trimmed)) {
+      updateSummaryMutation.mutate({ hora: trimmed });
+    } else {
+      notifications.show({
+        title: "Horário inválido",
+        message: "Digite no formato HH:MM (ex: 08:00).",
+        color: "red",
+      });
+    }
+  };
 
   const {
     data: status,
@@ -341,6 +402,75 @@ export default function AdminWhatsAppTab() {
         )}
       </Card>
 
+      {/* Bloco Resumo Diário */}
+      <Card withBorder p="md" radius="md" shadow="xs">
+        <Group justify="space-between" align="center" mb="sm" wrap="wrap">
+          <Group gap="xs">
+            <IconCalendarTime size={24} color="var(--mantine-color-blue-6)" />
+            <div>
+              <Text fw={600} size="sm">
+                Resumo diário
+              </Text>
+              <Text size="xs" c="dimmed">
+                Status do estoque, produtos zerados e buscas sem estoque enviados para você
+              </Text>
+            </div>
+          </Group>
+
+          <Button
+            size="xs"
+            variant="light"
+            color="blue"
+            leftSection={<IconEye size={14} />}
+            onClick={() => setModalResumo(true)}
+          >
+            Ver o resumo de hoje
+          </Button>
+        </Group>
+
+        <Stack gap="sm">
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Switch
+              label="Mandar todo dia na 'Mensagem para mim'"
+              checked={Boolean(dailySummary?.ativo)}
+              onChange={(e) =>
+                updateSummaryMutation.mutate({ ativo: e.currentTarget.checked })
+              }
+              disabled={updateSummaryMutation.isPending || isLoadingSummary}
+            />
+
+            <Group gap="xs" align="center">
+              <Text size="xs" fw={500}>
+                Horário:
+              </Text>
+              <TextInput
+                size="xs"
+                w={80}
+                placeholder="08:00"
+                value={horaInput}
+                onChange={(e) => setHoraInput(e.currentTarget.value)}
+                onBlur={handleSaveHora}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveHora();
+                }}
+                disabled={updateSummaryMutation.isPending || isLoadingSummary}
+              />
+            </Group>
+          </Group>
+
+          <Group justify="space-between" align="center" wrap="wrap">
+            <Text size="xs" c="dimmed">
+              {dailySummary?.ultimo_envio
+                ? `Último envio: ${dayjs(dailySummary.ultimo_envio).format("DD/MM/YYYY [às] HH:mm")}`
+                : "Último envio: nenhum envio registrado ainda"}
+            </Text>
+            <Text size="xs" c="dimmed">
+              Sai só com o WhatsApp do app conectado. Na conversa, /resumo manda na hora.
+            </Text>
+          </Group>
+        </Stack>
+      </Card>
+
       {/* Quadro informativo: Como usar */}
       <Card withBorder p="md" radius="md" bg="var(--mantine-color-default-hover)">
         <Group gap="xs" mb="xs">
@@ -356,6 +486,9 @@ export default function AdminWhatsAppTab() {
             processa o texto ou áudio (transcrevendo via Groq/Whisper) e responde citando a mensagem na conversa.
           </Text>
           <Text size="sm">
+            • <strong>Foto da plaqueta:</strong> Reaja com 🤖 na foto.
+          </Text>
+          <Text size="sm">
             • <strong>Comandos na conversa "Mensagem para mim":</strong>
           </Text>
           <Box pl="md">
@@ -368,9 +501,45 @@ export default function AdminWhatsAppTab() {
             <Text size="xs" c="dimmed">
               <strong>/ensinar</strong> — envia uma equivalência direta pelo WhatsApp (cria uma proposta para aprovação)
             </Text>
+            <Text size="xs" c="dimmed">
+              <strong>/resumo</strong> — manda o resumo do dia na hora
+            </Text>
           </Box>
         </Stack>
       </Card>
+
+      {/* Modal Ver o resumo de hoje */}
+      <Modal
+        opened={modalResumo}
+        onClose={() => setModalResumo(false)}
+        title="Resumo de hoje"
+        centered
+        size="md"
+      >
+        <Stack gap="sm">
+          <Paper
+            withBorder
+            p="md"
+            radius="md"
+            bg="var(--mantine-color-default-hover)"
+            style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+          >
+            <Text size="sm">
+              {dailySummary?.texto ? formatWhatsAppText(dailySummary.texto) : "Nenhum resumo gerado ainda."}
+            </Text>
+          </Paper>
+          <Group justify="space-between">
+            <Text size="xs" c="dimmed">
+              {dailySummary?.ultimo_envio
+                ? `Último envio: ${dayjs(dailySummary.ultimo_envio).format("DD/MM/YYYY [às] HH:mm")}`
+                : "Nenhum envio registrado ainda."}
+            </Text>
+            <Button variant="default" size="xs" onClick={() => setModalResumo(false)}>
+              Fechar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {/* Modal Confirmação Desconectar */}
       <Modal

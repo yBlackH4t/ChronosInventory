@@ -326,6 +326,12 @@ export default function BackupPage() {
             onRemoteServerUrlChange={
               officialBasePanel.setOfficialRemoteServerUrlInput
             }
+            serverTokenInput={officialBasePanel.officialServerTokenInput}
+            onServerTokenChange={
+              officialBasePanel.setOfficialServerTokenInput
+            }
+            onSaveServerToken={officialBasePanel.saveServerPassword}
+            onRemoveServerToken={officialBasePanel.removeServerPassword}
             onSaveConfig={officialBasePanel.saveOfficialBaseConfig}
             saveConfigLoading={officialBasePanel.saveConfigLoading}
             serverSwitchLabel={officialBasePanel.serverSwitchLabel}

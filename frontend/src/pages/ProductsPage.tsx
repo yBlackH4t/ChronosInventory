@@ -55,6 +55,7 @@ import type {
   ProductCreate,
   ProductImageItem,
   ProductImagesUploadOut,
+  ProductStatusBulkOut,
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
@@ -221,6 +222,24 @@ export default function ProductsPage() {
     onError: (error) => notifyError(error),
   });
 
+  const inactivateMutation = useMutation<
+    SuccessResponse<ProductStatusBulkOut>,
+    Error,
+    number
+  >({
+    mutationFn: (productId: number) =>
+      api.bulkUpdateProductStatus({ ids: [productId], ativo: false }),
+    onSuccess: () => {
+      notifySuccess("Produto inativado");
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
+      setDrawerOpened(false);
+      setSelectedSnapshot(null);
+    },
+    onError: (error) => notifyError(error),
+  });
+
   const deleteMutation = useMutation<
     SuccessResponse<{ id: number; nome: string; message: string }>,
     Error,
@@ -232,8 +251,30 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });
+      setDrawerOpened(false);
+      setSelectedSnapshot(null);
     },
-    onError: (error) => notifyError(error),
+    onError: (error, productId) => {
+      const msg = error.message || "";
+      if (msg.includes("inative") || msg.includes("movimentaç")) {
+        modals.openConfirmModal({
+          title: "Não é possível excluir",
+          children: (
+            <Stack gap="xs">
+              <Text size="sm">{msg}</Text>
+              <Text size="xs" c="dimmed">
+                Deseja inativar o produto agora para tirá-lo da lista sem perder o histórico?
+              </Text>
+            </Stack>
+          ),
+          labels: { confirm: "Inativar produto", cancel: "Fechar" },
+          confirmProps: { color: "orange" },
+          onConfirm: () => inactivateMutation.mutate(productId),
+        });
+      } else {
+        notifyError(error);
+      }
+    },
   });
 
   const [formOpened, formHandlers] = useDisclosure(false);
@@ -314,7 +355,14 @@ export default function ProductsPage() {
     modals.openConfirmModal({
       title: "Excluir produto",
       children: (
-        <Text size="sm">Tem certeza que deseja excluir {product.nome}?</Text>
+        <Stack gap="xs">
+          <Text size="sm">
+            Tem certeza que deseja excluir <strong>{product.nome}</strong>?
+          </Text>
+          <Text size="xs" c="dimmed">
+            Produtos com movimentações não podem ser excluídos; inative para tirar da lista.
+          </Text>
+        </Stack>
       ),
       labels: { confirm: "Excluir", cancel: "Cancelar" },
       confirmProps: { color: "red" },
