@@ -109,13 +109,14 @@ Regras:
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)
 
 ## Assistente de IA
-Plano e regras em `docs/PLANO_IA.md`. Precisa de internet e de uma chave da API da Anthropic.
+Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). Sem IA disponivel, responde pela busca direta.
 - `POST /assistente/chat` - body `{ "mensagem": str (1-1000), "historico": [{ "papel": "usuario"|"assistente", "texto": str }] }`.
-  Resposta `{ resposta, produtos: [{ id, nome, categoria, estoque_total, estoque_por_local }], ferramentas_usadas }`.
-  O backend nao guarda conversa: a tela envia o historico a cada pergunta.
-  `503 assistente_indisponivel` quando a IA nao esta configurada ou nao responde (sem internet, chave recusada).
-- `GET /assistente/config` - `{ configurado, origem_chave: "configuracoes"|"ambiente"|null, chave_mascarada, modelo, esforco }`. Nunca devolve a chave.
-- `PUT /assistente/config` - body parcial `{ api_key?, modelo?, esforco?: "low"|"medium"|"high"|"xhigh"|"max" }`. `api_key: ""` remove a chave salva.
+  Resposta `{ resposta, produtos: [{ id, nome, categoria, estoque_total, estoque_por_local }], ferramentas_usadas, modo: "ia"|"busca_direta", aviso: str|null }`.
+  O backend nao guarda conversa: a tela envia o historico a cada pergunta. Nao retorna 503: se a IA falhar, `modo` = `busca_direta` e `aviso` explica.
+- `GET /assistente/config` - `{ provedor, configurado, origem_chave, chave_mascarada, modelo, esforco, provedores: [{ id, nome, gratuito, precisa_chave, configurado, origem_chave, chave_mascarada, modelo }] }`.
+  Os campos do nivel de cima sao do provedor atual. Nunca devolve chaves.
+- `PUT /assistente/config` - body parcial `{ provedor?: "groq"|"gemini"|"ollama"|"anthropic"|"nenhum", api_key?, modelo?, esforco?: "low"|"medium"|"high"|"xhigh"|"max" }`.
+  `api_key` e `modelo` valem para o `provedor` enviado (ou o atual). `api_key: ""` remove a chave; `modelo: ""` volta ao padrao.
   A configuracao fica em `assistente_config.json` na pasta do app (fora do banco e dos backups).
 
 ## Indices SQLite relevantes
@@ -135,4 +136,3 @@ Plano e regras em `docs/PLANO_IA.md`. Precisa de internet e de uma chave da API 
 - `invalid_transfer`
 - `not_found`
 - `internal_error`
-- `assistente_indisponivel`

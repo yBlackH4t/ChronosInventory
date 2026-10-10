@@ -25,17 +25,33 @@ class ChatOut(BaseModel):
     resposta: str
     produtos: list[ChatProductOut]
     ferramentas_usadas: list[str]
+    modo: Literal["ia", "busca_direta"]
+    aviso: str | None = None
 
 
-class AssistantConfigOut(BaseModel):
+class AssistantProviderOut(BaseModel):
+    id: str
+    nome: str
+    gratuito: bool
+    precisa_chave: bool
     configurado: bool
     origem_chave: Literal["configuracoes", "ambiente"] | None = None
     chave_mascarada: str | None = None
-    modelo: str
+    modelo: str | None = None
+
+
+class AssistantConfigOut(BaseModel):
+    provedor: str
+    configurado: bool
+    origem_chave: Literal["configuracoes", "ambiente"] | None = None
+    chave_mascarada: str | None = None
+    modelo: str | None = None
     esforco: str
+    provedores: list[AssistantProviderOut]
 
 
 class AssistantConfigIn(BaseModel):
+    provedor: Literal["groq", "gemini", "ollama", "anthropic", "nenhum"] | None = None
     api_key: str | None = Field(default=None, max_length=300)
     modelo: str | None = Field(default=None, max_length=80)
     esforco: Literal["low", "medium", "high", "xhigh", "max"] | None = None

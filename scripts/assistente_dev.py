@@ -10,9 +10,11 @@ assistente pelo terminal, sem precisar do banco real da empresa.
     python scripts/assistente_dev.py produto 1
     python scripts/assistente_dev.py cobertura
     python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"
+    python scripts/assistente_dev.py perguntar --sem-ia "temos turbina 4031196?"
 
-`perguntar` chama a API da Anthropic: precisa de internet e da chave em
-ANTHROPIC_API_KEY (ou salva pela tela de Configuracoes).
+`perguntar` usa o provedor de IA configurado (padrao: Groq, gratuito; chave em
+GROQ_API_KEY ou salva pela tela de Configuracoes). Sem chave ou sem internet, a
+resposta sai pela busca direta. `--sem-ia` usa so a busca direta.
 
 Por padrao usa a pasta %TEMP%/chronos_assistente. Use --pasta para outra.
 Para abrir o app com esse banco: defina CHRONOS_APP_DIR com a mesma pasta.
@@ -182,19 +184,20 @@ def run_tool(folder: str, name: str, arguments: Dict) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
-def ask(folder: str, question: str) -> None:
-    """Pergunta de verdade para a IA (precisa de internet e de ANTHROPIC_API_KEY ou chave salva)."""
+def ask(folder: str, question: str, direct: bool) -> None:
+    """Pergunta para o assistente: IA do provedor configurado ou, com --sem-ia, so a busca direta."""
     if not os.path.exists(os.path.join(folder, "estoque.db")):
         raise SystemExit(f"Banco nao encontrado em {folder}. Rode primeiro: gerar-banco")
     _use_dir(folder)
-    from app.services.assistant_chat_service import AssistantChatService, AssistantUnavailableError
+    from app.services.assistant_chat_service import AssistantChatService
+    from app.services.assistant_direct_service import AssistantDirectService
 
-    try:
-        result = AssistantChatService().chat(question)
-    except AssistantUnavailableError as exc:
-        raise SystemExit(f"Assistente indisponivel: {exc}")
+    result = AssistantDirectService().answer(question) if direct else AssistantChatService().chat(question)
     print(result["resposta"])
-    print(f"\n[ferramentas: {', '.join(result['ferramentas_usadas']) or '-'}]")
+    print()
+    print(f"[modo: {result['modo']} | ferramentas: {', '.join(result['ferramentas_usadas']) or '-'}]")
+    if result.get("aviso"):
+        print(f"[aviso: {result['aviso']}]")
     for product in result["produtos"]:
         print(f"[produto #{product['id']}: {product['nome']} - {product['estoque_por_local'] or 'sem estoque'}]")
 
@@ -281,13 +284,15 @@ def main() -> None:
     sub.add_parser("aplicacao", help="Ferramenta buscar_por_aplicacao").add_argument("texto")
     sub.add_parser("produto", help="Ferramenta detalhe_produto").add_argument("produto_id", type=int)
     sub.add_parser("cobertura", help="Quantos produtos com estoque tem ficha no catalogo")
-    sub.add_parser("perguntar", help="Pergunta para a IA de verdade (usa a API da Anthropic)").add_argument("pergunta")
+    ask_parser = sub.add_parser("perguntar", help="Pergunta para o assistente (IA configurada ou busca direta)")
+    ask_parser.add_argument("pergunta")
+    ask_parser.add_argument("--sem-ia", action="store_true", help="So a busca direta, sem chamar a IA")
 
     args = parser.parse_args()
     if args.comando == "gerar-banco":
         generate_database(args.pasta, args.produtos, args.seed, args.substituir)
     elif args.comando == "perguntar":
-        ask(args.pasta, args.pergunta)
+        ask(args.pasta, args.pergunta, args.sem_ia)
     elif args.comando == "cobertura":
         coverage(args.pasta)
     elif args.comando == "codigo":

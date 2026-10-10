@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from core.catalog.normalization import (
@@ -30,11 +31,24 @@ from core.exceptions import ValidationException
 # Master Power...) continuam valendo para a busca, mas nao aparecem nas respostas.
 SERVED_BRANDS = ("GARRETT", "HOLSET", "BORGWARNER")
 
-MAX_PRODUCTS = 15
-MAX_CATALOG_ITEMS = 12
-MAX_CODE_CATALOG_ITEMS = 5
-MAX_APPLICATIONS_PER_ITEM = 8
-MAX_REFS_PER_BRAND = 5
+
+
+@dataclass(frozen=True)
+class ResultLimits:
+    """Quanto cada ferramenta devolve. O modo compacto cabe em limites gratuitos (ex.: Groq)."""
+
+    products: int = 15
+    catalog_items: int = 12
+    code_catalog_items: int = 5
+    applications_per_item: int = 8
+    detail_applications: int = 15
+    refs_per_brand: int = 5
+
+
+DEFAULT_LIMITS = ResultLimits()
+COMPACT_LIMITS = ResultLimits(
+    products=8, catalog_items=6, code_catalog_items=3, applications_per_item=3, detail_applications=6, refs_per_brand=3
+)
 
 MATCH_EXACT = "exato"
 MATCH_FAMILY = "familia"
@@ -49,6 +63,7 @@ _STOPWORDS = {
     "TEM", "TEMOS", "TENHO", "TENS", "QUAL", "QUAIS", "ESTOQUE", "NO", "NA",
     "TURBINA", "TURBINAS", "TURBO", "TURBOS", "TURBOCOMPRESSOR", "TURBOCOMPRESSORES",
     "CAMINHAO", "CAMINHOES", "ONIBUS", "MOTOR", "CV", "HP", "CAVALOS",
+    "CONJUNTO", "CONJUNTOS", "CENTRAL", "CENTRAIS", "MIOLO", "CORE", "CHRA",
 }
 
 # Apelidos de montadora -> palavras como aparecem no catalogo (qualquer uma serve).
@@ -100,10 +115,16 @@ class AssistantToolsService:
         repository: Optional[AssistantRepository] = None,
         product_repository: Optional[ProductRepository] = None,
         catalog_repository: Optional[CatalogRepository] = None,
+        limits: ResultLimits = DEFAULT_LIMITS,
     ) -> None:
         self.repository = repository or AssistantRepository()
         self.products = product_repository or ProductRepository()
         self.catalog = catalog_repository or CatalogRepository()
+        self.limits = limits
+
+    def with_limits(self, limits: ResultLimits) -> "AssistantToolsService":
+        """Mesmo servico (mesmos repositorios) com outros limites de tamanho."""
+        return AssistantToolsService(self.repository, self.products, self.catalog, limits)
 
     # ------------------------------------------------------------------
     # Ferramentas
@@ -125,23 +146,23 @@ class AssistantToolsService:
         rank = {MATCH_EXACT: 0, MATCH_FAMILY: 1, MATCH_CATALOG: 2}
         products.sort(key=lambda p: (rank[p["correspondencia"]], -p["estoque_total"], p["nome"]))
 
-        catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=MAX_CODE_CATALOG_ITEMS)]
+        catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=self.limits.code_catalog_items)]
         catalog_items = self._catalog_items(catalog_ids, highlight=set(expand_family_codes([code])))
         applications = self._group_applications(self.repository.get_applications(catalog_ids))
         for item in catalog_items:
             apps = applications.get(item["id"], [])
-            item["aplicacoes"] = [_application_label(a) for a in apps[:MAX_APPLICATIONS_PER_ITEM]]
-            if len(apps) > MAX_APPLICATIONS_PER_ITEM:
-                item["aplicacoes_omitidas"] = len(apps) - MAX_APPLICATIONS_PER_ITEM
+            item["aplicacoes"] = [_application_label(a) for a in apps[:self.limits.applications_per_item]]
+            if len(apps) > self.limits.applications_per_item:
+                item["aplicacoes_omitidas"] = len(apps) - self.limits.applications_per_item
 
         result: Dict[str, Any] = {
             "codigo_pesquisado": code,
             "temos_em_estoque": any(p["estoque_total"] > 0 for p in products),
-            "produtos": products[:MAX_PRODUCTS],
+            "produtos": products[:self.limits.products],
             "fichas_catalogo": [self._public_item(i) for i in catalog_items],
         }
-        if len(products) > MAX_PRODUCTS:
-            result["produtos_omitidos"] = len(products) - MAX_PRODUCTS
+        if len(products) > self.limits.products:
+            result["produtos_omitidos"] = len(products) - self.limits.products
         return result
 
     def search_by_application(self, texto: str) -> Dict[str, Any]:
@@ -166,9 +187,9 @@ class AssistantToolsService:
         self._attach_our_products(catalog_items)
         for item in catalog_items:
             apps = self._dedupe_applications(matched[item["id"]])
-            item["aplicacoes"] = [_application_label(a) for a in apps[:MAX_APPLICATIONS_PER_ITEM]]
-            if len(apps) > MAX_APPLICATIONS_PER_ITEM:
-                item["aplicacoes_omitidas"] = len(apps) - MAX_APPLICATIONS_PER_ITEM
+            item["aplicacoes"] = [_application_label(a) for a in apps[:self.limits.applications_per_item]]
+            if len(apps) > self.limits.applications_per_item:
+                item["aplicacoes_omitidas"] = len(apps) - self.limits.applications_per_item
 
         catalog_items.sort(
             key=lambda i: (
@@ -184,10 +205,10 @@ class AssistantToolsService:
             "termos_usados": terms,
             "total_fichas": len(catalog_items),
             "temos_em_estoque": any(p["estoque_total"] > 0 for i in catalog_items for p in i["nossos_produtos"]),
-            "fichas_catalogo": [self._public_item(i) for i in catalog_items[:MAX_CATALOG_ITEMS]],
+            "fichas_catalogo": [self._public_item(i) for i in catalog_items[:self.limits.catalog_items]],
         }
-        if len(catalog_items) > MAX_CATALOG_ITEMS:
-            result["fichas_omitidas"] = len(catalog_items) - MAX_CATALOG_ITEMS
+        if len(catalog_items) > self.limits.catalog_items:
+            result["fichas_omitidas"] = len(catalog_items) - self.limits.catalog_items
             result["dica"] = "Muitos resultados: peca ao usuario o motor, o ano ou o modelo exato."
         if not catalog_items:
             result["dica"] = "Nada encontrado com todas as palavras. Tente com menos palavras ou so o motor."
@@ -208,9 +229,9 @@ class AssistantToolsService:
         applications = self._group_applications(self.repository.get_applications(catalog_ids))
         for item in catalog_items:
             apps = applications.get(item["id"], [])
-            item["aplicacoes"] = [_application_label(a) for a in apps[:15]]
-            if len(apps) > 15:
-                item["aplicacoes_omitidas"] = len(apps) - 15
+            item["aplicacoes"] = [_application_label(a) for a in apps[: self.limits.detail_applications]]
+            if len(apps) > self.limits.detail_applications:
+                item["aplicacoes_omitidas"] = len(apps) - self.limits.detail_applications
         summary["fichas_catalogo"] = [self._public_item(i) for i in catalog_items]
         return summary
 
@@ -298,7 +319,7 @@ class AssistantToolsService:
                     "modelo": _turbo_models(row.get("modelo")),
                     "atendemos_marca": bool(brand_refs),
                     "referencias": {
-                        brand: numbers[:MAX_REFS_PER_BRAND] for brand, numbers in brand_refs.items()
+                        brand: numbers[:self.limits.refs_per_brand] for brand, numbers in brand_refs.items()
                     },
                 }
             )

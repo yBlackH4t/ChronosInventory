@@ -28,6 +28,9 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
    e ano. Nesse caso a resposta lista as opções e pergunta qual é.
 5. **A API do Chronos continua fechada para a rede.** O assistente roda no PC da empresa
    e acessa os dados por dentro.
+6. **Custo zero.** O provedor padrão é o plano gratuito do Groq, que não pede cartão, então
+   não há como gerar cobrança. Quando a IA não responde (limite gratuito do dia, sem
+   internet, sem chave), a **busca direta** (sem IA) responde no lugar: sempre há resposta.
 
 ## 2. Arquitetura
 
@@ -43,9 +46,11 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
                             │
                             ▼
                 AssistantChatService (Fase 2)
-                 - prompt com as regras do negócio
-                 - chama a API da Claude com tool use
-                   (claude-opus-5-5, configurável)
+                 - escolhe o provedor de IA (padrão: Groq gratuito;
+                   opções: Gemini, Ollama local, Claude, nenhum)
+                 - prompt com as regras do negócio + tool use
+                 - se a IA falhar → AssistantDirectService
+                   (busca direta, sem IA, textos prontos)
                             │  pede ferramentas
                             ▼
                 AssistantToolsService (Fase 1)  ──► SQLite (produtos, estoque, catálogo)
@@ -60,7 +65,7 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 |---|---|---|---|
 | 0 | Banco de teste gerado a partir do catálogo embutido | Claude Code | ✅ pronto |
 | 1 | Ferramentas de busca determinísticas + testes | Claude Code | ✅ pronto |
-| 2 | Cérebro (LLM + tool use), `POST /assistente/chat` e configuração | Claude Code | ✅ pronto (falta testar com chave real) |
+| 2 | Cérebro (IA gratuita via Groq + busca direta de reserva), `POST /assistente/chat` e configuração | Claude Code | ✅ pronto (falta testar com chave real) |
 | 2 | Tela de chat e configuração da IA no app | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | a fazer (precisa da lista) |
 | 3 | Ponte WhatsApp (API não oficial) | Claude Code | a fazer |
@@ -107,38 +112,50 @@ Detalhes da busca por aplicação:
 
 ### Fase 2 — Cérebro (pronto no backend)
 
-`app/services/assistant_chat_service.py` (configuração em `assistant_config_store.py`,
-rotas em `backend/app/api/routers/assistant.py`, testes em `backend/tests/test_assistant_chat.py`).
+**Decisão: custo zero.** Provedor padrão: **Groq, plano gratuito** (sem cartão; segundo a
+documentação deles, não usa os dados para treinar modelos). Modelo `openai/gpt-oss-120b`.
 
-- **Como funciona:** a pergunta vai para a API da Claude com as três ferramentas. O modelo
-  pede buscas, o backend executa (`AssistantToolsService.run_tool`) e devolve o JSON; isso se
-  repete até a resposta final (no máximo 6 rodadas). A lista `produtos` da resposta vem dos
-  resultados das ferramentas, filtrada pelos nomes que a resposta cita — não do texto do modelo.
-- **Modelo:** padrão `claude-opus-5-5` com esforço `medium`, ambos configuráveis
-  (`PUT /assistente/config`). Opções para testar com as perguntas reais:
-  esforço `low` (mais rápido e barato) ou o modelo `claude-haiku-5-5` (bem mais barato).
-  Medir com a avaliação antes de trocar.
-- **Recusas:** com Opus 5.5 (e outros modelos que suportam), a API tenta de novo em outro modelo
-  se o filtro de segurança recusar por engano (`fallbacks: "default"`). Se mesmo assim recusar,
-  a resposta pede para reformular.
-- **Custo:** o prompt de sistema e as ferramentas ficam em cache entre as rodadas
-  (`cache_control`). O log do backend registra os tokens de cada chamada
-  (`assistente modelo=... input=... output=... cache_read=...`), sem o conteúdo da conversa.
-- **Conversa:** o backend não guarda nada; a tela (e depois a ponte do WhatsApp) envia o
-  histórico em texto a cada pergunta (até 20 mensagens).
-- **Chave da API:** salva em `assistente_config.json` na pasta do app, fora do banco, dos
-  backups e da base oficial publicada. Sem chave salva, vale a variável `ANTHROPIC_API_KEY`.
-  A API nunca devolve a chave (só `sk-ant-...1234`).
-- **Erros** viram `503 assistente_indisponivel` com mensagem em português: sem chave, chave
-  recusada, sem internet, limite de uso, modelo inexistente, serviço instável.
-- **Testar no terminal:** `python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"`
-  (precisa de internet e de `ANTHROPIC_API_KEY`).
+| Provedor | Custo | Observação |
+|---|---|---|
+| `groq` (padrão) | grátis, sem cartão | ~30–60 perguntas/dia; limite de 8 mil tokens/minuto |
+| `gemini` | créditos da assinatura Google AI Pro (US$ 10/mês) | exige cartão no Google Cloud; o que passar dos créditos é cobrado |
+| `ollama` | grátis, roda no PC | precisa de um PC forte; mais lento |
+| `anthropic` | pago | Claude; melhor qualidade |
+| `nenhum` | grátis | só a busca direta |
+
+Arquivos: `assistant_chat_service.py` (escolhe o provedor e faz a reserva),
+`assistant_openai_compat.py` (Groq, Gemini e Ollama, que usam o formato de API do OpenAI;
+chamado com `requests`, sem dependência nova), `assistant_anthropic.py` (Claude),
+`assistant_direct_service.py` (busca direta), `assistant_common.py` (prompt e partes
+comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/test_assistant_chat.py`.
+
+- **Como funciona:** a pergunta vai para o provedor com as três ferramentas. O modelo pede
+  buscas, o backend executa e devolve o JSON (compacto); isso se repete até a resposta final
+  (no máximo 6 rodadas). A lista `produtos` vem dos resultados das ferramentas, filtrada
+  pelos nomes que a resposta cita — não do texto do modelo.
+- **Limite gratuito do Groq:** as ferramentas devolvem respostas menores (modo compacto) e o
+  raciocínio do modelo fica em `low`. Se o Groq pedir para esperar até 20 s (limite por
+  minuto), o backend espera e tenta de novo; se for mais que isso ou acabar o limite do dia,
+  a busca direta responde.
+- **Busca direta (sem IA):** código na mensagem → busca por código (até 3 códigos);
+  senão → busca por veículo/motor. Se a última resposta foi uma pergunta ("Qual é o
+  motor?"), junta a pergunta anterior com a resposta ("scania 440" + "dc13"). Textos prontos
+  no estilo WhatsApp. Conjunto central só aparece numa pergunta de turbina quando tem estoque.
+- **Resposta da API:** `modo` (`ia` ou `busca_direta`) e `aviso` (por que a IA não
+  respondeu). O chat não devolve mais `503`.
+- **Chaves:** uma por provedor, salvas em `assistente_config.json` na pasta do app (fora do
+  banco, dos backups e da base oficial). Sem chave salva, vale a variável de ambiente do
+  provedor (`GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`). A API nunca devolve a chave.
+- **Testar no terminal:**
+  `python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"` (usa o
+  provedor configurado; sem chave, responde pela busca direta) e
+  `... perguntar --sem-ia "..."` (só a busca direta).
 
 Falta:
-- testar com uma chave real e ajustar o prompt com as respostas;
+- testar com uma chave real do Groq e ajustar o prompt com as respostas;
 - **avaliação:** lista de 20–30 perguntas reais do chefe com a resposta esperada, rodada a
-  cada mudança no prompt ou no modelo;
-- tela de chat e configuração no app (Antigravity).
+  cada mudança no prompt ou no provedor;
+- tela de chat e configuração no app (Antigravity), com a escolha do provedor.
 
 ### Fase 3 — WhatsApp (a fazer) — **decisão: API não oficial**
 
@@ -172,6 +189,7 @@ pública. Opções a avaliar: Evolution API (Docker), Baileys (Node) ou neonize 
 
 ## 5. Pendências com o dono do projeto
 
+- [ ] Chave gratuita do Groq (console.groq.com → API Keys), sem cartão.
 - [ ] Lista de perguntas reais do chefe (do histórico do WhatsApp) para a avaliação.
 - [ ] Testar no banco real. Copie o `estoque.db` da empresa para uma pasta separada (nunca use
       o original: abrir o banco pelo app aplica migrações) e rode:
