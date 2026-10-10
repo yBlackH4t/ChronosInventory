@@ -68,7 +68,7 @@ npm run lint
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
 | Claude Code | `feature/assistente-ia` | Assistente — base de conhecimento do especialista, admin e histórico (backend) prontos; próxima: distribuir o conhecimento e Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | em andamento | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -187,7 +187,7 @@ npm run lint
   - O esforço só faz diferença para Groq e Claude; pode ficar como está.
   - Mock: atualizar com `modo` e `aviso`.
 
-- [ ] **[Claude Code → Antigravity] Assistente: área do admin (ensinar o assistente).**
+- [x] **[Claude Code → Antigravity] Assistente: área do admin (ensinar o assistente).**
   Branch `ag/assistente-chat` (ou `ag/assistente-admin`), depois de `git merge feature/assistente-ia`.
   Contrato em `docs/API_DOCS.md`. Sugestão: uma aba "Admin" dentro da página Assistente,
   visível sempre, com três abas internas: **Para revisar**, **Conhecimento**, **Histórico**.
@@ -230,6 +230,33 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Antigravity — Assistente: área do admin (ensinar o assistente)
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - Adicionada aba "Admin (Especialista)" na tela do Assistente (`AssistantPage.tsx`), com controle de permissão e sessão:
+    - Verificação de máquina publicadora (`GET /assistente/admin/status`). Se `maquina_publicadora = false`, exibe alerta orientando sobre Configurações > Base oficial e expõe a base de conhecimento apenas em modo leitura.
+    - Criação de senha de admin inicial (`POST /admin/senha`) quando `senha_definida = false`.
+    - Login do admin (`POST /admin/login`) com token guardado estritamente em memória (`useAdminSession`). Ao receber `403 admin_necessario`, a sessão local é limpa e um aviso explicativo é exibido. Opção de logout (`POST /admin/logout`) e troca de senha de admin (`POST /admin/senha`).
+    - Exclusão do prefixo `assistant-admin` na persistência do IndexedDB no `AppProviders` para máxima segurança/privacidade.
+  - Criadas 3 abas internas no admin:
+    - **Para revisar** (`AdminReviewTab.tsx`): cartões por código pesquisado sem estoque, contagem de buscas, data formatada, exemplo de pergunta e tags de conhecimento prévio. Ações rápidas nas sugestões ("É igual", "É similar" com modal de ressalva, "Não serve"), ação livre "Ensinar outro código" e "Nada a fazer" (`POST /revisao/{codigo}/concluir`).
+    - **Conhecimento** (`AdminKnowledgeTab.tsx`): legenda clara de relações, busca instantânea por código, listagem tabular completa, modal para cadastrar nova regra e exclusão com diálogo de confirmação.
+    - **Histórico** (`AdminHistoryTab.tsx`): lista de conversas (App e WhatsApp), renderização do texto no padrão WhatsApp (`*negrito*`), códigos pesquisados sem estoque, modo/aviso, formulário para "Corrigir resposta" do especialista (gabarito) e botão "Exportar JSONL" fazendo download de `assistente_historico.jsonl`.
+  - Mocks atualizados em `assistantAdminApi.ts` simulando toda a suíte de endpoints do admin com estado em memória.
+- Arquivos principais:
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminKnowledgeTab.tsx`
+  - `frontend/src/components/assistant/AdminHistoryTab.tsx`
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/lib/assistantAdminApi.ts`
+  - `frontend/src/lib/assistantFormat.tsx`
+  - `frontend/src/state/assistantAdminSession.ts`
+  - `frontend/src/types/assistantAdmin.ts`
+  - `frontend/src/app/providers.tsx`
+- Verificações: `npm run build` ok / `npm run lint` ok sem erros nos arquivos da funcionalidade.
+- Pendências ou observações para o outro agente: nenhuma pendência. Tudo pronto e integrado.
 
 ### 2026-10-09 — Antigravity — Assistente: provedor gratuito e busca direta na tela
 - Branch: `ag/assistente-chat` (com merge de `feature/assistente-ia`)

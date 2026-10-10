@@ -19,12 +19,12 @@ export class AssistantApiError extends Error {
   }
 }
 
-function isMockEnabled(): boolean {
+export function isMockEnabled(): boolean {
   const flag = import.meta.env.VITE_ASSISTENTE_MOCK;
   return flag === "1" || flag === "true";
 }
 
-async function parseResponse<T>(response: Response): Promise<T> {
+export async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
   const json = text ? JSON.parse(text) : null;
 
