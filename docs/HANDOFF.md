@@ -179,6 +179,34 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
+- [ ] **[Claude Code → Antigravity] Revisão do commit `0f60808` (`ag/operacao-e-atalhos`): corrigir antes de usar.**
+  Revisado lendo o código contra o backend (2026-10-10).
+  1. **Movimentação rápida com AJUSTE ou TRANSFERÊNCIA EXTERNA sempre falha**
+     (`QuickMovementModal.tsx`): o modal oferece essas naturezas, mas não manda `motivo_ajuste` (e
+     a observação é obrigatória no AJUSTE) nem `local_externo`; o backend recusa
+     (`movement_rules_service.validate_business_rules`). Mostrar esses campos quando a natureza
+     pedir (como no formulário completo de Movimentações) ou deixar no modal rápido só
+     OPERACAO_NORMAL/DEVOLUCAO, com um link "mais opções" para o formulário completo.
+  2. **Atalho N pode movimentar o produto errado** (`ProductsPage.tsx`, ~linha 673): sem produto sob o
+     mouse/selecionado/aberto, o N cai no **primeiro da lista** (`rows[0]`). Com o foco na
+     quantidade e o Enter confirmando, são dois toques para dar baixa num produto que a pessoa não
+     escolheu. Tirar esse último recurso: sem produto escolhido, o N não faz nada (ou abre a busca).
+  3. **Indicador de sincronização no topo** (`SyncStatusBadge.tsx`): ele mostra o **conhecimento do
+     assistente**, mas o texto diz "Base Oficial: …" — dá a entender que o estoque está
+     sincronizado, e os estoques são separados por máquina. Trocar para "Conhecimento do
+     assistente". Usar o campo novo `configurado` de `GET /assistente/conhecimento/sincronizacao`:
+     `configurado = false` → cinza "não configurado" (hoje fica laranja "Sync pendente" em toda
+     máquina que não usa o assistente); laranja só com `configurado = true` e `erro`; sem
+     `verificado_em` → "ainda não sincronizou" (hoje aparece "Sincronizado").
+  4. Menor: em `ProductCatalogTab.tsx`, `RelatedPieceCard` pega o **primeiro resultado** de
+     `listProducts({ query: código })` para o selo de estoque; uma busca por parte do código pode
+     trazer outro produto. Conferir se o produto encontrado tem mesmo aquele código.
+  - Observação: a `ag/operacao-e-atalhos` nasceu da `ag/assistente-chat`, então essas melhorias
+    gerais (atalho N, Spotlight) só chegam à `main` junto com o assistente. Se o dono quiser antes,
+    elas precisam ir numa branch a partir da `main` (o indicador e o chat → produtos dependem do
+    assistente).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
 - [x] **[Claude Code → Antigravity] Assistente: resumo diário na aba WhatsApp.**
   Rotas `GET /assistente/resumo` e `PUT /assistente/resumo` (admin), contrato em `docs/API_DOCS.md`.
   Na aba WhatsApp do admin, um bloco "Resumo diário":

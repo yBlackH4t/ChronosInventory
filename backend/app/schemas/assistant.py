@@ -107,6 +107,7 @@ class KnowledgeSyncOut(BaseModel):
     """Conhecimento entre as maquinas: o que esta maquina publicou (publicadora) ou recebeu."""
 
     papel: str
+    configurado: bool = False
     fonte: str | None = None
     publicado_em: str | None = None
     maquina: str | None = None

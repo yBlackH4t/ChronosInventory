@@ -87,6 +87,11 @@ def test_publisher_publishes_to_the_shared_folder_and_the_local_server(tools, tm
 def test_publisher_without_folder_or_server_explains(tools, tmp_path):  # noqa: F811
     status = _service(tmp_path, "publicadora", role="publisher").sync()
     assert status["fonte"] is None and status["erro"] == NO_DESTINATION
+    assert status["configurado"] is False  # a tela mostra "nao configurado", nao uma falha
+    folder = _service(tmp_path, "publicadora", role="publisher", official_base_dir=str(tmp_path / "pasta"))
+    assert folder.status()["configurado"] is True
+    assert _service(tmp_path, "filial").status()["configurado"] is False
+    assert _service(tmp_path, "filial", remote_server_url="http://pc-admin:8765").status()["configurado"] is True
 
 
 def test_other_machine_receives_from_the_shared_folder(tools, tmp_path):  # noqa: F811

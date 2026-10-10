@@ -166,12 +166,20 @@ class AssistantKnowledgeSyncService:
 
     def status(self) -> Dict[str, Any]:
         try:
-            role = str(self.config_reader().get("role") or "consumer")
+            config = self.config_reader()
         except Exception:
-            role = "consumer"
+            config = {}
+        role = str(config.get("role") or "consumer")
+        if role == ROLE_PUBLISHER:
+            configured = bool(str(config.get("official_base_dir") or "").strip() or config.get("server_enabled"))
+        else:
+            configured = bool(str(config.get("remote_server_url") or "").strip() or str(config.get("official_base_dir") or "").strip())
         state = self._state()
         return {
             "papel": role,
+            # Tem para onde publicar / de onde receber? Sem isso, "erro" so explica o que configurar
+            # (a tela mostra "nao configurado", nao uma falha).
+            "configurado": configured,
             "fonte": state.get("fonte"),
             "publicado_em": state.get("publicado_em"),
             "maquina": state.get("maquina"),
