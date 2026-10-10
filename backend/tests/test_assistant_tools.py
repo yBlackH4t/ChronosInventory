@@ -146,6 +146,17 @@ def test_code_search_accepts_oem_and_family_variants(tools):
     assert k27["estoque_por_local"] == {"Passo Fundo": 3}
 
 
+def test_code_search_separates_code_from_text(tools):
+    # O modelo as vezes manda o codigo junto com o modelo da turbina.
+    result = tools.search_by_code("HX55W 4031196")
+    assert result["codigo_pesquisado"] == "4031196"
+    assert result["texto_pronto"].startswith("*4031196*: temos.")
+
+    two = tools.search_by_code("4031196 / 53279887116")
+    assert two["codigo_pesquisado"] == "4031196"
+    assert two["outros_codigos_no_texto"] == ["53279887116"]
+
+
 def test_code_search_without_stock(tools):
     result = tools.search_by_code("4031343")
     assert result["temos_em_estoque"] is False
@@ -166,9 +177,11 @@ def test_application_search_splits_same_vehicle_by_engine(tools):
     assert without_stock["nossos_produtos"][0]["estoque_total"] == 0
     assert without_stock["aplicacoes"][0]["motor"] == "DT12-06/18 Euro 3"
 
-    # Mais de uma turbina possivel: o proprio resultado avisa o modelo para perguntar o motor.
-    assert "pergunte o motor e o ano" in result["atencao"]
+    # Mais de uma turbina possivel: o proprio resultado avisa o modelo e traz a resposta pronta.
+    assert "mudam conforme o motor" in result["atencao"]
     assert list(result).index("atencao") < list(result).index("fichas_catalogo")
+    assert result["texto_pronto"].startswith("Depende do motor:")
+    assert result["texto_pronto"].endswith("Qual é o motor do cliente?")
 
     narrowed = tools.search_by_application("scania r440 dc13")
     assert [f["ficha"] for f in narrowed["fichas_catalogo"]] == ["805310"]
