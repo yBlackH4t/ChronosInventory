@@ -205,7 +205,7 @@ export default function BatchMovementModal({
             data={["ENTRADA", "SAIDA", "TRANSFERENCIA"]}
             value={tipo}
             onChange={(val) => {
-              setTipo(val as any);
+              setTipo(val as MovementBatchCreate["tipo"]);
               if (val === "TRANSFERENCIA") {
                 setNatureza("OPERACAO_NORMAL");
               }
@@ -218,7 +218,7 @@ export default function BatchMovementModal({
               ? ["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA"] 
               : ["OPERACAO_NORMAL", "DEVOLUCAO", "AJUSTE"]}
             value={natureza}
-            onChange={(val) => setNatureza(val as any)}
+            onChange={(val) => setNatureza(val as NonNullable<MovementBatchCreate["natureza"]>)}
             allowDeselect={false}
           />
         </Group>

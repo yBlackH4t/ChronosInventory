@@ -37,6 +37,7 @@ import {
   isRouteActive,
   usePrefetchRoute,
 } from "../../app/navigation";
+import { SyncStatusBadge } from "./SyncStatusBadge";
 
 export default function TopBar({ health }: { health: HealthOut }) {
   const {
@@ -284,6 +285,8 @@ export default function TopBar({ health }: { health: HealthOut }) {
               </Link>
             </Tooltip>
           )}
+
+          <SyncStatusBadge />
 
           <Tooltip label={`API conectada · v${appVersion}`}>
             <span className="status-dot-wrap" aria-label="API conectada">

@@ -36,6 +36,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   const [officialRemoteServerUrlInput, setOfficialRemoteServerUrlInput] =
     useState("");
   const [officialNotesInput, setOfficialNotesInput] = useState("");
+  const [officialServerTokenInput, setOfficialServerTokenInput] = useState("");
   const [remoteOfficialStatus, setRemoteOfficialStatus] =
     useState<RemoteShareStatusOut | null>(null);
   const [serverStatusRefreshUntil, setServerStatusRefreshUntil] = useState(0);
@@ -76,6 +77,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     mutationFn: (payload) => api.officialBaseUpdateConfig(payload),
     onSuccess: (response) => {
       notifySuccess("Configuracao da base oficial salva.");
+      setOfficialServerTokenInput("");
       queryClient.setQueryData(["official-base-status"], response);
       queryClient.invalidateQueries({
         queryKey: ["official-base-server-history"],
@@ -282,12 +284,14 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
 
   useEffect(() => {
     if (!officialBaseStatus) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setOfficialRoleInput(officialBaseStatus.role);
     setOfficialMachineLabelInput(officialBaseStatus.machine_label || "");
     setOfficialPublisherNameInput(officialBaseStatus.publisher_name || "");
     setOfficialServerPortInput(officialBaseStatus.server_port ?? 8765);
     setOfficialRemoteServerUrlInput(officialBaseStatus.remote_server_url || "");
   }, [
+    officialBaseStatus,
     officialBaseStatus?.role,
     officialBaseStatus?.machine_label,
     officialBaseStatus?.publisher_name,
@@ -295,26 +299,63 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     officialBaseStatus?.remote_server_url,
   ]);
 
-  const saveOfficialBaseConfig = useCallback(() => {
-    officialBaseConfigMutation.mutate({
-      role: officialRoleInput,
-      official_base_dir: officialBaseStatus?.official_base_dir ?? null,
-      machine_label: officialMachineLabelInput.trim() || null,
-      publisher_name: officialPublisherNameInput.trim() || null,
-      server_port: officialServerPortInput ?? undefined,
-      remote_server_url: officialRemoteServerUrlInput.trim() || null,
-      server_enabled: officialBaseStatus?.server_enabled ?? false,
-    });
-  }, [
-    officialBaseConfigMutation,
-    officialBaseStatus?.official_base_dir,
-    officialBaseStatus?.server_enabled,
-    officialMachineLabelInput,
-    officialPublisherNameInput,
-    officialRemoteServerUrlInput,
-    officialRoleInput,
-    officialServerPortInput,
-  ]);
+  const saveOfficialBaseConfig = useCallback(
+    (tokenOverride?: string | null) => {
+      let tokenToSend: string | null | undefined = undefined;
+      if (typeof tokenOverride === "string") {
+        tokenToSend = tokenOverride;
+      } else if (tokenOverride === null) {
+        tokenToSend = null;
+      } else if (officialServerTokenInput.trim()) {
+        if (officialServerTokenInput.trim().length < 6) {
+          notifyError(
+            new Error("A senha do servidor precisa ter pelo menos 6 caracteres."),
+          );
+          return;
+        }
+        tokenToSend = officialServerTokenInput.trim();
+      } else {
+        tokenToSend = null;
+      }
+
+      officialBaseConfigMutation.mutate({
+        role: officialRoleInput,
+        official_base_dir: officialBaseStatus?.official_base_dir ?? null,
+        machine_label: officialMachineLabelInput.trim() || null,
+        publisher_name: officialPublisherNameInput.trim() || null,
+        server_port: officialServerPortInput ?? undefined,
+        remote_server_url: officialRemoteServerUrlInput.trim() || null,
+        server_enabled: officialBaseStatus?.server_enabled ?? false,
+        server_token: tokenToSend,
+      });
+    },
+    [
+      officialBaseConfigMutation,
+      officialBaseStatus?.official_base_dir,
+      officialBaseStatus?.server_enabled,
+      officialMachineLabelInput,
+      officialPublisherNameInput,
+      officialRemoteServerUrlInput,
+      officialRoleInput,
+      officialServerPortInput,
+      officialServerTokenInput,
+    ],
+  );
+
+  const saveServerPassword = useCallback(() => {
+    const trimmed = officialServerTokenInput.trim();
+    if (trimmed.length < 6) {
+      notifyError(
+        new Error("A senha do servidor precisa ter pelo menos 6 caracteres."),
+      );
+      return;
+    }
+    saveOfficialBaseConfig(trimmed);
+  }, [officialServerTokenInput, saveOfficialBaseConfig]);
+
+  const removeServerPassword = useCallback(() => {
+    saveOfficialBaseConfig("");
+  }, [saveOfficialBaseConfig]);
 
   const toggleLocalServer = useCallback(
     (nextChecked: boolean) => {
@@ -390,6 +431,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         ? officialBaseStatusQuery.error.message
         : null,
     officialNotesInput,
+    officialServerTokenInput,
     officialPublisherNameInput,
     officialRemoteServerUrlInput,
     officialRoleInput,
@@ -406,11 +448,14 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     serverToggleBusy,
     setOfficialMachineLabelInput,
     setOfficialNotesInput,
+    setOfficialServerTokenInput,
     setOfficialPublisherNameInput,
     setOfficialRemoteServerUrlInput,
     setOfficialRoleInput,
     setOfficialServerPortInput,
     saveOfficialBaseConfig,
+    saveServerPassword,
+    removeServerPassword,
     toggleLocalServer,
     testRemoteServer: () => officialBaseTestDirectoryMutation.mutate(),
     confirmPublishOfficialBase,

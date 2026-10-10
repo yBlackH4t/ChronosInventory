@@ -4,6 +4,7 @@ import type {
   AssistantChatResponse,
   AssistantConfig,
   AssistantConfigUpdate,
+  AssistantMessage,
   AssistantProvider,
 } from "../types/assistant";
 import type { SuccessResponse, ErrorResponse } from "../types/api";
@@ -135,6 +136,47 @@ export async function sendAssistantMessage(req: AssistantChatRequest): Promise<A
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(req),
+  });
+  return parseResponse<AssistantChatResponse>(response);
+}
+
+export async function sendAssistantPhotoMessage(
+  foto: File,
+  mensagem?: string,
+  historico: AssistantMessage[] = [],
+): Promise<AssistantChatResponse> {
+  if (isMockEnabled()) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    return {
+      resposta: "Identifiquei a plaqueta como *466646-5041S*.\n• *TURBO GT2052S 466646-5041S* — 1 em Canoas.",
+      produtos: [
+        {
+          id: 8,
+          nome: "TURBO GT2052S 466646-5041S",
+          categoria: "TURBO",
+          estoque_total: 1,
+          estoque_por_local: { Canoas: 1 },
+        },
+      ],
+      ferramentas_usadas: ["buscar_por_codigo"],
+      modo: "ia",
+      aviso: null,
+      leitura_foto: "Foto da plaqueta: 466646-5041S",
+    };
+  }
+
+  const formData = new FormData();
+  formData.append("foto", foto);
+  if (mensagem && mensagem.trim()) {
+    formData.append("mensagem", mensagem.trim());
+  }
+  if (historico && historico.length > 0) {
+    formData.append("historico", JSON.stringify(historico));
+  }
+
+  const response = await fetch(`${baseUrl}/assistente/chat/foto`, {
+    method: "POST",
+    body: formData,
   });
   return parseResponse<AssistantChatResponse>(response);
 }

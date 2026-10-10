@@ -110,6 +110,7 @@ export interface WhatsAppStatus {
 }
 
 export interface KnowledgeSyncStatus {
+  configurado?: boolean;
   papel: "publisher" | "subscriber" | "standalone" | string;
   fonte: string | null;
   publicado_em: string | null;
@@ -118,6 +119,18 @@ export interface KnowledgeSyncStatus {
   atualizado_em: string | null;
   verificado_em: string | null;
   erro: string | null;
+}
+
+export interface DailySummary {
+  texto: string;
+  ativo: boolean;
+  hora: string;
+  ultimo_envio: string | null;
+}
+
+export interface DailySummaryUpdate {
+  ativo?: boolean;
+  hora?: string;
 }
 
 
