@@ -78,7 +78,8 @@ mouse ou selecionado; busca rápida com o saldo por filial; cartão do chat que 
 indicador do conhecimento no topo; peças relacionadas no catálogo com o estoque.
 
 **Conferido em 2026-10-10 na `feature/assistente-ia`:**
-- versões consistentes, 185 testes, build e lint sem erros;
+- versões consistentes, 186 testes, Ruff, 21 testes de tela, build e lint sem erros (depois
+  dos PRs #4, #5 e #6 das conversas do Projeto);
 - telas do assistente no tema claro e no escuro;
 - "Salvar configuração" da Base oficial funcionando no app.
 
@@ -87,7 +88,11 @@ indicador do conhecimento no topo; peças relacionadas no catálogo com o estoqu
 1. **Testar na empresa numa cópia do banco** (`docs/ASSISTENTE_IA.md`, seção 6). Vai ser o
    primeiro teste com os dados reais, e esta versão cria tabelas novas no banco.
 2. Testar o conhecimento chegando numa segunda máquina.
-3. **Versão 2.4.0:**
+3. **Testar o instalador** (`npm run build:app` e instalar num computador de teste). Os PRs #4
+   e #5 mudaram coisas que só valem no app instalado: as regras de segurança da janela (CSP) e
+   o backend empacotado em pasta. Conferir: o app abre, as fotos dos produtos aparecem, o
+   scanner do celular conecta e "Buscar atualização" funciona.
+4. **Versão 2.4.0:**
    - rodar `frontend/scripts/bump_version.ps1 2.4.0`;
    - escrever a seção `## [2.4.0]` do `CHANGELOG.md` (é o texto de "Novidades da versão") e
      rodar `npm run changelog:sync`;
