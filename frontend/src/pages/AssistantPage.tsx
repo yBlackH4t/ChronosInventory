@@ -205,7 +205,15 @@ export default function AssistantPage() {
   }, [messages, mutation.isPending]);
 
   return (
-    <Container size="lg" py="md" h="calc(100vh - 60px)" display="flex" style={{ flexDirection: "column" }}>
+    // Ocupa a altura que sobra abaixo da barra do topo (e do padding de .app-content,
+    // 24px + 32px), para a caixa de digitar ficar sempre visivel.
+    <Container
+      size="lg"
+      py="md"
+      h="calc(100dvh - var(--app-shell-header-height, 97px) - 56px)"
+      display="flex"
+      style={{ flexDirection: "column" }}
+    >
       <Group justify="space-between" mb="xs">
         <Title order={3}>Assistente de IA</Title>
         {activeTab === "chat" && (

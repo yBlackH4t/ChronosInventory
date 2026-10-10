@@ -38,6 +38,9 @@ import type {
 import { useLocations } from "../../hooks/useLocations";
 import { useChartTheme, useLocationColor } from "../../lib/chartTheme";
 
+// Eixo Y com largura "auto" e sem margem negativa: antes 1.400 aparecia cortado como "400".
+const formatAxisNumber = (value: number) => value.toLocaleString("pt-BR");
+
 type Scope = number | null;
 type PeriodMode = "week" | "month";
 type ExternalTransferType = "ENTRADA" | "SAIDA";
@@ -167,7 +170,7 @@ export default function DashboardVisuals({
             ) : (
               <div style={{ width: "100%", height: CHART_HEIGHT }}>
                 <ResponsiveContainer>
-                  <AreaChart data={flow} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <AreaChart data={flow} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={chart.inflow} stopOpacity={0.18} />
@@ -180,7 +183,7 @@ export default function DashboardVisuals({
                     </defs>
                     <CartesianGrid vertical={false} stroke={chart.grid} />
                     <XAxis dataKey="period" {...axisProps} />
-                    <YAxis allowDecimals={false} width={40} {...axisProps} />
+                    <YAxis allowDecimals={false} width="auto" tickFormatter={formatAxisNumber} {...axisProps} />
                     <Tooltip
                       {...chart.tooltip}
                       cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
@@ -318,7 +321,7 @@ export default function DashboardVisuals({
             ) : (
               <div style={{ width: "100%", height: CHART_HEIGHT }}>
                 <ResponsiveContainer>
-                  <AreaChart data={evolution} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <AreaChart data={evolution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="fillEvolution" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={chart.series[0]} stopOpacity={0.16} />
@@ -327,7 +330,7 @@ export default function DashboardVisuals({
                     </defs>
                     <CartesianGrid vertical={false} stroke={chart.grid} />
                     <XAxis dataKey="period" {...axisProps} />
-                    <YAxis allowDecimals={false} width={40} {...axisProps} />
+                    <YAxis allowDecimals={false} width="auto" tickFormatter={formatAxisNumber} {...axisProps} />
                     <Tooltip
                       {...chart.tooltip}
                       cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
