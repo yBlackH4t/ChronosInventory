@@ -378,12 +378,13 @@ export default function AdminHistoryTab() {
             description="Use *negrito* para destacar nomes e códigos"
             placeholder="Digite a resposta correta e ideal..."
             value={modalCorrecao.respostaCorreta}
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.currentTarget.value;
               setModalCorrecao((prev) => ({
                 ...prev,
-                respostaCorreta: e.currentTarget.value,
-              }))
-            }
+                respostaCorreta: value,
+              }));
+            }}
             minRows={4}
             autosize
             required
@@ -393,12 +394,13 @@ export default function AdminHistoryTab() {
             label="Observação interna (opcional)"
             placeholder="Ex.: a IA não percebeu que o código 4031196 aplica tanto em Scania quanto em Volvo"
             value={modalCorrecao.observacao}
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.currentTarget.value;
               setModalCorrecao((prev) => ({
                 ...prev,
-                observacao: e.currentTarget.value,
-              }))
-            }
+                observacao: value,
+              }));
+            }}
             rows={2}
           />
           <Group justify="flex-end" mt="md">

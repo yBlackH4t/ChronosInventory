@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 | Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-10 |
-| Antigravity | `ag/assistente-chat` | Assistente: formulários do admin | em andamento | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Assistente: formulários do admin | concluído | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -169,7 +169,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
+- [x] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
   Achado no teste do dono: em "Ensinar outro código", ao digitar o código, a tela quebra e o app
   recarrega (o login de admin, que fica em memória, se perde; o `POST /assistente/conhecimento`
   nem chega ao backend). Causa: `e.currentTarget.value` lido **dentro** do atualizador do
@@ -326,6 +326,19 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Antigravity — Assistente: correção de digitação nos formulários do admin (urgente)
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - Correção do acesso assíncrono ao SyntheticEvent do React (`e.currentTarget.value`) dentro de callbacks funcionais do `setState` (`(prev) => ({ ...prev, campo: ... })`), que causava `TypeError: Cannot read properties of null (reading 'value')` e quebrava o app/perdia o login em memória ao digitar:
+    - `AdminReviewTab.tsx`: captura de `const value = e.currentTarget.value` antes do `setState` no campo de ressalva do modal "É similar" (linha 571), no código equivalente do modal "Ensinar relação" (linha 608) e no campo de observação livre (linha 635).
+    - `AdminHistoryTab.tsx`: captura de `const value = e.currentTarget.value` antes do `setState` no campo de resposta correta do especialista (linha 382) e no campo de observação interna (linha 398) do modal "Corrigir resposta".
+  - Testado e validado interativamente nos modais de revisão e correção sem nenhum erro ou crash de renderização.
+- Arquivos principais:
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminHistoryTab.tsx`
+- Verificações: `npm run build` ok (`7.35s`) / `npx eslint` ok sem erros.
+- Pendências ou observações para o outro agente: nenhuma pendência. Modais funcionando com digitação fluida.
 
 ### 2026-10-10 — Antigravity — Assistente: telas legíveis no tema escuro (urgente)
 - Branch: `ag/assistente-chat`

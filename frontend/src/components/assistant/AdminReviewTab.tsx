@@ -567,9 +567,10 @@ export default function AdminReviewTab() {
             description="Ex.: 'muda o atuador', 'precisa trocar a carcaça fria'"
             placeholder="Qual é a diferença ou adaptação necessária?"
             value={similarModal.ressalva}
-            onChange={(e) =>
-              setSimilarModal((prev) => ({ ...prev, ressalva: e.currentTarget.value }))
-            }
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              setSimilarModal((prev) => ({ ...prev, ressalva: value }));
+            }}
             autoFocus
           />
           <Group justify="flex-end" mt="md">
@@ -603,9 +604,10 @@ export default function AdminReviewTab() {
             label="Código equivalente / relacionado"
             placeholder="Ex.: 4031195 ou 758160-0007"
             value={customModal.codigoB}
-            onChange={(e) =>
-              setCustomModal((prev) => ({ ...prev, codigoB: e.currentTarget.value }))
-            }
+            onChange={(e) => {
+              const value = e.currentTarget.value;
+              setCustomModal((prev) => ({ ...prev, codigoB: value }));
+            }}
             required
             autoFocus
           />
@@ -629,12 +631,13 @@ export default function AdminReviewTab() {
             label="Observação (opcional)"
             placeholder="Ex.: muda a flange de entrada, carcaça quente menor"
             value={customModal.observacao}
-            onChange={(e) =>
+            onChange={(e) => {
+              const value = e.currentTarget.value;
               setCustomModal((prev) => ({
                 ...prev,
-                observacao: e.currentTarget.value,
-              }))
-            }
+                observacao: value,
+              }));
+            }}
             rows={2}
           />
           <Group justify="flex-end" mt="md">
