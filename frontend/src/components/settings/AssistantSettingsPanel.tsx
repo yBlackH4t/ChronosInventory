@@ -150,7 +150,7 @@ export default function AssistantSettingsPanel() {
         )}
 
         {precisaChave && (
-          <Card withBorder p="sm" radius="md" bg="var(--mantine-color-gray-0)">
+          <Card withBorder p="sm" radius="md" bg="var(--mantine-color-default-hover)">
             <Text size="sm" fw={500} mb={4}>Chave da API ({nomeProvedor})</Text>
             {KEY_HELP[config.provedor] && (
               <Text size="xs" c="dimmed" mb="xs">

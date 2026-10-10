@@ -233,8 +233,8 @@ export default function AssistantPage() {
                           p="sm"
                           radius="md"
                           withBorder
-                          bg={isUser ? "blue.6" : "gray.0"}
-                          c={isUser ? "white" : "black"}
+                          bg={isUser ? "blue.6" : "var(--mantine-color-default-hover)"}
+                          c={isUser ? "white" : undefined}
                         >
                           <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                             {formatWhatsAppText(msg.texto)}

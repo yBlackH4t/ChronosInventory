@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 | Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-10 |
-| Antigravity | `ag/assistente-chat` | Assistente: telas no tema escuro | em andamento | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Assistente: telas no tema escuro | concluído | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -169,7 +169,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
+- [x] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
   Branch `ag/assistente-chat`. No tema escuro, cartões com fundo claro fixo recebem o texto claro
   do tema: a barra do admin ("Admin Autenticado", "Máquina Publicadora", "Sair") e as sugestões de
   "Para revisar" (nome, código, estoque e os botões "É igual"/"É similar"/"Não serve") ficam quase
@@ -312,6 +312,28 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Antigravity — Assistente: telas legíveis no tema escuro (urgente)
+- Branch: `ag/assistente-chat`
+- O que foi feito:
+  - Substituição de fundos claros fixos (`gray-0`, `teal-0`, `blue-0`, `green-0`, `bg="white"`, `c="black"`) por tokens e variáveis dinâmicos do Mantine 7 que acompanham automaticamente os temas claro e escuro:
+    - `AssistantAdminPanel.tsx`: barra superior do admin trocada para `bg="var(--mantine-color-default-hover)"`.
+    - `AdminReviewTab.tsx`: cartões de propostas do WhatsApp atualizados para `bg="var(--mantine-color-teal-light)"` com borda `var(--mantine-color-teal-light-border)` e cartões de sugestões de códigos para `bg="var(--mantine-color-default-hover)"`.
+    - `AdminKnowledgeTab.tsx`: cartão de legenda de relações atualizado para `bg="var(--mantine-color-blue-light)"`, borda `var(--mantine-color-blue-light-border)` e texto `c="var(--mantine-color-blue-light-color)"`; cartão de status de sincronização para `bg="var(--mantine-color-default-hover)"`.
+    - `AdminHistoryTab.tsx`: balão de resposta enviada trocado para `bg="var(--mantine-color-default-hover)"`; cartão de resposta correta do especialista atualizado para `bg="var(--mantine-color-green-light)"`, borda `var(--mantine-color-green-light-border)` e título `c="var(--mantine-color-green-light-color)"`.
+    - `AdminWhatsAppTab.tsx`: Paper de conexão pareada atualizado para `bg="var(--mantine-color-green-light)"` com texto e borda adaptáveis; quadro "Como usar" trocado para `bg="var(--mantine-color-default-hover)"`; no painel de QR code, fundo branco isolado estritamente ao redor do `QRCodeSVG` com `p="xs"` e bordas arredondadas (garantindo leitura por celular sem clarear o Paper de carregamento).
+    - `AssistantPage.tsx`: balão de mensagem do assistente trocado para `bg="var(--mantine-color-default-hover)"` e remoção do `c="black"` estático (herda a cor do tema).
+    - `settings/AssistantSettingsPanel.tsx`: cartão de chave da API do assistente atualizado para `bg="var(--mantine-color-default-hover)"`.
+- Arquivos principais:
+  - `frontend/src/pages/AssistantPage.tsx`
+  - `frontend/src/components/assistant/AssistantAdminPanel.tsx`
+  - `frontend/src/components/assistant/AdminReviewTab.tsx`
+  - `frontend/src/components/assistant/AdminKnowledgeTab.tsx`
+  - `frontend/src/components/assistant/AdminWhatsAppTab.tsx`
+  - `frontend/src/components/assistant/AdminHistoryTab.tsx`
+  - `frontend/src/components/settings/AssistantSettingsPanel.tsx`
+- Verificações: `npm run build` ok (`9.67s`) / `npx eslint` ok sem erros nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma pendência. Todas as telas do assistente e do admin plenamente legíveis e integradas no tema escuro e claro.
 
 ### 2026-10-10 — Claude Code — Tela travada pedindo reinício no teste
 - Branch: `feature/assistente-ia`

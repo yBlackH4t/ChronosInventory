@@ -257,9 +257,11 @@ export default function AdminWhatsAppTab() {
         {/* Caso 2: Aguardando leitura do QR Code */}
         {isAguardandoQr && (
           <Stack gap="md" align="center" py="md">
-            <Paper withBorder p="md" radius="md" bg="white" shadow="sm">
+            <Paper withBorder p="md" radius="md" shadow="sm">
               {status?.qr ? (
-                <QRCodeSVG value={status.qr} size={230} level="M" />
+                <Box p="xs" bg="white" style={{ borderRadius: 8, display: "inline-block", lineHeight: 0 }}>
+                  <QRCodeSVG value={status.qr} size={230} level="M" />
+                </Box>
               ) : (
                 <Box p="xl" ta="center">
                   <Loader size="md" />
@@ -296,13 +298,19 @@ export default function AdminWhatsAppTab() {
         {/* Caso 3: Conectado */}
         {isConectado && (
           <Stack gap="sm" py="sm">
-            <Paper withBorder p="sm" radius="md" bg="var(--mantine-color-green-0)">
+            <Paper
+              withBorder
+              p="sm"
+              radius="md"
+              bg="var(--mantine-color-green-light)"
+              style={{ borderColor: "var(--mantine-color-green-light-border)" }}
+            >
               <Group justify="space-between">
                 <div>
-                  <Text size="sm" fw={600} c="green.9">
+                  <Text size="sm" fw={600} c="var(--mantine-color-green-light-color)">
                     Dispositivo pareado com sucesso
                   </Text>
-                  <Text size="xs" c="green.8">
+                  <Text size="xs" c="dimmed">
                     Número conectado: {status?.numero || "Confirmado"}
                   </Text>
                 </div>
@@ -334,7 +342,7 @@ export default function AdminWhatsAppTab() {
       </Card>
 
       {/* Quadro informativo: Como usar */}
-      <Card withBorder p="md" radius="md" bg="var(--mantine-color-gray-0)">
+      <Card withBorder p="md" radius="md" bg="var(--mantine-color-default-hover)">
         <Group gap="xs" mb="xs">
           <IconHelp size={20} color="var(--mantine-color-blue-6)" />
           <Text fw={600} size="sm">

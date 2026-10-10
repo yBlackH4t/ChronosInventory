@@ -312,8 +312,8 @@ export default function AdminReviewTab() {
                 withBorder
                 p="sm"
                 radius="md"
-                bg="var(--mantine-color-teal-0)"
-                style={{ borderColor: "var(--mantine-color-teal-3)" }}
+                bg="var(--mantine-color-teal-light)"
+                style={{ borderColor: "var(--mantine-color-teal-light-border)" }}
               >
                 <Group justify="space-between" wrap="wrap">
                   <div style={{ flex: 1, minWidth: 260 }}>
@@ -460,7 +460,7 @@ export default function AdminReviewTab() {
                     withBorder
                     p="xs"
                     radius="sm"
-                    bg="var(--mantine-color-gray-0)"
+                    bg="var(--mantine-color-default-hover)"
                   >
                     <Group justify="space-between" wrap="wrap">
                       <div style={{ flex: 1, minWidth: 240 }}>

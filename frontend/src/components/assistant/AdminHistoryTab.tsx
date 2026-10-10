@@ -274,7 +274,7 @@ export default function AdminHistoryTab() {
                   withBorder
                   p="xs"
                   radius="sm"
-                  bg="var(--mantine-color-gray-0)"
+                  bg="var(--mantine-color-default-hover)"
                   mb="xs"
                 >
                   <Text size="xs" fw={700} c="dimmed" tt="uppercase" mb={4}>
@@ -312,11 +312,11 @@ export default function AdminHistoryTab() {
                     withBorder
                     p="xs"
                     radius="sm"
-                    bg="var(--mantine-color-green-0)"
-                    style={{ borderColor: "var(--mantine-color-green-3)" }}
+                    bg="var(--mantine-color-green-light)"
+                    style={{ borderColor: "var(--mantine-color-green-light-border)" }}
                   >
                     <Group justify="space-between" mb={2}>
-                      <Text size="xs" fw={700} c="green.9" tt="uppercase">
+                      <Text size="xs" fw={700} c="var(--mantine-color-green-light-color)" tt="uppercase">
                         Gabarito / Resposta correta do Especialista:
                       </Text>
                     </Group>

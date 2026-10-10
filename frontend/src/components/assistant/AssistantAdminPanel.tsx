@@ -390,7 +390,7 @@ export default function AssistantAdminPanel() {
   return (
     <Stack gap="md">
       {/* Barra superior de controle do admin */}
-      <Paper withBorder p="xs" radius="md" bg="var(--mantine-color-gray-0)">
+      <Paper withBorder p="xs" radius="md" bg="var(--mantine-color-default-hover)">
         <Group justify="space-between" wrap="wrap">
           <Group gap="xs">
             <Badge color="green" variant="light" leftSection={<IconShieldLock size={12} />}>

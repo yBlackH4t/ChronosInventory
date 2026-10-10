@@ -202,8 +202,14 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
 
   return (
     <Stack gap="md">
-      <Card withBorder p="sm" radius="md" bg="var(--mantine-color-blue-0)">
-        <Text size="sm" c="blue.9">
+      <Card
+        withBorder
+        p="sm"
+        radius="md"
+        bg="var(--mantine-color-blue-light)"
+        style={{ borderColor: "var(--mantine-color-blue-light-border)" }}
+      >
+        <Text size="sm" c="var(--mantine-color-blue-light-color)">
           <strong>Legenda de relações:</strong> <strong>igual</strong> = troca direta
           (100% compatível); <strong>similar</strong> = serve com ressalva/adaptação;{" "}
           <strong>diferente</strong> = não serve (o assistente nunca sugere).
@@ -211,7 +217,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       </Card>
 
       {/* Linha de status de sincronização entre máquinas */}
-      <Card withBorder p="xs" radius="md" bg="var(--mantine-color-gray-0)">
+      <Card withBorder p="xs" radius="md" bg="var(--mantine-color-default-hover)">
         <Group justify="space-between" wrap="wrap" gap="xs">
           <Group gap="xs">
             <IconRefresh size={16} color="var(--mantine-color-blue-6)" />
