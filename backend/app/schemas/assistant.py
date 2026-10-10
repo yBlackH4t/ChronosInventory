@@ -29,6 +29,8 @@ class ChatOut(BaseModel):
     ferramentas_usadas: list[str]
     modo: Literal["ia", "busca_direta"]
     aviso: str | None = None
+    # So em POST /assistente/chat/foto: o que foi lido na foto ("Foto da plaqueta: 466646-5041S").
+    leitura_foto: str | None = None
 
 
 class AssistantProviderOut(BaseModel):

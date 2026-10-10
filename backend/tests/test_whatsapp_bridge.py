@@ -22,7 +22,7 @@ ME = "5551988887777@s.whatsapp.net"
 class FakeTransport:
     def __init__(self):
         self.replies, self.reactions, self.to_self = [], [], []
-        self.audio = {}
+        self.audio, self.images = {}, {}
 
     def is_self_chat(self, chat):
         return chat == ME
@@ -40,6 +40,9 @@ class FakeTransport:
 
     def download_audio(self, message):
         return self.audio[message.id]
+
+    def download_image(self, message):
+        return self.images[message.id]
 
 
 class FakeChat:
@@ -64,6 +67,17 @@ class FakeTranscriber:
         return self.text
 
 
+class FakeVision:
+    def __init__(self, codes="466646-5041S", error=None):
+        self.codes, self.error, self.calls = codes, error, 0
+
+    def read_as_question(self, image):
+        self.calls += 1
+        if self.error:
+            raise self.error
+        return f"Foto da plaqueta: {self.codes}"
+
+
 class Clock:
     def __init__(self):
         self.now = 1_000_000.0
@@ -75,18 +89,31 @@ class Clock:
 @pytest.fixture()
 def setup(tmp_path):
     transport, chat, transcriber, clock = FakeTransport(), FakeChat(), FakeTranscriber(), Clock()
+    vision = FakeVision()
     history = AssistantHistoryService(str(tmp_path / "historico.db"))
     bridge = WhatsAppBridge(
-        transport, chat_service=chat, transcriber=transcriber, history=history, clock=clock, run_async=lambda f: f()
+        transport,
+        chat_service=chat,
+        transcriber=transcriber,
+        history=history,
+        clock=clock,
+        run_async=lambda f: f(),
+        vision=vision,
     )
-    return SimpleNamespace(bridge=bridge, transport=transport, chat=chat, transcriber=transcriber, clock=clock, history=history)
+    return SimpleNamespace(
+        bridge=bridge, transport=transport, chat=chat, transcriber=transcriber, clock=clock, history=history, vision=vision
+    )
 
 
-def _msg(s, chat, mid, sender, from_me=False, text=None, audio=False, dt=0):
+def _msg(s, chat, mid, sender, from_me=False, text=None, audio=False, dt=0, image=False):
     s.clock.now += dt
-    message = WaMessage(chat=chat, id=mid, sender=sender, from_me=from_me, timestamp=s.clock.now, text=text, is_audio=audio)
+    message = WaMessage(
+        chat=chat, id=mid, sender=sender, from_me=from_me, timestamp=s.clock.now, text=text, is_audio=audio, is_image=image
+    )
     if audio:
         s.transport.audio[mid] = b"OggS..."
+    if image:
+        s.transport.images[mid] = b"\xff\xd8 jpeg"
     s.bridge.handle(message)
     return message
 
@@ -119,6 +146,32 @@ def test_reaction_answers_the_pasted_code_plus_audio(setup):
     assert second["mensagem"] == "e a 4031195?"
     assert second["historico"][-1] == {"papel": "assistente", "texto": "Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas"}
     assert s.transcriber.calls == 1
+
+
+def test_photo_of_the_plate_becomes_the_code(setup):
+    s = setup
+    # Foto sozinha, com 🤖 na foto.
+    _msg(s, BOSS, "p1", BOSS, image=True)
+    _react(s, BOSS, "p1")
+    assert s.chat.calls[-1]["mensagem"] == "Foto da plaqueta: 466646-5041S"
+    assert s.transport.replies[-1][0] == "p1" and s.transport.reactions[-1] == ("p1", "")
+
+    # Foto com legenda + pergunta em seguida: tudo vira uma pergunta so.
+    _msg(s, BOSS, "p2", BOSS, image=True, text="essa aqui", dt=600)
+    _msg(s, BOSS, "p3", BOSS, text="temos?", dt=10)
+    _react(s, BOSS, "p3")
+    assert s.chat.calls[-1]["mensagem"] == "essa aqui\nFoto da plaqueta: 466646-5041S\ntemos?"
+    assert s.vision.calls == 2
+
+
+def test_unreadable_photo_marks_a_warning(setup):
+    s = setup
+    s.bridge.vision = FakeVision(error=AssistantUnavailableError("Não consegui ler o código na foto."))
+    _msg(s, BOSS, "p1", BOSS, image=True)
+    _react(s, BOSS, "p1")
+    assert s.chat.calls == []
+    assert s.transport.reactions == [("p1", "⚠️")]
+    assert "Não consegui ler o código na foto" in s.transport.to_self[-1]
 
 
 def test_only_the_teams_robot_reaction_triggers(setup):

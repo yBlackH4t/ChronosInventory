@@ -249,8 +249,11 @@ class NeonizeTransport:
             wa.text = msg.extendedTextMessage.text
         elif msg.HasField("audioMessage"):
             wa.is_audio = True
-        elif msg.HasField("imageMessage") and msg.imageMessage.caption:
-            wa.text = msg.imageMessage.caption
+        elif msg.HasField("imageMessage"):
+            # Foto (ex.: da plaqueta): a ponte le os codigos quando alguem reage com 🤖.
+            wa.is_image = True
+            wa.text = msg.imageMessage.caption or None
+            return wa
         else:
             return wa if wa.text else None
         return wa
@@ -338,4 +341,7 @@ class NeonizeTransport:
         return response.ID or None
 
     def download_audio(self, message: WaMessage) -> bytes:
+        return self.client.download_any(message.raw.Message)
+
+    def download_image(self, message: WaMessage) -> bytes:
         return self.client.download_any(message.raw.Message)

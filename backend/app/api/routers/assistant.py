@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
 from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
+from app.services.assistant_common import AssistantUnavailableError
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_knowledge_service import AssistantKnowledgeService
 from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
+from app.services.assistant_vision_service import MAX_IMAGE_BYTES, AssistantVisionService
 from app.services.whatsapp_service import WhatsAppService
 from backend.app.api.deps import (
     get_assistant_admin_service,
@@ -17,6 +20,7 @@ from backend.app.api.deps import (
     get_assistant_history_service,
     get_assistant_knowledge_service,
     get_assistant_knowledge_sync_service,
+    get_assistant_vision_service,
     get_whatsapp_service,
 )
 from backend.app.api.responses import fail, ok
@@ -27,6 +31,7 @@ from backend.app.schemas.assistant import (
     AdminStatusOut,
     AssistantConfigIn,
     AssistantConfigOut,
+    ChatHistoryItemIn,
     ChatIn,
     ChatOut,
     ConversationOut,
@@ -76,6 +81,29 @@ def chat(
         autor=payload.autor,
     )
     return ok(ChatOut(**result))
+
+
+@router.post("/chat/foto", response_model=SuccessResponse[ChatOut])
+def chat_photo(
+    request: Request,
+    foto: UploadFile = File(...),
+    mensagem: str = Form(default="", max_length=1000),
+    historico: str = Form(default="[]", max_length=200_000),
+    service: AssistantChatService = Depends(get_assistant_chat_service),
+    vision: AssistantVisionService = Depends(get_assistant_vision_service),
+):
+    """Foto da plaqueta: le os codigos e pergunta como se a pessoa tivesse digitado."""
+    try:
+        reading = vision.read_as_question(foto.file.read(MAX_IMAGE_BYTES + 1))
+    except AssistantUnavailableError as exc:
+        return fail(422, "foto_ilegivel", str(exc), None, _request_id(request))
+    try:
+        items = [ChatHistoryItemIn(**item).model_dump() for item in json.loads(historico or "[]")][-40:]
+    except (ValueError, TypeError):
+        return fail(422, "validation_error", "Histórico inválido.", None, _request_id(request))
+    question = "\n".join(part for part in (mensagem.strip(), reading) if part)
+    result = service.chat(question, items, canal="app")
+    return ok(ChatOut(**result, leitura_foto=reading))
 
 
 @router.get("/config", response_model=SuccessResponse[AssistantConfigOut])

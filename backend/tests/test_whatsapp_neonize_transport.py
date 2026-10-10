@@ -150,3 +150,16 @@ def test_reaction_without_a_remembered_key_falls_back_to_building_one(transport)
     to, reaction = transport.client.sent[-1]
     assert to == chat
     assert reaction.reactionMessage.key.ID == "MSG3" and reaction.reactionMessage.text == "⚠️"
+
+
+def test_photo_without_caption_is_kept_for_the_plate_reader(transport):
+    photo = E2E.Message()
+    photo.imageMessage.mimetype = "image/jpeg"
+    transport._message(None, event("FOTO1", jid(BOSS_LID, "lid"), jid(BOSS_LID, "lid"), False, photo))
+
+    (message,) = transport.received
+    assert (message.id, message.is_image, message.text) == ("FOTO1", True, None)
+
+    photo.imageMessage.caption = "essa aqui"
+    transport._message(None, event("FOTO2", jid(BOSS_LID, "lid"), jid(BOSS_LID, "lid"), False, photo))
+    assert (transport.received[-1].is_image, transport.received[-1].text) == (True, "essa aqui")

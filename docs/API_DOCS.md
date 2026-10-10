@@ -124,6 +124,7 @@ Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A 
   `api_key` e `modelo` valem para o `provedor` enviado (ou o atual). `api_key: ""` remove a chave; `modelo: ""` volta ao padrao.
   A configuracao fica em `assistente_config.json` na pasta do app (fora do banco e dos backups).
 - `POST /assistente/chat` aceita tambem `canal` (`app` | `whatsapp`, padrao `app`) e `autor` (ex.: numero do WhatsApp). Cada conversa vai para o historico do assistente.
+- `POST /assistente/chat/foto` - multipart: `foto` (arquivo de imagem), `mensagem?` (texto junto), `historico?` (JSON da lista de mensagens). Le os codigos da plaqueta (Groq, modelo com visao) e responde como o chat; a resposta traz `leitura_foto` (ex.: "Foto da plaqueta: 466646-5041S"). Foto ilegivel ou sem chave: `422 foto_ilegivel` com a explicacao.
 
 ### Admin do assistente (maquina publicadora + senha)
 Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login) e a maquina configurada como publicadora da base oficial; sem isso: `403 admin_necessario`.

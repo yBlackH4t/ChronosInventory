@@ -6,9 +6,9 @@ quando alguem que usa esse WhatsApp manda: reagindo com 🤖 na mensagem do clie
 A IA nunca responde sozinha.
 
 - Reacao 🤖 numa mensagem: junta essa mensagem com as mensagens seguidas da mesma
-  pessoa (ex.: o codigo colado + o audio "temos essa daí?"), transcreve os audios,
-  pergunta ao assistente e responde citando a mensagem. Depois tira o 🤖 (ou poe ⚠️
-  se deu erro).
+  pessoa (ex.: o codigo colado + o audio "temos essa daí?"), transcreve os audios, le
+  os codigos das fotos de plaqueta, pergunta ao assistente e responde citando a
+  mensagem. Depois tira o 🤖 (ou poe ⚠️ se deu erro).
 - Comandos so na conversa "Mensagem para mim": /ajuda, /ensinar (vira uma proposta
   que o admin aprova no app) e /pendentes. Como colegas tambem usam o WhatsApp da
   empresa, nada ensinado por aqui vale sem a aprovacao do admin.
@@ -46,6 +46,7 @@ TEACH_TYPES = ("igual", "similar", "diferente")
 HELP_TEXT = (
     "*Assistente do Chronos*\n"
     "• Reaja com 🤖 numa mensagem do cliente: eu respondo na conversa.\n"
+    "• Foto da plaqueta: reaja com 🤖 na foto; eu leio o código e respondo.\n"
     "• /ensinar <código> <igual|similar|diferente> <código> [observação]\n"
     "  ex.: /ensinar 53279887101 similar 53279887210 muda o atuador\n"
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
@@ -62,6 +63,7 @@ class WaMessage:
     timestamp: float
     text: Optional[str] = None
     is_audio: bool = False
+    is_image: bool = False  # foto (ex.: da plaqueta); a legenda, se houver, fica em `text`
     reaction_to: Optional[str] = None  # id da mensagem reagida
     reaction: Optional[str] = None  # emoji ("" = reacao removida)
     bot: bool = False  # mensagem enviada pela propria ponte
@@ -80,6 +82,8 @@ class WhatsAppTransport(Protocol):
 
     def download_audio(self, message: WaMessage) -> bytes: ...
 
+    def download_image(self, message: WaMessage) -> bytes: ...
+
 
 class WhatsAppBridge:
     def __init__(
@@ -90,6 +94,7 @@ class WhatsAppBridge:
         history: Any = None,
         clock: Callable[[], float] = time.time,
         run_async: Optional[Callable[[Callable[[], None]], Any]] = None,
+        vision: Any = None,
     ) -> None:
         if chat_service is None:
             from app.services.assistant_chat_service import AssistantChatService
@@ -99,6 +104,11 @@ class WhatsAppBridge:
             from app.services.assistant_transcription_service import AssistantTranscriptionService
 
             transcriber = AssistantTranscriptionService()
+        if vision is None:
+            from app.services.assistant_vision_service import AssistantVisionService
+
+            vision = AssistantVisionService()
+        self.vision = vision
         if history is None:
             from app.services.assistant_history_service import AssistantHistoryService
 
@@ -291,6 +301,15 @@ class WhatsAppBridge:
         return target, messages[start : end + 1], earlier
 
     def _text_of(self, message: WaMessage, transcribe: bool, problems: List[str]) -> Optional[str]:
+        if message.is_image:
+            # Foto da plaqueta: os codigos lidos entram na pergunta, junto com a legenda.
+            if message.transcript is None and transcribe:
+                try:
+                    message.transcript = self.vision.read_as_question(self.transport.download_image(message))
+                except Exception as exc:  # inclui AssistantUnavailableError
+                    problems.append(f"foto não lida ({exc})")
+            parts = [p.strip() for p in (message.text, message.transcript) if p and p.strip()]
+            return "\n".join(parts) or None
         if message.text and message.text.strip():
             return message.text.strip()
         if not message.is_audio:

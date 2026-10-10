@@ -179,6 +179,18 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
+- [ ] **[Claude Code → Antigravity] Assistente: foto da plaqueta no chat do app.**
+  Rota nova `POST /assistente/chat/foto` (multipart: `foto`, `mensagem?`, `historico?` em JSON;
+  contrato em `docs/API_DOCS.md`). No chat (`AssistantPage.tsx`):
+  - botão de câmera/clipe ao lado do campo de texto (aceitar `image/*`; no celular abre a câmera);
+    o texto digitado vai junto em `mensagem`, e o histórico como na conversa normal;
+  - na conversa, a mensagem do usuário mostra uma miniatura da foto; a resposta mostra antes, em
+    tom discreto, o `leitura_foto` ("Foto da plaqueta: 466646-5041S");
+  - erro `422 foto_ilegivel`: mostrar a `message` (já explica o que fazer). A leitura leva alguns
+    segundos: mostrar "lendo a foto…".
+  - Na aba WhatsApp, no quadro "Como usar": "Foto da plaqueta: reaja com 🤖 na foto".
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
 - [ ] **[Claude Code → Antigravity] Senha do servidor e exclusão de produto (proteção de dados).**
   Contrato em "Novo (2026-10-10, proteção de dados)", seção 4. Fazer na `ag/assistente-chat`
   depois de `git merge feature/assistente-ia`.

@@ -320,7 +320,10 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
 
 ### Fase 4 — Ideias para depois
 
-- **Foto da plaqueta:** a pessoa manda a foto, a IA lê o part number e faz a busca.
+- ~~**Foto da plaqueta**~~ **pronto (2026-10-10):** no WhatsApp (🤖 na foto) e no app
+  (`POST /assistente/chat/foto`). O Groq lê a foto com um modelo com visão (`qwen/qwen3.8-27b`,
+  gratuito, mesma chave), devolve só os códigos de peça (sem número de série) e a pergunta segue
+  pela busca direta. Arquivo: `assistant_vision_service.py`.
 - **Resumo diário:** itens que zeraram e itens com muita saída (`movement_analytics_service`).
 - **Cotação:** para um veículo, sugerir as opções com estoque, incluindo nova × reman.
 

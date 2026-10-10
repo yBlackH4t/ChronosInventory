@@ -33,6 +33,7 @@ O dono do projeto (que também é o especialista) ensina ao assistente o que o c
 | Telas (chat, admin, WhatsApp, propostas, status do conhecimento) | ✅ prontas (Antigravity) |
 | Teste com o **banco real da empresa** | ⏳ próximo passo (seção 6) |
 | Decidir WhatsApp não oficial × oficial da Meta para o número da empresa | ⏳ com o dono |
+| Foto da plaqueta (WhatsApp e app) | ✅ backend pronto; botão de foto no chat do app é pedido do Antigravity |
 | Instalador (`.msi`) com o assistente | ⏳ precisa empacotar o backend de novo |
 
 Nada disso está na `main` ainda: fica na branch **`feature/assistente-ia`** (seção 5).
@@ -100,6 +101,7 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
 | `assistant_knowledge_sync_service.py` | publicar/receber o conhecimento (Fase 2c) |
 | `assistant_history_service.py` | histórico, "Para revisar", propostas, JSONL |
 | `assistant_transcription_service.py` | áudio → texto (Whisper do Groq) |
+| `assistant_vision_service.py` | foto da plaqueta → códigos (modelo com visão do Groq) |
 | `whatsapp_bridge_service.py` | regras da ponte (🤖, agrupar código + áudio, comandos) |
 | `whatsapp_neonize_transport.py` | única parte que conhece a neonize |
 | `whatsapp_service.py` | liga/desliga, QR, estado (usado pela aba WhatsApp) |

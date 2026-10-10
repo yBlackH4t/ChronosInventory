@@ -35,6 +35,12 @@ def get_assistant_knowledge_service():
     return AssistantKnowledgeService()
 
 
+def get_assistant_vision_service():
+    from app.services.assistant_vision_service import AssistantVisionService
+
+    return AssistantVisionService()
+
+
 def get_assistant_knowledge_sync_service():
     from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
 

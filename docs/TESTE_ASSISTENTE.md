@@ -41,10 +41,12 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_dev.py whatsapp
    aí o comando avisa ("foi tirado dos aparelhos conectados") e, rodando de novo, abre um QR novo.
 2. Na conversa **"Mensagem para mim"**: mande `805314`, depois um **áudio** "temos essa daí?",
    e **reaja com 🤖 no áudio**. A resposta chega citando o áudio.
-3. **Responda** (arrastando para o lado) qualquer mensagem com "teste". Serve só para o registro:
+3. **Foto da plaqueta:** mande a foto de uma plaqueta (ou de um papel com o código escrito) e
+   reaja com 🤖 na foto: a resposta traz o código lido e o estoque.
+4. **Responda** (arrastando para o lado) qualquer mensagem com "teste". Serve só para o registro:
    mostra como o WhatsApp oficial monta uma citação.
-4. Mande `/ajuda`, `/pendentes` e `/ensinar 53279887101 similar 53279887116 teste`.
-5. Ctrl+C para sair. Só quando terminar **todos** os testes, remova o aparelho conectado no
+5. Mande `/ajuda`, `/pendentes` e `/ensinar 53279887101 similar 53279887116 teste`.
+6. Ctrl+C para sair. Só quando terminar **todos** os testes, remova o aparelho conectado no
    celular ("Neonize" nas conexões antigas, "Chronos" nas novas); depois disso precisa de QR de novo.
 
 O que conferir: o áudio foi entendido? A resposta veio certa, no formato do WhatsApp e
