@@ -67,10 +67,14 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — base de conhecimento do especialista, admin e histórico (backend) prontos; próxima: distribuir o conhecimento e Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — ponte WhatsApp em modo copiloto (núcleo) pronta; falta teste com celular; depois distribuir o conhecimento | aguardando revisão | 2026-10-09 |
 | Antigravity | — | — | livre | — |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Novo (2026-10-09, WhatsApp e propostas):** endpoints `/assistente/whatsapp/*` (status com
+  QR, iniciar, parar, desconectar) e `/assistente/propostas` (listar, aprovar, recusar), todos
+  de admin. Contrato em `docs/API_DOCS.md` ("Propostas" e "WhatsApp (modo copiloto)").
 
 - **Novo (2026-10-09, base de conhecimento):** admin, conhecimento, revisão e histórico do
   assistente. Contrato completo em `docs/API_DOCS.md` ("Admin do assistente", "Base de
@@ -217,6 +221,25 @@ npm run lint
     (`assistente_historico.jsonl`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
+- [ ] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
+  Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
+  - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
+    - estado em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao
+      número X", "Desconectado do celular — conecte de novo", "Erro: …");
+    - botão **"Conectar WhatsApp"** (`POST /whatsapp/iniciar`) e, enquanto o estado for
+      `aguardando_qr`, **desenhar o QR code** a partir do texto `qr` (biblioteca de QR para
+      React; atualizar a cada 2–3 s com `GET /whatsapp/status`, porque o código muda);
+      instrução: "No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho";
+    - quando conectado: **"Desligar"** (`/whatsapp/parar`) e **"Desconectar este computador"**
+      (`/whatsapp/desconectar`, com confirmação);
+    - um quadro curto "Como usar": reagir com 🤖 na mensagem do cliente; comandos na conversa
+      "Mensagem para mim" (`/ajuda`, `/pendentes`, `/ensinar`);
+    - aviso fixo: "Conexão não oficial: o WhatsApp pode bloquear o número. Use com moderação."
+  - **Propostas** (no topo de "Para revisar"): `GET /assistente/propostas` → cartões
+    "Código A — relação — Código B (observação), enviada pelo WhatsApp em <data>", com
+    **"Aprovar"** (`POST /propostas/{id}/aprovar`) e **"Recusar"** (`/recusar`).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
 - [ ] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
   - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
@@ -230,6 +253,18 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — Assistente: ponte WhatsApp (modo copiloto)
+- Branch: `feature/assistente-ia`
+- O que foi feito: ponte WhatsApp que entra como aparelho conectado (neonize) e só responde
+  quando alguém reage com 🤖 na mensagem do cliente; junta código colado + áudio, transcreve
+  pelo Whisper do Groq, responde citando a mensagem. Comandos na "Mensagem para mim":
+  `/ajuda`, `/pendentes`, `/ensinar` (vira proposta para o admin aprovar). Endpoints de
+  WhatsApp e de propostas; `assistente_dev.py whatsapp` para testar com QR no terminal.
+- Nova dependência: `neonize==0.5.2` (traz a DLL para Windows); `--collect-all neonize` no build.
+- Verificações: pytest ok (144 testes); conversão das mensagens da neonize conferida offline.
+  **Ainda não testado com um celular de verdade.**
+- Para o Antigravity: pedido novo na seção 5 (aba WhatsApp com QR e propostas).
 
 ### 2026-10-09 — Claude Code — Assistente: conhecimento do especialista, admin e histórico
 - Branch: `feature/assistente-ia`

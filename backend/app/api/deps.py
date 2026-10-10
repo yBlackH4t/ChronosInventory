@@ -41,6 +41,12 @@ def get_assistant_history_service():
     return AssistantHistoryService()
 
 
+def get_whatsapp_service():
+    from app.services.whatsapp_service import WhatsAppService
+
+    return WhatsAppService.instance()
+
+
 def get_stock_service() -> StockService:
     return StockService()
 

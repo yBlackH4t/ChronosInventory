@@ -150,15 +150,22 @@ class AssistantConfigStore:
         self._write_raw(raw)
         return current
 
+    def load_section(self, name: str) -> Dict[str, Any]:
+        """Outra parte do arquivo (ex.: "admin", "whatsapp"), sem mexer no resto."""
+        section = self._read_raw().get(name)
+        return section if isinstance(section, dict) else {}
+
+    def save_section(self, name: str, data: Dict[str, Any]) -> None:
+        raw = self._read_raw()
+        raw[name] = data
+        self._write_raw(raw)
+
     def load_admin(self) -> Dict[str, Any]:
         """Hash da senha de admin (nunca a senha)."""
-        admin = self._read_raw().get("admin")
-        return admin if isinstance(admin, dict) else {}
+        return self.load_section("admin")
 
     def save_admin(self, admin: Dict[str, Any]) -> None:
-        raw = self._read_raw()
-        raw["admin"] = admin
-        self._write_raw(raw)
+        self.save_section("admin", admin)
 
     @staticmethod
     def model_for(config: Dict[str, Any], provider: str) -> Optional[str]:

@@ -9,11 +9,13 @@ from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from app.services.whatsapp_service import WhatsAppService
 from backend.app.api.deps import (
     get_assistant_admin_service,
     get_assistant_chat_service,
     get_assistant_history_service,
     get_assistant_knowledge_service,
+    get_whatsapp_service,
 )
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.assistant import (
@@ -29,7 +31,9 @@ from backend.app.schemas.assistant import (
     CorrectionIn,
     KnowledgeRuleIn,
     KnowledgeRuleOut,
+    ProposalOut,
     ReviewItemOut,
+    WhatsAppStatusOut,
 )
 from backend.app.schemas.common import SuccessResponse
 from core.catalog.normalization import canonical_code
@@ -235,3 +239,96 @@ def correct_answer(
     if not history.set_correction(conversa_id, payload.resposta_correta, payload.observacao):
         return fail(404, "not_found", "Conversa não encontrada.", None, _request_id(request))
     return ok({"corrigido": True})
+
+
+# ----------------------------------------------------------------------
+# Propostas de regra mandadas pelo WhatsApp (/ensinar)
+# ----------------------------------------------------------------------
+
+
+@router.get("/propostas", response_model=SuccessResponse[list[ProposalOut]])
+def list_proposals(
+    request: Request,
+    status: Optional[str] = Query(default="pendente", pattern="^(pendente|aprovada|recusada|todas)$"),
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    rows = history.list_proposals(None if status == "todas" else status)
+    return ok([ProposalOut(**row) for row in rows])
+
+
+@router.post("/propostas/{proposal_id}/aprovar", response_model=SuccessResponse[KnowledgeRuleOut])
+def approve_proposal(
+    proposal_id: int,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    proposal = history.get_proposal(proposal_id)
+    if not proposal or proposal["status"] != "pendente":
+        return fail(404, "not_found", "Proposta pendente não encontrada.", None, _request_id(request))
+    rule = knowledge.add_rule(proposal["codigo_a"], proposal["codigo_b"], proposal["tipo"], proposal["observacao"])
+    history.decide_proposal(proposal_id, "aprovada")
+    history.mark_reviewed([canonical_code(proposal["codigo_a"]), canonical_code(proposal["codigo_b"])])
+    return ok(KnowledgeRuleOut(**rule))
+
+
+@router.post("/propostas/{proposal_id}/recusar", response_model=SuccessResponse[dict])
+def reject_proposal(
+    proposal_id: int,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    if not history.decide_proposal(proposal_id, "recusada"):
+        return fail(404, "not_found", "Proposta pendente não encontrada.", None, _request_id(request))
+    return ok({"recusada": True})
+
+
+# ----------------------------------------------------------------------
+# WhatsApp (modo copiloto). So admin: o QR code conecta o WhatsApp da empresa.
+# ----------------------------------------------------------------------
+
+
+@router.get("/whatsapp/status", response_model=SuccessResponse[WhatsAppStatusOut])
+def whatsapp_status(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    return ok(WhatsAppStatusOut(**whatsapp.status()))
+
+
+@router.post("/whatsapp/iniciar", response_model=SuccessResponse[WhatsAppStatusOut])
+def whatsapp_start(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    return ok(WhatsAppStatusOut(**whatsapp.start()))
+
+
+@router.post("/whatsapp/parar", response_model=SuccessResponse[WhatsAppStatusOut])
+def whatsapp_stop(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    return ok(WhatsAppStatusOut(**whatsapp.stop()))
+
+
+@router.post("/whatsapp/desconectar", response_model=SuccessResponse[WhatsAppStatusOut])
+def whatsapp_logout(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    return ok(WhatsAppStatusOut(**whatsapp.logout()))

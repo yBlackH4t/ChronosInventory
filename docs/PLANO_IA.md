@@ -35,14 +35,15 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 ## 2. Arquitetura
 
 ```
- WhatsApp (chefe)                     Tela "Assistente" no app
-        │                                      │
+ WhatsApp da empresa (chefe)          Tela "Assistente" no app
+        │  equipe reage com 🤖                 │
         ▼                                      │
- Ponte WhatsApp (não oficial, Fase 3)          │
-   - só responde números autorizados           │
-   - guarda o histórico por número             │
+ Ponte WhatsApp, modo copiloto (Fase 3)        │
+   - aparelho conectado (QR), não oficial      │
+   - junta código + áudio, transcreve          │
+   - responde citando; /ensinar → proposta     │
         │                                      │
-        └──────────► POST /assistente/chat ◄───┘   (localhost)
+        └──────────► AssistantChatService ◄────┘   (POST /assistente/chat)
                             │
                             ▼
                 AssistantChatService (Fase 2)
@@ -71,7 +72,8 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 | 2b | Base de conhecimento do especialista, admin, histórico, "Para revisar" (backend) | Claude Code | ✅ pronto |
 | 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | a fazer |
-| 3 | Ponte WhatsApp (API não oficial) | Claude Code | a fazer |
+| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | núcleo pronto; falta testar com celular |
+| 3 | Tela WhatsApp (QR, ligar/desligar) e propostas na área do admin | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
 
 ### Fase 0 — Banco de teste (pronto)
@@ -231,32 +233,46 @@ Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
 `core/database/repositories/knowledge_repository.py`. Testes em
 `test_assistant_knowledge.py` e `test_assistant_admin.py`.
 
-### Fase 3 — WhatsApp (a fazer) — **decisão: API não oficial**
+### Fase 3 — WhatsApp em "modo copiloto" (núcleo pronto; falta testar com celular)
 
-Conexão por QR code (como o WhatsApp Web), sem precisar de cadastro na Meta nem de URL
-pública. Opções a avaliar: Evolution API (Docker), Baileys (Node) ou neonize (Python).
+**Decisões (2026-10-09):**
+- **Não é um bot com número próprio.** O Chronos entra no **WhatsApp da empresa** (WhatsApp
+  Business, onde está o contato do chefe) como mais um **aparelho conectado** (QR code, como o
+  WhatsApp Web).
+- **A IA nunca responde sozinha.** Quem usa o WhatsApp da empresa **reage com 🤖** na mensagem
+  do cliente; a ponte responde na conversa, citando a mensagem, e tira o 🤖 (⚠️ se deu erro).
+  Sem modo automático.
+- **Qual é a pergunta:** a mensagem reagida + as mensagens seguidas da mesma pessoa até 3 min
+  antes/depois (ex.: o código colado + o áudio "temos essa daí?"). Áudios são transcritos pelo
+  Whisper do Groq (grátis, mesma chave). As 10 mensagens anteriores vão como contexto.
+- **Comandos só na conversa "Mensagem para mim"** (ninguém mais vê): `/ajuda`, `/pendentes` e
+  `/ensinar <código> <igual|similar|diferente> <código> [observação]`. Como colegas também usam o
+  WhatsApp da empresa, `/ensinar` cria uma **proposta**; ela só vira regra quando o admin aprova
+  no app (com senha). Assim continua valendo "só o admin ensina".
+- **Testar sozinho, com um WhatsApp comum:** `python scripts/assistente_dev.py whatsapp` mostra o
+  QR no terminal e liga a ponte no banco de teste. Na conversa "Mensagem para mim": mande um
+  código, depois um áudio, e reaja com 🤖 no áudio.
+- Grupos ficam de fora. A ponte só enxerga mensagens que chegaram com ela ligada.
+
+**Arquivos:** `whatsapp_bridge_service.py` (regras, sem depender da biblioteca),
+`whatsapp_neonize_transport.py` (biblioteca **neonize** = whatsmeow em Python; já traz a DLL
+para Windows; FFmpeg não é necessário para o nosso uso), `whatsapp_service.py` (liga/desliga,
+QR, religa quando o backend abre se estava ligada), `assistant_transcription_service.py`.
+Sessão do WhatsApp em `whatsapp_sessao.db` na pasta do app. Testes em `test_whatsapp_bridge.py`
+(WhatsApp falso).
 
 **Riscos e cuidados (a API não oficial viola os termos do WhatsApp):**
-- o número pode ser **banido** a qualquer momento → usar **um chip só para o bot**, nunca o
-  número principal da empresa;
-- **só responder**, nunca iniciar conversas nem enviar em massa;
-- responder **apenas números autorizados** (chefe e quem for liberado);
-- manter a ponte isolada: ela só fala com `POST /assistente/chat` em localhost;
-- se o número for banido ou o volume crescer, migrar para a API oficial (Meta Cloud API).
-  O resto do sistema não muda, só a ponte.
+- o número pode ser **banido**. No modo copiloto (poucas mensagens, sempre respondendo a uma
+  pessoa, acionado por gente) o risco é bem menor, mas não é zero — e no uso real seria o
+  **número da empresa**. Testar primeiro num WhatsApp comum;
+- nunca mandar mensagens em massa nem iniciar conversas;
+- a ponte só fala com o assistente dentro do Chronos (nada exposto na internet).
 
-**Como o chefe usa (definido em 2026-10-09):** cola um código (inclusive da Master Power) e
-manda um **áudio** "temos essa daí?"; às vezes outro código e outro áudio.
-- **Áudio:** transcrição grátis pelo Groq (Whisper, mesma chave; aceita `.ogg`, a confirmar
-  com áudio real do WhatsApp). A transcrição vira a mensagem de texto.
-- **Agrupar mensagens:** a ponte espera ~10 s depois da última mensagem antes de responder;
-  código colado + áudio viram uma pergunta só.
-- **Contexto:** a ponte guarda o histórico por número e manda junto (`historico`), com
-  `canal: "whatsapp"` e `autor` = número. "Essa daí" = código da mensagem anterior (regra no
-  prompt e na busca direta; pronto).
-- **Ensinar pelo WhatsApp** (opcional): comandos só do número do admin.
-- **O estoque do bot é o da máquina onde ele roda** (a do admin). Movimento lançado só em
-  outra máquina não aparece até ser lançado também ali (mesma limitação da comparação).
+**Alternativa oficial, se o risco do número da empresa não compensar:** "coexistência" da Meta
+(app Business + Cloud API no mesmo número). Sem risco de banimento e respostas dentro de 24 h
+grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um endereço público
+(webhook) e o **WhatsApp para Windows deixa de funcionar** nesse número. A ponte foi feita com o
+"transport" separado justamente para trocar só essa parte.
 
 ### Fase 4 — Ideias para depois
 
@@ -285,6 +301,7 @@ manda um **áudio** "temos essa daí?"; às vezes outro código e outro áudio.
       o original: abrir o banco pelo app aplica migrações) e rode:
       `python scripts/assistente_dev.py --pasta <pasta da cópia> cobertura`,
       depois `... codigo 4031196` e `... aplicacao "scania 440"`.
-- [ ] Números autorizados a usar o bot.
-- [ ] Chip dedicado para o WhatsApp do bot.
+- [ ] Testar a ponte num WhatsApp comum (`python scripts/assistente_dev.py whatsapp`).
+- [ ] Decidir se o WhatsApp da empresa usa a ponte não oficial (risco de banimento) ou a
+      coexistência oficial da Meta.
 - [ ] A resposta deve informar preço? (hoje o banco não tem preço.)

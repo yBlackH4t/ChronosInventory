@@ -139,6 +139,18 @@ Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login
 - `PUT /assistente/historico/{id}/correcao` (admin) - `{ resposta_correta, observacao? }`.
 - `GET /assistente/historico/exportar` (admin) - arquivo JSONL (uma conversa por linha, sem o autor).
 
+### Propostas (/ensinar pelo WhatsApp)
+- `GET /assistente/propostas?status=pendente|aprovada|recusada|todas` (admin) - `{ id, criado_em, autor, codigo_a, codigo_b, tipo, observacao, status, decidido_em }`.
+- `POST /assistente/propostas/{id}/aprovar` (admin) - vira regra da base de conhecimento (devolve a regra). 404 se nao estiver pendente.
+- `POST /assistente/propostas/{id}/recusar` (admin).
+
+### WhatsApp (modo copiloto)
+Todas (admin): o QR code conecta o WhatsApp da empresa ao Chronos.
+- `GET /assistente/whatsapp/status` - `{ estado: parado|conectando|aguardando_qr|conectado|reconectando|desconectado|erro, qr, numero, erro, ativo }`. `qr` e o texto a desenhar como QR code (muda a cada ~20 s); so vem com `estado = aguardando_qr`.
+- `POST /assistente/whatsapp/iniciar` - liga a ponte (mostra QR se ainda nao conectou). Fica ligada nas proximas aberturas do app.
+- `POST /assistente/whatsapp/parar` - desliga a ponte (a conexao do aparelho continua salva).
+- `POST /assistente/whatsapp/desconectar` - tira o Chronos dos aparelhos conectados e apaga a sessao (precisa de QR de novo).
+
 ## Indices SQLite relevantes
 - `idx_produtos_nome`
 - `idx_mov_produto`

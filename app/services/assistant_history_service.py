@@ -6,7 +6,9 @@ para a base oficial, os backups e a comparacao de estoque. Serve para:
 - a lista "Para revisar" do admin: codigos que o assistente nao achou em estoque;
 - a correcao do admin (resposta certa) em cada conversa;
 - exportar tudo em JSONL (um JSON por linha), o formato usado para avaliar e,
-  no futuro, ajustar um modelo de IA.
+  no futuro, ajustar um modelo de IA;
+- as propostas de regra mandadas pelo WhatsApp (/ensinar), que so valem depois que o
+  admin aprova no app.
 """
 
 from __future__ import annotations
@@ -41,6 +43,19 @@ _SCHEMA = (
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_conversas_criado ON conversas(criado_em)",
+    """
+    CREATE TABLE IF NOT EXISTS propostas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        criado_em TEXT NOT NULL,
+        autor TEXT,
+        codigo_a TEXT NOT NULL,
+        codigo_b TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        observacao TEXT,
+        status TEXT NOT NULL DEFAULT 'pendente',
+        decidido_em TEXT
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS revisao_codigos (
         codigo_norm TEXT PRIMARY KEY,
@@ -186,6 +201,55 @@ class AssistantHistoryService:
                 [(code, now, last_id) for code in codes if code],
             )
             conn.commit()
+        finally:
+            conn.close()
+
+    # ------------------------------------------------------------------
+    # Propostas de regra (/ensinar pelo WhatsApp)
+    # ------------------------------------------------------------------
+
+    def add_proposal(
+        self, codigo_a: str, codigo_b: str, tipo: str, observacao: Optional[str], autor: Optional[str]
+    ) -> int:
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "INSERT INTO propostas (criado_em, autor, codigo_a, codigo_b, tipo, observacao) VALUES (?, ?, ?, ?, ?, ?)",
+                (_now(), autor, codigo_a.strip().upper(), codigo_b.strip().upper(), tipo.lower(), observacao or None),
+            )
+            conn.commit()
+            return int(cursor.lastrowid)
+        finally:
+            conn.close()
+
+    def list_proposals(self, status: Optional[str] = "pendente") -> List[Dict[str, Any]]:
+        conn = self._connect()
+        try:
+            if status:
+                rows = conn.execute("SELECT * FROM propostas WHERE status = ? ORDER BY id", (status,)).fetchall()
+            else:
+                rows = conn.execute("SELECT * FROM propostas ORDER BY id DESC").fetchall()
+        finally:
+            conn.close()
+        return [dict(row) for row in rows]
+
+    def get_proposal(self, proposal_id: int) -> Optional[Dict[str, Any]]:
+        conn = self._connect()
+        try:
+            row = conn.execute("SELECT * FROM propostas WHERE id = ?", (proposal_id,)).fetchone()
+        finally:
+            conn.close()
+        return dict(row) if row else None
+
+    def decide_proposal(self, proposal_id: int, status: str) -> bool:
+        conn = self._connect()
+        try:
+            cursor = conn.execute(
+                "UPDATE propostas SET status = ?, decidido_em = ? WHERE id = ? AND status = 'pendente'",
+                (status, _now(), proposal_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
         finally:
             conn.close()
 

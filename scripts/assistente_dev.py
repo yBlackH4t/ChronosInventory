@@ -11,6 +11,7 @@ assistente pelo terminal, sem precisar do banco real da empresa.
     python scripts/assistente_dev.py cobertura
     python scripts/assistente_dev.py perguntar "temos turbina do scania 440?"
     python scripts/assistente_dev.py perguntar --sem-ia "temos turbina 4031196?"
+    python scripts/assistente_dev.py whatsapp
 
 `perguntar` usa o provedor de IA configurado (padrao: Groq, gratuito; chave em
 GROQ_API_KEY ou salva pela tela de Configuracoes). Sem chave ou sem internet, a
@@ -207,6 +208,47 @@ def ask(folder: str, question: str, direct: bool) -> None:
         print(f"[produto #{product['id']}: {product['nome']} - {product['estoque_por_local'] or 'sem estoque'}]")
 
 
+def whatsapp(folder: str) -> None:
+    """Liga a ponte WhatsApp (modo copiloto) no banco de teste, com o QR code no terminal."""
+    if not os.path.exists(os.path.join(folder, "estoque.db")):
+        raise SystemExit(f"Banco nao encontrado em {folder}. Rode primeiro: gerar-banco")
+    _use_dir(folder)
+    import segno
+
+    from app.services.whatsapp_bridge_service import WhatsAppBridge
+    from app.services.whatsapp_neonize_transport import NeonizeTransport
+
+    holder: Dict = {}
+
+    def on_qr(code: str) -> None:
+        print("\nNo celular: WhatsApp > Configuracoes > Aparelhos conectados > Conectar um aparelho")
+        segno.make_qr(code).terminal(compact=True)
+
+    def on_state(state: str) -> None:
+        print(f"[whatsapp] {state}")
+        if state == "conectado":
+            print(
+                "\nPronto. Teste na conversa 'Mensagem para mim':\n"
+                "  1. mande um codigo (ex.: 805314) e depois um audio 'temos essa dai?'\n"
+                "  2. reaja com 🤖 no audio: a resposta chega na mesma conversa\n"
+                "  3. mande /ajuda para ver os comandos\n"
+                "Ctrl+C para sair."
+            )
+
+    transport = NeonizeTransport(
+        os.path.join(folder, "whatsapp_sessao.db"),
+        on_message=lambda message: holder["bridge"].handle(message),
+        on_qr=on_qr,
+        on_state=on_state,
+    )
+    holder["bridge"] = WhatsAppBridge(transport)
+    print("Conectando ao WhatsApp... (o assistente usa a chave do Groq de GROQ_API_KEY ou das Configuracoes)")
+    try:
+        transport.client.connect()  # fica aqui ate Ctrl+C
+    except KeyboardInterrupt:
+        transport.stop()
+
+
 def coverage(folder: str) -> None:
     """Quantos produtos ativos (e com estoque) estao ligados a uma ficha do catalogo."""
     if not os.path.exists(os.path.join(folder, "estoque.db")):
@@ -292,12 +334,15 @@ def main() -> None:
     ask_parser = sub.add_parser("perguntar", help="Pergunta para o assistente (IA configurada ou busca direta)")
     ask_parser.add_argument("pergunta")
     ask_parser.add_argument("--sem-ia", action="store_true", help="So a busca direta, sem chamar a IA")
+    sub.add_parser("whatsapp", help="Liga a ponte WhatsApp (modo copiloto) no banco de teste, QR no terminal")
 
     args = parser.parse_args()
     if args.comando == "gerar-banco":
         generate_database(args.pasta, args.produtos, args.seed, args.substituir)
     elif args.comando == "perguntar":
         ask(args.pasta, args.pergunta, args.sem_ia)
+    elif args.comando == "whatsapp":
+        whatsapp(args.pasta)
     elif args.comando == "cobertura":
         coverage(args.pasta)
     elif args.comando == "codigo":

@@ -107,12 +107,25 @@ def startup_runtime_services() -> None:
             publisher_name=str(official_base_cfg["publisher_name"]),
             port=int(official_base_cfg["server_port"]),
         )
+        # Ponte WhatsApp do assistente: religa se estava ligada (nunca impede o app de abrir).
+        try:
+            from app.services.whatsapp_service import WhatsAppService
+
+            WhatsAppService.instance().start_if_enabled()
+        except Exception:
+            LOG.exception("whatsapp: falha ao religar a ponte do assistente")
 
 
 def shutdown_runtime_services() -> None:
     if os.getenv("APP_ENV", "").lower() != "test":
         BACKUP_SCHEDULER.stop()
         LOCAL_SHARE_SERVER.stop_server()
+        try:
+            from app.services.whatsapp_service import WhatsAppService
+
+            WhatsAppService.instance().stop(remember=False)
+        except Exception:
+            LOG.exception("whatsapp: falha ao parar a ponte do assistente")
 
 
 @asynccontextmanager
