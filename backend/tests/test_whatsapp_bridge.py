@@ -177,7 +177,7 @@ def test_commands_only_in_the_self_chat(setup):
     assert s.transport.to_self[-1] == HELP_TEXT
 
     _msg(s, ME, "c2", ME, from_me=True, text="/ensinar 5327-988-7101 similar 5327-988-7210 muda o atuador")
-    assert s.transport.to_self[-1].startswith("📝 Proposta #1: 5327-988-7101 *similar* 5327-988-7210 (muda o atuador).")
+    assert s.transport.to_self[-1].startswith("📝 Proposta #1: 53279887101 *similar* 53279887210 (muda o atuador).")
     (proposal,) = s.history.list_proposals("pendente")
     assert (proposal["codigo_a"], proposal["tipo"], proposal["observacao"]) == ("5327-988-7101", "similar", "muda o atuador")
 
@@ -274,8 +274,14 @@ def test_whatsapp_service_lifecycle(tmp_path):
     created[1].on_state("desconectado")
     assert service.status()["estado"] == "desconectado" and service.status()["ativo"] is False
 
+    # "Conectar" de novo: fecha a conexao morta e abre outra, que mostra um QR novo.
+    service.start()
+    assert created[1].stopped and len(created) == 3 and created[2].started
+    created[2].on_qr("2@novo")
+    assert service.status()["estado"] == "aguardando_qr" and service.status()["qr"] == "2@novo"
+
     service.logout()
-    assert created[1].logged_out and not (tmp_path / "whatsapp_sessao.db").exists()
+    assert created[2].logged_out and not (tmp_path / "whatsapp_sessao.db").exists()
 
 
 def test_proposals_and_whatsapp_endpoints(client, tmp_path, monkeypatch):

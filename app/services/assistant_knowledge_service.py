@@ -188,7 +188,7 @@ class AssistantKnowledgeService:
                     "produto_id": int(product["id"]),
                     "nome": product["nome"],
                     "estoque_total": stock,
-                    "motivo": f"mesmo início de código ({prefix[:4]}-{prefix[4:]})",
+                    "motivo": f"mesmo início de código ({prefix})",
                 }
             )
         out.sort(key=lambda s: (-s["estoque_total"], s["codigo"]))

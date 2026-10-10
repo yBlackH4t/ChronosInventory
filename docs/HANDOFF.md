@@ -66,11 +66,17 @@ npm run lint
 <!-- Cada agente atualiza a própria linha ao começar e ao terminar uma tarefa. -->
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
-|---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — busca direta responde primeiro; ponte WhatsApp com QR no navegador; roteiro em `docs/TESTE_ASSISTENTE.md`. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | WhatsApp do assistente, propostas e ajustes rápidos | concluído | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | Assistente: ajustes rápidos, sincronização de conhecimento (Fase 2c), WhatsApp e propostas | em andamento | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Novo (2026-10-09, conhecimento entre as máquinas — Fase 2c):** o que o admin ensina vai
+  sozinho para as outras máquinas, pelos caminhos da base oficial (pasta compartilhada e/ou
+  servidor local). Duas rotas novas, sem admin (contrato em `docs/API_DOCS.md`):
+  `GET /assistente/conhecimento/sincronizacao` →
+  `{ papel, fonte, publicado_em, maquina, total_regras, atualizado_em, verificado_em, erro }` e
+  `POST /assistente/conhecimento/sincronizar` ("Sincronizar agora", mesma resposta). Pedido na seção 5.
 
 - **Mudou (2026-10-09, busca direta primeiro):** o formato do `POST /assistente/chat` não mudou,
   mas `modo` = `busca_direta` com `aviso` = `null` passou a ser a resposta **normal**: a busca
@@ -163,7 +169,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [x] **[Claude Code → Antigravity] Assistente: dois ajustes rápidos (fazer primeiro).**
+- [ ] **[Claude Code → Antigravity] Assistente: ajustes rápidos (fazer primeiro).**
   Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
   só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
   - **Selo do chat** (`AssistantPage.tsx`): "Busca direta (sem IA)" agora apareceria em quase toda
@@ -171,6 +177,9 @@ npm run lint
     Sem aviso, nada de selo; o modo de cada resposta continua visível no Histórico do admin.
   - **Texto errado** em `AssistantAdminPanel.tsx` (~linha 261): "Configurações > Base oficial" →
     "Backup > Base oficial > Papel desta máquina: Publica a base" (é onde fica a opção).
+  - **Formato dos códigos** (decisão do dono): em exemplos, placeholders e mocks, só dígitos
+    (53279887101); só a Garrett usa hífen (796155-5002). Hoje o mock em `assistantAdminApi.ts`
+    usa "5327-988-7101". As respostas do backend já vêm nesse formato.
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
@@ -259,6 +268,35 @@ npm run lint
     (`assistente_historico.jsonl`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
+- [ ] **[Claude Code → Antigravity] Assistente: conhecimento nas outras máquinas (status e botão).**
+  Contrato em "Novo (Fase 2c)", seção 4. Na aba **Conhecimento** (que as outras máquinas veem só
+  para leitura), uma linha de status com `GET /assistente/conhecimento/sincronizacao`:
+  - `papel` = `publisher`: "Publicado para as outras máquinas (<fonte>) em <atualizado_em> —
+    <total_regras> regras";
+  - senão: "Recebido da máquina <maquina> (<fonte>) em <atualizado_em> — <total_regras> regras";
+  - `erro` preenchido: mostrar o texto num aviso (ele diz o que configurar em Backup > Base oficial);
+  - botão **"Sincronizar agora"** (`POST /assistente/conhecimento/sincronizar`), que atualiza a
+    linha e, nas outras máquinas, recarrega a lista de regras.
+  - Datas no formato do app (vêm em ISO). Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
+- [ ] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
+  Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
+  - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
+    - estado em português ("Desligado", "Conectando…", "Escaneie o QR code", "Conectado ao
+      número X", "Desconectado do celular — conecte de novo", "Erro: …");
+    - botão **"Conectar WhatsApp"** (`POST /whatsapp/iniciar`) e, enquanto o estado for
+      `aguardando_qr`, **desenhar o QR code** a partir do texto `qr` (biblioteca de QR para
+      React; atualizar a cada 2–3 s com `GET /whatsapp/status`, porque o código muda);
+      instrução: "No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho";
+    - quando conectado: **"Desligar"** (`/whatsapp/parar`) e **"Desconectar este computador"**
+      (`/whatsapp/desconectar`, com confirmação);
+    - um quadro curto "Como usar": reagir com 🤖 na mensagem do cliente; comandos na conversa
+      "Mensagem para mim" (`/ajuda`, `/pendentes`, `/ensinar`);
+    - aviso fixo: "Conexão não oficial: o WhatsApp pode bloquear o número. Use com moderação."
+  - **Propostas** (no topo de "Para revisar"): `GET /assistente/propostas` → cartões
+    "Código A — relação — Código B (observação), enviada pelo WhatsApp em <data>", com
+    **"Aprovar"** (`POST /propostas/{id}/aprovar`) e **"Recusar"** (`/recusar`).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
@@ -273,6 +311,53 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — Assistente: conhecimento nas outras máquinas (Fase 2c)
+- Branch: `feature/assistente-ia`
+- O que foi feito: a máquina publicadora publica as regras do especialista num JSON pequeno
+  (`conhecimento_assistente.json`) na pasta da base oficial (`latest/`) e no servidor local
+  (rota `/knowledge`), depois de cada regra criada/excluída/aprovada, ao abrir o backend e a cada
+  10 min. As outras máquinas baixam do servidor da publicadora (endereço configurado; se falhar,
+  da pasta) ao abrir o backend e a cada 10 min, conferem o arquivo (impressão digital SHA-256 e
+  cada regra) e trocam as regras locais pelas publicadas; arquivo alterado ou de versão mais nova
+  não muda nada e o `erro` explica. Estado em `assistente_conhecimento.json` (separado do
+  `assistente_config.json`, que guarda a chave e a senha).
+- Arquivos principais: `app/services/assistant_knowledge_sync_service.py`,
+  `local_share_service.py` (rota `/knowledge`), `core/database/repositories/knowledge_repository.py`
+  (`export_rules`, `replace_all`), `backend/app/api/routers/assistant.py`, `backend/app/main.py`,
+  testes em `test_assistant_knowledge_sync.py`.
+- Verificações: pytest ok (161 testes), `check_versions` ok. Testado com pasta e com o servidor
+  local de verdade (porta livre); ainda não testado entre duas máquinas da empresa.
+- Para o Antigravity: contrato na seção 4 ("Novo, Fase 2c") e pedido na seção 5.
+
+### 2026-10-09 — Claude Code — Assistente: códigos no formato da empresa
+- Branch: `feature/assistente-ia`
+- O que foi feito: decisão do dono: código só com dígitos (53279887101); só a Garrett usa hífen
+  (796155-5002). As respostas (chat e WhatsApp), o "Entendi X como Y", o que o especialista
+  ensinou, o motivo das sugestões do admin e a confirmação do `/ensinar` seguem esse formato,
+  mesmo quando o código vem com hífens ("532-7988-7101" na transcrição do áudio). Garrett
+  digitada sem hífen aparece com hífen quando a busca reconhece pelo produto ou pelo catálogo.
+- Arquivos principais: `app/services/assistant_answer_format.py` (`display_code`),
+  `assistant_tools_service.py`, `assistant_knowledge_service.py`, `whatsapp_bridge_service.py`.
+- Verificações: pytest ok (154 testes); avaliação sem IA 17/17.
+- Para o Antigravity: item novo em "ajustes rápidos" (seção 5).
+
+### 2026-10-09 — Claude Code — WhatsApp: primeiro teste com celular e correções
+- Branch: `feature/assistente-ia`
+- O que foi feito: o dono testou na "Mensagem para mim": código + áudio + 🤖 deram a resposta
+  certa e o `/ajuda` funcionou, mas a resposta veio sem citar a mensagem e o 🤖 não saiu. A
+  citação agora leva o autor no mesmo tipo de endereço da conversa (número ou LID) e só o
+  conteúdo da mensagem citada; o 🤖 sai com a mesma chave que o WhatsApp da equipe mandou.
+  O aparelho conectado passa a se chamar "Chronos" (conexões novas). O teste grava um registro
+  com endereços mascarados em `whatsapp_dev.log`. Também: "Desligar" agora encerra a conexão da
+  biblioteca (antes a thread dela ficava presa e o backend podia travar ao fechar), e
+  `POST /whatsapp/iniciar` depois de o celular remover o aparelho abre uma conexão nova com QR
+  (antes ficava preso no estado "desconectado" até reiniciar o backend). O
+  `assistente_dev.py whatsapp` sai sozinho, explicando, quando o aparelho foi removido ou o QR expirou.
+- Arquivos principais: `app/services/whatsapp_neonize_transport.py`, `scripts/assistente_dev.py`,
+  `backend/tests/test_whatsapp_neonize_transport.py` (monta as mensagens da neonize sem conectar).
+- Verificações: pytest ok (153 testes). **Confirmado no celular** (segundo teste): a resposta cita
+  o áudio, o 🤖 sai, e o código falado no áudio é entendido.
 
 ### 2026-10-09 — Antigravity — WhatsApp do assistente, propostas e ajustes rápidos
 - Branch: `ag/assistente-chat`
@@ -315,7 +400,7 @@ npm run lint
   `scripts/assistente_avaliacao.py`.
 - Verificações: pytest ok (148 testes); avaliação com o Groq real 17/17 (15 pela busca direta,
   2 pela IA: fora do assunto e pergunta vaga).
-- Para o Antigravity: pedido "dois ajustes rápidos" na seção 5; contrato inalterado (seção 4).
+- Para o Antigravity: pedido "ajustes rápidos" na seção 5; contrato inalterado (seção 4).
 
 ### 2026-10-09 — Claude Code — Assistente: ponte WhatsApp (modo copiloto)
 - Branch: `feature/assistente-ia`

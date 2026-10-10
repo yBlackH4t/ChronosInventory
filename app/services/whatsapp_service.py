@@ -78,6 +78,9 @@ class WhatsAppService:
 
     def start(self) -> Dict[str, Any]:
         with self._lock:
+            if self._transport is not None and self.state in (STATE_LOGGED_OUT, STATE_ERROR):
+                # Conexao morta (aparelho removido pelo celular, erro): fecha e comeca outra, com QR novo.
+                self._discard_transport()
             if self._transport is None:
                 self.state, self.qr, self.error = STATE_CONNECTING, None, None
                 try:
@@ -98,12 +101,18 @@ class WhatsAppService:
             self._set_enabled(True)
         return self.status()
 
+    def _discard_transport(self) -> None:
+        transport, self._transport, self._bridge = self._transport, None, None
+        if transport is not None:
+            try:
+                transport.stop()
+            except Exception:
+                LOG.exception("whatsapp: falha ao fechar a conexao")
+
     def stop(self, remember: bool = True) -> Dict[str, Any]:
         """Para a ponte. `remember=False` (fechando o backend) mantem a ponte ligada para a proxima vez."""
         with self._lock:
-            if self._transport is not None:
-                self._transport.stop()
-            self._transport = self._bridge = None
+            self._discard_transport()
             self.state, self.qr = STATE_STOPPED, None
             if remember:
                 self._set_enabled(False)
@@ -114,8 +123,7 @@ class WhatsAppService:
         with self._lock:
             if self._transport is not None:
                 self._transport.logout()
-                self._transport.stop()
-            self._transport = self._bridge = None
+            self._discard_transport()
             self._set_enabled(False)
             for suffix in ("", "-wal", "-shm"):
                 path = self.session_path() + suffix

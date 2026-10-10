@@ -9,6 +9,7 @@ textos quando precisa ("a IA entende, o sistema responde").
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 from app.services.assistant_common import (
@@ -28,6 +29,27 @@ HELP_TEXT = (
     "Não encontrei nada para essa pergunta. Mande o código da peça (ex.: 4031196) "
     "ou o veículo/motor (ex.: scania 440, volvo fh 460)."
 )
+
+
+_GARRETT_CODE = re.compile(r"^\d{6}-\d{4}[A-Z]*$")
+_CODE_SEPARATORS = re.compile(r"[\s.\-/]")
+
+
+def display_code(code: Optional[str], garrett: bool = False) -> str:
+    """
+    Codigo no formato da empresa: so a Garrett usa hifen (796155-5002); BorgWarner, Holset e os
+    demais sao so digitos (53279887101), mesmo que venham com hifens ou espacos ("532-7988-7101"
+    na transcricao do audio). `garrett` = a busca sabe que e Garrett (digitado sem o hifen).
+    """
+    text = " ".join(str(code or "").split()).upper()
+    if _GARRETT_CODE.match(text):
+        return text
+    digits = _CODE_SEPARATORS.sub("", text)
+    if not digits.isdigit():
+        return text
+    if garrett and len(digits) == 10:
+        return f"{digits[:6]}-{digits[6:]}"
+    return digits
 
 
 def wants_core(text: Optional[str]) -> bool:
@@ -120,7 +142,7 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
             continue
         kind = "igual" if relation.get("relacao") == "igual" else "similar"
         note = f" ({relation['obs']})" if relation.get("obs") else ""
-        lines.append(f"• {kind.capitalize()} segundo o especialista: {relation['codigo']}{note} — não temos")
+        lines.append(f"• {kind.capitalize()} segundo o especialista: {display_code(relation['codigo'])}{note} — não temos")
 
     if items:
         item = items[0]

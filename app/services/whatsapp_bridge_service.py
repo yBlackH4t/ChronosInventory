@@ -27,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Deque, Dict, List, Optional, Protocol, Tuple
 
+from app.services.assistant_answer_format import display_code
 from core.catalog.normalization import canonical_code, is_searchable_code
 
 LOG = logging.getLogger(__name__)
@@ -44,7 +45,7 @@ HELP_TEXT = (
     "*Assistente do Chronos*\n"
     "• Reaja com 🤖 numa mensagem do cliente: eu respondo na conversa.\n"
     "• /ensinar <código> <igual|similar|diferente> <código> [observação]\n"
-    "  ex.: /ensinar 5327-988-7101 similar 5327-988-7210 muda o atuador\n"
+    "  ex.: /ensinar 53279887101 similar 53279887210 muda o atuador\n"
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
     "• /pendentes: o que está esperando revisão do admin"
 )
@@ -189,7 +190,7 @@ class WhatsAppBridge:
 
     def _teach(self, args: List[str]) -> str:
         if len(args) < 3 or args[1].lower() not in TEACH_TYPES:
-            return "Use assim: /ensinar 5327-988-7101 similar 5327-988-7210 muda o atuador"
+            return "Use assim: /ensinar 53279887101 similar 53279887210 muda o atuador"
         code_a, kind, code_b = args[0], args[1].lower(), args[2]
         for code in (code_a, code_b):
             if not is_searchable_code(canonical_code(code)):
@@ -198,7 +199,7 @@ class WhatsAppBridge:
         proposal_id = self.history.add_proposal(code_a, code_b, kind, note, autor="whatsapp")
         detail = f" ({note})" if note else ""
         return (
-            f"📝 Proposta #{proposal_id}: {code_a.upper()} *{kind}* {code_b.upper()}{detail}.\n"
+            f"📝 Proposta #{proposal_id}: {display_code(code_a)} *{kind}* {display_code(code_b)}{detail}.\n"
             "Só vale depois que o admin aprovar no app (Assistente > Admin > Para revisar)."
         )
 

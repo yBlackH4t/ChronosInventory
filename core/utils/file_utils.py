@@ -19,6 +19,7 @@ class FileUtils:
     _profiles_filename = "stock_profiles.json"
     _official_base_config_filename = "official_base_config.json"
     _assistant_config_filename = "assistente_config.json"
+    _assistant_knowledge_state_filename = "assistente_conhecimento.json"
     _profiles_folder = "profiles"
     _default_profile_id = "default"
 
@@ -97,6 +98,11 @@ class FileUtils:
     def get_assistant_config_path() -> str:
         """Configuracao do assistente de IA (inclui a chave da API): fora do banco e dos backups."""
         return os.path.join(FileUtils.get_app_root_directory(), FileUtils._assistant_config_filename)
+
+    @staticmethod
+    def get_assistant_knowledge_state_path() -> str:
+        """Ultima publicacao/recebimento do conhecimento do assistente (Fase 2c), num arquivo proprio."""
+        return os.path.join(FileUtils.get_app_root_directory(), FileUtils._assistant_knowledge_state_filename)
 
     @staticmethod
     def _read_active_profile_id(app_root: str) -> str:

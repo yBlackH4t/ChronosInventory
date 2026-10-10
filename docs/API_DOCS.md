@@ -131,6 +131,9 @@ Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login
 - `GET /assistente/conhecimento?busca=&limite=&offset=` - regras `{ id, codigo_a, codigo_b, tipo: igual|similar|diferente, observacao, criado_em, atualizado_em }`. Leitura livre.
 - `POST /assistente/conhecimento` (admin) - `{ codigo_a, codigo_b, tipo, observacao? }`. Mesmo par de novo atualiza a regra. Tira os dois codigos da lista "Para revisar".
 - `DELETE /assistente/conhecimento/{id}` (admin).
+- `GET /assistente/conhecimento/sincronizacao` - conhecimento entre as maquinas (Fase 2c): `{ papel: publisher|consumer, fonte: "servidor"|"pasta"|"servidor e pasta"|null, publicado_em, maquina, total_regras, atualizado_em, verificado_em, erro }`. Publicadora: para onde publicou. Outras: de onde e quando receberam. `erro` explica o que configurar.
+- `POST /assistente/conhecimento/sincronizar` - "Sincronizar agora": a publicadora publica de novo; as outras baixam a versao publicada (mesma resposta do GET). Sem admin.
+- A publicadora publica sozinha depois de cada regra criada, excluida ou aprovada, ao abrir o backend e a cada 10 min; as outras recebem ao abrir o backend e a cada 10 min. Arquivo `conhecimento_assistente.json` na pasta da base oficial (`latest/`) e na rota `GET /knowledge` do servidor local (porta 8765), que tambem passou a informar `knowledge_available` em `/health`.
 
 ### Revisao e historico
 - `GET /assistente/revisao` (admin) - codigos pesquisados sem estoque ainda nao revisados: `{ codigo, vezes, ultima_vez, exemplo, conversas, conhecimento: [{codigo, relacao, obs}], sugestoes: [{codigo, produto_id, nome, estoque_total, motivo}] }`.

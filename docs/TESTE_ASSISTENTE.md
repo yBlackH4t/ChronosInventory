@@ -19,7 +19,7 @@ C:\dev\chronos-venv\Scripts\python.exe -m pip install -r backend\requirements.tx
 
 O banco de teste fica em `%TEMP%\chronos_assistente` (já criado). Se um dia precisar recriar:
 `scripts\assistente_dev.py gerar-banco --substituir` (o banco novo já vem com uma regra de
-exemplo: 5327-988-7101 similar à 5327-988-7116).
+exemplo: 53279887101 similar à 53279887116).
 
 **Feche o Chronos instalado** antes do passo B: ele usa a porta 8000.
 
@@ -36,13 +36,25 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_dev.py whatsapp
 1. O QR code abre numa **janela do navegador**, que se atualiza sozinha (o código muda a cada
    ~20 s). No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho, e
    escaneie. Quando conectar, a página mostra "Conectado ✅" e o terminal mostra os próximos passos.
-   Se a página disser "O QR code expirou", rode o comando de novo.
+   Se a página disser "O QR code expirou", rode o comando de novo. Depois da primeira vez a
+   conexão fica salva e não pede QR de novo, a não ser que o aparelho seja removido no celular:
+   aí o comando avisa ("foi tirado dos aparelhos conectados") e, rodando de novo, abre um QR novo.
 2. Na conversa **"Mensagem para mim"**: mande `805314`, depois um **áudio** "temos essa daí?",
    e **reaja com 🤖 no áudio**. A resposta chega citando o áudio.
-3. Mande `/ajuda`, `/pendentes` e `/ensinar 5327-988-7101 similar 5327-988-7116 teste`.
-4. Ctrl+C para sair. No celular, remova o aparelho "Neonize" quando terminar os testes.
+3. **Responda** (arrastando para o lado) qualquer mensagem com "teste". Serve só para o registro:
+   mostra como o WhatsApp oficial monta uma citação.
+4. Mande `/ajuda`, `/pendentes` e `/ensinar 53279887101 similar 53279887116 teste`.
+5. Ctrl+C para sair. Só quando terminar **todos** os testes, remova o aparelho conectado no
+   celular ("Neonize" nas conexões antigas, "Chronos" nas novas); depois disso precisa de QR de novo.
 
-O que conferir: o áudio foi entendido? A resposta veio certa e no formato do WhatsApp? O 🤖 sumiu?
+O que conferir: o áudio foi entendido? A resposta veio certa, no formato do WhatsApp e
+**citando a mensagem**? O 🤖 **sumiu**? O registro do teste fica em
+`%TEMP%\chronos_assistente\whatsapp_dev.log` (endereços mascarados, sem os textos).
+
+**Testes (2026-10-09):** no primeiro, resposta, áudio e `/ajuda` ok, mas a resposta veio sem
+citar a mensagem e o 🤖 não saiu. Corrigido; no segundo teste, **tudo ok**: a resposta cita o áudio,
+o 🤖 sai, e o código falado no áudio é entendido ("532-7988-7101" → 53279887101). Números longos
+aparecem em verde na resposta porque o WhatsApp acha que são telefones; é do próprio WhatsApp.
 
 ---
 
@@ -77,10 +89,10 @@ Abra **http://localhost:5173** e vá em **Assistente**.
    "Papel desta máquina" = **Publica a base**, e salve. Não precisa publicar nada.
 4. **Assistente > Admin:** criar a senha de admin e entrar.
 5. **Fluxo de ensinar** (o seu exemplo da 7210):
-   - no chat, pergunte "tem a 5327-988-7210?" → "não temos esse código" (e a ficha K27 do catálogo);
+   - no chat, pergunte "tem a 53279887210?" → "não temos esse código" (e a ficha K27 do catálogo);
    - Admin > **Para revisar**: aparece a 53279887210 com a sugestão *TURBO K27 - 53279887116*;
    - clique **"É similar"** e escreva "muda o atuador";
-   - no chat, pergunte "tem a 988-7210?" (só o final) → deve entender como 5327-988-7210 e
+   - no chat, pergunte "tem a 988-7210?" (só o final) → deve entender como 53279887210 e
      oferecer a K27 como similar.
 6. **Conhecimento:** a regra aparece; exclua e veja o chat deixar de oferecer a K27.
 7. **Histórico:** as conversas aparecem; corrija uma resposta; exporte o JSONL.
@@ -97,10 +109,29 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_avaliacao.py
 
 ---
 
+## D. Conhecimento nas outras máquinas (na empresa, com duas máquinas)
+
+Precisa do Chronos com o assistente nas duas máquinas, na mesma rede.
+
+1. **Máquina do admin:** Backup > Base oficial > "Papel desta máquina" = **Publica a base** e
+   **ligue o servidor local** (anote um dos endereços que aparecem, ex.: `http://192.168.0.10:8765`).
+   Quem já usa a pasta compartilhada da base oficial pode usar a pasta no lugar do servidor.
+2. **Máquina do colega:** "Papel desta máquina" = **Consome a base** e, em "Servidor remoto", o
+   endereço anotado (ou a mesma pasta compartilhada).
+3. Na máquina do admin, ensine uma regra (Assistente > Admin).
+4. Na máquina do colega, feche e abra o Chronos (ou espere até 10 min) e pergunte pelo código no
+   chat: a resposta já usa a regra. Em Assistente > Admin > Conhecimento (só leitura) ela aparece.
+
+Se não chegar, `GET http://127.0.0.1:8000/assistente/conhecimento/sincronizacao` na máquina do
+colega mostra o motivo no campo `erro` (até a tela de status ficar pronta).
+
+---
+
 ## Ainda não dá para testar
 
 - **Aba WhatsApp dentro do app** (QR na tela, ligar/desligar) e **aprovar propostas** do
   `/ensinar`: o backend está pronto, as telas são o próximo pedido do Antigravity.
-- **Conhecimento nas máquinas dos colegas**: ainda não é distribuído (Fase 2c).
+- **Conhecimento nas máquinas dos colegas**: pronto no backend (Fase 2c), mas só dá para testar na
+  empresa, com duas máquinas (passo D). O status e o "Sincronizar agora" na tela são pedido do Antigravity.
 - **Instalador**: para gerar o `.msi` com o assistente, o backend precisa ser empacotado de
   novo (`npm run build:app`), com `anthropic` e `neonize` instalados no venv do build.

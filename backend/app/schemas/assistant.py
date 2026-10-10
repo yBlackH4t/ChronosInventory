@@ -101,6 +101,19 @@ class KnowledgeRuleOut(BaseModel):
     atualizado_em: str | None = None
 
 
+class KnowledgeSyncOut(BaseModel):
+    """Conhecimento entre as maquinas: o que esta maquina publicou (publicadora) ou recebeu."""
+
+    papel: str
+    fonte: str | None = None
+    publicado_em: str | None = None
+    maquina: str | None = None
+    total_regras: int = 0
+    atualizado_em: str | None = None
+    verificado_em: str | None = None
+    erro: str | None = None
+
+
 class ReviewSuggestionOut(BaseModel):
     codigo: str
     produto_id: int

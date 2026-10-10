@@ -83,6 +83,49 @@ class KnowledgeRepository(BaseRepository):
     def delete_rule(self, rule_id: int) -> bool:
         return self._execute_command("DELETE FROM conhecimento_equivalencias WHERE id = ?", (rule_id,)) > 0
 
+    def export_rules(self) -> List[Dict[str, Any]]:
+        """Todas as regras com as datas, para publicar para as outras maquinas."""
+        return self._execute_query(
+            """
+            SELECT codigo_a, codigo_a_norm, codigo_b, codigo_b_norm, tipo, observacao, criado_em, atualizado_em
+            FROM conhecimento_equivalencias
+            ORDER BY codigo_a_norm, codigo_b_norm
+            """
+        )
+
+    def replace_all(self, rules: List[Dict[str, Any]]) -> None:
+        """Troca todas as regras pelas publicadas, de uma vez (maquinas que so recebem o conhecimento)."""
+        conn = self.db.get_connection()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DELETE FROM conhecimento_equivalencias")
+            conn.executemany(
+                """
+                INSERT INTO conhecimento_equivalencias
+                    (codigo_a, codigo_a_norm, codigo_b, codigo_b_norm, tipo, observacao, criado_em, atualizado_em)
+                VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP), COALESCE(?, CURRENT_TIMESTAMP))
+                """,
+                [
+                    (
+                        r["codigo_a"],
+                        r["codigo_a_norm"],
+                        r["codigo_b"],
+                        r["codigo_b_norm"],
+                        r["tipo"],
+                        r.get("observacao"),
+                        r.get("criado_em"),
+                        r.get("atualizado_em"),
+                    )
+                    for r in rules
+                ],
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def product_codes_with_prefix(self, prefix: str, length: int) -> List[Dict[str, Any]]:
         """Nossos produtos ativos com algum codigo que comeca com `prefix` e tem `length` caracteres."""
         return self._execute_query(
