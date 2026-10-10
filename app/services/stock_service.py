@@ -11,7 +11,7 @@ from app.models.validators import ProductValidator
 
 from core.constants import DATE_FORMAT_DB
 from core.database.repositories.movement_repository import MovementRepository
-from core.database.repositories.product_repository import ProductRepository
+from core.database.repositories.product_repository import INITIAL_STOCK_DOCUMENT, ProductRepository
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 from core.exceptions import DatabaseException, ValidationException, NotFoundException, ProductNotFoundException
 
@@ -184,7 +184,7 @@ class StockService:
         # Cria movimentos de entrada para o saldo inicial
         data_hora = datetime.now().strftime(DATE_FORMAT_DB)
         movement_obs = observacao_movimento or "Estoque inicial gerado no cadastro do produto."
-        movement_doc = documento_movimento or "CADASTRO_INICIAL"
+        movement_doc = documento_movimento or INITIAL_STOCK_DOCUMENT
         conn = self.movement_repo.db.get_connection()
         try:
             conn.execute("BEGIN IMMEDIATE")

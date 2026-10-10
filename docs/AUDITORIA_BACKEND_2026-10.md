@@ -57,10 +57,10 @@ Todas cobertas por testes novos em `backend/tests/test_security_hardening.py` (8
 | # | Problema | Risco | Ação recomendada |
 |---|---|---|---|
 | 1 | **Nenhuma autenticação/usuário** | Pré-requisito do plano de IA (Admin × Vendedor) | Tabela `usuarios` + PIN/senha com hash + token de sessão; papéis verificados no backend |
-| 2 | **Exclusão de produto apaga o histórico de movimentações** | Perda de trilha de auditoria; equivalências futuras ficam órfãs | Bloquear exclusão quando houver movimentações; usar inativação (já existe) |
+| 2 | ~~**Exclusão de produto apaga o histórico de movimentações**~~ **Resolvido (2026-10-10):** só exclui produto sem histórico além do estoque inicial do cadastro; com movimentações, pede para inativar | Perda de trilha de auditoria; equivalências futuras ficam órfãs | Bloquear exclusão quando houver movimentações; usar inativação (já existe) |
 | 3 | **Porta 8000 fixa** (Rust + frontend) | Se outro programa usar a 8000, o Chronos não abre | Sidecar escolhe porta livre e passa ao frontend via comando Tauri |
 | 4 | **Webview sem CSP** (`"csp": null`) | Um XSS teria acesso aos comandos Tauri (`kill_backend`) | Definir CSP restrita: `connect-src` só para `127.0.0.1:<porta>` |
-| 5 | **Servidor da base oficial (porta 8765) publica o banco inteiro na rede sem senha** | Qualquer aparelho do Wi-Fi baixa o estoque completo | Token compartilhado na configuração, enviado em cabeçalho |
+| 5 | ~~**Servidor da base oficial (porta 8765) publica o banco inteiro na rede sem senha**~~ **Resolvido no backend (2026-10-10):** senha do servidor (`server_token`, cabeçalho `X-Chronos-Senha`); falta o campo na tela, e sem senha configurada continua aberto | Qualquer aparelho do Wi-Fi baixa o estoque completo | Token compartilhado na configuração, enviado em cabeçalho |
 | 6 | `MovementService.__init__` abre uma conexão a cada requisição | Desperdício de recursos sob carga | Abrir sob demanda ou reutilizar a da transação |
 | 7 | CI só roda em tag de release | Erros só aparecem na hora de publicar | Workflow de PR/push rodando `pytest` e `npm run build` |
 

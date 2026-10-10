@@ -76,6 +76,8 @@ class OfficialBaseStatusService:
             "server_port": int(config["server_port"]),
             "server_running": bool(local_server["running"]),
             "server_urls": [str(item) for item in local_server["urls"]],
+            # So se tem senha; a senha nunca volta para a tela.
+            "server_token_set": bool(config.get("server_token")),
             "remote_server_url": config["remote_server_url"] or None,
             "can_publish": config["role"] == "publisher" and bool(base_dir),
             "can_publish_server": config["role"] == "publisher",
