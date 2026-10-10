@@ -272,7 +272,7 @@ export default function AdminReviewTab() {
 
   if (!hasItems && !hasProposals) {
     return (
-      <Card withBorder p="xl" radius="md" style={{ textAlign: "center" }}>
+      <Card withBorder p="xl" radius="md" ta="center">
         <Stack align="center" gap="xs">
           <IconSparkles size={36} color="var(--mantine-color-blue-5)" />
           <Text fw={500}>Tudo em dia!</Text>

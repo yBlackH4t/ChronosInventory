@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from core.catalog.normalization import (
     canonical_code,
     clean_text,
-    fix_mojibake,
     normalize_manufacturer,
     rtf_to_text,
     split_reference_numbers,

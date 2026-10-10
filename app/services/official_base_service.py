@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 import tempfile
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.services.backup_service import BackupService
@@ -15,9 +14,8 @@ from app.services.official_base_config_store import OfficialBaseConfigStore
 from app.services.official_base_publication_helper import OfficialBasePublicationHelper
 from app.services.official_base_status_service import OfficialBaseStatusService
 from app.services.local_share_service import LocalShareService
-from core.constants import APP_VERSION, DB_NAME, DATE_FORMAT_FILE
+from core.constants import APP_VERSION, DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
-from core.database.migration_manager import MigrationManager
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 from core.utils.validators import Validators

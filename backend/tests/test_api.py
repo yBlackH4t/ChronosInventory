@@ -1573,6 +1573,62 @@ def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(cl
     assert product_recent not in ids_pf
 
 
+def test_analytics_stockout_risk_uses_sales_pace(client):
+    # 30 vendidos em 30 dias = 1 por dia; 4 em estoque -> 4 dias de cobertura.
+    product_risk = _create_product(client, "Produto Em Risco", qtd_canoas=34, qtd_pf=0)
+    # 3 vendidos em 30 dias; 37 em estoque -> 370 dias, fora do alerta.
+    product_slow = _create_product(client, "Produto Giro Lento", qtd_canoas=40, qtd_pf=0)
+    # Ja zerado: aparece em "Zerados com venda recente", nao aqui.
+    product_zero = _create_product(client, "Produto Ja Zerado", qtd_canoas=5, qtd_pf=0)
+    # Transferencia externa nao conta como venda.
+    product_transfer = _create_product(client, "Produto Transferido", qtd_canoas=12, qtd_pf=0)
+    product_pf = _create_product(client, "Produto PF Em Risco", qtd_canoas=0, qtd_pf=32)
+
+    for produto_id, quantidade, local in (
+        (product_risk, 30, 11),
+        (product_slow, 3, 11),
+        (product_zero, 5, 11),
+        (product_pf, 30, 12),
+    ):
+        resp = client.post("/movimentacoes", json={
+            "tipo": "SAIDA",
+            "produto_id": produto_id,
+            "quantidade": quantidade,
+            "origem_location_id": local,
+            "data": "2026-02-10T10:00:00",
+        })
+        assert resp.status_code in (200, 201)
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_transfer,
+        "quantidade": 10,
+        "origem_location_id": 11,
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "MATRIZ",
+        "data": "2026-02-10T11:00:00",
+    })
+
+    resp = client.get("/analytics/products/stockout-risk?days=30&max_dias=15&date_to=2026-02-12&limit=10")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    by_id = {item["produto_id"]: item for item in data}
+    assert product_risk in by_id
+    assert by_id[product_risk]["estoque_atual"] == 4
+    assert by_id[product_risk]["total_saida"] == 30
+    assert by_id[product_risk]["dias_cobertura"] == 4
+    assert product_pf in by_id
+    assert product_slow not in by_id
+    assert product_zero not in by_id
+    assert product_transfer not in by_id
+
+    resp_canoas = client.get(
+        "/analytics/products/stockout-risk?days=30&max_dias=15&date_to=2026-02-12&location_id=11&limit=10"
+    )
+    ids_canoas = {item["produto_id"] for item in resp_canoas.json()["data"]}
+    assert product_risk in ids_canoas
+    assert product_pf not in ids_canoas
+
+
 def test_analytics_external_transfers_filters_type_scope_and_order(client):
     product_a = _create_product(client, "Produto Transferencia A", qtd_canoas=10, qtd_pf=0)
     product_b = _create_product(client, "Produto Transferencia B", qtd_canoas=0, qtd_pf=10)

@@ -5,10 +5,7 @@ Testa endpoints CRUD para gerenciar locations configuráveis
 """
 
 import pytest
-import sqlite3
 from fastapi.testclient import TestClient
-from app.models.inventory_location import InventoryLocation
-from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 
 
 def test_create_location(client: TestClient):

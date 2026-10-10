@@ -6,13 +6,12 @@ Responsabilidade: validar, aplicar movimentacao e expor analytics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 from app.models.validators import StockMovementValidator
 from app.services.movement_analytics_service import MovementAnalyticsService
 from app.services.movement_rules_service import (
-    MOTIVO_AJUSTE_LABEL_MAP,
     NATUREZA_AJUSTE,
     NATUREZA_DEVOLUCAO,
     NATUREZA_OPERACAO_NORMAL,
@@ -389,6 +388,16 @@ class MovementService:
 
     def get_recent_stockouts(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
         return self.analytics.get_recent_stockouts(days, date_to, limit, scope)
+
+    def get_stockout_risk(
+        self,
+        days: int,
+        date_to: date,
+        max_dias: int = 15,
+        limit: int = 5,
+        scope: str = "AMBOS",
+    ) -> List[dict]:
+        return self.analytics.get_stockout_risk(days, date_to, max_dias, limit, scope)
 
     def get_external_transfer_totals(
         self,

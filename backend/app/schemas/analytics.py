@@ -64,6 +64,14 @@ class RecentStockoutItem(BaseModel):
     last_sale: str | None = None
 
 
+class StockoutRiskItem(BaseModel):
+    produto_id: int
+    nome: str
+    estoque_atual: int
+    total_saida: int
+    dias_cobertura: int
+
+
 class ExternalTransferItem(BaseModel):
     produto_id: int
     nome: str

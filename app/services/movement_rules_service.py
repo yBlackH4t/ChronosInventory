@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from core.exceptions import InvalidTransferException, ValidationException
 
 NATUREZA_OPERACAO_NORMAL = "OPERACAO_NORMAL"

@@ -64,7 +64,7 @@ function ProductCard({ product }: { product: AssistantProduct }) {
   return (
     <Card shadow="sm" p="sm" radius="md" withBorder mt="xs" onClick={handleOpenProduct} style={{ cursor: "pointer" }}>
       <Group justify="space-between" mb="xs">
-        <Text fw={500} size="sm" lineClamp={1} style={{ flex: 1 }}>
+        <Text fw={500} size="sm" lineClamp={1} flex={1}>
           {product.nome}
         </Text>
         <Badge color="blue" variant="light">
@@ -205,7 +205,15 @@ export default function AssistantPage() {
   }, [messages, mutation.isPending]);
 
   return (
-    <Container size="lg" py="md" h="calc(100vh - 60px)" display="flex" style={{ flexDirection: "column" }}>
+    // Ocupa a altura que sobra abaixo da barra do topo (e do padding de .app-content,
+    // 24px + 32px), para a caixa de digitar ficar sempre visivel.
+    <Container
+      size="lg"
+      py="md"
+      h="calc(100dvh - var(--app-shell-header-height, 97px) - 56px)"
+      display="flex"
+      style={{ flexDirection: "column" }}
+    >
       <Group justify="space-between" mb="xs">
         <Title order={3}>Assistente de IA</Title>
         {activeTab === "chat" && (
@@ -405,6 +413,7 @@ export default function AssistantPage() {
                     variant="subtle"
                     onClick={handleRemovePhoto}
                     title="Remover foto"
+                    aria-label="Remover foto"
                   >
                     <IconX size={16} />
                   </ActionIcon>
@@ -440,13 +449,14 @@ export default function AssistantPage() {
                 minRows={1}
                 maxRows={4}
                 autosize
-                style={{ flex: 1 }}
+                flex={1}
               />
               <ActionIcon
                 color="blue"
                 size="lg"
                 radius="md"
                 onClick={handleSend}
+                aria-label="Enviar mensagem"
                 disabled={mutation.isPending || (!input.trim() && !selectedPhoto)}
               >
                 <IconSend size={18} />

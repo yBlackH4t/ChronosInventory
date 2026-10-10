@@ -575,6 +575,7 @@ export function ProductDetailsDrawer({
                         color={img.is_primary ? "yellow" : "gray"}
                         onClick={() => !img.is_primary && onSetPrimaryImage(img.id)}
                         loading={setPrimaryImageLoading}
+                        aria-label={img.is_primary ? "Imagem principal" : "Definir como principal"}
                       >
                         {img.is_primary ? (
                           <IconStarFilled size={16} />

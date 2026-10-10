@@ -431,6 +431,17 @@ npm run lint
 - O dono vai trabalhar só com o Claude: contexto para começar em `docs/CONTEXTO.md`; `CLAUDE.md`
   e `docs/ASSISTENTE_IA.md` atualizados.
 
+### 2026-10-10 — Claude — Dashboard: um local só e "Perto de zerar"
+- Branch: `claude/project-thread-9wgnwi` (sobre a branch do PR #4)
+- O que foi feito:
+  - Com um único local ativo, a dashboard esconde o seletor de filiais, a "Distribuição por filial"
+    e os cards por filial (fica "Em estoque" + "Itens sem estoque").
+  - Novo painel **"Perto de zerar"**: itens com saldo que zeram em até 15 dias no ritmo de venda
+    real dos últimos 30 dias (rota `GET /analytics/products/stockout-risk`). Com um local, ocupa o
+    lugar da distribuição; com mais de um, fica em largura total abaixo dos gráficos.
+- Validação: pytest, ruff, `npm run build`, `npm run lint` e `npm test`; tela conferida no navegador
+  com um e com dois locais.
+
 ### 2026-10-10 — Antigravity — Correções pré-release: salvamento da base oficial e desidratação segura do cache
 - Branch: `ag/operacao-e-atalhos`
 - O que foi feito:

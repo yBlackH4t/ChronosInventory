@@ -186,7 +186,7 @@ export default function AdminHistoryTab() {
       )}
 
       {!isLoading && !isError && items && items.length === 0 && (
-        <Card withBorder p="xl" radius="md" style={{ textAlign: "center" }}>
+        <Card withBorder p="xl" radius="md" ta="center">
           <Stack align="center" gap="xs">
             <IconMessages size={36} color="var(--mantine-color-gray-5)" />
             <Text fw={500}>Nenhuma conversa registrada</Text>

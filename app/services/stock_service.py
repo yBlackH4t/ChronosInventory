@@ -3,7 +3,6 @@ Serviço de gerenciamento de estoque.
 Responsabilidade: Orquestrar operações de estoque (CRUD + Movimentações).
 """
 
-import pandas as pd
 from datetime import datetime
 from typing import Tuple, List, Dict, Any
 from app.models.product import Product
@@ -13,7 +12,7 @@ from core.constants import DATE_FORMAT_DB
 from core.database.repositories.movement_repository import MovementRepository
 from core.database.repositories.product_repository import INITIAL_STOCK_DOCUMENT, ProductRepository
 from core.database.repositories.inventory_location_repository import InventoryLocationRepository
-from core.exceptions import DatabaseException, ValidationException, NotFoundException, ProductNotFoundException
+from core.exceptions import ValidationException, NotFoundException, ProductNotFoundException
 
 UNSET = object()
 
@@ -175,7 +174,6 @@ class StockService:
         Returns:
             Product recém-criado
         """
-        from app.models.validators import ProductValidator
         ProductValidator.validate_product_data(nome, inventories)
         nome_norm = nome.strip().upper()
         

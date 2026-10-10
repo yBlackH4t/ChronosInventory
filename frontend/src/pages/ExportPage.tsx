@@ -49,7 +49,7 @@ export default function ExportPage() {
 
       <div className="surface-panel" style={{ overflow: "hidden", maxWidth: 860 }}>
         <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
-          <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 260 }}>
+          <Group gap="sm" wrap="nowrap" flex={1} miw={260}>
             <span className="settings-item-icon">
               <IconTable size={18} stroke={1.5} />
             </span>
@@ -73,7 +73,7 @@ export default function ExportPage() {
         </Group>
         <Divider color="var(--border)" />
         <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
-          <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 260 }}>
+          <Group gap="sm" wrap="nowrap" flex={1} miw={260}>
             <span className="settings-item-icon">
               <IconReportAnalytics size={18} stroke={1.5} />
             </span>

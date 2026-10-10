@@ -34,6 +34,7 @@ import type {
   SuccessResponse,
   TopSaidaItem,
   RecentStockoutItem,
+  StockoutRiskItem,
   ExternalTransferItem,
 } from "../lib/api";
 import { notifyError } from "../lib/notify";
@@ -88,7 +89,10 @@ export default function DashboardPage() {
       DEFAULT_DASHBOARD_TAB_STATE,
     [],
   );
-  const [scope, setScope] = useState<Scope>(persistedState.scope);
+  const [selectedScope, setScope] = useState<Scope>(persistedState.scope);
+  // Com um local só, o filtro e a divisão por filial não dizem nada: tudo vira "todas".
+  const multiLocation = locations.length > 1;
+  const scope: Scope = multiLocation ? selectedScope : null;
   const [periodMode, setPeriodMode] = useState<PeriodMode>(
     persistedState.periodMode,
   );
@@ -205,6 +209,14 @@ export default function DashboardPage() {
         { signal },
       ),
   });
+  const stockoutRiskQuery = useQuery<SuccessResponse<StockoutRiskItem[]>>({
+    queryKey: ["analytics", profileScopeKey, "stockout-risk", scope],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsStockoutRisk(
+        { days: 30, max_dias: 15, scope, limit: 5 },
+        { signal },
+      ),
+  });
   const externalTransfersQuery = useQuery<
     SuccessResponse<ExternalTransferItem[]>
   >({
@@ -239,6 +251,7 @@ export default function DashboardPage() {
         flowQuery.error,
         evolutionQuery.error,
         recentStockoutsQuery.error,
+        stockoutRiskQuery.error,
         externalTransfersQuery.error,
       ]
         .map(getQueryErrorMessage)
@@ -250,6 +263,7 @@ export default function DashboardPage() {
       flowQuery.error,
       evolutionQuery.error,
       recentStockoutsQuery.error,
+      stockoutRiskQuery.error,
       externalTransfersQuery.error,
     ],
   );
@@ -274,6 +288,7 @@ export default function DashboardPage() {
   const flow = flowQuery.data?.data ?? [];
   const evolution = evolutionQuery.data?.data ?? [];
   const recentStockouts = recentStockoutsQuery.data?.data ?? [];
+  const stockoutRisk = stockoutRiskQuery.data?.data ?? [];
   const externalTransfers = externalTransfersQuery.data?.data ?? [];
 
   const summaryCards = useMemo<SummaryCard[]>(() => {
@@ -299,6 +314,17 @@ export default function DashboardPage() {
       ];
     }
 
+    if (!multiLocation) {
+      return [
+        {
+          label: "Em estoque",
+          value: summary.total_geral,
+          hint: "Unidades em estoque",
+        },
+        zeroCard,
+      ];
+    }
+
     const cards: SummaryCard[] = summary.locations.map((loc) => ({
       label: loc.location_name,
       value: loc.total,
@@ -316,19 +342,19 @@ export default function DashboardPage() {
     );
 
     return cards;
-  }, [colorFor, scope, summary]);
+  }, [colorFor, multiLocation, scope, summary]);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
       saveTabState<DashboardTabState>(DASHBOARD_TAB_ID, {
-        scope,
+        scope: selectedScope,
         periodMode,
         selectedDate,
         externalTransferType,
         scrollY: nextScrollY,
       });
     },
-    [externalTransferType, periodMode, scope, scrollY, selectedDate],
+    [externalTransferType, periodMode, scrollY, selectedDate, selectedScope],
   );
 
   useEffect(() => {
@@ -373,19 +399,21 @@ export default function DashboardPage() {
       />
 
       <div className="toolbar-row">
-        <SegmentedControl
-          value={scope === null ? "AMBOS" : String(scope)}
-          onChange={(value) =>
-            setScope(value === "AMBOS" ? null : Number(value))
-          }
-          data={[
-            { value: "AMBOS", label: "Todas as filiais" },
-            ...locations.map((loc) => ({
-              value: String(loc.id),
-              label: loc.label || loc.name,
-            })),
-          ]}
-        />
+        {multiLocation ? (
+          <SegmentedControl
+            value={scope === null ? "AMBOS" : String(scope)}
+            onChange={(value) =>
+              setScope(value === "AMBOS" ? null : Number(value))
+            }
+            data={[
+              { value: "AMBOS", label: "Todas as filiais" },
+              ...locations.map((loc) => ({
+                value: String(loc.id),
+                label: loc.label || loc.name,
+              })),
+            ]}
+          />
+        ) : null}
         <div className="toolbar-spacer" />
         <Text size="xs" c="dimmed" className="num">
           {dayjs(dateFrom).format("DD/MM")} – {dayjs(dateTo).format("DD/MM/YYYY")}
@@ -411,7 +439,7 @@ export default function DashboardPage() {
       <div className="stat-grid">
         {summaryQuery.isLoading
           ? Array.from(
-              { length: scope === null ? locations.length + 2 : 2 },
+              { length: scope === null && multiLocation ? locations.length + 2 : 2 },
               (_, index) => <StatTile key={index} label="Carregando" value="" loading />,
             )
           : summaryCards.map((card) => (
@@ -461,6 +489,9 @@ export default function DashboardPage() {
           }
           recentStockouts={recentStockouts}
           recentStockoutsLoading={recentStockoutsQuery.isLoading}
+          stockoutRisk={stockoutRisk}
+          stockoutRiskLoading={stockoutRiskQuery.isLoading}
+          multiLocation={multiLocation}
         />
       </Suspense>
     </Stack>
