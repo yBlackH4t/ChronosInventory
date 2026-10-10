@@ -17,10 +17,28 @@ from core.database.connection import DatabaseConnection
 
 
 def get_assistant_chat_service():
-    # Import tardio: o SDK da Anthropic so e carregado quando o assistente e usado.
+    # Imports tardios: o assistente so e carregado quando usado.
     from app.services.assistant_chat_service import AssistantChatService
 
     return AssistantChatService()
+
+
+def get_assistant_admin_service():
+    from app.services.assistant_admin_service import AssistantAdminService
+
+    return AssistantAdminService()
+
+
+def get_assistant_knowledge_service():
+    from app.services.assistant_knowledge_service import AssistantKnowledgeService
+
+    return AssistantKnowledgeService()
+
+
+def get_assistant_history_service():
+    from app.services.assistant_history_service import AssistantHistoryService
+
+    return AssistantHistoryService()
 
 
 def get_stock_service() -> StockService:

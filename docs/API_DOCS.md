@@ -118,6 +118,26 @@ Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). Se
 - `PUT /assistente/config` - body parcial `{ provedor?: "groq"|"gemini"|"ollama"|"anthropic"|"nenhum", api_key?, modelo?, esforco?: "low"|"medium"|"high"|"xhigh"|"max" }`.
   `api_key` e `modelo` valem para o `provedor` enviado (ou o atual). `api_key: ""` remove a chave; `modelo: ""` volta ao padrao.
   A configuracao fica em `assistente_config.json` na pasta do app (fora do banco e dos backups).
+- `POST /assistente/chat` aceita tambem `canal` (`app` | `whatsapp`, padrao `app`) e `autor` (ex.: numero do WhatsApp). Cada conversa vai para o historico do assistente.
+
+### Admin do assistente (maquina publicadora + senha)
+Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login) e a maquina configurada como publicadora da base oficial; sem isso: `403 admin_necessario`.
+- `GET /assistente/admin/status` - `{ maquina_publicadora, senha_definida, autenticado }`.
+- `POST /assistente/admin/senha` - `{ senha_nova (6+), senha_atual? }`. A atual e exigida quando ja existe senha. Trocar a senha encerra as sessoes.
+- `POST /assistente/admin/login` - `{ senha }` -> `{ token, expira_em }` (sessao de 8 h, some quando o backend reinicia).
+- `POST /assistente/admin/logout`.
+
+### Base de conhecimento do especialista
+- `GET /assistente/conhecimento?busca=&limite=&offset=` - regras `{ id, codigo_a, codigo_b, tipo: igual|similar|diferente, observacao, criado_em, atualizado_em }`. Leitura livre.
+- `POST /assistente/conhecimento` (admin) - `{ codigo_a, codigo_b, tipo, observacao? }`. Mesmo par de novo atualiza a regra. Tira os dois codigos da lista "Para revisar".
+- `DELETE /assistente/conhecimento/{id}` (admin).
+
+### Revisao e historico
+- `GET /assistente/revisao` (admin) - codigos pesquisados sem estoque ainda nao revisados: `{ codigo, vezes, ultima_vez, exemplo, conversas, conhecimento: [{codigo, relacao, obs}], sugestoes: [{codigo, produto_id, nome, estoque_total, motivo}] }`.
+- `POST /assistente/revisao/{codigo}/concluir` (admin) - tira o codigo da lista (volta se for perguntado de novo).
+- `GET /assistente/historico?limite=&offset=` (admin) - conversas, da mais nova para a mais antiga.
+- `PUT /assistente/historico/{id}/correcao` (admin) - `{ resposta_correta, observacao? }`.
+- `GET /assistente/historico/exportar` (admin) - arquivo JSONL (uma conversa por linha, sem o autor).
 
 ## Indices SQLite relevantes
 - `idx_produtos_nome`
@@ -136,3 +156,4 @@ Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). Se
 - `invalid_transfer`
 - `not_found`
 - `internal_error`
+- `admin_necessario`

@@ -61,6 +61,10 @@ COMPACT_LIMITS = ResultLimits(
     products=8, catalog_items=6, code_catalog_items=3, applications_per_item=3, detail_applications=6, refs_per_brand=3
 )
 
+# Completar codigo pelo final ("988-7101"): so a partir de 6 digitos ("7101" bate com dezenas).
+MIN_COMPLETION_LENGTH = 6
+MAX_CODE_COMPLETIONS = 8
+
 # Ordem na resposta: o que o especialista ensinou vale mais que o catalogo.
 _MATCH_RANK = {MATCH_EXACT: 0, MATCH_FAMILY: 1, MATCH_EXPERT_SAME: 2, MATCH_EXPERT_SIMILAR: 3, MATCH_CATALOG: 4}
 
@@ -149,7 +153,7 @@ class AssistantToolsService:
     # Ferramentas
     # ------------------------------------------------------------------
 
-    def search_by_code(self, codigo: str) -> Dict[str, Any]:
+    def search_by_code(self, codigo: str, complete: bool = True) -> Dict[str, Any]:
         typed = " ".join(str(codigo or "").split()).upper()
         # O modelo as vezes manda o codigo junto com texto ("HE200WG 3785294"): separa os codigos.
         codes_in_text = extract_codes_from_name(typed, expand_family=False)
@@ -225,8 +229,64 @@ class AssistantToolsService:
         if other_codes:
             result["outros_codigos_no_texto"] = other_codes
             result["atencao"] = "O texto tinha mais de um codigo: pesquise cada um dos outros_codigos_no_texto."
+
+        # Nada com o codigo como veio: pode ser o final de um codigo ("988-7101" -> 5327-988-7101).
+        if complete and not products and not catalog_items and not taught:
+            full_codes = self._complete_code(code)
+            chosen, alternatives = None, []
+            if len(full_codes) == 1:
+                chosen = full_codes[0]
+            elif len(full_codes) > 1:
+                # Varias familias terminam assim (K24/K27/K31...): se so uma e conhecida da empresa
+                # (produto nosso ou regra do especialista), usa essa e avisa das outras.
+                known = [c for c in full_codes if c in self.repository.known_codes(full_codes)]
+                if len(known) == 1:
+                    chosen, alternatives = known[0], [c for c in full_codes if c != known[0]]
+            if chosen:
+                resolved = self.search_by_code(chosen, complete=False)
+                resolved["codigo_digitado"] = typed
+                note = f"(Entendi *{typed}* como *{chosen}*"
+                if alternatives:
+                    resolved["outros_codigos_possiveis"] = alternatives[:MAX_CODE_COMPLETIONS]
+                    note += f"; também existem: {', '.join(self._code_labels(alternatives[:MAX_CODE_COMPLETIONS]))}"
+                resolved["texto_pronto"] = f"{note}.)\n" + resolved["texto_pronto"]
+                if other_codes:
+                    resolved["outros_codigos_no_texto"] = other_codes
+                return resolved
+            if full_codes:
+                shown = full_codes[:MAX_CODE_COMPLETIONS]
+                result["codigos_possiveis"] = shown
+                result["texto_pronto"] = (
+                    f"*{typed}*: achei mais de um código que termina assim: "
+                    f"{', '.join(self._code_labels(shown))}. Qual deles?"
+                )
+                return result
+
         result["texto_pronto"] = format_code_answer(typed, result)
         return result
+
+    def _code_labels(self, codes: List[str]) -> List[str]:
+        """'53279887101 (K27)': o modelo da turbina pela ficha do catalogo, quando houver."""
+        labels = []
+        for candidate in codes:
+            rows = self.catalog.search_catalog(candidate, limit=1)
+            model = _turbo_models(rows[0].get("modelo")) if rows else None
+            first = model.replace("/", " ").split()[0] if model else None
+            labels.append(f"{candidate} ({first})" if first else candidate)
+        return labels
+
+    def _complete_code(self, code: str) -> List[str]:
+        """Codigos completos que terminam com `code` (uma entrada por familia nova/reman)."""
+        if len(code) < MIN_COMPLETION_LENGTH or not code.isdigit():
+            return []
+        seen: set = set()
+        out: List[str] = []
+        for candidate in self.repository.codes_ending_with(code):
+            if candidate in seen:
+                continue
+            seen |= set(expand_family_codes([candidate]))
+            out.append(candidate)
+        return out
 
     def search_by_application(self, texto: str) -> Dict[str, Any]:
         terms = [w for w in search_words(texto) if w not in _STOPWORDS]

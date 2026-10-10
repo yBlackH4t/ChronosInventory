@@ -3,6 +3,7 @@
 import pytest
 
 from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from core.database.connection import DatabaseConnection
 from core.exceptions import ValidationException
 from test_assistant_tools import tools  # noqa: F401  (fixture: catalogo + produtos de teste)
 
@@ -77,6 +78,54 @@ def test_code_search_uses_what_the_expert_taught(tools, knowledge):  # noqa: F81
         "*5327-988-7101*: não temos esse código, mas temos:",
         "• *TURBO K27 - 53279887116* — 3 em Passo Fundo (similar: muda o atuador)",
     ]
+
+
+def test_code_search_completes_the_end_of_a_code(tools, knowledge):  # noqa: F811
+    # Final de um codigo que esta no nome do produto: a busca ja acha pelo nome.
+    assert tools.search_by_code("988-7116")["texto_pronto"].startswith("*988-7116*: temos.")
+
+    # "tem a 988-7101?": o chefe fala so o final; o codigo completo so existe no que o especialista ensinou.
+    knowledge.add_rule("5327-988-7101", "5327-988-7116", "similar", "muda o atuador")
+    result = tools.search_by_code("988-7101")
+    assert result["codigo_pesquisado"] == "53279887101"
+    assert result["codigo_digitado"] == "988-7101"
+    assert result["texto_pronto"].splitlines() == [
+        "(Entendi *988-7101* como *53279887101*.)",
+        "*53279887101*: não temos esse código, mas temos:",
+        "• *TURBO K27 - 53279887116* — 3 em Passo Fundo (similar: muda o atuador)",
+    ]
+
+    # Final que bate com mais de um codigo completo: pergunta qual.
+    knowledge.add_rule("1111112468", "2222112468", "igual")
+    ambiguous = tools.search_by_code("112468")
+    assert ambiguous["codigos_possiveis"] == ["1111112468", "2222112468"]
+    assert ambiguous["texto_pronto"] == (
+        "*112468*: achei mais de um código que termina assim: 1111112468, 2222112468. Qual deles?"
+    )
+    # Curto demais (menos de 6 digitos): nao tenta completar.
+    assert "codigos_possiveis" not in tools.search_by_code("12468")
+
+
+def test_completion_prefers_the_code_the_company_knows(tools, knowledge):  # noqa: F811
+    # Dois codigos completos terminam igual: um so existe no catalogo, o outro o especialista ensinou.
+    conn = DatabaseConnection().get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO catalogo_referencias (catalogo_produto_id, fabricante, numero, numero_norm) "
+            "VALUES (1, 'GARRETT', '1239876543', '1239876543')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    knowledge.add_rule("4569876543", "4031196", "similar", "serve com adaptador")
+
+    result = tools.search_by_code("9876543")
+    assert result["codigo_pesquisado"] == "4569876543"
+    assert result["outros_codigos_possiveis"] == ["1239876543"]
+    first, second, third = result["texto_pronto"].splitlines()[:3]
+    assert first == "(Entendi *9876543* como *4569876543*; também existem: 1239876543 (GTA42S).)"
+    assert second == "*4569876543*: não temos esse código, mas temos:"
+    assert third == "• *TURBINA HOLSET HX55W 4031196* — 2 em Canoas (similar: serve com adaptador)"
 
 
 def test_expert_can_hide_a_catalog_equivalent(tools, knowledge):  # noqa: F811

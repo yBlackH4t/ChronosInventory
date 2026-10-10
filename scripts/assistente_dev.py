@@ -169,6 +169,11 @@ def generate_database(folder: str, products: int, seed: int, replace: bool) -> N
         repo.add(name, {locations[place]: qty for place, qty in stock.items()})
 
     links = relink_catalog(db, force=True)
+
+    from app.services.assistant_knowledge_service import AssistantKnowledgeService
+
+    # Exemplo da base de conhecimento do especialista (o mesmo que a avaliacao usa).
+    AssistantKnowledgeService().add_rule("5327-988-7101", "5327-988-7116", "similar", "exemplo de teste: muda o atuador")
     print(f"Banco de teste criado: {db_path}")
     print(f"  produtos: {len(seen_names)}  catalogo: {bundle}")
     print(f"  vinculos: {links}")
@@ -192,7 +197,7 @@ def ask(folder: str, question: str, direct: bool) -> None:
     from app.services.assistant_chat_service import AssistantChatService
     from app.services.assistant_direct_service import AssistantDirectService
 
-    result = AssistantDirectService().answer(question) if direct else AssistantChatService().chat(question)
+    result = AssistantDirectService().answer(question) if direct else AssistantChatService().chat(question, canal="teste")
     print(result["resposta"])
     print()
     print(f"[modo: {result['modo']} | ferramentas: {', '.join(result['ferramentas_usadas']) or '-'}]")

@@ -1,14 +1,56 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from typing import Optional
 
+from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import StreamingResponse
+
+from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
-from backend.app.api.deps import get_assistant_chat_service
+from app.services.assistant_history_service import AssistantHistoryService
+from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from backend.app.api.deps import (
+    get_assistant_admin_service,
+    get_assistant_chat_service,
+    get_assistant_history_service,
+    get_assistant_knowledge_service,
+)
 from backend.app.api.responses import fail, ok
-from backend.app.schemas.assistant import AssistantConfigIn, AssistantConfigOut, ChatIn, ChatOut
+from backend.app.schemas.assistant import (
+    AdminLoginIn,
+    AdminLoginOut,
+    AdminPasswordIn,
+    AdminStatusOut,
+    AssistantConfigIn,
+    AssistantConfigOut,
+    ChatIn,
+    ChatOut,
+    ConversationOut,
+    CorrectionIn,
+    KnowledgeRuleIn,
+    KnowledgeRuleOut,
+    ReviewItemOut,
+)
 from backend.app.schemas.common import SuccessResponse
+from core.catalog.normalization import canonical_code
 
 router = APIRouter(prefix="/assistente", tags=["assistente"])
+
+# Sessao do admin (devolvida por POST /assistente/admin/login).
+ADMIN_TOKEN_HEADER = "X-Admin-Token"
+
+
+def _request_id(request: Request) -> str:
+    return getattr(request.state, "request_id", "")
+
+
+def _admin_token(request: Request) -> Optional[str]:
+    return request.headers.get(ADMIN_TOKEN_HEADER)
+
+
+# ----------------------------------------------------------------------
+# Conversa e configuracao da IA
+# ----------------------------------------------------------------------
 
 
 @router.post("/chat", response_model=SuccessResponse[ChatOut])
@@ -18,9 +60,14 @@ def chat(
     service: AssistantChatService = Depends(get_assistant_chat_service),
 ):
     if not payload.mensagem.strip():
-        return fail(422, "validation_error", "Digite uma pergunta.", None, getattr(request.state, "request_id", ""))
+        return fail(422, "validation_error", "Digite uma pergunta.", None, _request_id(request))
     # Sempre responde: se a IA falhar, a busca direta responde e `aviso` explica.
-    result = service.chat(payload.mensagem, [item.model_dump() for item in payload.historico])
+    result = service.chat(
+        payload.mensagem,
+        [item.model_dump() for item in payload.historico],
+        canal=payload.canal,
+        autor=payload.autor,
+    )
     return ok(ChatOut(**result))
 
 
@@ -38,3 +85,153 @@ def update_config(
         provedor=payload.provedor, api_key=payload.api_key, modelo=payload.modelo, esforco=payload.esforco
     )
     return ok(AssistantConfigOut(**service.status()))
+
+
+# ----------------------------------------------------------------------
+# Admin (maquina publicadora + senha)
+# ----------------------------------------------------------------------
+
+
+@router.get("/admin/status", response_model=SuccessResponse[AdminStatusOut])
+def admin_status(request: Request, admin: AssistantAdminService = Depends(get_assistant_admin_service)):
+    return ok(AdminStatusOut(**admin.status(_admin_token(request))))
+
+
+@router.post("/admin/senha", response_model=SuccessResponse[AdminStatusOut])
+def admin_set_password(
+    payload: AdminPasswordIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+):
+    admin.set_password(payload.senha_nova, payload.senha_atual)
+    return ok(AdminStatusOut(**admin.status(_admin_token(request))))
+
+
+@router.post("/admin/login", response_model=SuccessResponse[AdminLoginOut])
+def admin_login(payload: AdminLoginIn, admin: AssistantAdminService = Depends(get_assistant_admin_service)):
+    return ok(AdminLoginOut(**admin.login(payload.senha)))
+
+
+@router.post("/admin/logout", response_model=SuccessResponse[AdminStatusOut])
+def admin_logout(request: Request, admin: AssistantAdminService = Depends(get_assistant_admin_service)):
+    admin.logout(_admin_token(request))
+    return ok(AdminStatusOut(**admin.status(None)))
+
+
+# ----------------------------------------------------------------------
+# Base de conhecimento do especialista
+# ----------------------------------------------------------------------
+
+
+@router.get("/conhecimento", response_model=SuccessResponse[list[KnowledgeRuleOut]])
+def list_knowledge(
+    busca: Optional[str] = Query(default=None, max_length=60),
+    limite: int = Query(default=200, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+    knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
+):
+    return ok([KnowledgeRuleOut(**r) for r in knowledge.list_rules(busca, limite, offset)])
+
+
+@router.post("/conhecimento", response_model=SuccessResponse[KnowledgeRuleOut], status_code=201)
+def add_knowledge(
+    payload: KnowledgeRuleIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    rule = knowledge.add_rule(payload.codigo_a, payload.codigo_b, payload.tipo, payload.observacao)
+    # Ensinou sobre o codigo: ele sai da lista "Para revisar".
+    history.mark_reviewed([canonical_code(payload.codigo_a), canonical_code(payload.codigo_b)])
+    return ok(KnowledgeRuleOut(**rule), status_code=201)
+
+
+@router.delete("/conhecimento/{rule_id}", response_model=SuccessResponse[dict])
+def delete_knowledge(
+    rule_id: int,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
+):
+    admin.require(_admin_token(request))
+    if not knowledge.remove_rule(rule_id):
+        return fail(404, "not_found", "Regra não encontrada.", None, _request_id(request))
+    return ok({"removido": True})
+
+
+# ----------------------------------------------------------------------
+# Revisao ("Para revisar") e historico
+# ----------------------------------------------------------------------
+
+
+@router.get("/revisao", response_model=SuccessResponse[list[ReviewItemOut]])
+def review_list(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    items = []
+    for item in history.review_items():
+        relations = knowledge.relations(item["codigo"])
+        item["conhecimento"] = [
+            {"codigo": r["codigo"], "relacao": "igual", "obs": r.get("obs")} for r in relations["iguais"]
+        ] + [{"codigo": r["codigo"], "relacao": "similar", "obs": r.get("obs")} for r in relations["similares"]]
+        item["sugestoes"] = knowledge.suggestions(item["codigo"])
+        items.append(ReviewItemOut(**item))
+    return ok(items)
+
+
+@router.post("/revisao/{codigo}/concluir", response_model=SuccessResponse[dict])
+def review_done(
+    codigo: str,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    history.mark_reviewed([canonical_code(codigo)])
+    return ok({"concluido": True})
+
+
+@router.get("/historico", response_model=SuccessResponse[list[ConversationOut]])
+def list_history(
+    request: Request,
+    limite: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    return ok([ConversationOut(**c) for c in history.list_conversations(limite, offset)])
+
+
+@router.get("/historico/exportar")
+def export_history(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    return StreamingResponse(
+        history.export_jsonl(),
+        media_type="application/x-ndjson; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="assistente_historico.jsonl"'},
+    )
+
+
+@router.put("/historico/{conversa_id}/correcao", response_model=SuccessResponse[dict])
+def correct_answer(
+    conversa_id: int,
+    payload: CorrectionIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+):
+    admin.require(_admin_token(request))
+    if not history.set_correction(conversa_id, payload.resposta_correta, payload.observacao):
+        return fail(404, "not_found", "Conversa não encontrada.", None, _request_id(request))
+    return ok({"corrigido": True})

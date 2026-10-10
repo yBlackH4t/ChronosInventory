@@ -31,7 +31,10 @@ sys.path.insert(0, str(ROOT))
 
 DEFAULT_DIR = os.path.join(tempfile.gettempdir(), "chronos_assistente")
 CASES_FILE = Path(__file__).resolve().parent / "assistente_casos.json"
-REQUIRED_PRODUCT = "TURBINA HOLSET HX55W 4031196"
+# Produto que so existe no banco de teste (codigo ficticio): evita rodar num banco real.
+TEST_DB_MARKER = "TURBO HOLSET HX35 9999991"
+# Regra de exemplo da base de conhecimento usada pelo caso "conhecimento-similar".
+EXAMPLE_RULE = ("5327-988-7101", "5327-988-7116", "similar", "exemplo de teste: muda o atuador")
 
 # Verificacoes que valem para toda resposta (formato WhatsApp).
 GLOBAL_FORBIDDEN = ["**", "se precisar", "qualquer duvida", "fico a disposicao"]
@@ -84,10 +87,12 @@ def main() -> None:
 
     from app.services.assistant_chat_service import AssistantChatService
     from app.services.assistant_direct_service import AssistantDirectService
+    from app.services.assistant_knowledge_service import AssistantKnowledgeService
     from core.database.repositories.product_repository import ProductRepository
 
-    if not ProductRepository().get_all(search_term=REQUIRED_PRODUCT):
-        raise SystemExit("Banco de teste diferente do esperado. Recrie com: gerar-banco --substituir")
+    if not ProductRepository().get_all(search_term=TEST_DB_MARKER):
+        raise SystemExit("Esta pasta nao e o banco de teste. Recrie com: assistente_dev.py gerar-banco --substituir")
+    AssistantKnowledgeService().add_rule(*EXAMPLE_RULE)  # idempotente (atualiza se ja existe)
 
     cases = json.loads(CASES_FILE.read_text(encoding="utf-8"))["casos"]
     if args.casos:
@@ -104,7 +109,10 @@ def main() -> None:
             time.sleep(pause)
         history = case.get("historico", [])
         started = time.perf_counter()
-        result = direct.answer(case["pergunta"], history) if args.sem_ia else chat.chat(case["pergunta"], history)
+        if args.sem_ia:
+            result = direct.answer(case["pergunta"], history)
+        else:
+            result = chat.chat(case["pergunta"], history, canal="teste")
         elapsed = time.perf_counter() - started
 
         print(f"\n=== {case['id']}: {case['pergunta']}  ({result['modo']}, {elapsed:.1f}s)")
