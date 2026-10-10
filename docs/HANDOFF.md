@@ -170,6 +170,24 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
+- [ ] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
+  Branch `ag/assistente-chat`. No tema escuro, cartões com fundo claro fixo recebem o texto claro
+  do tema: a barra do admin ("Admin Autenticado", "Máquina Publicadora", "Sair") e as sugestões de
+  "Para revisar" (nome, código, estoque e os botões "É igual"/"É similar"/"Não serve") ficam quase
+  invisíveis. Trocar os fundos fixos por cores que acompanham o tema (Mantine 7: sem `bg` no
+  Card/Paper, `var(--mantine-color-default-hover)` para o cinza, `var(--mantine-color-<cor>-light)`
+  para os coloridos, ou `light-dark(...)`) e tirar `c="black"`:
+  - `AssistantAdminPanel.tsx:393` (`gray-0`, barra do admin);
+  - `AdminReviewTab.tsx:315` (`teal-0`, propostas) e `:463` (`gray-0`, sugestões);
+  - `AdminKnowledgeTab.tsx:205` (`blue-0`) e `:214` (`gray-0`);
+  - `AdminHistoryTab.tsx:277` (`gray-0`) e `:315` (`green-0`);
+  - `AdminWhatsAppTab.tsx:299` (`green-0`) e `:337` (`gray-0`); em `:260` (`bg="white"`) o
+    branco pode ficar **só atrás do QR code** (o celular precisa de fundo claro para ler);
+  - `AssistantPage.tsx:236` (balão do assistente `gray.0` com `c="black"`);
+  - `settings/AssistantSettingsPanel.tsx:153` (`gray-0`).
+  - Conferir as telas do assistente nos dois temas (botão de tema no topo); `npm run build` e
+    `npm run lint`; registrar na seção 6.
+
 - [ ] **[Claude Code → Antigravity] Assistente: ajustes rápidos (fazer primeiro).**
   Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
   só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
