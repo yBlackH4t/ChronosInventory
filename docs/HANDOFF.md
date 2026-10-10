@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 | Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-10 |
-| Antigravity | `ag/assistente-chat` | Assistente: telas no tema escuro | concluído | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Assistente: formulários do admin | em andamento | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -168,6 +168,20 @@ npm run lint
 ## 5. Pedidos entre agentes
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
+
+- [ ] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
+  Achado no teste do dono: em "Ensinar outro código", ao digitar o código, a tela quebra e o app
+  recarrega (o login de admin, que fica em memória, se perde; o `POST /assistente/conhecimento`
+  nem chega ao backend). Causa: `e.currentTarget.value` lido **dentro** do atualizador do
+  `setState` (`setX((prev) => ({ ...prev, campo: e.currentTarget.value }))`). O React roda o
+  atualizador depois do evento, quando `currentTarget` já é `null` → "Cannot read properties of
+  null (reading 'value')". Correção: ler antes — `const value = e.currentTarget.value;
+  setX((prev) => ({ ...prev, campo: value }))`. Pontos:
+  - `AdminReviewTab.tsx:571` (ressalva do "É similar"), `:607` (código do "Ensinar outro
+    código") e `:635` (observação do mesmo modal);
+  - `AdminHistoryTab.tsx:384` e `:399` (modal "Corrigir resposta").
+  - Os `setX(e.currentTarget.value)` diretos estão certos. Testar digitando em cada modal;
+    `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
   Branch `ag/assistente-chat`. No tema escuro, cartões com fundo claro fixo recebem o texto claro
