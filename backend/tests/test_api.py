@@ -10,6 +10,8 @@ import zipfile
 import pandas as pd
 from openpyxl import load_workbook
 
+from core.utils import file_utils
+
 
 def _create_product(client, nome="Produto Teste", qtd_canoas=1, qtd_pf=0):
     inventories = {}
@@ -87,6 +89,18 @@ def test_list_products_can_search_by_hash_id_and_status_screen(client):
     assert status_by_id.status_code == 200
     status_data = status_by_id.json()["data"]
     assert [item["id"] for item in status_data] == [other_id]
+
+
+def test_forced_app_dir_never_asks_to_restart(client, tmp_path, monkeypatch):
+    # Teste do assistente: CHRONOS_APP_DIR aponta para o banco de teste, fora da pasta do app.
+    # Antes a lista de estoques pedia reinicio para sempre e a tela ficava travada.
+    runtime_dir = tmp_path / "appdata"
+    monkeypatch.setattr(file_utils.FileUtils, "get_app_root_directory", staticmethod(lambda: str(tmp_path / "raiz")))
+    (tmp_path / "raiz").mkdir()
+    assert client.get("/sistema/estoques").json()["data"]["restart_required"] is True
+
+    monkeypatch.setenv("CHRONOS_APP_DIR", str(runtime_dir))
+    assert client.get("/sistema/estoques").json()["data"]["restart_required"] is False
 
 
 def test_stock_profiles_lifecycle(client):

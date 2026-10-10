@@ -35,11 +35,15 @@ class StockProfileService:
         active_name = str(active["name"]) if active else self._default_profile_name
         runtime_db_path = DatabaseConnection().get_database_path()
         active_profile_db_path = os.path.join(self._profile_dir(active_id), DB_NAME)
+        # CHRONOS_APP_DIR (testes e desenvolvimento) fixa o banco: trocar de estoque nao vale ate
+        # tirar a variavel, entao reiniciar nao muda nada e a tela nao pode ficar travada pedindo.
+        forced_dir = os.getenv("CHRONOS_APP_DIR")
+        expected_db_path = os.path.join(forced_dir, DB_NAME) if forced_dir else active_profile_db_path
         return {
             "active_profile_id": active_id,
             "active_profile_name": active_name,
             "current_database_path": runtime_db_path,
-            "restart_required": os.path.abspath(runtime_db_path) != os.path.abspath(active_profile_db_path),
+            "restart_required": os.path.abspath(runtime_db_path) != os.path.abspath(expected_db_path),
             "root_directory": self.app_root,
             "profiles": profiles_out,
         }

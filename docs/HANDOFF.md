@@ -294,6 +294,14 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-10 — Claude Code — Tela travada pedindo reinício no teste
+- Branch: `feature/assistente-ia`
+- O que foi feito: com `CHRONOS_APP_DIR` (banco de teste do roteiro), `GET /sistema/estoques`
+  devolvia `restart_required = true` para sempre (comparava com o banco do estoque "Principal") e
+  o app ficava travado com "Reinicie o sistema". Agora, com o banco fixado pela variável, não pede
+  reinício. Arquivo: `app/services/stock_profile_service.py`; teste em `test_api.py`.
+- Verificações: pytest ok (162 testes).
+
 ### 2026-10-09 — Claude Code — Assistente: conhecimento nas outras máquinas (Fase 2c)
 - Branch: `feature/assistente-ia`
 - O que foi feito: a máquina publicadora publica as regras do especialista num JSON pequeno
