@@ -35,7 +35,7 @@ O dono do projeto (que também é o especialista) ensina ao assistente o que o c
 | Decidir WhatsApp não oficial × oficial da Meta para o número da empresa | ⏳ com o dono |
 | Resumo diário na "Mensagem para mim" (`/resumo` e envio na hora escolhida) | ✅ backend pronto; ligar e escolher a hora na tela é pedido do Antigravity |
 | Foto da plaqueta (WhatsApp e app) | ✅ backend pronto; botão de foto no chat do app é pedido do Antigravity |
-| Instalador (`.msi`) com o assistente | ⏳ precisa empacotar o backend de novo |
+| Instalador (`.msi`) com o assistente | ✅ backend empacotado testado (autodiagnóstico no `build_backend.ps1`); falta gerar o `.msi` completo |
 
 Nada disso está na `main` ainda: fica na branch **`feature/assistente-ia`** (seção 5).
 
@@ -215,7 +215,9 @@ migrações novas no banco. Sempre numa **cópia**.
 2. Juntar as perguntas reais do chefe na avaliação.
 3. Testar o conhecimento chegando numa segunda máquina (parte D do roteiro).
 4. Decidir o WhatsApp do número da empresa (não oficial × oficial).
-5. Empacotar o instalador com o assistente e, quando o dono aprovar, levar para a `main`.
+5. Gerar o `.msi` completo (`npm run build:app`) e, quando o dono aprovar, levar para a `main`.
+   O backend empacotado já é testado sozinho pelo `build_backend.ps1`
+   (`estoque_backend.exe --diagnostico-assistente <arquivo.json>`).
 
 ## 9. Como retomar com o Claude Code em outra máquina
 

@@ -148,5 +148,7 @@ configurar em Backup > Base oficial.
 - **Conhecimento nas máquinas dos colegas**: pronto (backend e telas), mas só dá para testar na
   empresa, com duas máquinas (passo D).
 - **Banco real**: precisa de uma cópia do `estoque.db` da empresa (nunca o original).
+- **Instalador**: o backend empacotado já passa no autodiagnóstico do `build_backend.ps1`; o `.msi`
+  completo sai com `npm run build:app` (precisa do Rust/Tauri na máquina do build).
 - **Instalador**: para gerar o `.msi` com o assistente, o backend precisa ser empacotado de
   novo (`npm run build:app`), com `anthropic` e `neonize` instalados no venv do build.

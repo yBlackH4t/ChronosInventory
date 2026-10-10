@@ -5,10 +5,17 @@ import ipaddress
 import logging
 import os
 import sqlite3
+import sys
+import tempfile
 import time
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+# Autodiagnostico do pacote: banco numa pasta temporaria, decidida antes de qualquer import
+# abrir o banco de verdade desta maquina.
+if "--diagnostico-assistente" in sys.argv:
+    os.environ["CHRONOS_APP_DIR"] = tempfile.mkdtemp(prefix="chronos_diag_")
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -460,6 +467,18 @@ if __name__ == "__main__":
         else:
             print(APP_VERSION)
         raise SystemExit(0)
+
+    if "--diagnostico-assistente" in sys.argv:
+        # Confere se o pacote (PyInstaller) trouxe o que o assistente usa; resultado em JSON.
+        from app.services.assistant_packaging_check import run_check
+
+        position = sys.argv.index("--diagnostico-assistente")
+        report = sys.argv[position + 1] if len(sys.argv) > position + 1 else "diagnostico_assistente.json"
+        passed = run_check(report, app=app)
+        import shutil
+
+        shutil.rmtree(os.environ["CHRONOS_APP_DIR"], ignore_errors=True)
+        raise SystemExit(0 if passed else 1)
 
     port = int(os.getenv("PORT", "8000"))
     # host=0.0.0.0 permite que celulares na mesma rede acessem o backend

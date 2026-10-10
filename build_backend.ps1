@@ -91,8 +91,25 @@ $sitePkgs = & $venvPy -c "import site; print(site.getsitepackages()[0])"
   --add-data "$catalogBundle;core/catalog/data" `
   --onefile --noconsole $entry -n estoque_backend
 
-# mover para src-tauri/bin (compat: nome simples e nome com target)
 $src = Join-Path $PSScriptRoot "dist\estoque_backend.exe"
+
+# Autodiagnostico: o executavel tem o que o assistente usa (WhatsApp, libmagic, fotos, catalogo)
+# e o backend responde? Usa um banco temporario; APP_ENV=dev nao mexe na pasta do app instalado.
+$diagReport = Join-Path $env:TEMP "chronos_diagnostico_assistente.json"
+$previousAppEnv = $env:APP_ENV
+$env:APP_ENV = "dev"
+try {
+  $diag = Start-Process -FilePath $src -ArgumentList @("--diagnostico-assistente", "`"$diagReport`"") -Wait -PassThru -NoNewWindow
+} finally {
+  $env:APP_ENV = $previousAppEnv
+}
+if ($diag.ExitCode -ne 0) {
+  if (Test-Path $diagReport) { Get-Content $diagReport | Write-Host }
+  throw "Autodiagnostico do backend empacotado falhou (relatorio acima)."
+}
+Write-Host "Autodiagnostico do backend empacotado: ok"
+
+# mover para src-tauri/bin (compat: nome simples e nome com target)
 $dstDir = Join-Path $PSScriptRoot "frontend\src-tauri\bin"
 New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
 Copy-Item -Force $src (Join-Path $dstDir "estoque_backend.exe")
