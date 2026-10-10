@@ -14,8 +14,25 @@ import {
   Loader,
   Alert,
 } from "@mantine/core";
-import { IconDeviceFloppy, IconTrash, IconRobot, IconAlertCircle } from "@tabler/icons-react";
+import { IconDeviceFloppy, IconTrash, IconRobot, IconAlertCircle, IconInfoCircle } from "@tabler/icons-react";
 import { getAssistantConfig, updateAssistantConfig } from "../../lib/assistantApi";
+import type { AssistantEffort, AssistantProviderId } from "../../types/assistant";
+
+const ENV_KEY_NAMES: Partial<Record<AssistantProviderId, string>> = {
+  groq: "GROQ_API_KEY",
+  gemini: "GEMINI_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+};
+
+const KEY_PLACEHOLDERS: Partial<Record<AssistantProviderId, string>> = {
+  groq: "gsk_...",
+  gemini: "AIza...",
+  anthropic: "sk-ant-...",
+};
+
+const KEY_HELP: Partial<Record<AssistantProviderId, string>> = {
+  groq: "Crie uma chave gratuita em console.groq.com → API Keys (não pede cartão)",
+};
 
 export default function AssistantSettingsPanel() {
   const queryClient = useQueryClient();
@@ -31,8 +48,7 @@ export default function AssistantSettingsPanel() {
   useEffect(() => {
     if (config) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setModelo(config.modelo || "claude-opus-5-5");
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setModelo(config.modelo ?? "");
       setEsforco(config.esforco || "medium");
     }
   }, [config]);
@@ -45,19 +61,28 @@ export default function AssistantSettingsPanel() {
     },
   });
 
+  const handleProviderChange = (value: string | null) => {
+    if (!value || !config || value === config.provedor) return;
+    setApiKey("");
+    mutation.mutate({ provedor: value as AssistantProviderId });
+  };
+
   const handleSaveKey = () => {
-    if (!apiKey) return;
-    mutation.mutate({ api_key: apiKey });
+    if (!apiKey || !config) return;
+    mutation.mutate({ provedor: config.provedor, api_key: apiKey });
   };
 
   const handleRemoveKey = () => {
-    mutation.mutate({ api_key: "" });
+    if (!config) return;
+    mutation.mutate({ provedor: config.provedor, api_key: "" });
   };
 
   const handleSaveSettings = () => {
+    if (!config) return;
     mutation.mutate({
+      provedor: config.provedor,
       modelo: modelo || undefined,
-      esforco: (esforco as "low" | "medium" | "high" | "xhigh" | "max") || undefined,
+      esforco: (esforco as AssistantEffort) || undefined,
     });
   };
 
@@ -80,6 +105,13 @@ export default function AssistantSettingsPanel() {
     );
   }
 
+  const provedores = config.provedores ?? [];
+  const atual = provedores.find((p) => p.id === config.provedor);
+  const precisaChave = atual?.precisa_chave ?? true;
+  const nomeProvedor = atual?.nome ?? config.provedor;
+  const usaAmbiente = config.origem_chave === "ambiente";
+  const semIa = config.provedor === "nenhum";
+
   return (
     <Card withBorder p="md" radius="md" id="assistant-settings">
       <Group mb="md" align="center">
@@ -90,83 +122,120 @@ export default function AssistantSettingsPanel() {
         </Badge>
       </Group>
 
-      {config.origem_chave === "ambiente" && (
-        <Alert color="blue" mb="md" p="sm">
-          Aviso: Usando ANTHROPIC_API_KEY configurada no ambiente deste computador.
-        </Alert>
-      )}
-
       <Stack gap="md">
-        <Card withBorder p="sm" radius="md" bg="var(--mantine-color-gray-0)">
-          <Text size="sm" fw={500} mb="xs">Chave da API (Anthropic)</Text>
-          {config.chave_mascarada && config.origem_chave !== "ambiente" && (
-            <Text size="sm" c="dimmed" mb="xs">
-              Chave atual: {config.chave_mascarada}
-            </Text>
-          )}
-          <Group align="flex-end">
-            <PasswordInput
-              placeholder="sk-ant-..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.currentTarget.value)}
-              style={{ flex: 1 }}
-              disabled={mutation.isPending || config.origem_chave === "ambiente"}
-            />
-            <Button
-              variant="light"
-              leftSection={<IconDeviceFloppy size={16} />}
-              onClick={handleSaveKey}
-              disabled={!apiKey || mutation.isPending || config.origem_chave === "ambiente"}
-            >
-              Salvar
-            </Button>
-            <Button
-              variant="light"
-              color="red"
-              leftSection={<IconTrash size={16} />}
-              onClick={handleRemoveKey}
-              disabled={!config.configurado || config.origem_chave === "ambiente" || mutation.isPending}
-            >
-              Remover
-            </Button>
-          </Group>
-        </Card>
+        <Select
+          label="Provedor"
+          description="Quando a IA não responder, o assistente usa a busca direta no estoque (sem IA)."
+          value={config.provedor}
+          onChange={handleProviderChange}
+          allowDeselect={false}
+          disabled={mutation.isPending}
+          data={provedores.map((p) => ({
+            value: p.id,
+            label: p.gratuito ? `${p.nome} — gratuito` : p.nome,
+          }))}
+          rightSection={mutation.isPending ? <Loader size="xs" /> : undefined}
+        />
 
-        <Card withBorder p="sm" radius="md">
-          <Text size="sm" fw={500} mb="xs">Parâmetros do Modelo</Text>
-          <Stack gap="sm">
-            <TextInput
-              label="Modelo"
-              value={modelo}
-              onChange={(e) => setModelo(e.currentTarget.value)}
-              disabled={mutation.isPending}
-            />
-            <Select
-              label="Esforço (Effort)"
-              description="Um esforço menor faz o assistente responder mais rápido e com menor custo."
-              value={esforco}
-              onChange={setEsforco}
-              data={[
-                { value: "low", label: "Baixo (low)" },
-                { value: "medium", label: "Médio (medium)" },
-                { value: "high", label: "Alto (high)" },
-                { value: "xhigh", label: "Muito alto (xhigh)" },
-                { value: "max", label: "Máximo (max)" },
-              ]}
-              disabled={mutation.isPending}
-            />
-            <Group justify="flex-end">
+        {semIa && (
+          <Alert color="blue" variant="light" p="sm" icon={<IconInfoCircle size={16} />}>
+            Sem IA: o assistente responde apenas pela busca direta no estoque.
+          </Alert>
+        )}
+
+        {usaAmbiente && precisaChave && (
+          <Alert color="blue" variant="light" p="sm" icon={<IconInfoCircle size={16} />}>
+            Usando {ENV_KEY_NAMES[config.provedor] ?? "a chave"} configurada no ambiente deste computador.
+          </Alert>
+        )}
+
+        {precisaChave && (
+          <Card withBorder p="sm" radius="md" bg="var(--mantine-color-gray-0)">
+            <Text size="sm" fw={500} mb={4}>Chave da API ({nomeProvedor})</Text>
+            {KEY_HELP[config.provedor] && (
+              <Text size="xs" c="dimmed" mb="xs">
+                {KEY_HELP[config.provedor]}
+              </Text>
+            )}
+            {config.chave_mascarada && !usaAmbiente && (
+              <Text size="sm" c="dimmed" mb="xs">
+                Chave atual: {config.chave_mascarada}
+              </Text>
+            )}
+            <Group align="flex-end">
+              <PasswordInput
+                placeholder={KEY_PLACEHOLDERS[config.provedor] ?? "Cole a chave aqui"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.currentTarget.value)}
+                style={{ flex: 1 }}
+                disabled={mutation.isPending || usaAmbiente}
+                autoComplete="off"
+              />
               <Button
                 variant="light"
                 leftSection={<IconDeviceFloppy size={16} />}
-                onClick={handleSaveSettings}
-                disabled={mutation.isPending || (!modelo && !esforco)}
+                onClick={handleSaveKey}
+                disabled={!apiKey || mutation.isPending || usaAmbiente}
               >
-                Salvar Parâmetros
+                Salvar
+              </Button>
+              <Button
+                variant="light"
+                color="red"
+                leftSection={<IconTrash size={16} />}
+                onClick={handleRemoveKey}
+                disabled={!config.chave_mascarada || usaAmbiente || mutation.isPending}
+              >
+                Remover
               </Button>
             </Group>
-          </Stack>
-        </Card>
+          </Card>
+        )}
+
+        {!semIa && (
+          <Card withBorder p="sm" radius="md">
+            <Text size="sm" fw={500} mb="xs">Parâmetros do Modelo ({nomeProvedor})</Text>
+            <Stack gap="sm">
+              <TextInput
+                label="Modelo"
+                value={modelo}
+                onChange={(e) => setModelo(e.currentTarget.value)}
+                disabled={mutation.isPending}
+              />
+              <Select
+                label="Esforço (Effort)"
+                description="Um esforço menor faz o assistente responder mais rápido e com menor custo. Só faz diferença para Groq e Claude."
+                value={esforco}
+                onChange={setEsforco}
+                allowDeselect={false}
+                data={[
+                  { value: "low", label: "Baixo (low)" },
+                  { value: "medium", label: "Médio (medium)" },
+                  { value: "high", label: "Alto (high)" },
+                  { value: "xhigh", label: "Muito alto (xhigh)" },
+                  { value: "max", label: "Máximo (max)" },
+                ]}
+                disabled={mutation.isPending}
+              />
+              <Group justify="flex-end">
+                <Button
+                  variant="light"
+                  leftSection={<IconDeviceFloppy size={16} />}
+                  onClick={handleSaveSettings}
+                  disabled={mutation.isPending || (!modelo && !esforco)}
+                >
+                  Salvar Parâmetros
+                </Button>
+              </Group>
+            </Stack>
+          </Card>
+        )}
+
+        {mutation.isError && (
+          <Alert color="red" variant="light" p="sm" icon={<IconAlertCircle size={16} />}>
+            Não foi possível salvar: {mutation.error instanceof Error ? mutation.error.message : "erro desconhecido"}
+          </Alert>
+        )}
       </Stack>
     </Card>
   );

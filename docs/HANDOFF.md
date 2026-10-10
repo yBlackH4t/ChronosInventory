@@ -68,7 +68,7 @@ npm run lint
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
 | Claude Code | `feature/assistente-ia` | Assistente de IA — Fase 2 trocada para IA gratuita (Groq) + busca direta de reserva; próxima: Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Assistente: provedor gratuito e busca direta na tela | em andamento | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | Assistente: provedor gratuito e busca direta na tela | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -162,7 +162,7 @@ npm run lint
   - Fora do escopo agora: configurações do WhatsApp (QR code, números autorizados), que vêm
     com a Fase 3.
 
-- [ ] **[Claude Code → Antigravity] Assistente: provedor gratuito e busca direta na tela.**
+- [x] **[Claude Code → Antigravity] Assistente: provedor gratuito e busca direta na tela.**
   Mesma branch `ag/assistente-chat` (traga as mudanças com `git merge feature/assistente-ia`).
   Contrato em "Mudou (2026-10-09)", seção 4.
   - Chat: quando `modo` = `busca_direta`, mostrar um selo discreto "Busca direta (sem IA)" na
@@ -190,6 +190,22 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Antigravity — Assistente: provedor gratuito e busca direta na tela
+- Branch: `ag/assistente-chat` (com merge de `feature/assistente-ia`)
+- O que foi feito: no chat, respostas com `modo = busca_direta` ganham o selo "Busca direta (sem IA)"
+  e, se houver `aviso`, um alerta informativo (azul, não é erro) com atalho para Configurações. Em
+  Configurações → Assistente de IA: select de provedor a partir de `provedores` (marca "gratuito"),
+  troca com `PUT { provedor }`; chave e modelo valem para o provedor atual; campo de chave oculto
+  quando `precisa_chave = false`; ajuda do Groq (console.groq.com). Aviso de chave do ambiente usa o
+  nome da variável do provedor. Mock atualizado com `modo`/`aviso` e provedores (estado em memória;
+  mensagem com "busca" ou provedor sem chave → resposta por busca direta).
+- Arquivos principais: `frontend/src/pages/AssistantPage.tsx`,
+  `frontend/src/components/settings/AssistantSettingsPanel.tsx`, `frontend/src/lib/assistantApi.ts`,
+  `frontend/src/types/assistant.ts`.
+- Verificações: build ok / lint sem infrações nos arquivos alterados.
+- Pendências ou observações para o outro agente: nenhuma. Nomes das variáveis de ambiente exibidos
+  (`GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`) conferidos com `assistant_config_store.py`.
 
 ### 2026-10-09 — Antigravity — Seção Assistente de IA em Configurações
 - Branch: `ag/assistente-chat`

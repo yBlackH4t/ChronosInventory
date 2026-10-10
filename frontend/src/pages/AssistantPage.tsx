@@ -17,10 +17,18 @@ import {
   Title,
 } from "@mantine/core";
 import { useMutation } from "@tanstack/react-query";
-import { IconSend, IconTrash, IconSettings, IconAlertCircle } from "@tabler/icons-react";
+import { IconSend, IconTrash, IconSettings, IconAlertCircle, IconInfoCircle, IconSearch } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { sendAssistantMessage, AssistantApiError } from "../lib/assistantApi";
-import type { AssistantMessage, AssistantProduct } from "../types/assistant";
+import type { AssistantMessage, AssistantProduct, AssistantResponseMode } from "../types/assistant";
+
+type ChatMessage = AssistantMessage & {
+  produtos?: AssistantProduct[];
+  modo?: AssistantResponseMode;
+  aviso?: string | null;
+};
+
+const SETTINGS_PATH = "/configuracoes#assistant-settings";
 
 function formatWhatsAppText(text: string) {
   const lines = text.split("\n");
@@ -71,7 +79,7 @@ function ProductCard({ product }: { product: AssistantProduct }) {
 }
 
 export default function AssistantPage() {
-  const [messages, setMessages] = useState<(AssistantMessage & { produtos?: AssistantProduct[] })[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -86,7 +94,7 @@ export default function AssistantPage() {
     onSuccess: (data) => {
       setMessages((prev) => [
         ...prev,
-        { papel: "assistente", texto: data.resposta, produtos: data.produtos },
+        { papel: "assistente", texto: data.resposta, produtos: data.produtos, modo: data.modo, aviso: data.aviso },
       ]);
       setErrorMsg(null);
     },
@@ -172,7 +180,7 @@ export default function AssistantPage() {
           {errorMsg}
           {errorMsg.includes("indisponível") && (
             <Box mt="sm">
-              <Button size="xs" variant="outline" color="red" leftSection={<IconSettings size={14} />} onClick={() => navigate("/configuracoes#assistant-settings")}>
+              <Button size="xs" variant="outline" color="red" leftSection={<IconSettings size={14} />} onClick={() => navigate(SETTINGS_PATH)}>
                 Ir para Configurações
               </Button>
             </Box>
@@ -210,6 +218,42 @@ export default function AssistantPage() {
                         {formatWhatsAppText(msg.texto)}
                       </Text>
                     </Paper>
+                    {!isUser && msg.modo === "busca_direta" && (
+                      <Stack gap={6} mt={6}>
+                        <Group gap={6}>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color="gray"
+                            leftSection={<IconSearch size={10} />}
+                            title="Esta resposta veio da busca direta no estoque, sem IA."
+                          >
+                            Busca direta (sem IA)
+                          </Badge>
+                        </Group>
+                        {msg.aviso && (
+                          <Alert
+                            variant="light"
+                            color="blue"
+                            p="xs"
+                            radius="md"
+                            icon={<IconInfoCircle size={16} />}
+                          >
+                            <Group justify="space-between" gap="xs" wrap="nowrap">
+                              <Text size="xs">{msg.aviso}</Text>
+                              <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                leftSection={<IconSettings size={12} />}
+                                onClick={() => navigate(SETTINGS_PATH)}
+                              >
+                                Configurações
+                              </Button>
+                            </Group>
+                          </Alert>
+                        )}
+                      </Stack>
+                    )}
                     {!isUser && msg.produtos && msg.produtos.length > 0 && (
                       <Box mt="xs">
                         {msg.produtos.map((prod) => (
