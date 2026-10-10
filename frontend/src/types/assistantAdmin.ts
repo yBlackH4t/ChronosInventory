@@ -110,6 +110,7 @@ export interface WhatsAppStatus {
 }
 
 export interface KnowledgeSyncStatus {
+  configurado?: boolean;
   papel: "publisher" | "subscriber" | "standalone" | string;
   fonte: string | null;
   publicado_em: string | null;

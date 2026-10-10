@@ -179,7 +179,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Revisão do commit `0f60808` (`ag/operacao-e-atalhos`): corrigir antes de usar.**
+- [x] **[Claude Code → Antigravity] Revisão do commit `0f60808` (`ag/operacao-e-atalhos`): corrigir antes de usar.**
   Revisado lendo o código contra o backend (2026-10-10).
   1. **Movimentação rápida com AJUSTE ou TRANSFERÊNCIA EXTERNA sempre falha**
      (`QuickMovementModal.tsx`): o modal oferece essas naturezas, mas não manda `motivo_ajuste` (e
@@ -399,6 +399,27 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Antigravity — Correções da revisão do commit 0f60808: movimentação rápida, atalho N e status de conhecimento
+- Branch: `ag/operacao-e-atalhos`
+- O que foi feito:
+  - **Movimentação rápida com AJUSTE e TRANSFERÊNCIA EXTERNA (`QuickMovementModal.tsx`)**:
+    - Adicionados campos dinâmicos no modal: `motivo_ajuste` (`PRODUCT_ADJUSTMENT_REASON_OPTIONS`) exibido quando natureza é `AJUSTE`, e `local_externo` quando natureza é `TRANSFERENCIA_EXTERNA`.
+    - Validação antes da submissão: `motivo_ajuste` e `observacao` obrigatórios no `AJUSTE`, e `local_externo` obrigatório na `TRANSFERENCIA_EXTERNA`.
+    - Envio dos campos no payload de criação da movimentação (`MovementCreate`).
+    - Refatoração com separação do formulário interno (`QuickMovementForm`) com chave no modal para garantir inicialização limpa de estado sem uso inadequado de efeitos.
+  - **Atalho N sem produto alvo (`ProductsPage.tsx`)**:
+    - Removido o fallback para o primeiro produto da lista (`rows[0]`). Pressionar `N` sem produto sob o mouse, selecionado ou aberto no drawer agora não executa nenhuma ação indevida.
+  - **Indicador de sincronização do conhecimento (`SyncStatusBadge.tsx` e `types/assistantAdmin.ts`)**:
+    - Atualizados textos e tooltips de "Base Oficial: ..." para "Conhecimento do assistente".
+    - Adicionado suporte ao campo `configurado` de `GET /assistente/conhecimento/sincronizacao`:
+      - `configurado === false` → indicador neutro cinza "Não configurado";
+      - `configurado === true && erro` → indicador de aviso laranja "Sync pendente";
+      - `!verificado_em` → indicador cinza "Ainda não sincronizou";
+      - caso contrário → indicador ativo com brilho ("Publicadora" azul ou "Sincronizado" verde-azulado).
+  - **Conferência de código no catálogo de peças relacionadas (`ProductCatalogTab.tsx`)**:
+    - Na função `RelatedPieceCard`, implementada conferência `matchesPieceCode` para assegurar que o produto retornado pela busca contém exatamente o código da peça antes de exibir o selo de estoque e link.
+- Validação: `npm run build` e `npm run lint` executados com sucesso (0 erros).
 
 ### 2026-10-10 — Antigravity — Senha do servidor, exclusão/inativação de produto, foto da plaqueta no chat e resumo diário na aba WhatsApp
 - Branch: `ag/assistente-chat`

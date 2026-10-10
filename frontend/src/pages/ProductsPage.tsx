@@ -721,8 +721,7 @@ export default function ProductsPage() {
         const target =
           hoveredProduct ||
           (drawerOpened && currentProduct ? currentProduct : null) ||
-          selectedSnapshot ||
-          (rows.length > 0 ? rows[0] : null);
+          selectedSnapshot;
 
         if (target) {
           event.preventDefault();
@@ -732,7 +731,7 @@ export default function ProductsPage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hoveredProduct, drawerOpened, currentProduct, selectedSnapshot, rows]);
+  }, [hoveredProduct, drawerOpened, currentProduct, selectedSnapshot]);
 
   const resetView = () => {
     setQuery(DEFAULT_PRODUCTS_TAB_STATE.query);

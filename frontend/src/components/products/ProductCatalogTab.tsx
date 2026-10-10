@@ -63,6 +63,30 @@ function CodeChip({ code }: { code: string }) {
   );
 }
 
+function matchesPieceCode(productName: string, code: string): boolean {
+  if (!productName || !code) return false;
+  const upperName = productName.toUpperCase();
+  const upperCode = code.toUpperCase().trim();
+  if (!upperCode) return false;
+
+  // Verificação de substring com limite de caractere para não pegar partes de outro código
+  if (upperName.includes(upperCode)) {
+    const escaped = upperCode.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, "i");
+    if (regex.test(upperName)) return true;
+  }
+
+  // Verificação normalizada (sem traços, barras ou pontos)
+  const normName = upperName.replace(/[^a-zA-Z0-9]/g, "");
+  const normCode = upperCode.replace(/[^a-zA-Z0-9]/g, "");
+  if (normCode && normName.includes(normCode)) {
+    const tokens = upperName.split(/[\s,;/]+/).map((t) => t.replace(/[^a-zA-Z0-9]/g, ""));
+    if (tokens.includes(normCode)) return true;
+  }
+
+  return false;
+}
+
 function RelatedPieceCard({
   rel,
   onOpenProduct,
@@ -73,11 +97,13 @@ function RelatedPieceCard({
   const { data: searchRes, isLoading } = useQuery({
     queryKey: ["related-piece-stock", rel.codigo],
     queryFn: ({ signal }) =>
-      api.listProducts({ query: rel.codigo, page: 1, page_size: 1 }, { signal }),
+      api.listProducts({ query: rel.codigo, page: 1, page_size: 5 }, { signal }),
     staleTime: 60_000,
   });
 
-  const matchedProduct = searchRes?.data?.[0];
+  const matchedProduct = searchRes?.data?.find((prod) =>
+    matchesPieceCode(prod.nome, rel.codigo),
+  );
   const inStock = (matchedProduct?.total_stock ?? 0) > 0;
 
   return (

@@ -53,19 +53,35 @@ export function SyncStatusBadge() {
   });
 
   const isPublisher = data?.papel === "publisher";
+  const isConfigured = Boolean(data?.configurado);
   const hasError = Boolean(data?.erro) || isError;
 
-  const dotColor = hasError
-    ? "var(--mantine-color-orange-6)"
-    : isPublisher
-    ? "var(--mantine-color-blue-6)"
-    : "var(--mantine-color-teal-6)";
+  let dotColor = "var(--mantine-color-gray-6)";
+  let label = "Não configurado";
+  let hasGlow = false;
 
-  const label = hasError
-    ? "Sync pendente"
-    : isPublisher
-    ? "Publicadora"
-    : "Sincronizado";
+  if (isLoading) {
+    label = "Consultando...";
+    dotColor = "var(--mantine-color-gray-5)";
+  } else if (!data || !isConfigured) {
+    dotColor = "var(--mantine-color-gray-5)";
+    label = "Não configurado";
+    hasGlow = false;
+  } else if (hasError) {
+    dotColor = "var(--mantine-color-orange-6)";
+    label = "Sync pendente";
+    hasGlow = false;
+  } else if (!data.verificado_em) {
+    dotColor = "var(--mantine-color-gray-5)";
+    label = "Ainda não sincronizou";
+    hasGlow = false;
+  } else {
+    dotColor = isPublisher
+      ? "var(--mantine-color-blue-6)"
+      : "var(--mantine-color-teal-6)";
+    label = isPublisher ? "Publicadora" : "Sincronizado";
+    hasGlow = true;
+  }
 
   const formattedDate = (iso?: string | null) => {
     if (!iso) return "Não informado";
@@ -85,7 +101,7 @@ export function SyncStatusBadge() {
     >
       <Popover.Target>
         <Tooltip
-          label={`Base Oficial: ${label} (clique para detalhes)`}
+          label={`Conhecimento do assistente: ${label} (clique para detalhes)`}
           disabled={opened}
         >
           <button
@@ -112,7 +128,7 @@ export function SyncStatusBadge() {
                 borderRadius: "50%",
                 backgroundColor: dotColor,
                 display: "inline-block",
-                boxShadow: hasError ? "none" : `0 0 6px ${dotColor}`,
+                boxShadow: hasGlow ? `0 0 6px ${dotColor}` : "none",
               }}
             />
             <span>{label}</span>
@@ -126,16 +142,26 @@ export function SyncStatusBadge() {
             <Group gap={6}>
               <IconNetwork size={16} color="var(--accent)" />
               <Text fw={700} size="xs" tt="uppercase" c="dimmed">
-                Base Oficial & Conhecimento
+                Conhecimento do Assistente
               </Text>
             </Group>
             {data && (
               <Badge
                 size="xs"
                 variant="light"
-                color={isPublisher ? "blue" : "teal"}
+                color={
+                  !isConfigured
+                    ? "gray"
+                    : isPublisher
+                    ? "blue"
+                    : "teal"
+                }
               >
-                {isPublisher ? "Publica a base" : "Cliente"}
+                {!isConfigured
+                  ? "Não configurado"
+                  : isPublisher
+                  ? "Publica a base"
+                  : "Cliente"}
               </Badge>
             )}
           </Group>
@@ -151,10 +177,21 @@ export function SyncStatusBadge() {
             </Group>
           ) : data ? (
             <Stack gap={6}>
-              {data.erro && (
+              {data.erro && isConfigured && (
                 <Alert
                   icon={<IconAlertCircle size={14} />}
                   color="orange"
+                  variant="light"
+                  p="xs"
+                >
+                  <Text size="xs">{data.erro}</Text>
+                </Alert>
+              )}
+
+              {data.erro && !isConfigured && (
+                <Alert
+                  icon={<IconAlertCircle size={14} />}
+                  color="gray"
                   variant="light"
                   p="xs"
                 >
