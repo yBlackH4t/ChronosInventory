@@ -185,6 +185,8 @@ def test_commands_only_in_the_self_chat(setup):
     assert "não parece um código" in s.transport.to_self[-1]
     _msg(s, ME, "c4", ME, from_me=True, text="/ensinar 4031196 parecido 4044318")
     assert s.transport.to_self[-1].startswith("Use assim:")
+    _msg(s, ME, "c4b", ME, from_me=True, text="/ensinar 465819-5003/53169887185 igual 4031196")
+    assert s.transport.to_self[-1].startswith("Um código por regra")
 
     _msg(s, ME, "c5", ME, from_me=True, text="/pendentes")
     assert s.transport.to_self[-1].startswith("Propostas esperando o admin: 1")

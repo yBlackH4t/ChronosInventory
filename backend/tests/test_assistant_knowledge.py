@@ -48,6 +48,9 @@ def test_add_rule_validates_and_updates_existing_pair(knowledge):
         knowledge.add_rule("4031196", "4044318", "parecido")
     with pytest.raises(ValidationException, match="Código inválido"):
         knowledge.add_rule("HX55", "4044318", "igual")
+    # Dois codigos num campo viravam um codigo so, que ninguem pergunta: uma regra por codigo.
+    with pytest.raises(ValidationException, match="Um código por regra"):
+        knowledge.add_rule("9BYC31Y2F7C000805", "465819-5003 OU 53169887185", "igual")
 
     first = knowledge.add_rule("4044318", "4031196", "similar", "x")
     second = knowledge.add_rule("4031196", "4044318", "igual")  # mesmo par, ordem trocada

@@ -16,7 +16,12 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from core.catalog.normalization import canonical_code, expand_family_codes, is_searchable_code
+from core.catalog.normalization import (
+    canonical_code,
+    expand_family_codes,
+    extract_codes_from_name,
+    is_searchable_code,
+)
 from core.database.repositories.knowledge_repository import KnowledgeRepository
 from core.database.repositories.product_repository import ProductRepository
 from core.exceptions import ValidationException
@@ -46,6 +51,19 @@ def _closure(start: Iterable[str], edges: Dict[str, Set[str]]) -> Set[str]:
 
 def _family(codes: Iterable[str]) -> Set[str]:
     return set(expand_family_codes(list(codes)))
+
+
+def check_single_code(raw: str) -> None:
+    """
+    Um codigo por campo. "465819-5003 OU 53169887185" virava um codigo so (que ninguem pergunta)
+    e a regra nunca valia: o admin precisa criar uma regra para cada codigo.
+    """
+    codes = extract_codes_from_name(raw or "", expand_family=False)
+    if len(codes) > 1:
+        raise ValidationException(
+            f"Um código por regra: {str(raw).strip()!r} tem {len(codes)} códigos. "
+            "Crie uma regra para cada um."
+        )
 
 
 class AssistantKnowledgeService:
@@ -133,6 +151,8 @@ class AssistantKnowledgeService:
         return [self._public_rule(r) for r in self.repository.list_rules(search or None, limite, offset)]
 
     def add_rule(self, codigo_a: str, codigo_b: str, tipo: str, observacao: Optional[str] = None) -> Dict[str, Any]:
+        for raw in (codigo_a, codigo_b):
+            check_single_code(raw)
         a_norm, b_norm = canonical_code(codigo_a), canonical_code(codigo_b)
         for raw, norm in ((codigo_a, a_norm), (codigo_b, b_norm)):
             if not is_searchable_code(norm):

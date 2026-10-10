@@ -28,7 +28,9 @@ from dataclasses import dataclass
 from typing import Any, Callable, Deque, Dict, List, Optional, Protocol, Tuple
 
 from app.services.assistant_answer_format import display_code
+from app.services.assistant_knowledge_service import check_single_code
 from core.catalog.normalization import canonical_code, is_searchable_code
+from core.exceptions import ValidationException
 
 LOG = logging.getLogger(__name__)
 
@@ -195,6 +197,10 @@ class WhatsAppBridge:
         for code in (code_a, code_b):
             if not is_searchable_code(canonical_code(code)):
                 return f"*{code}* não parece um código de peça. Confira e mande de novo."
+            try:
+                check_single_code(code)
+            except ValidationException as exc:
+                return str(exc)
         note = " ".join(args[3:]).strip() or None
         proposal_id = self.history.add_proposal(code_a, code_b, kind, note, autor="whatsapp")
         detail = f" ({note})" if note else ""
