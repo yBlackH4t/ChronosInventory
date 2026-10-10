@@ -232,7 +232,7 @@ class ProductRepository(BaseRepository):
         return self._attach_inventories(products)
 
     def get_linked_products(self, product_id: int) -> List[Dict[str, Any]]:
-        query = f"""
+        query = """
             SELECT p.*,
                    pv.nome AS produto_vinculado_nome,
                    (SELECT COUNT(*) FROM produtos p3 WHERE p3.produto_vinculado_id = p.id) AS linked_count,

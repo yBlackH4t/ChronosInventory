@@ -6,13 +6,12 @@ Responsabilidade: validar, aplicar movimentacao e expor analytics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 from app.models.validators import StockMovementValidator
 from app.services.movement_analytics_service import MovementAnalyticsService
 from app.services.movement_rules_service import (
-    MOTIVO_AJUSTE_LABEL_MAP,
     NATUREZA_AJUSTE,
     NATUREZA_DEVOLUCAO,
     NATUREZA_OPERACAO_NORMAL,

@@ -27,6 +27,9 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -r backend/requirements-dev.txt
 
+      - name: Lint backend
+        run: ruff check .
+
       - name: Run backend tests
         run: python -m pytest -q
 
@@ -45,6 +48,14 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+        working-directory: frontend
+
+      - name: Lint frontend
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Test frontend
+        run: npm test
         working-directory: frontend
 
       - name: Build frontend

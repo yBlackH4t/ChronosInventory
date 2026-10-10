@@ -5,8 +5,8 @@ Modelos para gerenciar estoques configuráveis dinamicamente
 (antes: hardcoded Canoas/PF, agora: totalmente dinâmico)
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict
+from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass

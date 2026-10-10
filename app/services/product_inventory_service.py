@@ -4,11 +4,11 @@ Serviço para gerenciar ProductInventory (v2.0.0 white-label)
 Operações de negócio para estoque de produtos por location
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict
 import sqlite3
 from app.models.inventory_location import ProductInventory
 from core.database.repositories.produto_estoque_repository import ProductInventoryRepository
-from core.exceptions import NotFoundException, ValidationException
+from core.exceptions import ValidationException
 
 
 class ProductInventoryService:

@@ -6,7 +6,6 @@ Objetivo: Corrigir a migração v2.0.0 que extraiu dados para as tabelas em ingl
 
 import logging
 import sqlite3
-from typing import Callable
 
 logger = logging.getLogger(__name__)
 

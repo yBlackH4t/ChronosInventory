@@ -14,7 +14,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from core.database.repositories.base_repository import BaseRepository
-from core.exceptions import DatabaseException, ProductNotFoundException
+from core.exceptions import DatabaseException
 
 logger = logging.getLogger(__name__)
 

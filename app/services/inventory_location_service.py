@@ -175,7 +175,7 @@ class InventoryLocationService:
             NotFoundException: Se location não existe
             LocationHasStockException: Se houver estoque (e force=False)
         """
-        location = self.get_by_id(location_id)
+        self.get_by_id(location_id)  # levanta NotFoundException se nao existir
         
         # Verificar se possui estoque associado
         cursor = self.repository.connection.execute(
