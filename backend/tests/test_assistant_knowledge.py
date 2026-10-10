@@ -75,14 +75,14 @@ def test_code_search_uses_what_the_expert_taught(tools, knowledge):  # noqa: F81
         {"codigo": "5327-988-7116", "relacao": "similar", "obs": "muda o atuador"}
     ]
     assert after["texto_pronto"].splitlines() == [
-        "*5327-988-7101*: não temos esse código, mas temos:",
+        "*53279887101*: não temos esse código, mas temos:",
         "• *TURBO K27 - 53279887116* — 3 em Passo Fundo (similar: muda o atuador)",
     ]
 
 
 def test_code_search_completes_the_end_of_a_code(tools, knowledge):  # noqa: F811
     # Final de um codigo que esta no nome do produto: a busca ja acha pelo nome.
-    assert tools.search_by_code("988-7116")["texto_pronto"].startswith("*988-7116*: temos.")
+    assert tools.search_by_code("988-7116")["texto_pronto"].startswith("*9887116*: temos.")
 
     # "tem a 988-7101?": o chefe fala so o final; o codigo completo so existe no que o especialista ensinou.
     knowledge.add_rule("5327-988-7101", "5327-988-7116", "similar", "muda o atuador")
@@ -90,7 +90,7 @@ def test_code_search_completes_the_end_of_a_code(tools, knowledge):  # noqa: F81
     assert result["codigo_pesquisado"] == "53279887101"
     assert result["codigo_digitado"] == "988-7101"
     assert result["texto_pronto"].splitlines() == [
-        "(Entendi *988-7101* como *53279887101*.)",
+        "(Entendi *9887101* como *53279887101*.)",
         "*53279887101*: não temos esse código, mas temos:",
         "• *TURBO K27 - 53279887116* — 3 em Passo Fundo (similar: muda o atuador)",
     ]
@@ -150,7 +150,7 @@ def test_suggestions_for_the_admin(tools, knowledge):  # noqa: F811
     (suggestion,) = knowledge.suggestions("5327-988-7101")
     assert suggestion["nome"] == "TURBO K27 - 53279887116"
     assert suggestion["estoque_total"] == 3
-    assert suggestion["motivo"] == "mesmo início de código (5327-988)"
+    assert suggestion["motivo"] == "mesmo início de código (5327988)"
 
     # Recusada (diferente) ou ja ensinada: nao aparece mais.
     knowledge.add_rule("53279887101", "53279887116", "diferente")

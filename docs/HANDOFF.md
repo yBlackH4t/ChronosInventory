@@ -163,7 +163,7 @@ npm run lint
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
 
-- [ ] **[Claude Code → Antigravity] Assistente: dois ajustes rápidos (fazer primeiro).**
+- [ ] **[Claude Code → Antigravity] Assistente: ajustes rápidos (fazer primeiro).**
   Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
   só no `docs/HANDOFF.md`, seções 4 e 6: manter as entradas dos dois lados).
   - **Selo do chat** (`AssistantPage.tsx`): "Busca direta (sem IA)" agora apareceria em quase toda
@@ -171,6 +171,9 @@ npm run lint
     Sem aviso, nada de selo; o modo de cada resposta continua visível no Histórico do admin.
   - **Texto errado** em `AssistantAdminPanel.tsx` (~linha 261): "Configurações > Base oficial" →
     "Backup > Base oficial > Papel desta máquina: Publica a base" (é onde fica a opção).
+  - **Formato dos códigos** (decisão do dono): em exemplos, placeholders e mocks, só dígitos
+    (53279887101); só a Garrett usa hífen (796155-5002). Hoje o mock em `assistantAdminApi.ts`
+    usa "5327-988-7101". As respostas do backend já vêm nesse formato.
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Tela "Assistente" (chat com a IA).**
@@ -273,6 +276,18 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-09 — Claude Code — Assistente: códigos no formato da empresa
+- Branch: `feature/assistente-ia`
+- O que foi feito: decisão do dono: código só com dígitos (53279887101); só a Garrett usa hífen
+  (796155-5002). As respostas (chat e WhatsApp), o "Entendi X como Y", o que o especialista
+  ensinou, o motivo das sugestões do admin e a confirmação do `/ensinar` seguem esse formato,
+  mesmo quando o código vem com hífens ("532-7988-7101" na transcrição do áudio). Garrett
+  digitada sem hífen aparece com hífen quando a busca reconhece pelo produto ou pelo catálogo.
+- Arquivos principais: `app/services/assistant_answer_format.py` (`display_code`),
+  `assistant_tools_service.py`, `assistant_knowledge_service.py`, `whatsapp_bridge_service.py`.
+- Verificações: pytest ok (154 testes); avaliação sem IA 17/17.
+- Para o Antigravity: item novo em "ajustes rápidos" (seção 5).
+
 ### 2026-10-09 — Claude Code — WhatsApp: primeiro teste com celular e correções
 - Branch: `feature/assistente-ia`
 - O que foi feito: o dono testou na "Mensagem para mim": código + áudio + 🤖 deram a resposta
@@ -305,7 +320,7 @@ npm run lint
   `scripts/assistente_avaliacao.py`.
 - Verificações: pytest ok (148 testes); avaliação com o Groq real 17/17 (15 pela busca direta,
   2 pela IA: fora do assunto e pergunta vaga).
-- Para o Antigravity: pedido "dois ajustes rápidos" na seção 5; contrato inalterado (seção 4).
+- Para o Antigravity: pedido "ajustes rápidos" na seção 5; contrato inalterado (seção 4).
 
 ### 2026-10-09 — Claude Code — Assistente: ponte WhatsApp (modo copiloto)
 - Branch: `feature/assistente-ia`

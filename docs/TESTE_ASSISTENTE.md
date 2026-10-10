@@ -19,7 +19,7 @@ C:\dev\chronos-venv\Scripts\python.exe -m pip install -r backend\requirements.tx
 
 O banco de teste fica em `%TEMP%\chronos_assistente` (já criado). Se um dia precisar recriar:
 `scripts\assistente_dev.py gerar-banco --substituir` (o banco novo já vem com uma regra de
-exemplo: 5327-988-7101 similar à 5327-988-7116).
+exemplo: 53279887101 similar à 53279887116).
 
 **Feche o Chronos instalado** antes do passo B: ele usa a porta 8000.
 
@@ -43,7 +43,7 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_dev.py whatsapp
    e **reaja com 🤖 no áudio**. A resposta chega citando o áudio.
 3. **Responda** (arrastando para o lado) qualquer mensagem com "teste". Serve só para o registro:
    mostra como o WhatsApp oficial monta uma citação.
-4. Mande `/ajuda`, `/pendentes` e `/ensinar 5327-988-7101 similar 5327-988-7116 teste`.
+4. Mande `/ajuda`, `/pendentes` e `/ensinar 53279887101 similar 53279887116 teste`.
 5. Ctrl+C para sair. Só quando terminar **todos** os testes, remova o aparelho conectado no
    celular ("Neonize" nas conexões antigas, "Chronos" nas novas); depois disso precisa de QR de novo.
 
@@ -89,10 +89,10 @@ Abra **http://localhost:5173** e vá em **Assistente**.
    "Papel desta máquina" = **Publica a base**, e salve. Não precisa publicar nada.
 4. **Assistente > Admin:** criar a senha de admin e entrar.
 5. **Fluxo de ensinar** (o seu exemplo da 7210):
-   - no chat, pergunte "tem a 5327-988-7210?" → "não temos esse código" (e a ficha K27 do catálogo);
+   - no chat, pergunte "tem a 53279887210?" → "não temos esse código" (e a ficha K27 do catálogo);
    - Admin > **Para revisar**: aparece a 53279887210 com a sugestão *TURBO K27 - 53279887116*;
    - clique **"É similar"** e escreva "muda o atuador";
-   - no chat, pergunte "tem a 988-7210?" (só o final) → deve entender como 5327-988-7210 e
+   - no chat, pergunte "tem a 988-7210?" (só o final) → deve entender como 53279887210 e
      oferecer a K27 como similar.
 6. **Conhecimento:** a regra aparece; exclua e veja o chat deixar de oferecer a K27.
 7. **Histórico:** as conversas aparecem; corrija uma resposta; exporte o JSONL.

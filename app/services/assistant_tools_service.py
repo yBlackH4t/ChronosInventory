@@ -16,7 +16,12 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from app.services.assistant_answer_format import format_application_answer, format_code_answer, wants_core
+from app.services.assistant_answer_format import (
+    display_code,
+    format_application_answer,
+    format_code_answer,
+    wants_core,
+)
 from app.services.assistant_common import (  # noqa: F401  (reexportados para quem ja importa daqui)
     CATEGORY_CORE,
     CATEGORY_TURBO,
@@ -229,6 +234,7 @@ class AssistantToolsService:
         if other_codes:
             result["outros_codigos_no_texto"] = other_codes
             result["atencao"] = "O texto tinha mais de um codigo: pesquise cada um dos outros_codigos_no_texto."
+        label = display_code(typed, garrett=self._is_garrett(code, products, catalog_items))
 
         # Nada com o codigo como veio: pode ser o final de um codigo ("988-7101" -> 5327-988-7101).
         if complete and not products and not catalog_items and not taught:
@@ -245,7 +251,7 @@ class AssistantToolsService:
             if chosen:
                 resolved = self.search_by_code(chosen, complete=False)
                 resolved["codigo_digitado"] = typed
-                note = f"(Entendi *{typed}* como *{chosen}*"
+                note = f"(Entendi *{label}* como *{chosen}*"
                 if alternatives:
                     resolved["outros_codigos_possiveis"] = alternatives[:MAX_CODE_COMPLETIONS]
                     note += f"; também existem: {', '.join(self._code_labels(alternatives[:MAX_CODE_COMPLETIONS]))}"
@@ -257,13 +263,26 @@ class AssistantToolsService:
                 shown = full_codes[:MAX_CODE_COMPLETIONS]
                 result["codigos_possiveis"] = shown
                 result["texto_pronto"] = (
-                    f"*{typed}*: achei mais de um código que termina assim: "
+                    f"*{label}*: achei mais de um código que termina assim: "
                     f"{', '.join(self._code_labels(shown))}. Qual deles?"
                 )
                 return result
 
-        result["texto_pronto"] = format_code_answer(typed, result)
+        result["texto_pronto"] = format_code_answer(label, result)
         return result
+
+    @staticmethod
+    def _is_garrett(code: str, products: List[Dict[str, Any]], catalog_items: List[Dict[str, Any]]) -> bool:
+        """O codigo e Garrett (mostra com hifen, 796155-5002)? Pelo nome do nosso produto ou pelo catalogo."""
+        if len(code) != 10 or not code.isdigit():
+            return False
+        if any(f"{code[:6]}-{code[6:]}" in str(p.get("nome") or "") for p in products):
+            return True
+        return any(
+            canonical_code(number) == code
+            for item in catalog_items
+            for number in (item.get("referencias") or {}).get("GARRETT", [])
+        )
 
     def _code_labels(self, codes: List[str]) -> List[str]:
         """'53279887101 (K27)': o modelo da turbina pela ficha do catalogo, quando houver."""

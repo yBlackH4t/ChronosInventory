@@ -177,7 +177,7 @@ def test_commands_only_in_the_self_chat(setup):
     assert s.transport.to_self[-1] == HELP_TEXT
 
     _msg(s, ME, "c2", ME, from_me=True, text="/ensinar 5327-988-7101 similar 5327-988-7210 muda o atuador")
-    assert s.transport.to_self[-1].startswith("📝 Proposta #1: 5327-988-7101 *similar* 5327-988-7210 (muda o atuador).")
+    assert s.transport.to_self[-1].startswith("📝 Proposta #1: 53279887101 *similar* 53279887210 (muda o atuador).")
     (proposal,) = s.history.list_proposals("pendente")
     assert (proposal["codigo_a"], proposal["tipo"], proposal["observacao"]) == ("5327-988-7101", "similar", "muda o atuador")
 

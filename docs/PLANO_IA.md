@@ -175,7 +175,10 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   - a IA pode acrescentar ao `texto_pronto` das buscas que fez, mas não estragá-lo: se a
     resposta não trouxer cada linha dele inteira, vale o `texto_pronto` (`keeps_ready_texts`);
   - pergunta de preço ("quanto custa", "valor"): o sistema acrescenta "Não tenho informação de
-    preço; só de estoque." (o banco não tem preço).
+    preço; só de estoque." (o banco não tem preço);
+  - código na resposta no formato da empresa (decisão do dono): só dígitos (53279887101), mesmo
+    que tenha vindo com hífens ("532-7988-7101" no áudio); só a Garrett usa hífen (796155-5002),
+    inclusive quando digitada sem ele (a busca reconhece pelo nosso produto ou pelo catálogo).
 - **Palavras da pergunta:** palavras de conversa ("com", "meu", "tio") são ignoradas, e as
   ignoradas voltam em `termos_ignorados`; número desconhecido continua obrigatório
   ("scania 999" não vira "qualquer Scania"); ano é filtro opcional (ignorado se nenhuma
@@ -207,8 +210,8 @@ Falta:
 
 ### Fase 2b — Base de conhecimento do especialista (pronto no backend)
 
-**O problema:** o catálogo não sabe tudo. Ex.: a BorgWarner 5327-988-7101 é similar à
-5327-988-7210, mas nenhum dado do sistema diz isso; quem sabe é o especialista (o dono).
+**O problema:** o catálogo não sabe tudo. Ex.: a BorgWarner 53279887101 é similar à
+53279887210, mas nenhum dado do sistema diz isso; quem sabe é o especialista (o dono).
 
 **A solução não é treinar o modelo de IA**, e sim uma base de conhecimento que só o admin
 edita e que a busca consulta a cada pergunta: aprende na hora, vale para a IA e para a busca
@@ -232,7 +235,7 @@ direta, dá para desfazer, e o bot nunca "inventa" um similar.
   `X-Admin-Token`). Decisão do dono: "se fossem todos, iam colocar qualquer coisa".
 - **"Para revisar":** toda pergunta fica no histórico. Códigos pesquisados sem estoque entram
   na lista do admin, com **sugestões** de possíveis similares (hoje: produtos nossos com o
-  mesmo início de código BorgWarner, ex. 5327-988-....). Ao ensinar uma regra, o código sai da
+  mesmo início de código BorgWarner, ex. 5327988....). Ao ensinar uma regra, o código sai da
   lista; se for perguntado de novo depois, volta. As sugestões só aparecem para o admin.
 - **Histórico:** banco separado `assistente_historico.db` (não vai para a base oficial nem
   para os backups). Cada conversa guarda pergunta, contexto, buscas feitas, resposta, modo e a
@@ -281,7 +284,7 @@ Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
 - **Segundo teste (2026-10-09): tudo ok.** A resposta cita o áudio e o 🤖 sai. O registro mostrou
   a conversa endereçada por LID, e a citação que o próprio WhatsApp monta tem o mesmo formato da
   nossa. Só áudio, com o código falado, também funciona: o Whisper escreveu "532-7988-7101" e a
-  busca entendeu 53279887101 (a resposta mostra o código como foi transcrito).
+  busca entendeu 53279887101.
 
 **Arquivos:** `whatsapp_bridge_service.py` (regras, sem depender da biblioteca),
 `whatsapp_neonize_transport.py` (biblioteca **neonize** = whatsmeow em Python; já traz a DLL
@@ -318,6 +321,9 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
 - Os vínculos automáticos vêm dos códigos no nome do produto. Nome sem código não vincula.
   Código com espaços no meio (`5304 970 0077`) também não: precisa estar colado
   (`53049700077`) ou com hífen (`466646-5041S`). O comando `cobertura` lista esses casos.
+- Na pergunta, código com espaços no meio ("5327 988 7101", que a transcrição do áudio pode
+  escrever) não é reconhecido pela busca direta; aí a IA entra e normalmente acerta (a busca por
+  código junta os pedaços). Nos testes, o Whisper escreveu com hífens ou colado.
 
 ## 5. Pendências com o dono do projeto
 
@@ -325,7 +331,7 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
 - [ ] Testar seguindo o roteiro `docs/TESTE_ASSISTENTE.md` (banco de teste).
 - [ ] Marcar a máquina do admin como **publicadora** (Backup > Base oficial > "Papel desta
       máquina": "Publica a base") e definir a senha de admin (Assistente > Admin).
-- [ ] Ensinar as primeiras regras (ex.: 5327-988-7101 similar 5327-988-7210).
+- [ ] Ensinar as primeiras regras (ex.: 53279887101 similar 53279887210).
 - [ ] Lista de perguntas reais do chefe (do histórico do WhatsApp) para a avaliação.
 - [ ] Testar no banco real. Copie o `estoque.db` da empresa para uma pasta separada (nunca use
       o original: abrir o banco pelo app aplica migrações) e rode:

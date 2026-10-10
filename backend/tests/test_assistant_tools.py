@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.services.assistant_answer_format import format_application_answer
+from app.services.assistant_answer_format import display_code, format_application_answer
 from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
 from core.catalog.bundle import relink_catalog
 from core.catalog.normalization import search_words
@@ -162,6 +162,21 @@ def test_code_search_without_stock(tools):
     result = tools.search_by_code("4031343")
     assert result["temos_em_estoque"] is False
     assert result["produtos"][0]["estoque_total"] == 0
+
+
+def test_answer_shows_codes_in_the_company_format(tools):
+    # So a Garrett usa hifen (796155-5002); o resto e so digitos (53279887101).
+    assert display_code("532-7988-7101") == "53279887101"  # como o Whisper escreveu o codigo falado
+    assert display_code("5327 988 7101") == "53279887101"
+    assert display_code("466646-5041s") == "466646-5041S"
+    assert display_code("7961555002") == "7961555002"
+    assert display_code("7961555002", garrett=True) == "796155-5002"
+    assert display_code("A 906 096 20 99") == "A 906 096 20 99"  # com letras: como veio
+
+    assert tools.search_by_code("532-7988-7116")["texto_pronto"].startswith("*53279887116*: temos.")
+    # Garrett sem o hifen: o nome do nosso produto (ou o catalogo) mostra que e Garrett.
+    assert tools.search_by_code("7798390025")["texto_pronto"].startswith("*779839-0025*: temos.")
+    assert tools.search_by_code("779-839-0025")["texto_pronto"].startswith("*779839-0025*: temos.")
 
 
 def test_application_search_splits_same_vehicle_by_engine(tools):
