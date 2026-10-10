@@ -104,6 +104,45 @@ class AssistantRepository(BaseRepository):
             tuple(product_ids),
         )
 
+    def codes_ending_with(self, suffix: str, limit: int = 50) -> List[str]:
+        """
+        Codigos completos que terminam com `suffix` ("9887101" -> "53279887101"): nos nossos
+        produtos, nas referencias do catalogo e na base de conhecimento.
+        """
+        pattern, size = f"%{suffix}", len(suffix)
+        rows = self._execute_query(
+            """
+            SELECT numero_norm AS codigo FROM produto_codigos WHERE numero_norm LIKE ? AND LENGTH(numero_norm) > ?
+            UNION
+            SELECT numero_norm FROM catalogo_referencias WHERE numero_norm LIKE ? AND LENGTH(numero_norm) > ?
+            UNION
+            SELECT codigo_a_norm FROM conhecimento_equivalencias WHERE codigo_a_norm LIKE ? AND LENGTH(codigo_a_norm) > ?
+            UNION
+            SELECT codigo_b_norm FROM conhecimento_equivalencias WHERE codigo_b_norm LIKE ? AND LENGTH(codigo_b_norm) > ?
+            ORDER BY 1
+            LIMIT ?
+            """,
+            (pattern, size, pattern, size, pattern, size, pattern, size, limit),
+        )
+        return [str(row["codigo"]) for row in rows]
+
+    def known_codes(self, codes: List[str]) -> set:
+        """Quais destes codigos a empresa conhece: estao no nome de um produto nosso ou na base de conhecimento."""
+        if not codes:
+            return set()
+        marks = _placeholders(codes)
+        rows = self._execute_query(
+            f"""
+            SELECT numero_norm AS codigo FROM produto_codigos WHERE numero_norm IN ({marks})
+            UNION
+            SELECT codigo_a_norm FROM conhecimento_equivalencias WHERE codigo_a_norm IN ({marks})
+            UNION
+            SELECT codigo_b_norm FROM conhecimento_equivalencias WHERE codigo_b_norm IN ({marks})
+            """,
+            tuple(codes) * 3,
+        )
+        return {str(row["codigo"]) for row in rows}
+
     def get_location_labels(self) -> Dict[int, str]:
         rows = self._execute_query(
             "SELECT id, COALESCE(NULLIF(TRIM(label), ''), nome) AS nome FROM locais WHERE ativo = 1 ORDER BY ordem, id"

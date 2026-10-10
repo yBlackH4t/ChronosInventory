@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.services.assistant_admin_service import AdminRequiredError
 from app.services.backup_scheduler_service import BackupSchedulerService
 from app.services.local_share_service import LocalShareService
 from app.services.official_base_service import OfficialBaseService
@@ -328,6 +329,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 @app.exception_handler(ValidationException)
 async def validation_exception_handler(request: Request, exc: ValidationException) -> JSONResponse:
     return fail(400, "validation_error", str(exc), None, _request_id(request))
+
+
+@app.exception_handler(AdminRequiredError)
+async def admin_required_handler(request: Request, exc: AdminRequiredError) -> JSONResponse:
+    return fail(403, "admin_necessario", str(exc), None, _request_id(request))
 
 
 @app.exception_handler(ProductNotFoundException)

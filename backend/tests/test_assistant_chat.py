@@ -112,7 +112,23 @@ def test_groq_runs_tools_and_returns_cited_products(tools, store):  # noqa: F811
     assert assistant_turn["tool_calls"][0]["id"] == "call_1"
     assert tool_turn["role"] == "tool" and tool_turn["tool_call_id"] == "call_1"
     assert json.loads(tool_turn["content"])["temos_em_estoque"] is True
-    assert ": " not in tool_turn["content"]
+    assert '": ' not in tool_turn["content"] and ', "' not in tool_turn["content"]  # JSON sem espacos
+
+
+def test_ai_answers_are_converted_to_whatsapp_format(tools, store):  # noqa: F811
+    fake = FakePost(
+        [
+            _completion(
+                "Sim. Temos **TURBINA HOLSET HX55W 4031196** – 2 unidades em Canoas.\n"
+                "- conferir o motor\n\n"
+                "Se precisar de outro modelo ou do conjunto central, avise."
+            )
+        ]
+    )
+    result = _groq_service(tools, store, fake).chat("4031196")
+    assert result["resposta"] == (
+        "Sim. Temos *TURBINA HOLSET HX55W 4031196* – 2 unidades em Canoas.\n• conferir o motor"
+    )
 
 
 def test_groq_uses_compact_tool_results(tools, store):  # noqa: F811
@@ -336,6 +352,14 @@ def test_direct_search_by_application(tools):  # noqa: F811
     follow_up = direct.answer("dc13", history)["resposta"].splitlines()
     assert follow_up[0] == "Temos:"
     assert "*TURBO GTA42S - 779839-0025*" in follow_up[1]
+    # Com o ano junto (que o catalogo nao cita), continua achando.
+    with_year = direct.answer("é o dc13, 2015", history)["resposta"]
+    assert "*TURBO GTA42S - 779839-0025*" in with_year
+
+    # Chefe cola o codigo e depois manda (em audio) "temos essa daí?".
+    pasted = [{"papel": "usuario", "texto": "805314"}]
+    that_one = direct.answer("temos essa daí?", pasted)["resposta"]
+    assert that_one.startswith("*805314*:")
 
     assert direct.answer("bom dia")["resposta"] == HELP_TEXT
     assert direct.answer("turbina do caminhao")["resposta"] == HELP_TEXT

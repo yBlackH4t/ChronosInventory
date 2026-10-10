@@ -67,10 +67,20 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente de IA — Fase 2 trocada para IA gratuita (Groq) + busca direta de reserva; próxima: Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Assistente: provedor gratuito e busca direta na tela | concluído | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — base de conhecimento do especialista, admin e histórico (backend) prontos; próxima: distribuir o conhecimento e Fase 3 (WhatsApp) | aguardando revisão | 2026-10-09 |
+| Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | em andamento | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Novo (2026-10-09, base de conhecimento):** admin, conhecimento, revisão e histórico do
+  assistente. Contrato completo em `docs/API_DOCS.md` ("Admin do assistente", "Base de
+  conhecimento do especialista", "Revisao e historico"); regras em `docs/PLANO_IA.md` (Fase 2b).
+  - Admin = máquina **publicadora** da base oficial + **senha**. `POST /assistente/admin/login`
+    devolve `token`; mandar no header `X-Admin-Token` nas rotas de admin. Sem isso:
+    `403 admin_necessario` (mostrar a `message`, que explica o motivo). Guardar o token só em
+    memória (estado/contexto), nunca em `localStorage`.
+  - `POST /assistente/chat`: campos opcionais novos `canal` (`app` | `whatsapp`) e `autor`.
+    A tela de chat não precisa mandar nada novo.
 
 - **Mudou (2026-10-09, custo zero):** o provedor padrão agora é o **Groq gratuito**, e quando a IA
   não responde o backend responde pela **busca direta** (sem IA). Para o frontend:
@@ -177,6 +187,36 @@ npm run lint
   - O esforço só faz diferença para Groq e Claude; pode ficar como está.
   - Mock: atualizar com `modo` e `aviso`.
 
+- [ ] **[Claude Code → Antigravity] Assistente: área do admin (ensinar o assistente).**
+  Branch `ag/assistente-chat` (ou `ag/assistente-admin`), depois de `git merge feature/assistente-ia`.
+  Contrato em `docs/API_DOCS.md`. Sugestão: uma aba "Admin" dentro da página Assistente,
+  visível sempre, com três abas internas: **Para revisar**, **Conhecimento**, **Histórico**.
+  - **Entrada:** `GET /assistente/admin/status`.
+    - `maquina_publicadora = false` → explicar: "Para ensinar o assistente, esta máquina precisa
+      ser a publicadora da base oficial (Configurações > Base oficial)." e mostrar o
+      Conhecimento só para leitura.
+    - `senha_definida = false` → formulário "Criar senha de admin" (`POST /admin/senha`).
+    - senão → campo de senha e "Entrar" (`POST /admin/login`); botão "Sair" (`/admin/logout`).
+      Opção "Trocar senha" (pede a atual).
+  - **Para revisar** (`GET /assistente/revisao`): um cartão por código — código, quantas vezes
+    foi perguntado, última vez e um exemplo da pergunta. Para cada `sugestoes[]`: produto,
+    estoque, `motivo`, e botões **"É igual"**, **"É similar"** (pede a ressalva, ex.: "muda o
+    atuador") e **"Não serve"** — cada um faz `POST /assistente/conhecimento` com
+    `codigo_a` = código do cartão e `codigo_b` = código da sugestão, tipo `igual` / `similar` /
+    `diferente`. Também um formulário livre ("é igual/similar a outro código") e
+    **"Nada a fazer"** (`POST /revisao/{codigo}/concluir`). Recarregar a lista depois.
+    Mostrar `conhecimento[]` (o que já foi ensinado sobre o código), se houver.
+  - **Conhecimento** (`GET /assistente/conhecimento?busca=`): tabela com Código A, relação,
+    Código B, observação e data; busca por código; "Nova regra" (mesmo formulário) e excluir
+    (`DELETE`, com confirmação). Explicar numa linha: "igual = troca direta; similar = serve
+    com ressalva; diferente = não serve (o assistente nunca sugere)".
+  - **Histórico** (`GET /assistente/historico?limite=&offset=`): lista com data, canal,
+    pergunta, resposta (renderizar `*negrito*` como no chat), modo/aviso e paginação. Em cada
+    conversa, "Corrigir resposta" (`PUT /historico/{id}/correcao`, mostrar a correção salva).
+    Botão **"Exportar JSONL"**: `fetch` com o header e baixar o arquivo
+    (`assistente_historico.jsonl`).
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
 - [x] **[Claude Code → Antigravity] Seção "Assistente de IA" em Configurações.**
   Mesma branch `ag/assistente-chat`. Usa `GET`/`PUT /assistente/config` (contrato na seção 4).
   - Status: "Configurado" / "Não configurado"; se a chave vier do ambiente, avisar
@@ -220,6 +260,20 @@ npm run lint
 - Arquivos principais: `frontend/src/pages/AssistantPage.tsx`, `frontend/src/lib/assistantApi.ts`, `frontend/src/types/assistant.ts`, `frontend/src/app/router.tsx`, `frontend/src/app/routePreload.ts`, `frontend/src/app/navigation.ts`.
 - Verificações: build ok / lint com erros apenas em arquivos antigos/preexistentes (nada na nova feature).
 - Pendências ou observações para o outro agente: A interface está pronta e utilizando mock com sucesso. Aguardando a Fase 2 no backend para testar integração real.
+
+### 2026-10-09 — Claude Code — Assistente: conhecimento do especialista, admin e histórico
+- Branch: `feature/assistente-ia`
+- O que foi feito: base de conhecimento (igual / similar / diferente) usada pela busca; busca
+  completa o final do código ("988-7101"); admin = máquina publicadora + senha; histórico das
+  conversas em banco separado com lista "Para revisar", sugestões de similares, correção do
+  admin e exportação JSONL. Buscas devolvem `texto_pronto` (a IA gratuita responde com ele).
+- Arquivos principais: `app/services/assistant_knowledge_service.py`,
+  `assistant_admin_service.py`, `assistant_history_service.py`, `assistant_answer_format.py`,
+  `backend/app/api/routers/assistant.py`, testes `test_assistant_knowledge.py` e
+  `test_assistant_admin.py`.
+- Verificações: pytest ok (135 testes); avaliação sem IA 17/17.
+- Para o Antigravity: contrato na seção 4 ("Novo, base de conhecimento") e pedido da área do
+  admin na seção 5.
 
 ### 2026-10-09 — Claude Code — Assistente: IA gratuita (Groq) + busca direta
 - Branch: `feature/assistente-ia`

@@ -14,8 +14,19 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from app.services.assistant_answer_format import format_application_answer, format_code_answer, wants_core
+from app.services.assistant_common import (  # noqa: F401  (reexportados para quem ja importa daqui)
+    CATEGORY_CORE,
+    CATEGORY_TURBO,
+    MATCH_CATALOG,
+    MATCH_EXACT,
+    MATCH_EXPERT_SAME,
+    MATCH_EXPERT_SIMILAR,
+    MATCH_FAMILY,
+)
+from app.services.assistant_knowledge_service import AssistantKnowledgeService
 from core.catalog.normalization import (
     canonical_code,
     expand_family_codes,
@@ -50,12 +61,12 @@ COMPACT_LIMITS = ResultLimits(
     products=8, catalog_items=6, code_catalog_items=3, applications_per_item=3, detail_applications=6, refs_per_brand=3
 )
 
-MATCH_EXACT = "exato"
-MATCH_FAMILY = "familia"
-MATCH_CATALOG = "equivalente_catalogo"
+# Completar codigo pelo final ("988-7101"): so a partir de 6 digitos ("7101" bate com dezenas).
+MIN_COMPLETION_LENGTH = 6
+MAX_CODE_COMPLETIONS = 8
 
-CATEGORY_TURBO = "TURBO"
-CATEGORY_CORE = "CONJUNTO CENTRAL"
+# Ordem na resposta: o que o especialista ensinou vale mais que o catalogo.
+_MATCH_RANK = {MATCH_EXACT: 0, MATCH_FAMILY: 1, MATCH_EXPERT_SAME: 2, MATCH_EXPERT_SIMILAR: 3, MATCH_CATALOG: 4}
 
 # Palavras da pergunta que nao ajudam a achar a aplicacao.
 _STOPWORDS = {
@@ -64,6 +75,12 @@ _STOPWORDS = {
     "TURBINA", "TURBINAS", "TURBO", "TURBOS", "TURBOCOMPRESSOR", "TURBOCOMPRESSORES",
     "CAMINHAO", "CAMINHOES", "ONIBUS", "MOTOR", "CV", "HP", "CAVALOS",
     "CONJUNTO", "CONJUNTOS", "CENTRAL", "CENTRAIS", "MIOLO", "CORE", "CHRA",
+    # Palavras de conversa que aparecem em poucas aplicacoes ("Freightliner COM motor C12") e
+    # por isso nao sao ignoradas sozinhas como as palavras que o catalogo nao tem.
+    "COM", "SEM", "EM", "NOS", "NAS", "AO", "AOS", "POR", "PELO", "PELA", "QUE", "QUEM",
+    "MEU", "MINHA", "SEU", "SUA", "ESSE", "ESSA", "ESTE", "ESTA", "ISSO", "AQUI",
+    "OI", "OLA", "BOM", "BOA", "DIA", "TARDE", "NOITE", "ALGUM", "ALGUMA", "PRECISO", "PRECISA",
+    "PECA", "PECAS", "CLIENTE", "VEICULO", "MODELO", "ANO",
 }
 
 # Apelidos de montadora -> palavras como aparecem no catalogo (qualquer uma serve).
@@ -80,6 +97,10 @@ _SYNONYMS = {
 }
 
 _PARENS = re.compile(r"\(([^)]*)\)")
+
+
+def _is_year(term: str) -> bool:
+    return len(term) == 4 and term.isdigit() and 1980 <= int(term) <= 2039
 
 
 def _product_category(nome: str) -> str:
@@ -116,35 +137,68 @@ class AssistantToolsService:
         product_repository: Optional[ProductRepository] = None,
         catalog_repository: Optional[CatalogRepository] = None,
         limits: ResultLimits = DEFAULT_LIMITS,
+        knowledge: Optional[AssistantKnowledgeService] = None,
     ) -> None:
         self.repository = repository or AssistantRepository()
         self.products = product_repository or ProductRepository()
         self.catalog = catalog_repository or CatalogRepository()
         self.limits = limits
+        self.knowledge = knowledge or AssistantKnowledgeService(product_repository=self.products)
 
     def with_limits(self, limits: ResultLimits) -> "AssistantToolsService":
         """Mesmo servico (mesmos repositorios) com outros limites de tamanho."""
-        return AssistantToolsService(self.repository, self.products, self.catalog, limits)
+        return AssistantToolsService(self.repository, self.products, self.catalog, limits, self.knowledge)
 
     # ------------------------------------------------------------------
     # Ferramentas
     # ------------------------------------------------------------------
 
-    def search_by_code(self, codigo: str) -> Dict[str, Any]:
-        code = canonical_code(codigo)
+    def search_by_code(self, codigo: str, complete: bool = True) -> Dict[str, Any]:
+        typed = " ".join(str(codigo or "").split()).upper()
+        # O modelo as vezes manda o codigo junto com texto ("HE200WG 3785294"): separa os codigos.
+        codes_in_text = extract_codes_from_name(typed, expand_family=False)
+        code = canonical_code(typed)
+        other_codes: List[str] = []
+        if codes_in_text and code not in codes_in_text:
+            code, other_codes = codes_in_text[0], codes_in_text[1:]
+            typed = next((t for t in typed.replace(",", " ").split() if canonical_code(t) == code), code)
         if len(code) < 4 or not any(ch.isdigit() for ch in code):
             raise ValidationException(
                 "Codigo muito curto. Informe o numero da peca (ex.: 4031196, 466646-5041S)."
             )
 
         locations = self.repository.get_location_labels()
-        found = self.products.get_all(search_term=code, status="ATIVO")
-        products = [
-            {**self._product_summary(p, locations), "correspondencia": self._code_match(code, p["nome"])}
-            for p in found
-        ]
-        rank = {MATCH_EXACT: 0, MATCH_FAMILY: 1, MATCH_CATALOG: 2}
-        products.sort(key=lambda p: (rank[p["correspondencia"]], -p["estoque_total"], p["nome"]))
+        knowledge = self.knowledge.relations(code)
+        blocked = knowledge["diferentes"]
+        by_id: Dict[int, Dict[str, Any]] = {}
+        for p in self.products.get_all(search_term=code, status="ATIVO"):
+            match = self._code_match(code, p["nome"])
+            # O especialista disse que nao serve: esconde o "equivalente pelo catalogo".
+            if match == MATCH_CATALOG and blocked & set(extract_codes_from_name(p["nome"])):
+                continue
+            by_id[int(p["id"])] = {**self._product_summary(p, locations), "correspondencia": match}
+
+        # Codigos que o especialista ensinou como iguais ou similares.
+        for relation, match in ((knowledge["iguais"], MATCH_EXPERT_SAME), (knowledge["similares"], MATCH_EXPERT_SIMILAR)):
+            for item in relation:
+                for p in self.products.get_all(search_term=item["codigo_norm"], status="ATIVO"):
+                    if self._code_match(item["codigo_norm"], p["nome"]) not in (MATCH_EXACT, MATCH_FAMILY):
+                        continue
+                    current = by_id.get(int(p["id"]))
+                    if current and _MATCH_RANK[current["correspondencia"]] <= _MATCH_RANK[match]:
+                        continue
+                    entry = {
+                        **self._product_summary(p, locations),
+                        "correspondencia": match,
+                        "codigo_relacionado": item["codigo"],
+                    }
+                    if item.get("obs"):
+                        entry["obs_especialista"] = item["obs"]
+                    by_id[int(p["id"])] = entry
+
+        products = sorted(
+            by_id.values(), key=lambda p: (_MATCH_RANK[p["correspondencia"]], -p["estoque_total"], p["nome"])
+        )
 
         catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=self.limits.code_catalog_items)]
         catalog_items = self._catalog_items(catalog_ids, highlight=set(expand_family_codes([code])))
@@ -159,11 +213,80 @@ class AssistantToolsService:
             "codigo_pesquisado": code,
             "temos_em_estoque": any(p["estoque_total"] > 0 for p in products),
             "produtos": products[:self.limits.products],
-            "fichas_catalogo": [self._public_item(i) for i in catalog_items],
         }
         if len(products) > self.limits.products:
             result["produtos_omitidos"] = len(products) - self.limits.products
+        taught = [
+            {"codigo": i["codigo"], "relacao": "igual", **({"obs": i["obs"]} if i.get("obs") else {})}
+            for i in knowledge["iguais"]
+        ] + [
+            {"codigo": i["codigo"], "relacao": "similar", **({"obs": i["obs"]} if i.get("obs") else {})}
+            for i in knowledge["similares"]
+        ]
+        if taught:
+            result["conhecimento_especialista"] = taught
+        result["fichas_catalogo"] = [self._public_item(i) for i in catalog_items]
+        if other_codes:
+            result["outros_codigos_no_texto"] = other_codes
+            result["atencao"] = "O texto tinha mais de um codigo: pesquise cada um dos outros_codigos_no_texto."
+
+        # Nada com o codigo como veio: pode ser o final de um codigo ("988-7101" -> 5327-988-7101).
+        if complete and not products and not catalog_items and not taught:
+            full_codes = self._complete_code(code)
+            chosen, alternatives = None, []
+            if len(full_codes) == 1:
+                chosen = full_codes[0]
+            elif len(full_codes) > 1:
+                # Varias familias terminam assim (K24/K27/K31...): se so uma e conhecida da empresa
+                # (produto nosso ou regra do especialista), usa essa e avisa das outras.
+                known = [c for c in full_codes if c in self.repository.known_codes(full_codes)]
+                if len(known) == 1:
+                    chosen, alternatives = known[0], [c for c in full_codes if c != known[0]]
+            if chosen:
+                resolved = self.search_by_code(chosen, complete=False)
+                resolved["codigo_digitado"] = typed
+                note = f"(Entendi *{typed}* como *{chosen}*"
+                if alternatives:
+                    resolved["outros_codigos_possiveis"] = alternatives[:MAX_CODE_COMPLETIONS]
+                    note += f"; também existem: {', '.join(self._code_labels(alternatives[:MAX_CODE_COMPLETIONS]))}"
+                resolved["texto_pronto"] = f"{note}.)\n" + resolved["texto_pronto"]
+                if other_codes:
+                    resolved["outros_codigos_no_texto"] = other_codes
+                return resolved
+            if full_codes:
+                shown = full_codes[:MAX_CODE_COMPLETIONS]
+                result["codigos_possiveis"] = shown
+                result["texto_pronto"] = (
+                    f"*{typed}*: achei mais de um código que termina assim: "
+                    f"{', '.join(self._code_labels(shown))}. Qual deles?"
+                )
+                return result
+
+        result["texto_pronto"] = format_code_answer(typed, result)
         return result
+
+    def _code_labels(self, codes: List[str]) -> List[str]:
+        """'53279887101 (K27)': o modelo da turbina pela ficha do catalogo, quando houver."""
+        labels = []
+        for candidate in codes:
+            rows = self.catalog.search_catalog(candidate, limit=1)
+            model = _turbo_models(rows[0].get("modelo")) if rows else None
+            first = model.replace("/", " ").split()[0] if model else None
+            labels.append(f"{candidate} ({first})" if first else candidate)
+        return labels
+
+    def _complete_code(self, code: str) -> List[str]:
+        """Codigos completos que terminam com `code` (uma entrada por familia nova/reman)."""
+        if len(code) < MIN_COMPLETION_LENGTH or not code.isdigit():
+            return []
+        seen: set = set()
+        out: List[str] = []
+        for candidate in self.repository.codes_ending_with(code):
+            if candidate in seen:
+                continue
+            seen |= set(expand_family_codes([candidate]))
+            out.append(candidate)
+        return out
 
     def search_by_application(self, texto: str) -> Dict[str, Any]:
         terms = [w for w in search_words(texto) if w not in _STOPWORDS]
@@ -171,17 +294,38 @@ class AssistantToolsService:
             raise ValidationException(
                 "Informe a montadora, o modelo do veiculo ou o motor (ex.: 'scania 440', 'volvo fh 460', 'om 366')."
             )
-        alternatives = [set(_SYNONYMS.get(term, (term,))) for term in terms]
-
-        matched: "OrderedDict[int, List[Dict[str, Any]]]" = OrderedDict()
+        indexed: List[Tuple[Dict[str, Any], set]] = []
+        vocabulary: set = set()
         for app in self.repository.list_applications():
             words = set(
                 search_words(
                     " ".join(str(app.get(k) or "") for k in ("montadora", "veiculo", "motor", "complemento"))
                 )
             )
-            if all(options & words for options in alternatives):
-                matched.setdefault(int(app["catalogo_produto_id"]), []).append(app)
+            indexed.append((app, words))
+            vocabulary |= words
+
+        # Palavra (so letras) que nao existe em nenhuma aplicacao ("com", "meu", "tio") e ignorada.
+        # Numero desconhecido continua obrigatorio ("scania 999" nao vira "qualquer Scania").
+        # Ano ("dc13 2015") quase nunca esta escrito na aplicacao: vira filtro opcional, usado
+        # so se alguma aplicacao tiver aquele numero (ex.: Axor 2035 continua funcionando).
+        ignored = [t for t in terms if t.isalpha() and not (set(_SYNONYMS.get(t, (t,))) & vocabulary)]
+        known = [t for t in terms if t not in ignored]
+        required = [t for t in known if not _is_year(t)] or known
+        optional = [t for t in known if t not in required]
+        alternatives = [set(_SYNONYMS.get(term, (term,))) for term in required]
+
+        candidates = [(app, words) for app, words in indexed if alternatives and all(o & words for o in alternatives)]
+        for term in optional:
+            narrowed = [(app, words) for app, words in candidates if term in words]
+            if narrowed:
+                candidates = narrowed
+            else:
+                ignored.append(term)
+
+        matched: "OrderedDict[int, List[Dict[str, Any]]]" = OrderedDict()
+        for app, _ in candidates:
+            matched.setdefault(int(app["catalogo_produto_id"]), []).append(app)
 
         catalog_items = self._catalog_items(list(matched.keys()))
         self._attach_our_products(catalog_items)
@@ -201,17 +345,30 @@ class AssistantToolsService:
             )
         )
 
-        result: Dict[str, Any] = {
-            "termos_usados": terms,
-            "total_fichas": len(catalog_items),
-            "temos_em_estoque": any(p["estoque_total"] > 0 for i in catalog_items for p in i["nossos_produtos"]),
-            "fichas_catalogo": [self._public_item(i) for i in catalog_items[:self.limits.catalog_items]],
-        }
+        result: Dict[str, Any] = {"termos_usados": [t for t in terms if t not in ignored]}
+        if ignored:
+            result["termos_ignorados"] = ignored
+            result["obs_termos_ignorados"] = "Palavras que nao aparecem nas aplicacoes do catalogo; a busca seguiu sem elas."
+        result["total_fichas"] = len(catalog_items)
+        # Aviso explicito no resultado: modelos menores seguem melhor isso do que o prompt.
+        turbo_options = [i for i in catalog_items if i["atendemos_marca"] and i["tipo"] == CATEGORY_TURBO]
+        if len(turbo_options) > 1:
+            engines = {
+                str(((i.get("aplicacoes") or [{}])[0]).get("motor") or "").strip().upper() for i in turbo_options
+            }
+            differs = "o motor" if len(engines) > 1 else "o ano ou o veiculo"
+            result["atencao"] = (
+                f"Ha {len(turbo_options)} turbinas diferentes para essa aplicacao (mudam conforme {differs}). "
+                "Nao responda so 'sim': use o texto_pronto, que lista as opcoes."
+            )
+        result["temos_em_estoque"] = any(p["estoque_total"] > 0 for i in catalog_items for p in i["nossos_produtos"])
+        result["fichas_catalogo"] = [self._public_item(i) for i in catalog_items[: self.limits.catalog_items]]
         if len(catalog_items) > self.limits.catalog_items:
             result["fichas_omitidas"] = len(catalog_items) - self.limits.catalog_items
             result["dica"] = "Muitos resultados: peca ao usuario o motor, o ano ou o modelo exato."
         if not catalog_items:
             result["dica"] = "Nada encontrado com todas as palavras. Tente com menos palavras ou so o motor."
+        result["texto_pronto"] = format_application_answer(result, wants_core(texto))
         return result
 
     def product_details(self, produto_id: int) -> Dict[str, Any]:
@@ -372,12 +529,12 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
     {
         "name": "buscar_por_codigo",
         "description": (
-            "Procura no estoque pelo codigo de uma peca: numero Holset, Garrett, BorgWarner, "
-            "codigo OEM da montadora ou Master Power. Aceita o codigo como o usuario escreveu "
-            "(com hifen, espacos, sufixo S ou RX). Devolve nossos produtos com estoque por local "
-            "e o tipo de correspondencia: 'exato' (o codigo esta no nome do produto), 'familia' "
-            "(variante nova/remanufaturada do mesmo codigo) ou 'equivalente_catalogo' (outro codigo "
-            "que o catalogo diz ser intercambiavel). Tambem devolve as fichas do catalogo com as aplicacoes."
+            "Procura no estoque pelo codigo de UMA peca (um codigo por chamada): numero Holset, Garrett, "
+            "BorgWarner, codigo OEM da montadora ou Master Power, como o usuario escreveu (com hifen, "
+            "sufixo S ou RX). Devolve 'texto_pronto' (a resposta pronta para enviar ao usuario) e os dados: "
+            "nossos produtos com estoque por local e a correspondencia ('exato', 'familia' = versao "
+            "nova/reman, 'igual_especialista' / 'similar_especialista' = ensinado pelo especialista, "
+            "'equivalente_catalogo'), o conhecimento do especialista e as fichas do catalogo."
         ),
         "strict": True,
         "input_schema": {
@@ -393,10 +550,10 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
         "name": "buscar_por_aplicacao",
         "description": (
             "Procura turbinas pela aplicacao: montadora, modelo do veiculo ou maquina, potencia e/ou motor "
-            "(ex.: 'scania 440', 'volvo fh 460', 'mercedes om 366', 'dc13'). Todas as palavras precisam "
-            "aparecer na aplicacao; se nada voltar, tente de novo com menos palavras. O mesmo veiculo pode "
-            "usar turbinas diferentes conforme motor e ano: cada ficha vem com as aplicacoes que bateram e "
-            "com nossos produtos ligados a ela (com estoque). So encontra produtos ligados a uma ficha do catalogo."
+            "(ex.: 'scania 440', 'volvo fh 460', 'mercedes om 366', 'dc13'). Devolve 'texto_pronto' (a "
+            "resposta pronta para enviar: lista as opcoes por motor/ano, com nossos produtos e estoque) e os "
+            "dados de cada ficha. Se nada voltar, tente de novo com menos palavras. So encontra produtos "
+            "ligados a uma ficha do catalogo."
         ),
         "strict": True,
         "input_schema": {

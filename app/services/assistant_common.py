@@ -18,29 +18,55 @@ MAX_PRODUCTS_IN_ANSWER = 10
 MODE_AI = "ia"
 MODE_DIRECT = "busca_direta"
 
-SYSTEM_PROMPT = """Você é o assistente de estoque de uma distribuidora de turbinas (turbocompressores) e conjuntos centrais. Responde perguntas de vendedores e da gerência, quase sempre pelo WhatsApp, sobre o que temos em estoque.
+# Como um produto bateu com o codigo pesquisado (campo "correspondencia").
+MATCH_EXACT = "exato"
+MATCH_FAMILY = "familia"
+MATCH_EXPERT_SAME = "igual_especialista"
+MATCH_EXPERT_SIMILAR = "similar_especialista"
+MATCH_CATALOG = "equivalente_catalogo"
 
-Como trabalhar:
-- Use as ferramentas para tudo que for estoque, código ou aplicação. Nunca responda de memória nem invente produto, código, quantidade ou aplicação: tudo que você afirmar precisa ter vindo de uma ferramenta nesta conversa.
-- Código de peça na pergunta (ex.: 4031196, 466646-5041S, 53279887116, código OEM da montadora) -> buscar_por_codigo. Montadora, veículo, modelo ou motor (ex.: "scania 440", "volvo fh 460", "om 366") -> buscar_por_aplicacao. Se a busca por aplicação não achar nada, tente de novo com menos palavras (só montadora e modelo, ou só o motor) antes de dizer que não encontrou.
-- Trabalhamos só com Garrett, Holset e BorgWarner. Ao citar códigos de referência, cite dessas marcas (ou o código OEM, se foi ele que perguntaram). Se a única opção é de outra marca, diga que não trabalhamos com ela.
-- Campo "correspondencia" dos produtos: "exato" é o próprio código pedido; "familia" é a versão nova ou remanufaturada do mesmo código (diga isso); "equivalente_catalogo" é outro código que o catálogo indica como intercambiável (diga que é equivalente pelo catálogo e que vale conferir antes de vender).
-- Diferencie turbina completa (categoria TURBO) de conjunto central (CONJUNTO CENTRAL, o miolo). Se perguntaram por turbina e só temos o conjunto central, diga claramente.
-- Quando o mesmo veículo usa turbinas diferentes conforme motor ou ano, liste as opções (motor/ano -> turbina -> se temos e onde) e pergunte qual é o do cliente. Não escolha uma por conta própria.
-- Estoque: diga a quantidade e o local (ex.: "2 em Canoas"). Estoque 0 = não temos no momento.
-- Sem resultado: diga que não encontrou no estoque nem no catálogo e sugira o que conferir (o código, o motor, o ano).
-- Ao citar um produto nosso, escreva o nome exatamente como está no cadastro, em negrito.
+CATEGORY_TURBO = "TURBO"
+CATEGORY_CORE = "CONJUNTO CENTRAL"
 
-Formato (WhatsApp):
-- Português do Brasil, direto e curto. Comece pela resposta (sim, não ou depende) e depois os detalhes.
-- *negrito* com um asterisco de cada lado; listas com "•"; sem títulos, tabelas ou links.
-- No máximo umas 8 linhas, a não ser que haja muitas opções relevantes.
-- Não ofereça ajuda extra. Só pergunte algo quando precisar para desambiguar.
+SYSTEM_PROMPT = """Você é o assistente de estoque de uma distribuidora de turbinas (turbocompressores) e conjuntos centrais. Responde vendedores e a gerência, quase sempre pelo WhatsApp.
 
-Se a pergunta não for sobre estoque, turbinas ou peças, diga em uma frase que você só responde sobre o estoque."""
+Regras obrigatórias:
+1. Só afirme o que veio das ferramentas nesta conversa. Nunca invente produto, código, quantidade, preço ou aplicação.
+2. Código de peça (ex.: 4031196, 466646-5041S, código OEM ou da Master Power) -> buscar_por_codigo, um código por chamada. Montadora, veículo, modelo ou motor (ex.: "scania 440", "volvo fh 460", "om 366") -> buscar_por_aplicacao; se não achar nada, tente de novo com menos palavras.
+3. Cada busca devolve "texto_pronto": a resposta já montada pelo sistema, com os nomes do cadastro, o estoque, as opções e o que o especialista ensinou. RESPONDA COM O texto_pronto, sem reescrever. Se a pergunta tiver vários códigos, junte os textos_prontos, um embaixo do outro. Não acrescente perguntas nem comentários.
+4. "essa", "essa daí", "esse código" = o código da mensagem anterior do usuário.
+5. Mensagem curta que responde a uma pergunta sua (ex.: "dc13", "é o 2015"): junte com a pergunta anterior do usuário e busque de novo (ex.: "scania 440 dc13").
+6. Só escreva com suas palavras quando nenhuma busca servir: pergunta fora do assunto (diga em uma frase que só responde sobre o estoque), pedido de preço (diga que não temos informação de preço e mande o texto_pronto do código) ou pergunta vaga (peça o código da peça ou o veículo/motor).
+7. Trabalhamos só com Garrett, Holset e BorgWarner.
+
+Formato (WhatsApp): português do Brasil, *negrito* com um asterisco de cada lado, listas com "•", sem títulos, tabelas ou links."""
 
 REFUSAL_TEXT = "Não consegui responder essa pergunta. Tente reformular, de preferência com o código da peça."
 NO_ANSWER_TEXT = "Não consegui montar a resposta agora. Tente de novo ou reformule a pergunta."
+
+
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*", re.S)
+_MD_HEADING = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]*", re.M)
+_MD_BULLET = re.compile(r"^[ \t]*[-*][ \t]+", re.M)
+_COURTESY = re.compile(
+    r"^(se precisar|caso precise|qualquer d[uú]vida|posso ajudar|se quiser|fico [àa] disposi|estou [àa] disposi)",
+    re.IGNORECASE,
+)
+
+
+def whatsapp_text(text: str) -> str:
+    """
+    Ajusta a resposta da IA ao formato do WhatsApp, sem depender do modelo obedecer:
+    **negrito** -> *negrito*, titulos e marcadores markdown -> texto e "•", e tira
+    frases finais de cortesia ("Se precisar, avise.").
+    """
+    text = _MD_BOLD.sub(r"*\1*", text or "")
+    text = _MD_HEADING.sub("", text)
+    text = _MD_BULLET.sub("• ", text)
+    lines = text.strip().splitlines()
+    while lines and (not lines[-1].strip() or _COURTESY.match(lines[-1].strip())):
+        lines.pop()
+    return "\n".join(lines).strip()
 
 
 class AssistantUnavailableError(Exception):

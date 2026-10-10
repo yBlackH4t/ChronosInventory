@@ -10,6 +10,7 @@ from typing import Optional
 
 from core.constants import LEGACY_DB_PATH
 from core.database.migration_v2_3_0_catalog import ensure_catalog_schema
+from core.database.migration_v2_4_0_knowledge import ensure_knowledge_schema
 from core.exceptions import DatabaseException
 from core.utils.file_utils import FileUtils
 
@@ -300,6 +301,9 @@ class DatabaseConnection:
 
             # ── v2.3.0 Catalogo de referencias ───────────────────────
             ensure_catalog_schema(conn)
+
+            # ── v2.4.0 Base de conhecimento do especialista (assistente) ──
+            ensure_knowledge_schema(conn)
 
             # Migra imagens legadas de produtos.imagem para tabela dedicada.
             cursor.execute("SELECT COUNT(*) as total FROM product_images;")

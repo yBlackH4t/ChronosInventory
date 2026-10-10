@@ -67,7 +67,10 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 | 1 | Ferramentas de busca determinísticas + testes | Claude Code | ✅ pronto |
 | 2 | Cérebro (IA gratuita via Groq + busca direta de reserva), `POST /assistente/chat` e configuração | Claude Code | ✅ pronto (falta testar com chave real) |
 | 2 | Tela de chat e configuração da IA no app | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
-| 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | a fazer (precisa da lista) |
+| 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | em andamento (Groq real: 10/13 → corrigido com `texto_pronto`) |
+| 2b | Base de conhecimento do especialista, admin, histórico, "Para revisar" (backend) | Claude Code | ✅ pronto |
+| 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
+| 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | a fazer |
 | 3 | Ponte WhatsApp (API não oficial) | Claude Code | a fazer |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
 
@@ -143,6 +146,22 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   no estilo WhatsApp. Conjunto central só aparece numa pergunta de turbina quando tem estoque.
 - **Resposta da API:** `modo` (`ia` ou `busca_direta`) e `aviso` (por que a IA não
   respondeu). O chat não devolve mais `503`.
+- **"A IA entende, o sistema responde."** O modelo gratuito segue o prompt com pouco rigor
+  (no primeiro teste real: "Sim, temos" para o Scania 440 sem perguntar o motor, modelo da
+  turbina no lugar do nome do produto, perguntas desnecessárias). Por isso cada busca devolve
+  `texto_pronto` — a mesma resposta da busca direta (`assistant_answer_format.py`) — e o
+  prompt manda responder com ele, juntando os textos quando há vários códigos. A IA fica com
+  o que sabe fazer bem: entender a pergunta, escolher a busca e lidar com conversa.
+- **Regras que não dependem do modelo obedecer:**
+  - a busca por aplicação devolve o campo `atencao` quando há mais de uma turbina possível;
+  - `buscar_por_codigo` separa o código do texto ("HE200WG 3785294" → 3785294) e avisa se
+    vieram vários códigos;
+  - a resposta da IA passa por `whatsapp_text`: `**x**` → `*x*`, títulos e marcadores
+    markdown → texto e "•", e frases finais de cortesia ("Se precisar, avise") são removidas.
+- **Palavras da pergunta:** palavras de conversa ("com", "meu", "tio") são ignoradas, e as
+  ignoradas voltam em `termos_ignorados`; número desconhecido continua obrigatório
+  ("scania 999" não vira "qualquer Scania"); ano é filtro opcional (ignorado se nenhuma
+  aplicação o cita).
 - **Chaves:** uma por provedor, salvas em `assistente_config.json` na pasta do app (fora do
   banco, dos backups e da base oficial). Sem chave salva, vale a variável de ambiente do
   provedor (`GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`). A API nunca devolve a chave.
@@ -151,11 +170,66 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   provedor configurado; sem chave, responde pela busca direta) e
   `... perguntar --sem-ia "..."` (só a busca direta).
 
+**Avaliação:** `python scripts/assistente_avaliacao.py` roda as perguntas de
+`scripts/assistente_casos.json` no banco de teste e confere cada resposta (o que precisa
+aparecer, o que não pode aparecer, se tem que perguntar o motor). `--sem-ia` avalia só a
+busca direta (15/15 hoje). Com IA, espera 40 s entre perguntas por causa do limite por
+minuto do Groq; uma rodada gasta uns 75 mil dos 200 mil tokens diários.
+
+**Primeira avaliação com o Groq real (2026-10-09):** 10 de 13 ok antes do `texto_pronto`.
+Falhas: código junto com texto, modelo da turbina no lugar do produto, "Depende do motor"
+com o motor já informado. Corrigidas pelo `texto_pronto`; falta rodar de novo.
+
 Falta:
-- testar com uma chave real do Groq e ajustar o prompt com as respostas;
-- **avaliação:** lista de 20–30 perguntas reais do chefe com a resposta esperada, rodada a
-  cada mudança no prompt ou no provedor;
+- rodar a avaliação de novo com a chave real do Groq;
+- acrescentar as 20–30 perguntas reais do chefe em `scripts/assistente_casos.json`;
 - tela de chat e configuração no app (Antigravity), com a escolha do provedor.
+
+### Fase 2b — Base de conhecimento do especialista (pronto no backend)
+
+**O problema:** o catálogo não sabe tudo. Ex.: a BorgWarner 5327-988-7101 é similar à
+5327-988-7210, mas nenhum dado do sistema diz isso; quem sabe é o especialista (o dono).
+
+**A solução não é treinar o modelo de IA**, e sim uma base de conhecimento que só o admin
+edita e que a busca consulta a cada pergunta: aprende na hora, vale para a IA e para a busca
+direta, dá para desfazer, e o bot nunca "inventa" um similar.
+
+- **Tipos de regra** (tabela `conhecimento_equivalencias`, no banco):
+  - `igual`: mesma peça, troca direta. Transitivo: A = B e B = C → A = C;
+  - `similar`: serve com ressalva (observação: "muda o atuador");
+  - `diferente`: não serve. Usado para recusar uma sugestão e para esconder um
+    "equivalente pelo catálogo" que o especialista sabe que não serve.
+  As versões nova/reman de um código (988 ↔ 990...) herdam as regras dele.
+- **Na resposta:** `*7101*: não temos esse código, mas temos: • *TURBO K27 ... 7116* — 3 em
+  Passo Fundo (similar: muda o atuador)`. O que o especialista ensinou vem antes do que o
+  catálogo diz.
+- **Final do código:** o chefe fala "a 988-7101". Se o código não aparece como foi dito, a busca
+  completa pelo final (6+ dígitos). Várias famílias terminam assim (K24/K27/K31): se só uma é
+  conhecida da empresa (produto nosso ou regra ensinada), usa essa e avisa das outras; senão,
+  pergunta mostrando o modelo de cada uma.
+- **Quem ensina:** só o admin, **na máquina publicadora** da base oficial, com **senha**
+  (hash PBKDF2 em `assistente_config.json`; login gera uma sessão de 8 h, header
+  `X-Admin-Token`). Decisão do dono: "se fossem todos, iam colocar qualquer coisa".
+- **"Para revisar":** toda pergunta fica no histórico. Códigos pesquisados sem estoque entram
+  na lista do admin, com **sugestões** de possíveis similares (hoje: produtos nossos com o
+  mesmo início de código BorgWarner, ex. 5327-988-....). Ao ensinar uma regra, o código sai da
+  lista; se for perguntado de novo depois, volta. As sugestões só aparecem para o admin.
+- **Histórico:** banco separado `assistente_historico.db` (não vai para a base oficial nem
+  para os backups). Cada conversa guarda pergunta, contexto, buscas feitas, resposta, modo e a
+  **correção do admin**. Exporta em **JSONL** (um JSON por linha, sem o telefone de quem
+  perguntou): o formato padrão para avaliar e, no futuro, ajustar um modelo próprio. Criar uma
+  LLM do zero não é viável; um ajuste fino de modelo aberto com esse histórico é possível mais
+  para frente, mas para equivalências a base de conhecimento é melhor.
+- **Distribuição (a fazer, Fase 2c):** cada máquina tem o próprio banco e as filiais lançam
+  movimentos separadamente (a comparação de estoque acha divergências); ninguém aplica a
+  base oficial inteira. Então o conhecimento precisa ser publicado à parte pela máquina
+  publicadora (pasta compartilhada ou servidor local, como a comparação) e baixado pelas
+  outras, só leitura. O bot do WhatsApp roda na máquina do admin, então já usa tudo na hora.
+
+Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
+`assistant_history_service.py`, `core/database/migration_v2_4_0_knowledge.py`,
+`core/database/repositories/knowledge_repository.py`. Testes em
+`test_assistant_knowledge.py` e `test_assistant_admin.py`.
 
 ### Fase 3 — WhatsApp (a fazer) — **decisão: API não oficial**
 
@@ -170,6 +244,19 @@ pública. Opções a avaliar: Evolution API (Docker), Baileys (Node) ou neonize 
 - manter a ponte isolada: ela só fala com `POST /assistente/chat` em localhost;
 - se o número for banido ou o volume crescer, migrar para a API oficial (Meta Cloud API).
   O resto do sistema não muda, só a ponte.
+
+**Como o chefe usa (definido em 2026-10-09):** cola um código (inclusive da Master Power) e
+manda um **áudio** "temos essa daí?"; às vezes outro código e outro áudio.
+- **Áudio:** transcrição grátis pelo Groq (Whisper, mesma chave; aceita `.ogg`, a confirmar
+  com áudio real do WhatsApp). A transcrição vira a mensagem de texto.
+- **Agrupar mensagens:** a ponte espera ~10 s depois da última mensagem antes de responder;
+  código colado + áudio viram uma pergunta só.
+- **Contexto:** a ponte guarda o histórico por número e manda junto (`historico`), com
+  `canal: "whatsapp"` e `autor` = número. "Essa daí" = código da mensagem anterior (regra no
+  prompt e na busca direta; pronto).
+- **Ensinar pelo WhatsApp** (opcional): comandos só do número do admin.
+- **O estoque do bot é o da máquina onde ele roda** (a do admin). Movimento lançado só em
+  outra máquina não aparece até ser lançado também ali (mesma limitação da comparação).
 
 ### Fase 4 — Ideias para depois
 
@@ -189,7 +276,10 @@ pública. Opções a avaliar: Evolution API (Docker), Baileys (Node) ou neonize 
 
 ## 5. Pendências com o dono do projeto
 
-- [ ] Chave gratuita do Groq (console.groq.com → API Keys), sem cartão.
+- [x] Chave gratuita do Groq (console.groq.com → API Keys), sem cartão.
+- [ ] Marcar a máquina do admin como **publicadora** (Configurações > Base oficial) e definir a
+      senha de admin (quando a tela estiver pronta).
+- [ ] Ensinar as primeiras regras (ex.: 5327-988-7101 similar 5327-988-7210).
 - [ ] Lista de perguntas reais do chefe (do histórico do WhatsApp) para a avaliação.
 - [ ] Testar no banco real. Copie o `estoque.db` da empresa para uma pasta separada (nunca use
       o original: abrir o banco pelo app aplica migrações) e rode:

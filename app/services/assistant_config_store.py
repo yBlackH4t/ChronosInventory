@@ -84,16 +84,27 @@ class AssistantConfigStore:
     def __init__(self, config_path: Optional[str] = None) -> None:
         self.config_path = config_path or FileUtils.get_assistant_config_path()
 
+    def _read_raw(self) -> Dict[str, Any]:
+        if not os.path.isfile(self.config_path):
+            return {}
+        try:
+            with open(self.config_path, "r", encoding="utf-8") as f:
+                loaded = json.load(f)
+        except (OSError, ValueError):
+            return {}
+        return loaded if isinstance(loaded, dict) else {}
+
+    def _write_raw(self, data: Dict[str, Any]) -> None:
+        directory = os.path.dirname(self.config_path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        tmp_path = f"{self.config_path}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, self.config_path)
+
     def load(self) -> Dict[str, Any]:
-        data: Dict[str, Any] = {}
-        if os.path.isfile(self.config_path):
-            try:
-                with open(self.config_path, "r", encoding="utf-8") as f:
-                    loaded = json.load(f)
-                if isinstance(loaded, dict):
-                    data = loaded
-            except (OSError, ValueError):
-                data = {}
+        data = self._read_raw()
         provider = str(data.get("provedor") or DEFAULT_PROVIDER)
         effort = str(data.get("esforco") or DEFAULT_EFFORT)
         keys = data.get("chaves") if isinstance(data.get("chaves"), dict) else {}
@@ -134,14 +145,20 @@ class AssistantConfigStore:
         current["chaves"] = {p: k for p, k in current["chaves"].items() if k}
         current["modelos"] = {p: m for p, m in current["modelos"].items() if m}
 
-        directory = os.path.dirname(self.config_path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        tmp_path = f"{self.config_path}.tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(current, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, self.config_path)
+        raw = self._read_raw()  # preserva o resto do arquivo (ex.: senha de admin)
+        raw.update(current)
+        self._write_raw(raw)
         return current
+
+    def load_admin(self) -> Dict[str, Any]:
+        """Hash da senha de admin (nunca a senha)."""
+        admin = self._read_raw().get("admin")
+        return admin if isinstance(admin, dict) else {}
+
+    def save_admin(self, admin: Dict[str, Any]) -> None:
+        raw = self._read_raw()
+        raw["admin"] = admin
+        self._write_raw(raw)
 
     @staticmethod
     def model_for(config: Dict[str, Any], provider: str) -> Optional[str]:
