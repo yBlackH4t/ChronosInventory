@@ -279,12 +279,14 @@ npm run lint
   códigos e nomes ao copiar o texto pronto e montava buscas erradas). Agora a busca direta
   responde primeiro quando entende a pergunta e a IA só entra quando ela não entende; se a IA
   estragar o texto pronto, vale o texto pronto; pergunta de preço ganha a nota "Não tenho
-  informação de preço" pelo próprio sistema. `assistente_dev.py whatsapp` abre o QR numa página
-  do navegador (no terminal o QR saía deformado e o celular não lia). Roteiro de teste para o
-  dono em `docs/TESTE_ASSISTENTE.md`.
+  informação de preço" pelo próprio sistema; com o motor já informado ("dc13"), a resposta
+  lista as opções sem perguntar o motor de novo. `assistente_dev.py whatsapp` abre o QR numa
+  página do navegador (no terminal o QR saía deformado e o celular não lia). Roteiro de teste
+  para o dono em `docs/TESTE_ASSISTENTE.md`.
 - Arquivos principais: `app/services/assistant_chat_service.py`, `assistant_direct_service.py`,
-  `assistant_common.py`, `scripts/assistente_dev.py`, `scripts/assistente_avaliacao.py`.
-- Verificações: pytest ok (147 testes); avaliação com o Groq real 17/17 (15 pela busca direta,
+  `assistant_common.py`, `assistant_answer_format.py`, `scripts/assistente_dev.py`,
+  `scripts/assistente_avaliacao.py`.
+- Verificações: pytest ok (148 testes); avaliação com o Groq real 17/17 (15 pela busca direta,
   2 pela IA: fora do assunto e pergunta vaga).
 - Para o Antigravity: pedido "dois ajustes rápidos" na seção 5; contrato inalterado (seção 4).
 
