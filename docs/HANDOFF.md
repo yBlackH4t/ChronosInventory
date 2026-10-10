@@ -372,6 +372,21 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-10 — Claude Code — Assistente: foto da plaqueta, resumo diário, ajustes e instalador
+- Branch: `feature/assistente-ia`
+- O que foi feito:
+  - **Foto da plaqueta** (WhatsApp com 🤖 na foto e `POST /assistente/chat/foto` no app): o Groq lê
+    os códigos com um modelo com visão (`qwen/qwen3.8-27b`, gratuito), sem número de série.
+  - **Resumo diário** na "Mensagem para mim" (zerados desde ontem, mais saídas em 7 dias,
+    perguntaram e não temos), na hora que o admin escolher, e `/resumo` na hora.
+  - **Ajustes da busca direta:** código falado com espaços ("5327 988 7101") e número de chassi
+    (não é código de peça; com veículo junto, vale o veículo).
+  - **Instalador:** `estoque_backend.exe --diagnostico-assistente` testa o pacote por dentro
+    (DLLs e uma pergunta de verdade num banco temporário); o `build_backend.ps1` falha se algo faltar.
+- Verificações: pytest ok (185 testes); avaliação sem IA 17/17; build real do backend + diagnóstico ok.
+- Para o Antigravity: pedidos na seção 5 (botão de foto no chat, resumo diário na aba WhatsApp,
+  senha do servidor e exclusão de produto).
+
 ### 2026-10-10 — Claude Code — Proteção de dados (auditoria P1 #2 e #5)
 - Branch: `claude/protecao-dados` (a partir da `main`, pode ir para a `main` sozinha), já trazida
   para a `feature/assistente-ia`.
