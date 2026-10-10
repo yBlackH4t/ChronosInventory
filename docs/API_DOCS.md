@@ -93,6 +93,9 @@ Regras:
   - evolucao de estoque total
 - `GET /analytics/products/inactive?days=30&date_to=YYYY-MM-DD&limit=5`
   - top itens sem movimentacao
+- `GET /analytics/products/stockout-risk?days=30&max_dias=15&location_id=&limit=5`
+  - itens com saldo que zeram em ate `max_dias` no ritmo de venda real (`SAIDA` normal) dos ultimos `days` dias
+  - retorna `estoque_atual`, `total_saida` e `dias_cobertura`, do mais urgente para o menos
 
 ### Endpoints legados mantidos
 - `GET /analytics/top-saidas`

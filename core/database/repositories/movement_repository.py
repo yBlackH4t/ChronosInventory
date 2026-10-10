@@ -736,6 +736,62 @@ class MovementRepository(BaseRepository):
             (cutoff, date_to, limit),
         )
 
+    def get_stockout_risk_candidates(
+        self,
+        cutoff: str,
+        date_to: str,
+        location_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Itens com saldo e venda real no periodo: saldo atual e total vendido."""
+        saida_liquida = self._saida_liquida_expr("m")
+
+        if location_id is not None:
+            return self._execute_query(
+                f"""
+                SELECT p.id as produto_id,
+                       p.nome as nome,
+                       pi.quantidade as estoque_atual,
+                       SUM({saida_liquida}) as total_saida
+                FROM produtos p
+                JOIN produto_estoque pi
+                  ON pi.produto_id = p.id AND pi.local_id = ? AND pi.quantidade > 0
+                JOIN movimentacoes m ON m.produto_id = p.id
+                WHERE p.ativo = 1
+                  AND m.tipo = 'SAIDA'
+                  AND m.natureza = 'OPERACAO_NORMAL'
+                  AND m.origem_local_id = ?
+                  AND m.data_hora >= ?
+                  AND m.data_hora <= ?
+                GROUP BY p.id, p.nome, pi.quantidade
+                HAVING total_saida > 0
+                """,
+                (location_id, location_id, cutoff, date_to),
+            )
+
+        return self._execute_query(
+            f"""
+            SELECT p.id as produto_id,
+                   p.nome as nome,
+                   s.estoque_atual as estoque_atual,
+                   SUM({saida_liquida}) as total_saida
+            FROM produtos p
+            JOIN (
+                SELECT produto_id, SUM(quantidade) as estoque_atual
+                FROM produto_estoque
+                GROUP BY produto_id
+            ) s ON s.produto_id = p.id AND s.estoque_atual > 0
+            JOIN movimentacoes m ON m.produto_id = p.id
+            WHERE p.ativo = 1
+              AND m.tipo = 'SAIDA'
+              AND m.natureza = 'OPERACAO_NORMAL'
+              AND m.data_hora >= ?
+              AND m.data_hora <= ?
+            GROUP BY p.id, p.nome, s.estoque_atual
+            HAVING total_saida > 0
+            """,
+            (cutoff, date_to),
+        )
+
     def get_external_transfer_totals(
         self,
         date_from: str,

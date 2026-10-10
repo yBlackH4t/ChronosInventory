@@ -670,6 +670,14 @@ export type RecentStockoutItem = {
   last_sale?: string | null;
 };
 
+export type StockoutRiskItem = {
+  produto_id: number;
+  nome: string;
+  estoque_atual: number;
+  total_saida: number;
+  dias_cobertura: number;
+};
+
 export type ExternalTransferItem = {
   produto_id: number;
   nome: string;

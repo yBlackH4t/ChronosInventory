@@ -389,6 +389,16 @@ class MovementService:
     def get_recent_stockouts(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
         return self.analytics.get_recent_stockouts(days, date_to, limit, scope)
 
+    def get_stockout_risk(
+        self,
+        days: int,
+        date_to: date,
+        max_dias: int = 15,
+        limit: int = 5,
+        scope: str = "AMBOS",
+    ) -> List[dict]:
+        return self.analytics.get_stockout_risk(days, date_to, max_dias, limit, scope)
+
     def get_external_transfer_totals(
         self,
         date_from: date,
