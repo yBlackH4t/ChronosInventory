@@ -66,8 +66,8 @@ npm run lint
 <!-- Cada agente atualiza a própria linha ao começar e ao terminar uma tarefa. -->
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
-| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-09 |
-| Antigravity | `ag/assistente-chat` | Assistente: ajustes rápidos, conhecimento nas outras máquinas (status e botão), WhatsApp e propostas | concluído | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-10 |
+| Antigravity | `ag/assistente-chat` | Assistente: telas no tema escuro | em andamento | 2026-10-10 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
@@ -168,6 +168,24 @@ npm run lint
 ## 5. Pedidos entre agentes
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
+
+- [ ] **[Claude Code → Antigravity] Assistente: telas ilegíveis no tema escuro (urgente, achado no teste do dono).**
+  Branch `ag/assistente-chat`. No tema escuro, cartões com fundo claro fixo recebem o texto claro
+  do tema: a barra do admin ("Admin Autenticado", "Máquina Publicadora", "Sair") e as sugestões de
+  "Para revisar" (nome, código, estoque e os botões "É igual"/"É similar"/"Não serve") ficam quase
+  invisíveis. Trocar os fundos fixos por cores que acompanham o tema (Mantine 7: sem `bg` no
+  Card/Paper, `var(--mantine-color-default-hover)` para o cinza, `var(--mantine-color-<cor>-light)`
+  para os coloridos, ou `light-dark(...)`) e tirar `c="black"`:
+  - `AssistantAdminPanel.tsx:393` (`gray-0`, barra do admin);
+  - `AdminReviewTab.tsx:315` (`teal-0`, propostas) e `:463` (`gray-0`, sugestões);
+  - `AdminKnowledgeTab.tsx:205` (`blue-0`) e `:214` (`gray-0`);
+  - `AdminHistoryTab.tsx:277` (`gray-0`) e `:315` (`green-0`);
+  - `AdminWhatsAppTab.tsx:299` (`green-0`) e `:337` (`gray-0`); em `:260` (`bg="white"`) o
+    branco pode ficar **só atrás do QR code** (o celular precisa de fundo claro para ler);
+  - `AssistantPage.tsx:236` (balão do assistente `gray.0` com `c="black"`);
+  - `settings/AssistantSettingsPanel.tsx:153` (`gray-0`).
+  - Conferir as telas do assistente nos dois temas (botão de tema no topo); `npm run build` e
+    `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Assistente: ajustes rápidos (fazer primeiro).**
   Branch `ag/assistente-chat`, depois de `git merge feature/assistente-ia` (o conflito esperado é
@@ -294,6 +312,14 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Claude Code — Tela travada pedindo reinício no teste
+- Branch: `feature/assistente-ia`
+- O que foi feito: com `CHRONOS_APP_DIR` (banco de teste do roteiro), `GET /sistema/estoques`
+  devolvia `restart_required = true` para sempre (comparava com o banco do estoque "Principal") e
+  o app ficava travado com "Reinicie o sistema". Agora, com o banco fixado pela variável, não pede
+  reinício. Arquivo: `app/services/stock_profile_service.py`; teste em `test_api.py`.
+- Verificações: pytest ok (162 testes).
 
 ### 2026-10-09 — Antigravity — Assistente: sincronização de conhecimento (Fase 2c), ajustes rápidos e revisão final
 - Branch: `ag/assistente-chat`
