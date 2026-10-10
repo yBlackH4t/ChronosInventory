@@ -33,11 +33,13 @@ O dono do projeto (que também é o especialista) ensina ao assistente o que o c
 | Telas (chat, admin, WhatsApp, propostas, status do conhecimento) | ✅ prontas (Antigravity) |
 | Teste com o **banco real da empresa** | ⏳ próximo passo (seção 6) |
 | Decidir WhatsApp não oficial × oficial da Meta para o número da empresa | ⏳ com o dono |
-| Resumo diário na "Mensagem para mim" (`/resumo` e envio na hora escolhida) | ✅ backend pronto; ligar e escolher a hora na tela é pedido do Antigravity |
-| Foto da plaqueta (WhatsApp e app) | ✅ backend pronto; botão de foto no chat do app é pedido do Antigravity |
+| Resumo diário na "Mensagem para mim" (`/resumo` e envio na hora escolhida) | ✅ backend e tela prontos (tela na `ag/operacao-e-atalhos`) |
+| Foto da plaqueta (WhatsApp e app) | ✅ backend e botão de foto no chat prontos (botão na `ag/operacao-e-atalhos`) |
+| Senha do servidor local e exclusão de produto sem apagar histórico | ✅ backend e tela prontos (tela na `ag/operacao-e-atalhos`) |
+| "Salvar configuração" em Backup > Base oficial | ❌ quebrou na `ag/operacao-e-atalhos`; correção pedida ao Antigravity no `docs/HANDOFF.md` |
 | Instalador (`.msi`) com o assistente | ✅ backend empacotado testado (autodiagnóstico no `build_backend.ps1`); falta gerar o `.msi` completo |
 
-Nada disso está na `main` ainda: fica na branch **`feature/assistente-ia`** (seção 5).
+Nada disso está na `main` ainda (seção 5). A versão nova vai ser a **2.4.0** (seção 8).
 
 ## 3. Como funciona (o essencial)
 
@@ -138,17 +140,23 @@ A pasta do banco é a do app, ou a de `CHRONOS_APP_DIR` quando essa variável es
 
 ## 5. Branches e GitHub
 
-- **`feature/assistente-ia`**: tudo junto, backend e telas. É a branch para puxar e testar.
-- **`ag/assistente-chat`**: branch das telas (agente Antigravity). Ela traz a
-  `feature/assistente-ia` com `git merge` de tempos em tempos.
+- **`ag/operacao-e-atalhos`**: a mais completa e a candidata à versão 2.4.0. Tem a `main`,
+  toda a `feature/assistente-ia` e as telas novas do Antigravity (foto no chat, resumo diário,
+  senha do servidor, atalho N de movimentação rápida). **Só use depois da correção do
+  "Salvar configuração"** (seção 2).
+- **`feature/assistente-ia`**: backend do assistente (Claude Code) com as telas até a área do
+  admin. Estável; serve para testar enquanto a correção acima não chega, mas sem o botão de foto
+  e sem a tela do resumo diário.
+- **`claude/protecao-dados`**: só a proteção de dados (1 commit), se o dono quiser uma 2.3.1 antes.
+- **`ag/assistente-chat`**: branch antiga das telas, já incluída nas de cima.
 - A **`main`** não recebe nada do assistente até o dono decidir. O merge na `main` é sempre
   feito pelo dono, nunca pelos agentes.
 
-Para puxar em outra máquina:
+Para puxar em outra máquina (troque o nome da branch se for o caso):
 
 ```powershell
 git fetch origin
-git checkout feature/assistente-ia
+git checkout ag/operacao-e-atalhos
 git pull
 ```
 
@@ -211,16 +219,34 @@ migrações novas no banco. Sempre numa **cópia**.
 
 ## 8. Próximos passos
 
-1. Testar no banco real (seção 6) e medir a cobertura dos vínculos.
-2. Juntar as perguntas reais do chefe na avaliação.
+Caminho até a **versão 2.4.0**:
+
+1. Antigravity corrige, na `ag/operacao-e-atalhos`, o "Salvar configuração" e o cache das telas
+   (pedido aberto no `docs/HANDOFF.md`, seção 5). Conferir: testes, build, lint e clicar em
+   "Salvar configuração".
+2. Testar no banco real (seção 6), numa cópia, e medir a cobertura dos vínculos. Esta versão
+   cria tabelas novas no banco.
 3. Testar o conhecimento chegando numa segunda máquina (parte D do roteiro).
-4. Decidir o WhatsApp do número da empresa (não oficial × oficial).
-5. Gerar o `.msi` completo (`npm run build:app`) e, quando o dono aprovar, levar para a `main`.
-   O backend empacotado já é testado sozinho pelo `build_backend.ps1`
-   (`estoque_backend.exe --diagnostico-assistente <arquivo.json>`).
+4. Trocar a versão para 2.4.0 nos 6 arquivos (`core/constants.py`, `frontend/package.json`,
+   `frontend/package-lock.json`, `frontend/src-tauri/Cargo.toml`, `Cargo.lock` e
+   `tauri.conf.json`; conferir com `python scripts/check_versions.py`) e escrever as
+   "Novidades da versão".
+5. O dono junta na `main` e cria a tag `v2.4.0`. **A tag publica a atualização para todas as
+   máquinas** (`.github/workflows/release.yml` monta o instalador e a GitHub Release): só depois
+   dos testes e a partir da `main`.
+
+Depois: juntar as perguntas reais do chefe na avaliação e decidir o WhatsApp do número da
+empresa (não oficial × oficial). O backend empacotado já é testado sozinho pelo
+`build_backend.ps1` (`estoque_backend.exe --diagnostico-assistente <arquivo.json>`).
 
 ## 9. Como retomar com o Claude Code em outra máquina
 
 Abra o Claude Code na pasta do projeto, na branch `feature/assistente-ia`. O `CLAUDE.md` da
 raiz manda ler este arquivo e o `docs/HANDOFF.md`. Se precisar, peça: "leia
 docs/ASSISTENTE_IA.md e docs/HANDOFF.md e continue o assistente de IA".
+
+**Num Projeto do Claude Desktop:** dê como contexto o repositório do GitHub ou só os arquivos
+`CLAUDE.md`, `docs/ASSISTENTE_IA.md`, `docs/HANDOFF.md` e `docs/PROJECT_MAP.md`. **Nunca
+arraste a pasta inteira do projeto**: ela tem arquivos que ficam fora do git de propósito,
+como `assistente_config.json` (chave do Groq), `estoque.db`, `official_base_config.json`
+(senha do servidor) e `backend/logs/`.
