@@ -21,6 +21,7 @@ from app.services.assistant_common import (
     cited_products,
     history_messages,
     make_result,
+    whatsapp_text,
 )
 from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
@@ -99,6 +100,7 @@ class AssistantChatService:
             result = self.direct.answer(mensagem, historico)
             result["aviso"] = f"{exc} Resposta pela busca direta (sem IA)."
             return result
+        text = whatsapp_text(text)
         return make_result(text, cited_products(text, found), tools_used, MODE_AI)
 
     def _run_provider(

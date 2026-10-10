@@ -12,6 +12,7 @@ A resposta sai de textos prontos, no estilo WhatsApp, so com o que as buscas dev
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 from app.services.assistant_common import MODE_DIRECT, cited_products, collect_products, make_result
@@ -67,6 +68,15 @@ def _short_applications(item: Dict[str, Any], limit: int = 2) -> str:
     return "; ".join(labels[:limit])
 
 
+def _typed_code(message: str, code: str) -> str:
+    """O codigo como a pessoa escreveu ('466646-5041S'), em vez da forma canonica ('4666465041')."""
+    for token in re.split(r"[\s,;/()]+", message or ""):
+        token = token.strip(" ?!.:;\"'")
+        if token and canonical_code(token) == code:
+            return token.upper()
+    return code
+
+
 def _kind(item: Dict[str, Any]) -> str:
     return "conjunto central" if item.get("tipo") == CATEGORY_CORE else "turbo"
 
@@ -86,7 +96,7 @@ class AssistantDirectService:
                 output = self.tools.run_tool("buscar_por_codigo", {"codigo": code})
                 tools_used.append("buscar_por_codigo")
                 collect_products(output, found)
-                parts.append(self._format_code(code, output))
+                parts.append(self._format_code(_typed_code(mensagem, code), output))
             text = "\n\n".join(parts)
         else:
             output = None
@@ -126,7 +136,7 @@ class AssistantDirectService:
     def _format_code(code: str, output: Dict[str, Any]) -> str:
         if "erro" in output:
             return HELP_TEXT
-        label = f"*{canonical_code(code)}*"
+        label = f"*{code}*"
         products = output.get("produtos") or []
         items = [i for i in output.get("fichas_catalogo") or [] if i.get("atendemos_marca")] or (
             output.get("fichas_catalogo") or []

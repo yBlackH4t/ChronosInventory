@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from core.catalog.normalization import (
     canonical_code,
@@ -64,6 +64,12 @@ _STOPWORDS = {
     "TURBINA", "TURBINAS", "TURBO", "TURBOS", "TURBOCOMPRESSOR", "TURBOCOMPRESSORES",
     "CAMINHAO", "CAMINHOES", "ONIBUS", "MOTOR", "CV", "HP", "CAVALOS",
     "CONJUNTO", "CONJUNTOS", "CENTRAL", "CENTRAIS", "MIOLO", "CORE", "CHRA",
+    # Palavras de conversa que aparecem em poucas aplicacoes ("Freightliner COM motor C12") e
+    # por isso nao sao ignoradas sozinhas como as palavras que o catalogo nao tem.
+    "COM", "SEM", "EM", "NOS", "NAS", "AO", "AOS", "POR", "PELO", "PELA", "QUE", "QUEM",
+    "MEU", "MINHA", "SEU", "SUA", "ESSE", "ESSA", "ESTE", "ESTA", "ISSO", "AQUI",
+    "OI", "OLA", "BOM", "BOA", "DIA", "TARDE", "NOITE", "ALGUM", "ALGUMA", "PRECISO", "PRECISA",
+    "PECA", "PECAS", "CLIENTE", "VEICULO", "MODELO", "ANO",
 }
 
 # Apelidos de montadora -> palavras como aparecem no catalogo (qualquer uma serve).
@@ -80,6 +86,10 @@ _SYNONYMS = {
 }
 
 _PARENS = re.compile(r"\(([^)]*)\)")
+
+
+def _is_year(term: str) -> bool:
+    return len(term) == 4 and term.isdigit() and 1980 <= int(term) <= 2039
 
 
 def _product_category(nome: str) -> str:
@@ -171,17 +181,38 @@ class AssistantToolsService:
             raise ValidationException(
                 "Informe a montadora, o modelo do veiculo ou o motor (ex.: 'scania 440', 'volvo fh 460', 'om 366')."
             )
-        alternatives = [set(_SYNONYMS.get(term, (term,))) for term in terms]
-
-        matched: "OrderedDict[int, List[Dict[str, Any]]]" = OrderedDict()
+        indexed: List[Tuple[Dict[str, Any], set]] = []
+        vocabulary: set = set()
         for app in self.repository.list_applications():
             words = set(
                 search_words(
                     " ".join(str(app.get(k) or "") for k in ("montadora", "veiculo", "motor", "complemento"))
                 )
             )
-            if all(options & words for options in alternatives):
-                matched.setdefault(int(app["catalogo_produto_id"]), []).append(app)
+            indexed.append((app, words))
+            vocabulary |= words
+
+        # Palavra (so letras) que nao existe em nenhuma aplicacao ("com", "meu", "tio") e ignorada.
+        # Numero desconhecido continua obrigatorio ("scania 999" nao vira "qualquer Scania").
+        # Ano ("dc13 2015") quase nunca esta escrito na aplicacao: vira filtro opcional, usado
+        # so se alguma aplicacao tiver aquele numero (ex.: Axor 2035 continua funcionando).
+        ignored = [t for t in terms if t.isalpha() and not (set(_SYNONYMS.get(t, (t,))) & vocabulary)]
+        known = [t for t in terms if t not in ignored]
+        required = [t for t in known if not _is_year(t)] or known
+        optional = [t for t in known if t not in required]
+        alternatives = [set(_SYNONYMS.get(term, (term,))) for term in required]
+
+        candidates = [(app, words) for app, words in indexed if alternatives and all(o & words for o in alternatives)]
+        for term in optional:
+            narrowed = [(app, words) for app, words in candidates if term in words]
+            if narrowed:
+                candidates = narrowed
+            else:
+                ignored.append(term)
+
+        matched: "OrderedDict[int, List[Dict[str, Any]]]" = OrderedDict()
+        for app, _ in candidates:
+            matched.setdefault(int(app["catalogo_produto_id"]), []).append(app)
 
         catalog_items = self._catalog_items(list(matched.keys()))
         self._attach_our_products(catalog_items)
@@ -201,12 +232,21 @@ class AssistantToolsService:
             )
         )
 
-        result: Dict[str, Any] = {
-            "termos_usados": terms,
-            "total_fichas": len(catalog_items),
-            "temos_em_estoque": any(p["estoque_total"] > 0 for i in catalog_items for p in i["nossos_produtos"]),
-            "fichas_catalogo": [self._public_item(i) for i in catalog_items[:self.limits.catalog_items]],
-        }
+        result: Dict[str, Any] = {"termos_usados": [t for t in terms if t not in ignored]}
+        if ignored:
+            result["termos_ignorados"] = ignored
+            result["obs_termos_ignorados"] = "Palavras que nao aparecem nas aplicacoes do catalogo; a busca seguiu sem elas."
+        result["total_fichas"] = len(catalog_items)
+        # Aviso explicito no resultado: modelos menores seguem melhor isso do que o prompt.
+        turbo_options = [i for i in catalog_items if i["atendemos_marca"] and i["tipo"] == CATEGORY_TURBO]
+        if len(turbo_options) > 1:
+            result["atencao"] = (
+                f"Ha {len(turbo_options)} turbinas diferentes para essa aplicacao, conforme motor e ano. "
+                "Nao responda so 'sim': liste cada opcao (motor/ano -> turbina -> se temos e onde) "
+                "e pergunte o motor e o ano do cliente."
+            )
+        result["temos_em_estoque"] = any(p["estoque_total"] > 0 for i in catalog_items for p in i["nossos_produtos"])
+        result["fichas_catalogo"] = [self._public_item(i) for i in catalog_items[: self.limits.catalog_items]]
         if len(catalog_items) > self.limits.catalog_items:
             result["fichas_omitidas"] = len(catalog_items) - self.limits.catalog_items
             result["dica"] = "Muitos resultados: peca ao usuario o motor, o ano ou o modelo exato."

@@ -166,14 +166,42 @@ def test_application_search_splits_same_vehicle_by_engine(tools):
     assert without_stock["nossos_produtos"][0]["estoque_total"] == 0
     assert without_stock["aplicacoes"][0]["motor"] == "DT12-06/18 Euro 3"
 
+    # Mais de uma turbina possivel: o proprio resultado avisa o modelo para perguntar o motor.
+    assert "pergunte o motor e o ano" in result["atencao"]
+    assert list(result).index("atencao") < list(result).index("fichas_catalogo")
+
     narrowed = tools.search_by_application("scania r440 dc13")
     assert [f["ficha"] for f in narrowed["fichas_catalogo"]] == ["805310"]
+    assert "atencao" not in narrowed
 
 
 def test_application_search_synonyms_and_model_numbers(tools):
     assert [f["ficha"] for f in tools.search_by_application("mb om 366")["fichas_catalogo"]] == ["802333"]
     # "8.150" e o modelo do caminhao, nao "8" + "150" (Passat 1.8 150 HP fica de fora).
     assert [f["ficha"] for f in tools.search_by_application("vw 8.150")["fichas_catalogo"]] == ["808280"]
+
+
+def test_application_search_treats_years_as_optional(tools):
+    # Ano que nenhuma aplicacao cita: ignorado (e avisado), a busca segue sem ele.
+    result = tools.search_by_application("scania 440 dc13 2015")
+    assert [f["ficha"] for f in result["fichas_catalogo"]] == ["805310"]
+    assert result["termos_ignorados"] == ["2015"]
+    assert "2015" not in result["termos_usados"]
+
+    # Ano que aparece em alguma aplicacao ("A partir de 2012"): filtra.
+    with_year = tools.search_by_application("scania 440 2012")
+    assert [f["ficha"] for f in with_year["fichas_catalogo"]] == ["805310"]
+    assert "termos_ignorados" not in with_year
+
+
+def test_application_search_ignores_unknown_words_but_not_numbers(tools):
+    # Palavras que o catalogo nao tem ("tio", "freguesia") sao ignoradas e avisadas.
+    result = tools.search_by_application("turbina do scania 440 do tio da freguesia")
+    assert result["total_fichas"] == 2
+    assert result["termos_ignorados"] == ["TIO", "FREGUESIA"]
+
+    # Numero desconhecido continua obrigatorio: "scania 999" nao vira "qualquer Scania".
+    assert tools.search_by_application("scania 999")["total_fichas"] == 0
 
 
 def test_application_search_with_no_match_gives_hint(tools):

@@ -143,6 +143,17 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   no estilo WhatsApp. Conjunto central só aparece numa pergunta de turbina quando tem estoque.
 - **Resposta da API:** `modo` (`ia` ou `busca_direta`) e `aviso` (por que a IA não
   respondeu). O chat não devolve mais `503`.
+- **Regras que não dependem do modelo obedecer** (o modelo gratuito segue o prompt com
+  menos rigor; no primeiro teste real respondeu "Sim, temos" para o Scania 440 sem perguntar
+  o motor e usou `**negrito**`):
+  - a busca por aplicação devolve o campo `atencao` quando há mais de uma turbina possível,
+    mandando listar as opções e perguntar motor e ano;
+  - a resposta da IA passa por `whatsapp_text`: `**x**` → `*x*`, títulos e marcadores
+    markdown → texto e "•", e frases finais de cortesia ("Se precisar, avise") são removidas.
+- **Palavras da pergunta:** palavras de conversa ("com", "meu", "tio") são ignoradas, e as
+  ignoradas voltam em `termos_ignorados`; número desconhecido continua obrigatório
+  ("scania 999" não vira "qualquer Scania"); ano é filtro opcional (ignorado se nenhuma
+  aplicação o cita).
 - **Chaves:** uma por provedor, salvas em `assistente_config.json` na pasta do app (fora do
   banco, dos backups e da base oficial). Sem chave salva, vale a variável de ambiente do
   provedor (`GROQ_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`). A API nunca devolve a chave.
@@ -151,10 +162,15 @@ comuns), `assistant_config_store.py` (configuração). Testes em `backend/tests/
   provedor configurado; sem chave, responde pela busca direta) e
   `... perguntar --sem-ia "..."` (só a busca direta).
 
+**Avaliação:** `python scripts/assistente_avaliacao.py` roda as perguntas de
+`scripts/assistente_casos.json` no banco de teste e confere cada resposta (o que precisa
+aparecer, o que não pode aparecer, se tem que perguntar o motor). `--sem-ia` avalia só a
+busca direta (15/15 hoje). Com IA, espera 40 s entre perguntas por causa do limite por
+minuto do Groq; uma rodada gasta uns 75 mil dos 200 mil tokens diários.
+
 Falta:
-- testar com uma chave real do Groq e ajustar o prompt com as respostas;
-- **avaliação:** lista de 20–30 perguntas reais do chefe com a resposta esperada, rodada a
-  cada mudança no prompt ou no provedor;
+- rodar a avaliação com a chave real do Groq e ajustar o prompt com os resultados;
+- acrescentar as 20–30 perguntas reais do chefe em `scripts/assistente_casos.json`;
 - tela de chat e configuração no app (Antigravity), com a escolha do provedor.
 
 ### Fase 3 — WhatsApp (a fazer) — **decisão: API não oficial**
