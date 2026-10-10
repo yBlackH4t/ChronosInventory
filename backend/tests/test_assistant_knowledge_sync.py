@@ -10,6 +10,8 @@ locais sao apagadas antes de receber.
 import json
 import socket
 
+import requests
+
 from app.services import assistant_knowledge_sync_service as sync_module
 from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_knowledge_sync_service import (
@@ -147,6 +149,24 @@ def test_other_machine_receives_from_the_publisher_server(tools, tmp_path):  # n
             None,
         )
         assert len(KnowledgeRepository().all_rules()) == 1
+    finally:
+        share.stop_server()
+
+
+def test_knowledge_follows_the_server_password(client, tools, tmp_path):  # noqa: F811
+    port = _free_port()
+    server_url = f"http://127.0.0.1:{port}"
+    share = LocalShareService()
+    tools.knowledge.add_rule(*RULE)
+    _service(tmp_path, "publicadora", role="publisher", server_enabled=True).sync()
+    assert client.put("/backup/base-oficial/config", json={"role": "publisher", "server_token": "senha-da-loja"}).status_code == 200
+    share.start_server(machine_label="PC-ADMIN", publisher_name="Admin", port=port)
+    try:
+        assert requests.get(f"{server_url}/knowledge", timeout=5).status_code == 401  # aparelho qualquer do Wi-Fi
+        KnowledgeRepository().replace_all([])
+        # A outra maquina da empresa tem a mesma senha e recebe normalmente.
+        status = _service(tmp_path, "filial", remote_server_url=server_url).sync()
+        assert (status["fonte"], status["total_regras"], status["erro"]) == ("servidor", 1, None)
     finally:
         share.stop_server()
 

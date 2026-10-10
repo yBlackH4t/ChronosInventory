@@ -421,6 +421,26 @@ def test_create_invalid_payload(client):
     assert body["error"]["code"] == "validation_error"
 
 
+def test_delete_product_keeps_the_movement_history(client):
+    # Cadastro errado (so o estoque inicial do cadastro): pode excluir.
+    mistake = _create_product(client, "Produto Cadastrado Errado", qtd_canoas=2, qtd_pf=0)
+    assert client.delete(f"/produtos/{mistake}").status_code == 200
+    assert client.get(f"/produtos/{mistake}").status_code == 404
+
+    # Com movimentacao depois do cadastro: excluir apagaria o historico; o caminho e inativar.
+    used = _create_product(client, "Produto Com Historico", qtd_canoas=3, qtd_pf=0)
+    sale = {"tipo": "SAIDA", "produto_id": used, "quantidade": 1, "origem_location_id": 11}
+    assert client.post("/movimentacoes", json=sale).status_code == 201
+
+    blocked = client.delete(f"/produtos/{used}")
+    assert blocked.status_code == 400
+    assert "inative o produto" in blocked.json()["error"]["message"]
+    assert client.get(f"/produtos/{used}").status_code == 200
+    history = client.get(f"/produtos/{used}/historico")
+    assert history.status_code == 200
+    assert len(history.json()["data"]) == 2  # entrada do cadastro + saida
+
+
 def test_movement_entry_increases_stock(client):
     product_id = _create_product(client, "Produto Entrada", qtd_canoas=1, qtd_pf=0)
 

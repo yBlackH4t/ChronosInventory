@@ -15,9 +15,12 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from core.database.repositories.base_repository import BaseRepository
-from core.exceptions import DatabaseException, ProductNotFoundException
+from core.exceptions import DatabaseException, ProductNotFoundException, ValidationException
 
 logger = logging.getLogger(__name__)
+
+# Documento das entradas que o cadastro cria para o estoque inicial (StockService.add_product).
+INITIAL_STOCK_DOCUMENT = "CADASTRO_INICIAL"
 
 
 class ProductRepository(BaseRepository):
@@ -457,11 +460,29 @@ class ProductRepository(BaseRepository):
             conn.close()
 
     def delete(self, product_id: int) -> bool:
-        """Remove produto e seus registros de estoque."""
+        """
+        Remove produto e seus registros de estoque.
+
+        So quando o historico nao tem nada alem do estoque inicial do cadastro (produto criado
+        por engano). Com entradas, saidas, transferencias ou ajustes, a exclusao apagaria a
+        trilha de movimentacoes (e atrapalharia a comparacao de estoque entre maquinas): o
+        caminho e inativar o produto.
+        """
         conn = self.db.get_connection()
         cursor = conn.cursor()
         try:
             conn.execute("BEGIN IMMEDIATE")
+            history = cursor.execute(
+                "SELECT COUNT(*) FROM movimentacoes WHERE produto_id = ? AND COALESCE(documento, '') <> ?",
+                (product_id, INITIAL_STOCK_DOCUMENT),
+            ).fetchone()[0]
+            if history:
+                row = cursor.execute("SELECT nome FROM produtos WHERE id = ?", (product_id,)).fetchone()
+                name = row[0] if row else f"#{product_id}"
+                raise ValidationException(
+                    f"Não dá para excluir {name}: ele tem {history} movimentação(ões) no histórico. "
+                    "Para não perder o histórico, inative o produto."
+                )
             # Desvincula produtos filhos
             cursor.execute("UPDATE produtos SET produto_vinculado_id = NULL WHERE produto_vinculado_id = ?", (product_id,))
             # Remove movimentações
@@ -473,7 +494,7 @@ class ProductRepository(BaseRepository):
                 raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
             conn.commit()
             return True
-        except ProductNotFoundException:
+        except (ProductNotFoundException, ValidationException):
             conn.rollback()
             raise
         except Exception as exc:

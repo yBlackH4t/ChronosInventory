@@ -13,6 +13,8 @@ from typing import Any, Dict, Optional, Set
 from core.exceptions import ValidationException
 from core.utils.validators import Validators
 
+MIN_SERVER_TOKEN_LENGTH = 6
+
 
 class OfficialBaseConfigStore:
     def __init__(
@@ -40,6 +42,7 @@ class OfficialBaseConfigStore:
             "server_port": self.server_default_port,
             "remote_server_url": "",
             "server_enabled": False,
+            "server_token": "",
         }
         if not os.path.isfile(self.config_path):
             return default
@@ -59,6 +62,7 @@ class OfficialBaseConfigStore:
             "server_port": self.local_share_service.normalize_port(data.get("server_port") or default["server_port"]),
             "remote_server_url": self.normalize_remote_server_url(data.get("remote_server_url")) or "",
             "server_enabled": bool(data.get("server_enabled", default["server_enabled"])),
+            "server_token": str(data.get("server_token") or "").strip(),
         }
 
     def save(
@@ -71,7 +75,9 @@ class OfficialBaseConfigStore:
         server_port: Optional[int],
         remote_server_url: Optional[str],
         server_enabled: Optional[bool],
+        server_token: Optional[str] = None,
     ) -> Dict[str, Any]:
+        """`server_token`: None mantem a senha do servidor, "" remove, texto troca."""
         current = self.load()
         payload = {
             "version": self.config_version,
@@ -82,6 +88,7 @@ class OfficialBaseConfigStore:
             "server_port": self.local_share_service.normalize_port(server_port or current["server_port"]),
             "remote_server_url": self.normalize_remote_server_url(remote_server_url) or "",
             "server_enabled": current["server_enabled"] if server_enabled is None else bool(server_enabled),
+            "server_token": current["server_token"] if server_token is None else self.normalize_server_token(server_token),
         }
 
         Path(self.config_path).parent.mkdir(parents=True, exist_ok=True)
@@ -110,6 +117,16 @@ class OfficialBaseConfigStore:
         if not text:
             return None
         Validators.validate_string_length(text, max_length, "Valor")
+        return text
+
+    def normalize_server_token(self, value: str) -> str:
+        """Senha do servidor local: a mesma em todas as maquinas da empresa ("" = sem senha)."""
+        text = str(value or "").strip()
+        if text and len(text) < MIN_SERVER_TOKEN_LENGTH:
+            raise ValidationException(
+                f"A senha do servidor precisa ter pelo menos {MIN_SERVER_TOKEN_LENGTH} caracteres."
+            )
+        Validators.validate_string_length(text, 128, "Senha do servidor")
         return text
 
     def normalize_remote_server_url(self, value: Optional[str]) -> Optional[str]:

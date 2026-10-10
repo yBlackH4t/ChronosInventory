@@ -132,6 +132,7 @@ class OfficialBaseStatusOut(BaseModel):
     server_port: int = 8765
     server_running: bool = False
     server_urls: list[str] = []
+    server_token_set: bool = False
     remote_server_url: str | None = None
     can_publish: bool
     can_publish_server: bool = False
@@ -164,6 +165,8 @@ class OfficialBaseConfigIn(BaseModel):
     server_port: int | None = Field(default=None, ge=1024, le=65535)
     remote_server_url: str | None = Field(default=None, max_length=500)
     server_enabled: bool | None = None
+    # Senha do servidor local (a mesma em todas as maquinas): None mantem, "" remove.
+    server_token: str | None = Field(default=None, max_length=128)
 
 
 class OfficialBasePublishIn(BaseModel):

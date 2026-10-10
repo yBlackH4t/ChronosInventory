@@ -28,7 +28,7 @@ Erro:
 - `POST /produtos`
 - `PUT /produtos/{id}`
 - `PATCH /produtos/{id}`
-- `DELETE /produtos/{id}`
+- `DELETE /produtos/{id}` - so produto sem historico alem do estoque inicial do cadastro (`CADASTRO_INICIAL`). Com outras movimentacoes: 400 `validation_error` pedindo para inativar (o historico nao e apagado).
 - `GET /produtos/{id}/historico`
 
 Paginação (`/produtos`):
@@ -107,6 +107,11 @@ Regras:
 - `POST /import/excel`
 - `POST /export/produtos` (stream `.xlsx`)
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)
+
+### Base oficial: senha do servidor local (porta 8765)
+- `PUT /backup/base-oficial/config` aceita `server_token` (min. 6 caracteres; `null` mantem, `""` remove). A mesma senha em todas as maquinas. `GET /backup/base-oficial/status` devolve so `server_token_set: bool` (a senha nunca volta).
+- Com senha, o servidor exige o cabecalho `X-Chronos-Senha` em `/official/*`, `/compare/*` (e `/knowledge` do assistente); sem ele responde 401. `/health` continua aberto e informa `senha_exigida` e `senha_ok`. As buscas desta maquina mandam a senha sozinhas; senha diferente vira uma mensagem explicando o que configurar.
+- Sem senha configurada, o servidor continua aberto como antes.
 
 ## Assistente de IA
 Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A busca direta (sem IA) responde primeiro quando entende a pergunta (codigo, veiculo/motor, "essa dai"); a IA so entra quando ela nao entende. Sem IA disponivel, responde pela busca direta.

@@ -80,6 +80,7 @@ class OfficialBaseService:
         server_port: Optional[int] = None,
         remote_server_url: Optional[str] = None,
         server_enabled: Optional[bool] = None,
+        server_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         self.config_store.save(
             role=role,
@@ -89,6 +90,7 @@ class OfficialBaseService:
             server_port=server_port,
             remote_server_url=remote_server_url,
             server_enabled=server_enabled,
+            server_token=server_token,
         )
         return self.get_status()
 

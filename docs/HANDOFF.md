@@ -71,6 +71,16 @@ npm run lint
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
 
+- **Novo (2026-10-10, proteção de dados — branch `claude/protecao-dados`, já trazida para a
+  `feature/assistente-ia`):**
+  - `PUT /backup/base-oficial/config` aceita `server_token` (senha do servidor local, mín. 6;
+    `null` mantém, `""` remove); `GET /backup/base-oficial/status` ganhou `server_token_set: bool`
+    (a senha nunca volta). Com senha, o servidor 8765 exige o cabeçalho `X-Chronos-Senha` (o
+    backend envia sozinho); `/health` informa `senha_exigida`/`senha_ok`.
+  - `DELETE /produtos/{id}` com movimentações além do estoque inicial do cadastro → `400
+    validation_error` com a mensagem "Não dá para excluir …: ele tem N movimentação(ões) no
+    histórico. Para não perder o histórico, inative o produto." Pedido na seção 5.
+
 - **Novo (2026-10-09, conhecimento entre as máquinas — Fase 2c):** o que o admin ensina vai
   sozinho para as outras máquinas, pelos caminhos da base oficial (pasta compartilhada e/ou
   servidor local). Duas rotas novas, sem admin (contrato em `docs/API_DOCS.md`):
@@ -168,6 +178,19 @@ npm run lint
 ## 5. Pedidos entre agentes
 
 <!-- Formato: - [ ] [DE → PARA] descrição (branch, arquivos envolvidos) -->
+
+- [ ] **[Claude Code → Antigravity] Senha do servidor e exclusão de produto (proteção de dados).**
+  Contrato em "Novo (2026-10-10, proteção de dados)", seção 4. Fazer na `ag/assistente-chat`
+  depois de `git merge feature/assistente-ia`.
+  - **Backup > Base oficial**: campo de senha "Senha do servidor (a mesma em todas as máquinas)",
+    nas duas funções (publica e consome). Nunca preencher com a senha salva; mostrar
+    "Senha configurada" quando `server_token_set`; botões Salvar (`PUT … { …, server_token }`) e
+    Remover (`server_token: ""`). Mínimo de 6 caracteres. Quando o servidor estiver ligado e
+    `server_token_set` = false, aviso: "Sem senha: qualquer aparelho do Wi-Fi pode baixar o estoque".
+  - **Produtos > Excluir**: o erro já explica e pede para inativar. Melhor: no modal de
+    confirmação, avisar "Produtos com movimentações não podem ser excluídos; inative para tirar da
+    lista", e quando a exclusão falhar com esse motivo, oferecer o botão **Inativar** ali mesmo.
+  - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
 - [x] **[Claude Code → Antigravity] Assistente: tela quebra ao digitar nos formulários do admin (urgente).**
   Achado no teste do dono: em "Ensinar outro código", ao digitar o código, a tela quebra e o app
@@ -326,6 +349,20 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-10 — Claude Code — Proteção de dados (auditoria P1 #2 e #5)
+- Branch: `claude/protecao-dados` (a partir da `main`, pode ir para a `main` sozinha), já trazida
+  para a `feature/assistente-ia`.
+- O que foi feito: excluir produto não apaga mais o histórico (só exclui cadastro sem nada além
+  do estoque inicial; senão pede para inativar). Senha do servidor local (porta 8765) para a base
+  oficial, a comparação de estoque e o conhecimento do assistente; sem senha configurada continua
+  aberto como antes.
+- Arquivos principais: `core/database/repositories/product_repository.py`,
+  `app/services/local_share_service.py`, `official_base_config_store.py`,
+  `backend/app/schemas/backup.py`; testes em `test_api.py`, `test_local_share_token.py` e
+  `test_assistant_knowledge_sync.py`.
+- Verificações: pytest ok (93 na `claude/protecao-dados`, 167 na `feature/assistente-ia`).
+- Para o Antigravity: pedido na seção 5 (campo da senha e exclusão de produto).
 
 ### 2026-10-10 — Claude Code — Branch única para testar na empresa e resumo do assistente
 - Branch: `feature/assistente-ia` (enviada ao GitHub, junto com `ag/assistente-chat`).
