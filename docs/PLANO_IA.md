@@ -76,7 +76,7 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 | 2b | Base de conhecimento do especialista, admin, histórico, "Para revisar" (backend) | Claude Code | ✅ pronto |
 | 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | ✅ pronto |
 | 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | a fazer |
-| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | núcleo pronto (QR no navegador); falta testar com celular |
+| 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | testada com celular: resposta e áudio ok; citação e tirar o 🤖 corrigidos, falta confirmar |
 | 3 | Tela WhatsApp (QR, ligar/desligar) e propostas na área do admin | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
 
@@ -272,6 +272,12 @@ Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
   celular não lia) e liga a ponte no banco de teste. Na conversa "Mensagem para mim": mande um
   código, depois um áudio, e reaja com 🤖 no áudio.
 - Grupos ficam de fora. A ponte só enxerga mensagens que chegaram com ela ligada.
+- **Primeiro teste com celular (2026-10-09):** código + áudio + 🤖 → resposta certa (o Whisper
+  transcreveu "Tem essa turbina aí?"); `/ajuda` ok. Mas a resposta veio sem citar a mensagem e o
+  🤖 não saiu. Causa provável: o WhatsApp está trocando números por LID (identificador interno) e
+  a biblioteca misturava os dois tipos de endereço. Agora a citação usa o autor no mesmo tipo de
+  endereço da conversa, e o 🤖 sai com a mesma chave que o WhatsApp da equipe mandou na reação.
+  `assistente_dev.py whatsapp` grava `whatsapp_dev.log` (endereços mascarados) para conferir.
 
 **Arquivos:** `whatsapp_bridge_service.py` (regras, sem depender da biblioteca),
 `whatsapp_neonize_transport.py` (biblioteca **neonize** = whatsmeow em Python; já traz a DLL

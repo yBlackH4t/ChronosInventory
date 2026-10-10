@@ -67,7 +67,7 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — busca direta responde primeiro; ponte WhatsApp com QR no navegador; roteiro em `docs/TESTE_ASSISTENTE.md`. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular (resposta e áudio ok); citação e tirar o 🤖 corrigidos, falta o dono confirmar. Depois: distribuir o conhecimento (Fase 2c) | aguardando teste do dono | 2026-10-09 |
 | Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
@@ -272,6 +272,18 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — WhatsApp: primeiro teste com celular e correções
+- Branch: `feature/assistente-ia`
+- O que foi feito: o dono testou na "Mensagem para mim": código + áudio + 🤖 deram a resposta
+  certa e o `/ajuda` funcionou, mas a resposta veio sem citar a mensagem e o 🤖 não saiu. A
+  citação agora leva o autor no mesmo tipo de endereço da conversa (número ou LID) e só o
+  conteúdo da mensagem citada; o 🤖 sai com a mesma chave que o WhatsApp da equipe mandou.
+  O aparelho conectado passa a se chamar "Chronos" (conexões novas). O teste grava um registro
+  com endereços mascarados em `whatsapp_dev.log`.
+- Arquivos principais: `app/services/whatsapp_neonize_transport.py`, `scripts/assistente_dev.py`,
+  `backend/tests/test_whatsapp_neonize_transport.py` (monta as mensagens da neonize sem conectar).
+- Verificações: pytest ok (153 testes). **Falta confirmar no celular.**
 
 ### 2026-10-09 — Claude Code — Assistente: busca direta primeiro e roteiro de teste
 - Branch: `feature/assistente-ia`

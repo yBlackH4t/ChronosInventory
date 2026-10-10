@@ -36,13 +36,23 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_dev.py whatsapp
 1. O QR code abre numa **janela do navegador**, que se atualiza sozinha (o código muda a cada
    ~20 s). No celular: WhatsApp > Configurações > Aparelhos conectados > Conectar um aparelho, e
    escaneie. Quando conectar, a página mostra "Conectado ✅" e o terminal mostra os próximos passos.
-   Se a página disser "O QR code expirou", rode o comando de novo.
+   Se a página disser "O QR code expirou", rode o comando de novo. Depois da primeira vez a
+   conexão fica salva e não pede QR de novo.
 2. Na conversa **"Mensagem para mim"**: mande `805314`, depois um **áudio** "temos essa daí?",
    e **reaja com 🤖 no áudio**. A resposta chega citando o áudio.
-3. Mande `/ajuda`, `/pendentes` e `/ensinar 5327-988-7101 similar 5327-988-7116 teste`.
-4. Ctrl+C para sair. No celular, remova o aparelho "Neonize" quando terminar os testes.
+3. **Responda** (arrastando para o lado) qualquer mensagem com "teste". Serve só para o registro:
+   mostra como o WhatsApp oficial monta uma citação.
+4. Mande `/ajuda`, `/pendentes` e `/ensinar 5327-988-7101 similar 5327-988-7116 teste`.
+5. Ctrl+C para sair. No celular, remova o aparelho conectado ("Neonize" nas conexões antigas,
+   "Chronos" nas novas) quando terminar os testes.
 
-O que conferir: o áudio foi entendido? A resposta veio certa e no formato do WhatsApp? O 🤖 sumiu?
+O que conferir: o áudio foi entendido? A resposta veio certa, no formato do WhatsApp e
+**citando a mensagem**? O 🤖 **sumiu**? O registro do teste fica em
+`%TEMP%\chronos_assistente\whatsapp_dev.log` (endereços mascarados, sem os textos).
+
+**Primeiro teste (2026-10-09):** resposta, áudio e `/ajuda` ok; a resposta veio **sem citar** a
+mensagem e o 🤖 **não saiu**. Corrigido no código (citação com o autor no mesmo tipo de endereço da
+conversa; o 🤖 sai com a mesma chave que o WhatsApp mandou); falta confirmar no celular.
 
 ---
 

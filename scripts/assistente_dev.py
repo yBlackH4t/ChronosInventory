@@ -33,6 +33,7 @@ import random
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -224,11 +225,26 @@ def _write_qr_page(path: str, body: str, refresh: bool) -> None:
     os.replace(tmp, path)
 
 
+def _log_to_file(path: str) -> None:
+    """Registro detalhado da ponte num arquivo (enderecos mascarados, sem os textos); o terminal fica so com avisos."""
+    for handler in logging.getLogger().handlers:
+        handler.setLevel(logging.WARNING)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(f"\n==== {time.strftime('%Y-%m-%d %H:%M:%S')} ====\n")
+    file_handler = logging.FileHandler(path, encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logging.getLogger().addHandler(file_handler)
+    for name in ("app.services.whatsapp_neonize_transport", "app.services.whatsapp_bridge_service"):
+        logging.getLogger(name).setLevel(logging.DEBUG)
+
+
 def whatsapp(folder: str) -> None:
     """Liga a ponte WhatsApp (modo copiloto) no banco de teste, com o QR code numa janela do navegador."""
     if not os.path.exists(os.path.join(folder, "estoque.db")):
         raise SystemExit(f"Banco nao encontrado em {folder}. Rode primeiro: gerar-banco")
     _use_dir(folder)
+    log_path = os.path.join(folder, "whatsapp_dev.log")
+    _log_to_file(log_path)
     import webbrowser
     from pathlib import Path
 
@@ -263,8 +279,10 @@ def whatsapp(folder: str) -> None:
             print(
                 "\nPronto. Teste na conversa 'Mensagem para mim':\n"
                 "  1. mande um codigo (ex.: 805314) e depois um audio 'temos essa dai?'\n"
-                "  2. reaja com 🤖 no audio: a resposta chega na mesma conversa\n"
-                "  3. mande /ajuda para ver os comandos\n"
+                "  2. reaja com 🤖 no audio: a resposta chega citando a mensagem e o 🤖 sai\n"
+                "  3. responda (arrastando para o lado) qualquer mensagem com 'teste'\n"
+                "  4. mande /ajuda para ver os comandos\n"
+                f"Registro do teste (sem os textos): {log_path}\n"
                 "Ctrl+C para sair."
             )
 
