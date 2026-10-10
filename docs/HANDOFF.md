@@ -67,10 +67,17 @@ npm run lint
 
 | Agente | Branch | Tarefa | Estado | Atualizado em |
 |---|---|---|---|---|
-| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular: resposta, áudio, citação e 🤖 ok. Próximo: teste das telas (parte B do roteiro) e distribuir o conhecimento (Fase 2c) | aguardando revisão | 2026-10-09 |
+| Claude Code | `feature/assistente-ia` | Assistente — WhatsApp testado com celular; conhecimento distribuído entre as máquinas (Fase 2c, backend). Próximo: teste das telas (parte B do roteiro) e teste com o banco real | aguardando revisão | 2026-10-09 |
 | Antigravity | `ag/assistente-chat` | Assistente: área do admin (ensinar o assistente) | concluído | 2026-10-09 |
 
 **Mudanças de contrato de API pendentes** (backend alterou e o frontend precisa acompanhar):
+
+- **Novo (2026-10-09, conhecimento entre as máquinas — Fase 2c):** o que o admin ensina vai
+  sozinho para as outras máquinas, pelos caminhos da base oficial (pasta compartilhada e/ou
+  servidor local). Duas rotas novas, sem admin (contrato em `docs/API_DOCS.md`):
+  `GET /assistente/conhecimento/sincronizacao` →
+  `{ papel, fonte, publicado_em, maquina, total_regras, atualizado_em, verificado_em, erro }` e
+  `POST /assistente/conhecimento/sincronizar` ("Sincronizar agora", mesma resposta). Pedido na seção 5.
 
 - **Mudou (2026-10-09, busca direta primeiro):** o formato do `POST /assistente/chat` não mudou,
   mas `modo` = `busca_direta` com `aviso` = `null` passou a ser a resposta **normal**: a busca
@@ -243,6 +250,17 @@ npm run lint
     (`assistente_historico.jsonl`).
   - Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
 
+- [ ] **[Claude Code → Antigravity] Assistente: conhecimento nas outras máquinas (status e botão).**
+  Contrato em "Novo (Fase 2c)", seção 4. Na aba **Conhecimento** (que as outras máquinas veem só
+  para leitura), uma linha de status com `GET /assistente/conhecimento/sincronizacao`:
+  - `papel` = `publisher`: "Publicado para as outras máquinas (<fonte>) em <atualizado_em> —
+    <total_regras> regras";
+  - senão: "Recebido da máquina <maquina> (<fonte>) em <atualizado_em> — <total_regras> regras";
+  - `erro` preenchido: mostrar o texto num aviso (ele diz o que configurar em Backup > Base oficial);
+  - botão **"Sincronizar agora"** (`POST /assistente/conhecimento/sincronizar`), que atualiza a
+    linha e, nas outras máquinas, recarrega a lista de regras.
+  - Datas no formato do app (vêm em ISO). Verificar com `npm run build` e `npm run lint`; registrar na seção 6.
+
 - [ ] **[Claude Code → Antigravity] WhatsApp do assistente e propostas na área do admin.**
   Mesma área do admin (exige login de admin; contrato em `docs/API_DOCS.md`).
   - **Aba "WhatsApp"** (ou seção em Configurações > Assistente, só para o admin):
@@ -275,6 +293,24 @@ npm run lint
 ## 6. Registro de entregas
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
+
+### 2026-10-09 — Claude Code — Assistente: conhecimento nas outras máquinas (Fase 2c)
+- Branch: `feature/assistente-ia`
+- O que foi feito: a máquina publicadora publica as regras do especialista num JSON pequeno
+  (`conhecimento_assistente.json`) na pasta da base oficial (`latest/`) e no servidor local
+  (rota `/knowledge`), depois de cada regra criada/excluída/aprovada, ao abrir o backend e a cada
+  10 min. As outras máquinas baixam do servidor da publicadora (endereço configurado; se falhar,
+  da pasta) ao abrir o backend e a cada 10 min, conferem o arquivo (impressão digital SHA-256 e
+  cada regra) e trocam as regras locais pelas publicadas; arquivo alterado ou de versão mais nova
+  não muda nada e o `erro` explica. Estado em `assistente_conhecimento.json` (separado do
+  `assistente_config.json`, que guarda a chave e a senha).
+- Arquivos principais: `app/services/assistant_knowledge_sync_service.py`,
+  `local_share_service.py` (rota `/knowledge`), `core/database/repositories/knowledge_repository.py`
+  (`export_rules`, `replace_all`), `backend/app/api/routers/assistant.py`, `backend/app/main.py`,
+  testes em `test_assistant_knowledge_sync.py`.
+- Verificações: pytest ok (161 testes), `check_versions` ok. Testado com pasta e com o servidor
+  local de verdade (porta livre); ainda não testado entre duas máquinas da empresa.
+- Para o Antigravity: contrato na seção 4 ("Novo, Fase 2c") e pedido na seção 5.
 
 ### 2026-10-09 — Claude Code — Assistente: códigos no formato da empresa
 - Branch: `feature/assistente-ia`

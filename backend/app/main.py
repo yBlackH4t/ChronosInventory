@@ -114,12 +114,25 @@ def startup_runtime_services() -> None:
             WhatsAppService.instance().start_if_enabled()
         except Exception:
             LOG.exception("whatsapp: falha ao religar a ponte do assistente")
+        # Conhecimento do assistente: a publicadora publica e as outras recebem, agora e a cada 10 min.
+        try:
+            from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
+
+            AssistantKnowledgeSyncService.start_periodic()
+        except Exception:
+            LOG.exception("assistente: falha ao iniciar a sincronizacao do conhecimento")
 
 
 def shutdown_runtime_services() -> None:
     if os.getenv("APP_ENV", "").lower() != "test":
         BACKUP_SCHEDULER.stop()
         LOCAL_SHARE_SERVER.stop_server()
+        try:
+            from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
+
+            AssistantKnowledgeSyncService.stop_periodic()
+        except Exception:
+            LOG.exception("assistente: falha ao parar a sincronizacao do conhecimento")
         try:
             from app.services.whatsapp_service import WhatsAppService
 

@@ -75,7 +75,8 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 | 2 | Avaliação com perguntas reais do chefe | Claude Code + dono | em andamento (Groq real: 17/17 nos casos de teste; faltam as perguntas reais) |
 | 2b | Base de conhecimento do especialista, admin, histórico, "Para revisar" (backend) | Claude Code | ✅ pronto |
 | 2b | Telas: Conhecimento, Para revisar, Admin, Histórico | Antigravity | ✅ pronto |
-| 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | a fazer |
+| 2c | Distribuir o conhecimento da máquina publicadora para as outras | Claude Code | ✅ pronto no backend (falta testar entre duas máquinas) |
+| 2c | Status e "Sincronizar agora" na aba Conhecimento | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 3 | Ponte WhatsApp em modo copiloto (reação 🤖, áudio, propostas) | Claude Code | ✅ testada com celular (WhatsApp comum) |
 | 3 | Tela WhatsApp (QR, ligar/desligar) e propostas na área do admin | Antigravity | a fazer (ver `docs/HANDOFF.md`) |
 | 4 | Extras: foto da plaqueta, resumo diário | — | ideia |
@@ -243,11 +244,22 @@ direta, dá para desfazer, e o bot nunca "inventa" um similar.
   perguntou): o formato padrão para avaliar e, no futuro, ajustar um modelo próprio. Criar uma
   LLM do zero não é viável; um ajuste fino de modelo aberto com esse histórico é possível mais
   para frente, mas para equivalências a base de conhecimento é melhor.
-- **Distribuição (a fazer, Fase 2c):** cada máquina tem o próprio banco e as filiais lançam
-  movimentos separadamente (a comparação de estoque acha divergências); ninguém aplica a
-  base oficial inteira. Então o conhecimento precisa ser publicado à parte pela máquina
-  publicadora (pasta compartilhada ou servidor local, como a comparação) e baixado pelas
-  outras, só leitura. O bot do WhatsApp roda na máquina do admin, então já usa tudo na hora.
+- **Distribuição (Fase 2c, pronta no backend):** cada máquina tem o próprio banco e as filiais
+  lançam movimentos separadamente (a comparação de estoque acha divergências); ninguém aplica a
+  base oficial inteira. Então o conhecimento viaja à parte, num JSON pequeno
+  (`conhecimento_assistente.json`), pelos caminhos da base oficial (Backup > Base oficial):
+  - a **publicadora** grava o arquivo na pasta compartilhada (`latest/`) e no servidor local (rota
+    `/knowledge`, porta 8765) depois de cada regra criada, excluída ou aprovada, ao abrir o
+    backend e a cada 10 min;
+  - as **outras** baixam do servidor da publicadora (endereço configurado; se falhar, da pasta)
+    ao abrir o backend, a cada 10 min e pelo "Sincronizar agora", e trocam as regras locais
+    pelas publicadas (só a publicadora ensina);
+  - o arquivo é conferido (impressão digital SHA-256 e cada regra): alterado, cortado ou de uma
+    versão mais nova do Chronos, não muda nada, e o status explica o motivo;
+  - estado em `assistente_conhecimento.json` (separado do `assistente_config.json`, que guarda
+    a chave e a senha). O bot do WhatsApp roda na máquina do admin e já usa tudo na hora.
+  Arquivos: `assistant_knowledge_sync_service.py`, rota em `local_share_service.py`, testes em
+  `test_assistant_knowledge_sync.py`.
 
 Arquivos: `assistant_knowledge_service.py`, `assistant_admin_service.py`,
 `assistant_history_service.py`, `core/database/migration_v2_4_0_knowledge.py`,

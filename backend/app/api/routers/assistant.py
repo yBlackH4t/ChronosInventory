@@ -9,12 +9,14 @@ from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
 from app.services.whatsapp_service import WhatsAppService
 from backend.app.api.deps import (
     get_assistant_admin_service,
     get_assistant_chat_service,
     get_assistant_history_service,
     get_assistant_knowledge_service,
+    get_assistant_knowledge_sync_service,
     get_whatsapp_service,
 )
 from backend.app.api.responses import fail, ok
@@ -31,6 +33,7 @@ from backend.app.schemas.assistant import (
     CorrectionIn,
     KnowledgeRuleIn,
     KnowledgeRuleOut,
+    KnowledgeSyncOut,
     ProposalOut,
     ReviewItemOut,
     WhatsAppStatusOut,
@@ -137,6 +140,18 @@ def list_knowledge(
     return ok([KnowledgeRuleOut(**r) for r in knowledge.list_rules(busca, limite, offset)])
 
 
+@router.get("/conhecimento/sincronizacao", response_model=SuccessResponse[KnowledgeSyncOut])
+def knowledge_sync_status(sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service)):
+    """Publicadora: quando publicou para as outras maquinas. Outras: de onde e quando receberam."""
+    return ok(KnowledgeSyncOut(**sync.status()))
+
+
+@router.post("/conhecimento/sincronizar", response_model=SuccessResponse[KnowledgeSyncOut])
+def knowledge_sync_now(sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service)):
+    """"Sincronizar agora": publica de novo (publicadora) ou recebe a versao publicada (outras)."""
+    return ok(KnowledgeSyncOut(**sync.sync()))
+
+
 @router.post("/conhecimento", response_model=SuccessResponse[KnowledgeRuleOut], status_code=201)
 def add_knowledge(
     payload: KnowledgeRuleIn,
@@ -144,11 +159,13 @@ def add_knowledge(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
     history: AssistantHistoryService = Depends(get_assistant_history_service),
+    sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service),
 ):
     admin.require(_admin_token(request))
     rule = knowledge.add_rule(payload.codigo_a, payload.codigo_b, payload.tipo, payload.observacao)
     # Ensinou sobre o codigo: ele sai da lista "Para revisar".
     history.mark_reviewed([canonical_code(payload.codigo_a), canonical_code(payload.codigo_b)])
+    sync.publish_in_background()  # vale nas outras maquinas tambem
     return ok(KnowledgeRuleOut(**rule), status_code=201)
 
 
@@ -158,10 +175,12 @@ def delete_knowledge(
     request: Request,
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
+    sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service),
 ):
     admin.require(_admin_token(request))
     if not knowledge.remove_rule(rule_id):
         return fail(404, "not_found", "Regra não encontrada.", None, _request_id(request))
+    sync.publish_in_background()
     return ok({"removido": True})
 
 
@@ -265,6 +284,7 @@ def approve_proposal(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     knowledge: AssistantKnowledgeService = Depends(get_assistant_knowledge_service),
     history: AssistantHistoryService = Depends(get_assistant_history_service),
+    sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service),
 ):
     admin.require(_admin_token(request))
     proposal = history.get_proposal(proposal_id)
@@ -273,6 +293,7 @@ def approve_proposal(
     rule = knowledge.add_rule(proposal["codigo_a"], proposal["codigo_b"], proposal["tipo"], proposal["observacao"])
     history.decide_proposal(proposal_id, "aprovada")
     history.mark_reviewed([canonical_code(proposal["codigo_a"]), canonical_code(proposal["codigo_b"])])
+    sync.publish_in_background()
     return ok(KnowledgeRuleOut(**rule))
 
 

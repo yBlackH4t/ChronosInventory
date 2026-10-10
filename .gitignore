@@ -24,9 +24,11 @@ venv/
 *.log
 official_base_config.json
 assistente_config.json
+assistente_conhecimento.json
 stock_profiles.json
 backups/
 exports/
+local_share/
 backend/logs/
 debug_scripts/
 

@@ -26,6 +26,9 @@ class LocalShareService:
     _official_manifest_filename = "base_oficial.json"
     _compare_zip_filename = "compare_base.zip"
     _compare_manifest_filename = "compare_base.json"
+    # Conhecimento do especialista (assistente de IA): um JSON pequeno, publicado a parte da base.
+    _knowledge_dirname = "knowledge"
+    _knowledge_filename = "conhecimento_assistente.json"
     _default_port = 8765
 
     _server_lock = threading.Lock()
@@ -65,6 +68,28 @@ class LocalShareService:
             "latest_zip": str(latest_dir / self._compare_zip_filename),
             "latest_manifest": str(latest_dir / self._compare_manifest_filename),
         }
+
+    def get_knowledge_path(self) -> str:
+        return str(Path(self.get_storage_root()) / self._knowledge_dirname / self._latest_dirname / self._knowledge_filename)
+
+    def fetch_remote_knowledge(self, server_url: str) -> dict[str, Any]:
+        """Conhecimento do assistente publicado pela maquina publicadora (rota /knowledge)."""
+        url = f"{self.normalize_server_url(server_url)}/knowledge"
+        try:
+            response = requests.get(url, timeout=10)
+        except requests.RequestException as exc:
+            raise ValidationException(f"Nao foi possivel conectar a maquina publicadora: {exc}") from exc
+        if response.status_code == HTTPStatus.NOT_FOUND:
+            raise ValidationException("A maquina publicadora ainda nao publicou o conhecimento do assistente.")
+        if response.status_code != HTTPStatus.OK:
+            raise ValidationException(f"A maquina publicadora respondeu {response.status_code} ao enviar o conhecimento.")
+        try:
+            payload = response.json()
+        except Exception as exc:
+            raise ValidationException(f"Conhecimento recebido invalido: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise ValidationException("Conhecimento recebido invalido.")
+        return payload
 
     def start_server(self, machine_label: str, publisher_name: str, port: int) -> dict[str, Any]:
         cls = type(self)
@@ -310,8 +335,13 @@ class LocalShareService:
                             "server_port": context["port"],
                             "official_available": Path(service.get_official_paths()["latest_manifest"]).is_file(),
                             "compare_available": Path(service.get_compare_paths()["latest_manifest"]).is_file(),
+                            "knowledge_available": Path(service.get_knowledge_path()).is_file(),
                         },
                     )
+                    return
+
+                if path == "/knowledge":
+                    service._send_json_file(self, service.get_knowledge_path())
                     return
 
                 if path == "/official/manifest":

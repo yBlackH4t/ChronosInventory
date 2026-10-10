@@ -109,10 +109,29 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_avaliacao.py
 
 ---
 
+## D. Conhecimento nas outras máquinas (na empresa, com duas máquinas)
+
+Precisa do Chronos com o assistente nas duas máquinas, na mesma rede.
+
+1. **Máquina do admin:** Backup > Base oficial > "Papel desta máquina" = **Publica a base** e
+   **ligue o servidor local** (anote um dos endereços que aparecem, ex.: `http://192.168.0.10:8765`).
+   Quem já usa a pasta compartilhada da base oficial pode usar a pasta no lugar do servidor.
+2. **Máquina do colega:** "Papel desta máquina" = **Consome a base** e, em "Servidor remoto", o
+   endereço anotado (ou a mesma pasta compartilhada).
+3. Na máquina do admin, ensine uma regra (Assistente > Admin).
+4. Na máquina do colega, feche e abra o Chronos (ou espere até 10 min) e pergunte pelo código no
+   chat: a resposta já usa a regra. Em Assistente > Admin > Conhecimento (só leitura) ela aparece.
+
+Se não chegar, `GET http://127.0.0.1:8000/assistente/conhecimento/sincronizacao` na máquina do
+colega mostra o motivo no campo `erro` (até a tela de status ficar pronta).
+
+---
+
 ## Ainda não dá para testar
 
 - **Aba WhatsApp dentro do app** (QR na tela, ligar/desligar) e **aprovar propostas** do
   `/ensinar`: o backend está pronto, as telas são o próximo pedido do Antigravity.
-- **Conhecimento nas máquinas dos colegas**: ainda não é distribuído (Fase 2c).
+- **Conhecimento nas máquinas dos colegas**: pronto no backend (Fase 2c), mas só dá para testar na
+  empresa, com duas máquinas (passo D). O status e o "Sincronizar agora" na tela são pedido do Antigravity.
 - **Instalador**: para gerar o `.msi` com o assistente, o backend precisa ser empacotado de
   novo (`npm run build:app`), com `anthropic` e `neonize` instalados no venv do build.
