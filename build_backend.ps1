@@ -76,6 +76,9 @@ if (-not (Test-Path $catalogBundle)) {
 }
 
 # Build do backend com PyInstaller do venv (forca incluir dependencias do FastAPI)
+# Pasta (onedir), sem UPX: o onefile se descompactava no TEMP a cada abertura (inicio lento) e o
+# UPX aumenta os falsos positivos de antivirus. As bibliotecas ficam em estoque_backend_lib, ao
+# lado do exe; o Tauri instala essa pasta junto (bundle.resources no tauri.conf.json).
 $sitePkgs = & $venvPy -c "import site; print(site.getsitepackages()[0])"
 & $venvPy -m PyInstaller --clean --noconfirm `
   --paths $sitePkgs `
@@ -89,9 +92,12 @@ $sitePkgs = & $venvPy -c "import site; print(site.getsitepackages()[0])"
   --exclude-module py `
   --exclude-module tests `
   --add-data "$catalogBundle;core/catalog/data" `
-  --onefile --noconsole $entry -n estoque_backend
+  --onedir --contents-directory estoque_backend_lib --noupx `
+  --noconsole $entry -n estoque_backend
 
-$src = Join-Path $PSScriptRoot "dist\estoque_backend.exe"
+$distDir = Join-Path $PSScriptRoot "dist\estoque_backend"
+$src = Join-Path $distDir "estoque_backend.exe"
+$libSrc = Join-Path $distDir "estoque_backend_lib"
 
 # Autodiagnostico: o executavel tem o que o assistente usa (WhatsApp, libmagic, fotos, catalogo)
 # e o backend responde? Usa um banco temporario; APP_ENV=dev nao mexe na pasta do app instalado.
@@ -114,3 +120,7 @@ $dstDir = Join-Path $PSScriptRoot "frontend\src-tauri\bin"
 New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
 Copy-Item -Force $src (Join-Path $dstDir "estoque_backend.exe")
 Copy-Item -Force $src (Join-Path $dstDir "estoque_backend-x86_64-pc-windows-msvc.exe")
+# A pasta de bibliotecas e substituida inteira, para nao sobrar arquivo de um build antigo.
+$libDst = Join-Path $dstDir "estoque_backend_lib"
+if (Test-Path $libDst) { Remove-Item -Recurse -Force $libDst }
+Copy-Item -Recurse -Force $libSrc $libDst

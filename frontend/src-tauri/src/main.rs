@@ -184,8 +184,8 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
         log_line(&format!("backend ja estava encerrado ({reason})"));
     }
     
-    // PyInstaller sidecars spawn a child process. child.kill() only kills the bootloader.
-    // We must forcibly kill the actual backend processes to ensure they don't linger.
+    // Garantia extra: builds antigos (onefile) tinham um processo filho que o child.kill()
+    // nao alcancava, e um backend de versao anterior pode ter ficado aberto.
     force_kill_backend_processes();
 }
 

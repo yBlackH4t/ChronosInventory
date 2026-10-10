@@ -422,6 +422,20 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-10 — Claude Code — Backend empacotado em pasta, sem UPX
+- Branch: `claude/project-thread-caz59j` (PR para `feature/assistente-ia`).
+- O que foi feito: o `build_backend.ps1` passou de `--onefile` para `--onedir` com
+  `--contents-directory estoque_backend_lib` e `--noupx`. O exe não se descompacta mais no TEMP a
+  cada abertura e o antivírus tem menos motivo para barrar. A pasta `estoque_backend_lib` vai para
+  `frontend/src-tauri/bin/` e o Tauri a instala ao lado do exe (`bundle.resources`).
+- Arquivos principais: `build_backend.ps1`, `frontend/src-tauri/tauri.conf.json`,
+  `frontend/scripts/verify_sidecar.ps1`, `.gitignore`.
+- Verificações: no Linux, um build PyInstaller 6.19 com as mesmas opções acha o pacote do catálogo
+  via `_MEIPASS` com o exe copiado (e renomeado com o target) para outra pasta junto da
+  `estoque_backend_lib`. Falta o teste no Windows: `npm run build:app`, instalar o MSI e abrir.
+- Pendências ou observações para o outro agente: quem roda `tauri dev` precisa rodar o
+  `build_backend.ps1` de novo, porque o `tauri.conf.json` agora exige a pasta `bin/estoque_backend_lib`.
+
 ### 2026-10-10 — Claude Code — Tudo numa branch só e Antigravity pausado
 - Branch: `feature/assistente-ia` (merge da `ag/operacao-e-atalhos` até `67bd3e2`, sem conflito).
 - Revisados os commits `d62f457`, `f7fc92a` e `67bd3e2` do Antigravity: corretos.
