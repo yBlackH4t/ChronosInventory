@@ -109,3 +109,15 @@ export interface WhatsAppStatus {
   ativo: boolean;
 }
 
+export interface KnowledgeSyncStatus {
+  papel: "publisher" | "subscriber" | "standalone" | string;
+  fonte: string | null;
+  publicado_em: string | null;
+  maquina: string | null;
+  total_regras: number;
+  atualizado_em: string | null;
+  verificado_em: string | null;
+  erro: string | null;
+}
+
+

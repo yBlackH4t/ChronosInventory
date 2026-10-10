@@ -25,15 +25,19 @@ import {
   IconTrash,
   IconDatabase,
   IconX,
+  IconRefresh,
 } from "@tabler/icons-react";
 import {
   listKnowledge,
   addKnowledgeRule,
   deleteKnowledgeRule,
+  getKnowledgeSyncStatus,
+  syncKnowledge,
 } from "../../lib/assistantAdminApi";
 import type {
   KnowledgeRule,
   KnowledgeRelation,
+  KnowledgeSyncStatus,
 } from "../../types/assistantAdmin";
 
 interface AdminKnowledgeTabProps {
@@ -63,10 +67,41 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
     queryFn: () => listKnowledge(busca),
   });
 
+  const {
+    data: syncStatus,
+    isLoading: isSyncLoading,
+  } = useQuery<KnowledgeSyncStatus>({
+    queryKey: ["assistant-knowledge-sync"],
+    queryFn: getKnowledgeSyncStatus,
+  });
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["assistant-admin-knowledge"] });
     queryClient.invalidateQueries({ queryKey: ["assistant-admin-review"] });
+    queryClient.invalidateQueries({ queryKey: ["assistant-knowledge-sync"] });
   };
+
+  const syncMutation = useMutation({
+    mutationFn: syncKnowledge,
+    onSuccess: (data) => {
+      notifications.show({
+        title: "Sincronização concluída",
+        message:
+          data.papel === "publisher"
+            ? "Regras de conhecimento publicadas com sucesso."
+            : "Regras de conhecimento atualizadas com sucesso.",
+        color: "teal",
+      });
+      invalidate();
+    },
+    onError: (err: Error) => {
+      notifications.show({
+        title: "Erro ao sincronizar",
+        message: err.message || "Não foi possível sincronizar o conhecimento.",
+        color: "red",
+      });
+    },
+  });
 
   const addRuleMutation = useMutation({
     mutationFn: addKnowledgeRule,
@@ -142,6 +177,29 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
     }
   };
 
+  const formatSyncDate = (iso: string | null | undefined) => {
+    if (!iso) return "ainda não sincronizado";
+    try {
+      return new Date(iso).toLocaleString("pt-BR");
+    } catch {
+      return iso;
+    }
+  };
+
+  const renderSyncMessage = () => {
+    if (!syncStatus) return "Carregando status de sincronização...";
+    const fonte = syncStatus.fonte || "pasta compartilhada";
+    const dataHora = formatSyncDate(syncStatus.atualizado_em || syncStatus.publicado_em);
+    const total = syncStatus.total_regras ?? 0;
+    const regrasTexto = `${total} ${total === 1 ? "regra" : "regras"}`;
+
+    if (syncStatus.papel === "publisher") {
+      return `Publicado para as outras máquinas (${fonte}) em ${dataHora} — ${regrasTexto}`;
+    }
+    const maquina = syncStatus.maquina || "servidor";
+    return `Recebido da máquina ${maquina} (${fonte}) em ${dataHora} — ${regrasTexto}`;
+  };
+
   return (
     <Stack gap="md">
       <Card withBorder p="sm" radius="md" bg="var(--mantine-color-blue-0)">
@@ -151,6 +209,41 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
           <strong>diferente</strong> = não serve (o assistente nunca sugere).
         </Text>
       </Card>
+
+      {/* Linha de status de sincronização entre máquinas */}
+      <Card withBorder p="xs" radius="md" bg="var(--mantine-color-gray-0)">
+        <Group justify="space-between" wrap="wrap" gap="xs">
+          <Group gap="xs">
+            <IconRefresh size={16} color="var(--mantine-color-blue-6)" />
+            <Text size="xs" fw={500}>
+              {isSyncLoading ? "Verificando sincronização..." : renderSyncMessage()}
+            </Text>
+          </Group>
+
+          <Button
+            size="compact-xs"
+            variant="light"
+            color="blue"
+            leftSection={<IconRefresh size={12} />}
+            loading={syncMutation.isPending}
+            onClick={() => syncMutation.mutate()}
+          >
+            Sincronizar agora
+          </Button>
+        </Group>
+      </Card>
+
+      {syncStatus?.erro && (
+        <Alert
+          icon={<IconAlertCircle size={16} />}
+          title="Aviso de sincronização"
+          color="orange"
+          variant="light"
+          p="xs"
+        >
+          <Text size="xs">{syncStatus.erro}</Text>
+        </Alert>
+      )}
 
       <Group justify="space-between">
         <TextInput

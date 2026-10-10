@@ -9,6 +9,7 @@ import type {
   CorrectionRequest,
   KnowledgeRule,
   KnowledgeRuleRequest,
+  KnowledgeSyncStatus,
   Proposal,
   ProposalStatus,
   ReviewItem,
@@ -71,14 +72,14 @@ const mock = {
   ] as KnowledgeRule[],
   review: [
     {
-      codigo: "988-7101",
+      codigo: "53279887101",
       vezes: 4,
       ultima_vez: "2026-10-09T18:41:00",
-      exemplo: "tem a turbina 988-7101?",
+      exemplo: "tem a turbina 53279887101?",
       conversas: [12, 15, 19, 22],
       conhecimento: [],
       sugestoes: [
-        { codigo: "988-7102", produto_id: 31, nome: "TURBINA GARRETT GT4594 988-7102", estoque_total: 3, motivo: "Mesmo início de código e mesma família (GT4594)" },
+        { codigo: "53279887102", produto_id: 31, nome: "TURBO K31 53279887102", estoque_total: 3, motivo: "Mesmo início de código e mesma família (K31)" },
         { codigo: "452174-0001", produto_id: 44, nome: "TURBO GT4594 452174-0001", estoque_total: 1, motivo: "Mesma aplicação (Volvo FH 460)" },
       ],
     },
@@ -101,14 +102,14 @@ const mock = {
       canal: id % 4 === 0 ? "whatsapp" : "app",
       autor: id % 4 === 0 ? "+55 51 99999-0000" : null,
       historico: [],
-      pergunta: direta ? `tem a turbina 988-71${id}?` : "temos turbina do scania 440?",
+      pergunta: direta ? `tem a turbina 532798871${id}?` : "temos turbina do scania 440?",
       resposta: direta
-        ? "Não encontrei *988-71" + id + "* no estoque.\nQuer que eu procure um similar?"
+        ? "Não encontrei *532798871" + id + "* no estoque.\nQuer que eu procure um similar?"
         : "Scania 440 depende do motor:\n• DC13 Euro 5 (2012+) → *temos 2* (Canoas)\n• DT12 Turbo Compound → *não temos*",
       modo: direta ? "busca_direta" : "ia",
       aviso: direta ? "Limite de uso do Groq atingido. Resposta pela busca direta (sem IA)." : null,
       consultas: [],
-      codigos_sem_estoque: direta ? [`988-71${id}`] : [],
+      codigos_sem_estoque: direta ? [`532798871${id}`] : [],
       resposta_correta: null,
       observacao_admin: null,
     };
@@ -137,6 +138,21 @@ const mock = {
 
 function mockStatus(): AdminStatus {
   return { maquina_publicadora: mock.publicadora, senha_definida: mock.senha !== null, autenticado: getAdminToken() === MOCK_TOKEN };
+}
+
+let mockSyncLastUpdated: string | null = "2026-10-09T22:30:00Z";
+
+function mockSyncStatus(): KnowledgeSyncStatus {
+  return {
+    papel: mock.publicadora ? "publisher" : "subscriber",
+    fonte: mock.publicadora ? "pasta compartilhada" : "servidor local (192.168.1.10:8000)",
+    publicado_em: mock.publicadora ? mockSyncLastUpdated : null,
+    maquina: mock.publicadora ? null : "SERVIDOR-CANOAS",
+    total_regras: mock.rules.length,
+    atualizado_em: mockSyncLastUpdated,
+    verificado_em: new Date().toISOString(),
+    erro: null,
+  };
 }
 
 function mockRequireAdmin() {
@@ -244,6 +260,23 @@ export async function deleteKnowledgeRule(id: number): Promise<void> {
     return;
   }
   await adminRequest<{ removido: boolean }>(`/conhecimento/${id}`, { method: "DELETE" });
+}
+
+export async function getKnowledgeSyncStatus(): Promise<KnowledgeSyncStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    return mockSyncStatus();
+  }
+  return adminRequest<KnowledgeSyncStatus>("/conhecimento/sincronizacao", { method: "GET", auth: false });
+}
+
+export async function syncKnowledge(): Promise<KnowledgeSyncStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockSyncLastUpdated = new Date().toISOString();
+    return mockSyncStatus();
+  }
+  return adminRequest<KnowledgeSyncStatus>("/conhecimento/sincronizar", { method: "POST", auth: false });
 }
 
 // ---------------------------------------------------------------------------
