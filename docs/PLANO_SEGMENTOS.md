@@ -145,6 +145,11 @@ Não é só entrada e saída: cada unidade passa por estados.
      chato de configurar em cada aparelho.
 - **Pareamento:** o celular pareia com o computador por QR code e usa o login do plano de usuários.
 - Funciona offline dentro de casa (o computador é o "servidor").
+- **Prova de conceito aprovada (2026-10-11)**, branch `claude/poc-casa-android`, pasta `mobile/`:
+  app Tauri 2 no Android bipou o EAN de uma maionese com a câmera e consultou o Chronos do PC pela
+  rede de casa (rota do scanner). Passo a passo e lições em `mobile/README.md`: Modo de
+  Desenvolvedor do Windows, alvo `armv7` em celulares de 32 bits, porta 8000 liberada só na rede
+  privada e permissão da câmera pedida pelo app.
 
 ### 6.4 Aparelho fixo na cozinha
 
