@@ -88,10 +88,14 @@ indicador do conhecimento no topo; peças relacionadas no catálogo com o estoqu
 1. **Testar na empresa numa cópia do banco** (`docs/ASSISTENTE_IA.md`, seção 6). Vai ser o
    primeiro teste com os dados reais, e esta versão cria tabelas novas no banco.
 2. Testar o conhecimento chegando numa segunda máquina.
-3. **Testar o instalador** (`npm run build:app` e instalar num computador de teste). Os PRs #4
-   e #5 mudaram coisas que só valem no app instalado: as regras de segurança da janela (CSP) e
-   o backend empacotado em pasta. Conferir: o app abre, as fotos dos produtos aparecem, o
-   scanner do celular conecta e "Buscar atualização" funciona.
+3. ✅ **Instalador testado** (2026-10-11, na Área Restrita do Windows): o instalador com a CSP
+   e o backend em pasta (PRs #4 e #5) funcionou. Falta só o **scanner do celular**, que a Área
+   Restrita não deixa testar: conferir no computador real junto com o passo 1.
+   Para gerar o instalador local: venv com `py -3.12` (o `python` do PATH desta máquina é o
+   3.14 de 32 bits, que não instala as dependências) e
+   `npx tauri build --bundles msi --config <json com "createUpdaterArtifacts": false>`, porque a
+   chave de assinatura só existe no GitHub. Não commitar o `estoque_backend.spec` que o build
+   reescreve com caminhos locais.
 4. **Versão 2.4.0:**
    - rodar `frontend/scripts/bump_version.ps1 2.4.0`;
    - escrever a seção `## [2.4.0]` do `CHANGELOG.md` (é o texto de "Novidades da versão") e
