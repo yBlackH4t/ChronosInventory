@@ -113,7 +113,10 @@ Depois (decisão do dono em 2026-10-11: **estabilidade e segurança primeiro**, 
 - juntar as perguntas reais do chefe na avaliação (`scripts/assistente_casos.json`);
 - decidir o WhatsApp do número da empresa: não oficial (risco de bloqueio) ou oficial da Meta.
 
-Futuro (não agora): servidor central para a matriz ver as 12 filiais (seção 5 do plano de usuários).
+Futuro (não agora):
+- servidor central para a matriz ver as 12 filiais (seção 5 do plano de usuários);
+- o mesmo app para qualquer estoque (casa, fazenda, loja): segmento no primeiro uso, código de
+  barras de mercado, unidades com decimais, validade e lotes (`docs/PLANO_SEGMENTOS.md`).
 
 ## 6. Regras e cuidados
 
@@ -142,6 +145,7 @@ cd frontend; npm ci; npm run build; npm run lint
 | `docs/ASSISTENTE_IA.md` | assistente: estado, como funciona, onde está cada coisa, teste no banco real |
 | `docs/PLANO_IA.md` | plano e decisões do assistente, fase por fase |
 | `docs/PLANO_USUARIOS.md` | desenho de usuários, login e papéis (local e, no futuro, matriz) |
+| `docs/PLANO_SEGMENTOS.md` | o app para qualquer tipo de estoque: segmentos, código de barras, unidades, validade |
 | `docs/TESTE_ASSISTENTE.md` | roteiro de teste do assistente |
 | `docs/API_DOCS.md` | rotas da API (cp1252) |
 | `docs/PROJECT_MAP.md` | mapa do código |
