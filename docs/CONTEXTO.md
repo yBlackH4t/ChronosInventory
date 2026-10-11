@@ -118,8 +118,15 @@ Depois (decisão do dono em 2026-10-11: **estabilidade e segurança primeiro**, 
 
 Futuro (não agora):
 - servidor central para a matriz ver as 12 filiais (seção 5 do plano de usuários);
-- o mesmo app para qualquer estoque (casa, fazenda, loja): segmento no primeiro uso, código de
+- o mesmo app para outros estoques de empresa (loja, fazenda): segmento no primeiro uso, código de
   barras de mercado, unidades com decimais, validade e lotes (`docs/PLANO_SEGMENTOS.md`).
+
+**Estoque de casa virou um app separado (decisão do dono em 2026-10-11): o Chronos Home**
+(`github.com/yBlackH4t/ChronosHome`, pasta `C:\Users\rafae\Documents\ChronosHome`), em Flutter e
+com os dados no celular. Não fazer "modo Casa" dentro do Chronos Inventory: a empresa não deve ver
+isso, e publicar o app de casa neste repositório faria as máquinas da empresa receberem a versão
+de casa como atualização. As branches `claude/poc-casa-android` (prova de conceito em Tauri,
+aprovada no celular) e `claude/modo-casa` ficam só como histórico.
 
 ## 6. Regras e cuidados
 

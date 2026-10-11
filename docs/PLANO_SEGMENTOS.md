@@ -4,6 +4,10 @@ Como o mesmo app passa a servir para turbinas, casa, fazenda, loja ou almoxarifa
 outro programa. Ainda não há código; vem **depois** da fase de estabilidade e do login
 (`docs/PLANO_USUARIOS.md`). Escrito em 2026-10-11. Relacionado: `docs/CONTEXTO.md`.
 
+> **Atualização (2026-10-11):** o estoque **de casa** saiu deste plano e virou um app separado, o
+> **Chronos Home** (`github.com/yBlackH4t/ChronosHome`, Flutter, dados no celular). As partes de
+> "Casa" abaixo ficam como registro das ideias; o desenho atual está no `docs/CONTEXTO.md` de lá.
+
 ---
 
 ## 1. Ideia
