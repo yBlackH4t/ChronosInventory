@@ -110,6 +110,9 @@ Depois (decisão do dono em 2026-10-11: **estabilidade e segurança primeiro**, 
   a chave trancada pelas senhas (seção 7 do plano de usuários);
 - estabilidade (auditoria P1/P2): porta 8000 fixa, estoque negativo barrado no banco, testes da
   busca por código;
+- **scanner do celular**: a página carrega o `html5-qrcode` de `unpkg.com` sem versão fixa (embutir
+  no app) e usa a câmera por HTTP na rede local, que os navegadores costumam bloquear. Conferir
+  num celular no teste da empresa (`docs/PLANO_SEGMENTOS.md`, seção 6.5);
 - juntar as perguntas reais do chefe na avaliação (`scripts/assistente_casos.json`);
 - decidir o WhatsApp do número da empresa: não oficial (risco de bloqueio) ou oficial da Meta.
 

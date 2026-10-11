@@ -95,15 +95,89 @@ O que falta no app:
 Cada item sai numa versão própria, testado numa cópia do banco. **Nada disso pode mudar o
 funcionamento para quem usa turbinas.**
 
-## 6. Decisões em aberto (para o dono)
+## 6. Modo "Casa" (uso próprio, não venda)
+
+Ideia do dono (2026-10-11): em casa ninguém vai ao computador dar baixa num extrato de tomate. O
+uso é **no celular, na cozinha, pela rede de casa**, sem nada exposto na internet.
+
+### 6.1 O que muda em relação ao comercial
+
+| | Turbinas (comercial) | Casa (uso próprio) |
+|---|---|---|
+| Igual | cadastro, entrada, saída, locais, bipar, histórico | igual |
+| Dashboard | saídas, filiais, perto de zerar para vender | **vencendo**, **abertos há muitos dias**, **acabando**, lista de compras |
+| Etiquetas | peça e expedição (NF-e) | nenhuma, ou "aberto em dd/mm" |
+| Transferência | entre filiais | "mover" simples (despensa → geladeira), opcional |
+| Escondidos | — | NF-e, etiquetas de expedição, base oficial, relatórios de venda |
+
+### 6.2 Estados de cada item
+
+Não é só entrada e saída: cada unidade passa por estados.
+
+```
+ Entrada (compra chegou)
+      │
+      ▼
+ [Fechado, na despensa] ──bipe──► [Aberto / em uso] ──bipe──► [Acabou]
+                                   conta os dias aberto         (vai para a lista de compras
+                                   e avisa ("aberto há 4 dias")   se ficar abaixo do mínimo)
+                                          │
+                                          └──► [Descartado] (venceu ou estragou: mostra o desperdício)
+```
+
+- **Bipe inteligente:** um bipe só, e o app sugere a ação pelo estado. Se há um fechado e nenhum
+  aberto, sugere "Abrir?". Se já há um aberto, sugere "Acabou?". Um toque confirma, para quase
+  nunca precisar escolher.
+- **Modos:** "Compras" (todo bipe é entrada, para guardar as compras rápido) e "Cozinha" (bipe
+  é abrir ou acabar).
+- **Validade depois de aberto:** por produto ("extrato aberto: 3 dias na geladeira"), usada no
+  aviso.
+- **Lista de compras automática:** o que acabou e ficou abaixo do mínimo.
+
+### 6.3 O app do celular
+
+- **Só na rede de casa:** o celular fala com o Chronos do computador pelo Wi-Fi. Nada na internet.
+- **Câmera exige cuidado:** navegadores só liberam a câmera ao vivo em HTTPS (ou `localhost`). Por
+  `http://192.168...` ela é bloqueada. Caminhos:
+  1. **App Android feito com o Tauri 2**, que já gera apps de celular reaproveitando as telas
+     React. Um app instalado usa a câmera sem precisar de HTTPS. **Recomendado.**
+  2. Página web com HTTPS local (certificado próprio instalado no celular): funciona, mas é
+     chato de configurar em cada aparelho.
+- **Pareamento:** o celular pareia com o computador por QR code e usa o login do plano de usuários.
+- Funciona offline dentro de casa (o computador é o "servidor").
+
+### 6.4 Aparelho fixo na cozinha
+
+Em vez de criar hardware, usar um aparelho pronto num suporte, sempre ligado em modo "Cozinha":
+
+| Opção | Como | Custo |
+|---|---|---|
+| **Celular ou tablet Android antigo** num suporte | o próprio app (6.3) em tela cheia; a câmera bipa; o app **fala** a pergunta ("Abrir ou acabou?") e aceita toque ou voz | quase zero. **Recomendado** |
+| Leitor de código USB/Bluetooth + tablet | bipe mais rápido que câmera | o preço de um leitor simples |
+| Alexa / Echo | **não serve bem:** a Alexa não lê código de barras e depende da nuvem da Amazon, o contrário de "só na rede de casa" | — |
+
+### 6.5 Achado no scanner atual (vale também para turbinas)
+
+A página do scanner de celular (`backend/app/api/routers/scanner.py`) carrega o leitor
+`html5-qrcode` de `unpkg.com` **sem versão fixa** e usa a câmera por HTTP na rede local. Então:
+- precisa de internet no celular, e uma versão nova ou alterada do pacote entra sem aviso. O
+  certo é embutir o arquivo no app, com versão fixa;
+- a câmera ao vivo provavelmente é bloqueada pelo navegador (HTTP), sobrando o modo de tirar foto.
+  **Conferir num celular no teste da empresa.**
+
+Isso entra na fase de estabilidade e segurança, antes do modo Casa.
+
+## 7. Decisões em aberto (para o dono)
 
 1. Um instalador só para todos, ou uma edição "Turbinas" e uma "Geral" com o mesmo código?
 2. Consultar o Open Food Facts automaticamente, ou só quando o usuário apertar "buscar"? Consultar
    manda o número do código de barras para fora da máquina.
 3. Precisa de lotes sem validade (rastrear lote de fabricação), ou só validade?
 4. O nome do produto continua "Chronos Inventory" para todos os segmentos?
+5. Modo Casa: o computador fica sempre ligado como "servidor" da casa, ou o próprio celular
+   guarda o estoque (aí o app de celular teria banco próprio)?
 
-## 7. Quando
+## 8. Quando
 
 Depois de:
 1. lançar a 2.4.0;
