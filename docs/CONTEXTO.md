@@ -103,10 +103,17 @@ indicador do conhecimento no topo; peças relacionadas no catálogo com o estoqu
    - o dono junta na `main` e cria a tag `v2.4.0`. **A tag publica a atualização para todas
      as máquinas**, pela GitHub Release (`.github/workflows/release.yml`).
 
-Depois:
+Depois (decisão do dono em 2026-10-11: **estabilidade e segurança primeiro**, uma coisa por versão):
+- **usuários, login e papéis**: desenho em `docs/PLANO_USUARIOS.md` (local agora, preparado para
+  a matriz); é a próxima grande tarefa e a base da criptografia do banco;
+- criptografia: BitLocker nas máquinas e backups/base oficial criptografados; depois SQLCipher com
+  a chave trancada pelas senhas (seção 7 do plano de usuários);
+- estabilidade (auditoria P1/P2): porta 8000 fixa, estoque negativo barrado no banco, testes da
+  busca por código;
 - juntar as perguntas reais do chefe na avaliação (`scripts/assistente_casos.json`);
-- decidir o WhatsApp do número da empresa: não oficial (risco de bloqueio) ou oficial da Meta;
-- usuários e login no app (adiado pelo dono).
+- decidir o WhatsApp do número da empresa: não oficial (risco de bloqueio) ou oficial da Meta.
+
+Futuro (não agora): servidor central para a matriz ver as 12 filiais (seção 5 do plano de usuários).
 
 ## 6. Regras e cuidados
 
@@ -134,6 +141,7 @@ cd frontend; npm ci; npm run build; npm run lint
 |---|---|
 | `docs/ASSISTENTE_IA.md` | assistente: estado, como funciona, onde está cada coisa, teste no banco real |
 | `docs/PLANO_IA.md` | plano e decisões do assistente, fase por fase |
+| `docs/PLANO_USUARIOS.md` | desenho de usuários, login e papéis (local e, no futuro, matriz) |
 | `docs/TESTE_ASSISTENTE.md` | roteiro de teste do assistente |
 | `docs/API_DOCS.md` | rotas da API (cp1252) |
 | `docs/PROJECT_MAP.md` | mapa do código |
