@@ -1,0 +1,22 @@
+[package]
+name = "chronos-casa"
+version = "0.1.0"
+description = "Chronos Casa (prova de conceito): bipa no celular e consulta o Chronos do computador"
+edition = "2021"
+
+[lib]
+# O Android carrega o app como biblioteca; o "main" so serve para rodar no computador.
+name = "chronos_casa_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# Versoes fixas (lancadas ha mais de 2 semanas): o Tauri exige o mesmo major.minor aqui e no
+# package.json. Os plugins de setembro/2026 pedem o Tauri 2.12.
+[build-dependencies]
+tauri-build = { version = "=2.7.0", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.0", features = [] }
+tauri-plugin-http = "=2.7.0"
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "=2.5.0"
