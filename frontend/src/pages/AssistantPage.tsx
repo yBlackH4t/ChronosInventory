@@ -40,6 +40,7 @@ import {
 } from "../lib/assistantApi";
 import { formatWhatsAppText } from "../lib/assistantFormat";
 import AssistantAdminPanel from "../components/assistant/AssistantAdminPanel";
+import SuggestProposalButton from "../components/assistant/SuggestProposalButton";
 import type { AssistantMessage, AssistantProduct, AssistantResponseMode } from "../types/assistant";
 
 type ChatMessage = AssistantMessage & {
@@ -217,16 +218,19 @@ export default function AssistantPage() {
       <Group justify="space-between" mb="xs">
         <Title order={3}>Assistente de IA</Title>
         {activeTab === "chat" && (
-          <Button
-            variant="light"
-            color="red"
-            size="xs"
-            leftSection={<IconTrash size={14} />}
-            onClick={clearChat}
-            disabled={messages.length === 0 && !mutation.isPending}
-          >
-            Nova conversa
-          </Button>
+          <Group gap="xs">
+            <SuggestProposalButton />
+            <Button
+              variant="light"
+              color="red"
+              size="xs"
+              leftSection={<IconTrash size={14} />}
+              onClick={clearChat}
+              disabled={messages.length === 0 && !mutation.isPending}
+            >
+              Nova conversa
+            </Button>
+          </Group>
         )}
       </Group>
 

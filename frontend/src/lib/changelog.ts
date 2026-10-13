@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.2",
+    "date": "2026-10-13",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: Sugerir ao admin: na tela do Assistente, qualquer colega sugere \"este código é igual (ou similar, ou não serve) àquele\" pelo próprio Chronos. A sugestão chega na máquina que publica a base, em Assistente > Admin > Para revisar, e só vale depois que o admin aprova."
+    ]
+  },
+  {
     "version": "2.4.1",
     "date": "2026-10-13",
     "title": "Melhorias e correcoes",

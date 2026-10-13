@@ -19,6 +19,7 @@ from core.utils.file_utils import FileUtils
 # Senha do servidor local (Backup > Base oficial), a mesma em todas as maquinas da empresa.
 # Sem senha configurada o servidor continua aberto na rede, como antes.
 TOKEN_HEADER = "X-Chronos-Senha"
+MAX_PROPOSAL_BYTES = 4096  # "Sugerir ao admin" (POST /proposals): uma regra curta
 WRONG_TOKEN_MESSAGE = (
     "O servidor da outra maquina pede senha, e a desta maquina nao confere. Use a mesma senha do "
     "servidor em todas as maquinas (Backup > Base oficial)."
@@ -121,6 +122,28 @@ class LocalShareService:
         if not isinstance(payload, dict):
             raise ValidationException("Conhecimento recebido invalido.")
         return payload
+
+    def send_remote_proposal(self, server_url: str, proposal: dict[str, Any]) -> dict[str, Any]:
+        """"Sugerir ao admin": entrega a proposta a maquina publicadora (rota /proposals)."""
+        url = f"{self.normalize_server_url(server_url)}/proposals"
+        try:
+            response = requests.post(url, json=proposal, timeout=10, headers=self._auth_headers())
+        except requests.RequestException as exc:
+            raise ValidationException(f"Nao foi possivel conectar a maquina publicadora: {exc}") from exc
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            raise ValidationException(WRONG_TOKEN_MESSAGE)
+        if response.status_code == HTTPStatus.NOT_FOUND:
+            raise ValidationException(
+                "A maquina publicadora ainda nao recebe sugestoes: atualize o Chronos dela para a versao 2.4.2 ou mais nova."
+            )
+        try:
+            payload = response.json()
+        except Exception:
+            payload = {}
+        if response.status_code != HTTPStatus.OK:
+            message = payload.get("erro") if isinstance(payload, dict) else None
+            raise ValidationException(message or f"A maquina publicadora respondeu {response.status_code}.")
+        return payload if isinstance(payload, dict) else {}
 
     def start_server(self, machine_label: str, publisher_name: str, port: int) -> dict[str, Any]:
         cls = type(self)
@@ -415,6 +438,35 @@ class LocalShareService:
                     return
 
                 self.send_error(HTTPStatus.NOT_FOUND, "Rota nao encontrada")
+
+            def do_POST(self) -> None:  # noqa: N802
+                path = urlparse(self.path).path.rstrip("/") or "/"
+                if path != "/proposals":
+                    self.send_error(HTTPStatus.NOT_FOUND, "Rota nao encontrada")
+                    return
+                if not service._token_matches(service.configured_token(), self.headers.get(TOKEN_HEADER)):
+                    service._send_json(self, {"erro": "senha_invalida"}, HTTPStatus.UNAUTHORIZED)
+                    return
+                try:
+                    length = int(self.headers.get("Content-Length") or 0)
+                except ValueError:
+                    length = 0
+                if length <= 0 or length > MAX_PROPOSAL_BYTES:
+                    service._send_json(self, {"erro": "Sugestão vazia ou grande demais."}, HTTPStatus.BAD_REQUEST)
+                    return
+                try:
+                    data = json.loads(self.rfile.read(length).decode("utf-8"))
+                    from app.services.assistant_proposal_service import AssistantProposalService
+
+                    remote = f"outra máquina ({self.client_address[0]})"
+                    proposal_id = AssistantProposalService().receive(data, default_author=remote)
+                except (ValueError, ValidationException) as exc:
+                    service._send_json(self, {"erro": str(exc)}, HTTPStatus.BAD_REQUEST)
+                    return
+                except Exception:
+                    service._send_json(self, {"erro": "Falha ao gravar a sugestão."}, HTTPStatus.INTERNAL_SERVER_ERROR)
+                    return
+                service._send_json(self, {"id": proposal_id})
 
             def log_message(self, format: str, *args: Any) -> None:  # noqa: A003
                 return

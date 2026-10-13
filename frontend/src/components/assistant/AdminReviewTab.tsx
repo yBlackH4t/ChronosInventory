@@ -293,7 +293,7 @@ export default function AdminReviewTab() {
             <Group gap="xs">
               <IconBrandWhatsapp size={20} color="var(--mantine-color-teal-6)" />
               <Text fw={700} size="sm">
-                Propostas de regras enviadas pelo WhatsApp (/ensinar)
+                Propostas de regras (WhatsApp /ensinar e Sugerir ao admin)
               </Text>
             </Group>
             <Badge color="teal" variant="light">
@@ -349,7 +349,7 @@ export default function AdminReviewTab() {
                       </Text>
                     )}
                     <Text size="xs" c="dimmed">
-                      Enviada pelo WhatsApp em {dataEnvio}
+                      Enviada em {dataEnvio}
                     </Text>
                   </div>
 
