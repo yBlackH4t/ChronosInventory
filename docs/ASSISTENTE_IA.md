@@ -81,10 +81,10 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
   confirmação do especialista, a pergunta vai para "Para revisar" com o outro código sugerido.
   "Mesma ficha do catálogo" **não** conta: uma ficha Master Power junta centenas de códigos.
 - **Código de outro fabricante** (2026-10-13): quando o código não é de um produto nosso mas está
-  no catálogo, a resposta diz de quem é ("é código OEM / Mahle / Biagio...; no catálogo Master
-  Power é a *805314* (MP530w — turbo HX55W HE500WG)") e depois as nossas turbinas daquela ficha
-  com estoque ("equivalente pelo catálogo, conferir"). O código da própria ficha vira "é o código
-  Master Power da ficha...".
+  no catálogo, a resposta é "*X*: temos." (o dono: se aparece Garrett, Borg ou Holset da ficha, é
+  porque temos), depois de quem é o código ("É código OEM / Mahle / Biagio...; no catálogo Master
+  Power é a *805314* (MP530w — turbo HX55W HE500WG)") e as nossas turbinas daquela ficha com
+  estoque, sem o "conferir". O código da própria ficha vira "É o código Master Power da ficha...".
 - **Movimentações e código Master Power** (2026-10-13): "quando saiu / vendemos / chegou a X?",
   "quantas saíram?" -> `movimentacoes_produto` (última saída, entrada e transferência, com data,
   quantidade, local e nota, e quanto saiu em 90 dias; estornos não contam). "Qual o código

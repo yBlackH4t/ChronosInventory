@@ -65,9 +65,11 @@ def stock_text(product: Dict[str, Any]) -> str:
     return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " e " + parts[-1]
 
 
-def _match_note(product: Dict[str, Any]) -> Optional[str]:
+def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[str]:
     match = product.get("correspondencia")
     note = product.get("obs_especialista")
+    if match == MATCH_CATALOG and not catalog_note:
+        return None
     if match == MATCH_FAMILY:
         return "versão nova/reman do mesmo código"
     if match == MATCH_EXPERT_SAME:
@@ -79,8 +81,8 @@ def _match_note(product: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def product_line(product: Dict[str, Any]) -> str:
-    notes = [n for n in (_match_note(product),) if n]
+def product_line(product: Dict[str, Any], catalog_note: bool = True) -> str:
+    notes = [n for n in (_match_note(product, catalog_note),) if n]
     if product.get("categoria") == CATEGORY_CORE:
         notes.append("conjunto central")
     suffix = f" ({'; '.join(notes)})" if notes else ""
@@ -135,12 +137,12 @@ def _ficha_label(item: Dict[str, Any]) -> str:
 
 def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
     """
-    'é código OEM (original da montadora); no catálogo Master Power é a *805314* (...).' para um
+    'É código OEM (original da montadora); no catálogo Master Power é a *805314* (...).' para um
     codigo que nao e nosso mas esta no catalogo. None se o catalogo nao diz de quem e o codigo.
     """
     own_ficha = [i for i in items if i.get("e_o_codigo_da_ficha")]
     if own_ficha:
-        return f"é o código Master Power da ficha {_ficha_label(own_ficha[0])}."
+        return f"É o código Master Power da ficha {_ficha_label(own_ficha[0])}."
     found = [i for i in items if i.get("codigo_pesquisado_e")]
     if not found:
         return None
@@ -148,7 +150,7 @@ def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
     brands = list(dict.fromkeys(b for i in found for b in i["codigo_pesquisado_e"]))
     fichas = ", ".join(_ficha_label(i) for i in found[:3])
     where = "é a" if len(found) == 1 else "aparece em"
-    return f"é código {' e '.join(_brand_label(b) for b in brands)}; no catálogo Master Power {where} {fichas}."
+    return f"É código {' e '.join(_brand_label(b) for b in brands)}; no catálogo Master Power {where} {fichas}."
 
 
 def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
@@ -171,14 +173,16 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     if own_stock:
         lines = [f"{label}: temos."] + [product_line(p) for p in with_stock[:MAX_LINES]]
     elif identified:
-        # Codigo de outro fabricante (OEM, Mahle, Master Power...): diz de que turbina e, depois as opcoes.
-        lines = [f"{label}: {identified}"]
+        # Codigo de outro fabricante (OEM, Mahle, Master Power...): o cliente pediu por ele, e as nossas
+        # turbinas daquela ficha sao a mesma peca na marca que vendemos. Entao "temos", sem "conferir".
         if with_stock:
-            lines += ["Não temos esse código, mas temos:"] + [product_line(p) for p in with_stock[:MAX_LINES]]
+            lines = [f"{label}: temos.", identified] + [
+                product_line(p, catalog_note=False) for p in with_stock[:MAX_LINES]
+            ]
         elif products:
-            lines.append("Das nossas turbinas dessa ficha, nenhuma tem estoque agora.")
+            lines = [f"{label}: não temos em estoque no momento.", identified]
         else:
-            lines.append("Não temos nenhuma turbina dessa ficha cadastrada.")
+            lines = [f"{label}: não temos.", f"{identified[:-1]}; não temos nenhuma turbina dela cadastrada."]
     elif with_stock:
         lines = [f"{label}: não temos esse código, mas temos:"] + [product_line(p) for p in with_stock[:MAX_LINES]]
     elif products:
