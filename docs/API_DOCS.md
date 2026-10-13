@@ -107,6 +107,8 @@ Regras:
 ## Backup / Import / Export / Relatorios
 - `POST /backup/criar`
 - `POST /backup/restaurar` (501)
+- `POST /backup/recuperar-fotos` `{backup_name}`: copia as fotos do backup so para produtos hoje sem foto (mesmo id e nome, ou nome unico); o resto do banco nao muda. Devolve `produtos_recuperados`, `fotos_copiadas`, `produtos_ja_com_foto`, `produtos_nao_encontrados` e `safety_backup`.
+- `POST /backup/base-oficial/aplicar` e `/backup/base-oficial-servidor/aplicar`: depois de trocar o banco, devolvem as fotos desta maquina aos produtos que ficaram sem foto (`fotos_mantidas`, `produtos_com_fotos_mantidas`).
 - `POST /import/excel`
 - `POST /export/produtos` (stream `.xlsx`)
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)

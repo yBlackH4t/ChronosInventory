@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 
 from app.services.backup_diagnostics_service import BackupDiagnosticsService
+from app.services.product_photo_recovery import copy_missing_product_photos
 from core.constants import DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
 from core.database.repositories.product_repository import ProductRepository
@@ -234,6 +235,25 @@ class BackupService:
             raise FileOperationException(
                 f"Falha na restauracao. Banco anterior foi recuperado do backup de seguranca. Erro: {exc}"
             ) from exc
+
+    def recover_photos_from_backup(self, backup_name: str) -> Dict[str, object]:
+        """
+        Copia as fotos de produto de um backup para o banco atual, sem restaurar o resto.
+        So preenche produtos que estao sem foto; o que ja existe nao e alterado.
+        """
+        source_path = self._resolve_backup_path(backup_name)
+        validation = self.validate_backup(backup_name)
+        if not validation["ok"]:
+            raise ValidationException(
+                f"Backup '{backup_name}' invalido: {validation['result']}"
+            )
+
+        ok, safety_path = self.create_automatic_backup(prefix="backup_pre_recuperar_fotos")
+        if not ok:
+            raise FileOperationException("Falha ao criar backup de seguranca antes de recuperar as fotos.")
+
+        result = copy_missing_product_photos(source_path, self.db_connection.get_database_path())
+        return {"backup_name": backup_name, "safety_backup": safety_path, **result}
 
     def export_diagnostics_archive(self) -> Tuple[str, bytes]:
         """

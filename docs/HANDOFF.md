@@ -422,6 +422,17 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-13 — Claude Code — Fotos de produto não somem ao "Atualizar base"
+- Branch: `claude/project-thread-itvf2t` (PR para `main`, junto da 2.4.1).
+- Causa: as fotos ficam dentro do banco (`product_images`). "Atualizar base" (base oficial)
+  troca o banco inteiro pelo publicado, então fotos colocadas só numa máquina sumiam.
+  A atualização do app (.msi) não mexe no banco.
+- O que foi feito: ao aplicar a base oficial, as fotos do banco anterior voltam para os produtos
+  que ficaram sem foto (`app/services/product_photo_recovery.py`). Novo botão "Recuperar só as
+  fotos" em Backup > Restaurar backup (`POST /backup/recuperar-fotos`): traz as fotos de um backup
+  sem restaurar o resto.
+- Verificações: `pytest` (195 ok), `npm run build`, `npm run lint` sem erros.
+
 ### 2026-10-13 — Claude Code — Teste no banco real e versão 2.4.0
 - Branch: `claude/project-thread-bwu9lo` (PR para `feature/assistente-ia`).
 - O que foi feito, a partir do teste do dono numa cópia do banco da empresa: "A é igual a B?"

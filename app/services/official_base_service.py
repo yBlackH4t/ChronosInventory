@@ -4,6 +4,7 @@ Servico para distribuir uma base oficial entre instalacoes locais do app.
 
 from __future__ import annotations
 
+import logging
 import os
 import tempfile
 from datetime import datetime
@@ -14,11 +15,14 @@ from app.services.official_base_config_store import OfficialBaseConfigStore
 from app.services.official_base_publication_helper import OfficialBasePublicationHelper
 from app.services.official_base_status_service import OfficialBaseStatusService
 from app.services.local_share_service import LocalShareService
+from app.services.product_photo_recovery import copy_missing_product_photos
 from core.constants import APP_VERSION, DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 from core.utils.validators import Validators
+
+LOG = logging.getLogger(__name__)
 
 
 class OfficialBaseService:
@@ -242,6 +246,8 @@ class OfficialBaseService:
                     f"Falha ao aplicar a base oficial. O backup local foi restaurado. Erro: {exc}"
                 ) from exc
 
+        photos = self._keep_local_photos(pre_restore_path, db_path)
+
         return {
             "restored_from": latest_paths["zip"],
             "active_database": db_path,
@@ -254,7 +260,21 @@ class OfficialBaseService:
             "db_version": str(manifest.get("db_version") or ""),
             "notes": str(manifest.get("notes") or ""),
             "restart_required": True,
+            "fotos_mantidas": photos["fotos_copiadas"],
+            "produtos_com_fotos_mantidas": photos["produtos_recuperados"],
         }
+
+    @staticmethod
+    def _keep_local_photos(previous_db: str, db_path: str) -> Dict[str, int]:
+        """
+        A base oficial substitui o banco inteiro: fotos colocadas so nesta maquina sumiriam.
+        Copia de volta as fotos do banco anterior para os produtos que ficaram sem foto.
+        """
+        try:
+            return copy_missing_product_photos(previous_db, db_path)
+        except Exception:
+            LOG.exception("Falha ao manter as fotos locais apos aplicar a base oficial")
+            return {"fotos_copiadas": 0, "produtos_recuperados": 0}
 
     def start_local_server(self) -> Dict[str, Any]:
         config = self.config_store.load()
@@ -428,6 +448,8 @@ class OfficialBaseService:
                     f"Falha ao aplicar a base oficial remota. O backup local foi restaurado. Erro: {exc}"
                 ) from exc
 
+        photos = self._keep_local_photos(pre_restore_path, db_path)
+
         return {
             "restored_from": normalized_url,
             "active_database": db_path,
@@ -440,4 +462,6 @@ class OfficialBaseService:
             "db_version": str(manifest.get("db_version") or ""),
             "notes": str(manifest.get("notes") or ""),
             "restart_required": True,
+            "fotos_mantidas": photos["fotos_copiadas"],
+            "produtos_com_fotos_mantidas": photos["produtos_recuperados"],
         }

@@ -51,6 +51,8 @@ type LocalBackupsSectionProps = {
   restoreTestLoading: boolean;
   onRestore: () => void;
   restoreLoading: boolean;
+  onRecoverPhotos: () => void;
+  recoverPhotosLoading: boolean;
   selectedBackup: BackupListItemOut | null;
   formatBytes: (size: number) => string;
   selectedValidation: BackupValidateOut | null;
@@ -86,6 +88,8 @@ export function LocalBackupsSection({
   restoreTestLoading,
   onRestore,
   restoreLoading,
+  onRecoverPhotos,
+  recoverPhotosLoading,
   selectedBackup,
   formatBytes,
   selectedValidation,
@@ -227,6 +231,14 @@ export function LocalBackupsSection({
                 onClick={onRestore}
               >
                 Restaurar
+              </Button>
+              <Button
+                variant="light"
+                disabled={!selectedBackupName}
+                loading={recoverPhotosLoading}
+                onClick={onRecoverPhotos}
+              >
+                Recuperar só as fotos
               </Button>
             </Group>
 

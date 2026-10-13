@@ -26,6 +26,7 @@ from backend.app.schemas.backup import (
     RemoteShareStatusOut,
     OfficialBaseStatusOut,
     BackupOut,
+    BackupRecoverPhotosOut,
     BackupRestoreIn,
     BackupRestoreOut,
     BackupRestoreTestIn,
@@ -99,6 +100,15 @@ def restore_backup(
             validation_result=restored["validation_result"],
         )
     )
+
+
+@router.post("/recuperar-fotos", response_model=SuccessResponse[BackupRecoverPhotosOut])
+def recover_photos_from_backup(
+    payload: BackupRestoreIn,
+    backup_service: BackupService = Depends(get_backup_service),
+) -> SuccessResponse[BackupRecoverPhotosOut]:
+    result = backup_service.recover_photos_from_backup(payload.backup_name)
+    return ok(BackupRecoverPhotosOut(**result))
 
 
 @router.post("/pre-update", response_model=SuccessResponse[BackupOut])
