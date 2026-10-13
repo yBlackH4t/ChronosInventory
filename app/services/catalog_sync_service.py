@@ -14,7 +14,7 @@ import collections
 import logging
 import re
 import sqlite3
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from core.catalog.normalization import canonical_code, extract_codes_from_name
 from core.database.connection import DatabaseConnection

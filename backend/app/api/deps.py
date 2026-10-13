@@ -16,6 +16,55 @@ from app.services.inventory_location_service import InventoryLocationService
 from core.database.connection import DatabaseConnection
 
 
+def get_assistant_chat_service():
+    # Imports tardios: o assistente so e carregado quando usado.
+    from app.services.assistant_chat_service import AssistantChatService
+
+    return AssistantChatService()
+
+
+def get_assistant_admin_service():
+    from app.services.assistant_admin_service import AssistantAdminService
+
+    return AssistantAdminService()
+
+
+def get_assistant_knowledge_service():
+    from app.services.assistant_knowledge_service import AssistantKnowledgeService
+
+    return AssistantKnowledgeService()
+
+
+def get_assistant_daily_summary_service():
+    from app.services.assistant_daily_summary_service import AssistantDailySummaryService
+
+    return AssistantDailySummaryService()
+
+
+def get_assistant_vision_service():
+    from app.services.assistant_vision_service import AssistantVisionService
+
+    return AssistantVisionService()
+
+
+def get_assistant_knowledge_sync_service():
+    from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
+
+    return AssistantKnowledgeSyncService()
+
+
+def get_assistant_history_service():
+    from app.services.assistant_history_service import AssistantHistoryService
+
+    return AssistantHistoryService()
+
+
+def get_whatsapp_service():
+    from app.services.whatsapp_service import WhatsAppService
+
+    return WhatsAppService.instance()
+
+
 def get_stock_service() -> StockService:
     return StockService()
 

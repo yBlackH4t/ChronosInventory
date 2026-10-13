@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from "react";
 import {
   Badge,
+  Button,
   CopyButton,
   Group,
   Loader,
+  Paper,
   ScrollArea,
   SegmentedControl,
   SimpleGrid,
@@ -15,12 +17,14 @@ import {
 import {
   IconCheck,
   IconCopy,
+  IconExternalLink,
   IconInfoCircle,
   IconSettings,
   IconTags,
   IconTruck,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/apiClient";
 import { brandColor } from "../../lib/brands";
 import { useProfileScope } from "../../state/profileScope";
@@ -59,7 +63,116 @@ function CodeChip({ code }: { code: string }) {
   );
 }
 
+function matchesPieceCode(productName: string, code: string): boolean {
+  if (!productName || !code) return false;
+  const upperName = productName.toUpperCase();
+  const upperCode = code.toUpperCase().trim();
+  if (!upperCode) return false;
+
+  // Verificação de substring com limite de caractere para não pegar partes de outro código
+  if (upperName.includes(upperCode)) {
+    const escaped = upperCode.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+    const regex = new RegExp(`(^|[^a-zA-Z0-9])${escaped}([^a-zA-Z0-9]|$)`, "i");
+    if (regex.test(upperName)) return true;
+  }
+
+  // Verificação normalizada (sem traços, barras ou pontos)
+  const normName = upperName.replace(/[^a-zA-Z0-9]/g, "");
+  const normCode = upperCode.replace(/[^a-zA-Z0-9]/g, "");
+  if (normCode && normName.includes(normCode)) {
+    const tokens = upperName.split(/[\s,;/]+/).map((t) => t.replace(/[^a-zA-Z0-9]/g, ""));
+    if (tokens.includes(normCode)) return true;
+  }
+
+  return false;
+}
+
+function RelatedPieceCard({
+  rel,
+  onOpenProduct,
+}: {
+  rel: ProductCatalogLink["relacionados"][0];
+  onOpenProduct: (productId: number, code: string) => void;
+}) {
+  const { data: searchRes, isLoading } = useQuery({
+    queryKey: ["related-piece-stock", rel.codigo],
+    queryFn: ({ signal }) =>
+      api.listProducts({ query: rel.codigo, page: 1, page_size: 5 }, { signal }),
+    staleTime: 60_000,
+  });
+
+  const matchedProduct = searchRes?.data?.find((prod) =>
+    matchesPieceCode(prod.nome, rel.codigo),
+  );
+  const inStock = (matchedProduct?.total_stock ?? 0) > 0;
+
+  return (
+    <Paper
+      p="xs"
+      radius="sm"
+      withBorder
+      bg="var(--mantine-color-default-hover)"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <Group gap="xs" wrap="nowrap" style={{ flex: 1, minWidth: 200 }}>
+        <Badge
+          size="xs"
+          variant="light"
+          color={rel.tipo === "COMPONENTE" ? "cyan" : "indigo"}
+          style={{ flexShrink: 0 }}
+        >
+          {rel.tipo === "COMPONENTE" ? "Conjunto Central" : "Turbo Completo"}
+        </Badge>
+        <CodeChip code={rel.codigo} />
+        {rel.descricao && (
+          <Text size="xs" c="dimmed" truncate="end">
+            {rel.descricao}
+          </Text>
+        )}
+      </Group>
+
+      <Group gap="xs" wrap="nowrap">
+        {isLoading ? (
+          <Loader size="xs" />
+        ) : matchedProduct ? (
+          <Group gap={6} wrap="nowrap">
+            <Badge
+              size="xs"
+              variant={inStock ? "filled" : "outline"}
+              color={inStock ? "teal" : "gray"}
+            >
+              {inStock
+                ? `Estoque: ${matchedProduct.total_stock} un`
+                : "Sem saldo"}
+            </Badge>
+            <Button
+              size="compact-xs"
+              variant="subtle"
+              color="blue"
+              leftSection={<IconExternalLink size={12} />}
+              onClick={() => onOpenProduct(matchedProduct.id, rel.codigo)}
+            >
+              Ver no catálogo
+            </Button>
+          </Group>
+        ) : (
+          <Badge size="xs" variant="dot" color="gray">
+            Não cadastrado
+          </Badge>
+        )}
+      </Group>
+    </Paper>
+  );
+}
+
 export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
+  const navigate = useNavigate();
   const { profileScopeKey } = useProfileScope();
   const [selected, setSelected] = useState<{ productId: number; index: string }>(
     { productId, index: "0" },
@@ -193,23 +306,27 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
               ))}
             </SimpleGrid>
 
-            {/* Componentes relacionados (ex: conjunto central) */}
+            {/* Componentes relacionados (ex: conjunto central e turbos equivalentes) */}
             {currentLink.relacionados.length > 0 && (
               <Stack gap={8}>
-                <SectionLabel>Peças relacionadas</SectionLabel>
+                <SectionLabel>
+                  {currentLink.grupo === "TURBO"
+                    ? "Conjuntos Centrais & Componentes Compatíveis"
+                    : "Turbos & Peças Relacionadas"}
+                </SectionLabel>
                 <Stack gap={6}>
                   {currentLink.relacionados.map((rel, idx) => (
-                    <Group key={idx} gap="xs" wrap="nowrap">
-                      <Text size="xs" c="dimmed" w={120} style={{ flexShrink: 0 }}>
-                        {rel.tipo === "COMPONENTE"
-                          ? "Conjunto central"
-                          : "Turbo completo"}
-                      </Text>
-                      <CodeChip code={rel.codigo} />
-                      <Text size="xs" c="dimmed" truncate="end">
-                        {rel.descricao}
-                      </Text>
-                    </Group>
+                    <RelatedPieceCard
+                      key={idx}
+                      rel={rel}
+                      onOpenProduct={(relProductId, relCode) => {
+                        navigate(
+                          `/produtos?search=${encodeURIComponent(
+                            relCode,
+                          )}&openId=${relProductId}`,
+                        );
+                      }}
+                    />
                   ))}
                 </Stack>
               </Stack>

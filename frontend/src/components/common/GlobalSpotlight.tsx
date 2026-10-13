@@ -1,19 +1,35 @@
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Kbd } from "@mantine/core";
-import { useHotkeys } from "@mantine/hooks";
+import { Badge, Group, Kbd, Loader, Text } from "@mantine/core";
+import { useDebouncedValue, useHotkeys } from "@mantine/hooks";
 import {
   Spotlight,
   spotlight,
   type SpotlightActionData,
   type SpotlightActionGroupData,
 } from "@mantine/spotlight";
-import { IconSearch } from "@tabler/icons-react";
-import { useState } from "react";
+import { IconBox, IconSearch } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+
 import { ADMIN_NAV, PRIMARY_NAV, type NavItem } from "../../app/navigation";
+import { api } from "../../lib/apiClient";
+import { detectBrand, detectCondition } from "../../lib/brands";
 
 export function GlobalSpotlight() {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
+  const [debouncedQuery] = useDebouncedValue(query.trim(), 200);
+
+  const { data: searchResults, isFetching } = useQuery({
+    queryKey: ["spotlight-products", debouncedQuery],
+    queryFn: ({ signal }) =>
+      api.listProducts(
+        { query: debouncedQuery, page: 1, page_size: 5 },
+        { signal },
+      ),
+    enabled: debouncedQuery.length >= 2,
+    staleTime: 15_000,
+  });
 
   const toAction = (item: NavItem, index?: number): SpotlightActionData => ({
     id: item.to,
@@ -38,28 +54,83 @@ export function GlobalSpotlight() {
     },
   ];
 
-  // Product search goes after screen matches: "mov" opens Movimentações,
-  // while a part code (no screen match) leaves the search as the only option.
-  const dynamicActions: SpotlightActionGroupData[] =
-    query.trim().length > 0
-      ? [
-          {
-            group: "Produtos",
-            actions: [
-              {
-                id: "search-product",
-                label: `Buscar produtos por "${query}"`,
-                description: "Pesquisar códigos, modelos e equivalências",
-                onClick: () =>
-                  navigate(`/produtos?search=${encodeURIComponent(query)}`),
-                leftSection: (
-                  <IconSearch size={18} stroke={1.5} color="var(--accent)" />
-                ),
-              },
-            ],
+  const dynamicActions: SpotlightActionGroupData[] = useMemo(() => {
+    if (!query.trim()) return [];
+
+    const productsFound = searchResults?.data ?? [];
+    const actions: SpotlightActionData[] = [];
+
+    // Produtos reais retornados pela busca
+    if (productsFound.length > 0) {
+      for (const prod of productsFound) {
+        const brand = detectBrand(prod.nome);
+        const condition = detectCondition(prod.nome);
+        const inStock = prod.total_stock > 0;
+
+        actions.push({
+          id: `product-${prod.id}`,
+          label: prod.nome,
+          description: `#${prod.id}${
+            prod.inventories
+              ? ` · ${Object.entries(prod.inventories)
+                  .filter(([, q]) => q > 0)
+                  .map(([loc, q]) => `${loc}: ${q}`)
+                  .join(" | ")}`
+              : ""
+          }`,
+          leftSection: (
+            <IconBox
+              size={18}
+              stroke={1.5}
+              color={inStock ? "var(--mantine-color-teal-6)" : "var(--mantine-color-gray-6)"}
+            />
+          ),
+          rightSection: (
+            <Group gap={4}>
+              {brand && (
+                <Badge size="xs" color={brand.color} variant="light">
+                  {brand.label}
+                </Badge>
+              )}
+              {condition && (
+                <Badge size="xs" color={condition.color} variant="outline">
+                  {condition.label}
+                </Badge>
+              )}
+              <Badge
+                size="xs"
+                variant={inStock ? "filled" : "outline"}
+                color={inStock ? "teal" : "gray"}
+              >
+                {inStock ? `${prod.total_stock} un` : "Sem saldo"}
+              </Badge>
+            </Group>
+          ),
+          onClick: () => {
+            navigate(
+              `/produtos?search=${encodeURIComponent(query)}&openId=${prod.id}`,
+            );
           },
-        ]
-      : [];
+        });
+      }
+    }
+
+    // Ação para abrir busca completa na tela de produtos
+    actions.push({
+      id: "search-product-all",
+      label: `Ver todos os produtos com "${query}"`,
+      description: "Pesquisar códigos, modelos e equivalências no catálogo",
+      onClick: () => navigate(`/produtos?search=${encodeURIComponent(query)}`),
+      leftSection: <IconSearch size={18} stroke={1.5} color="var(--accent)" />,
+    });
+
+    return [
+      {
+        group: "Produtos e Estoque",
+        actions,
+      },
+    ];
+  }, [query, searchResults?.data, navigate]);
 
   // "/" only outside text fields, so it never steals a typed slash.
   useHotkeys([["/", () => spotlight.open()]]);
@@ -67,13 +138,28 @@ export function GlobalSpotlight() {
   return (
     <Spotlight
       actions={[...navGroups, ...dynamicActions]}
-      nothingFound="Nenhum atalho encontrado"
+      nothingFound={
+        isFetching ? (
+          <Group justify="center" gap="xs" p="md">
+            <Loader size="xs" />
+            <Text size="sm" c="dimmed">
+              Consultando estoque...
+            </Text>
+          </Group>
+        ) : (
+          "Nenhum atalho ou produto encontrado"
+        )
+      }
       highlightQuery
       query={query}
       onQueryChange={setQuery}
       searchProps={{
-        leftSection: <IconSearch size={18} stroke={1.5} />,
-        placeholder: "Buscar produto ou ir para uma tela…",
+        leftSection: isFetching ? (
+          <Loader size="xs" />
+        ) : (
+          <IconSearch size={18} stroke={1.5} />
+        ),
+        placeholder: "Buscar produto por código/nome ou ir para uma tela…",
       }}
       // Ctrl+K / Ctrl+P also work while typing in a field.
       shortcut={["mod + k", "mod + p"]}
@@ -81,7 +167,7 @@ export function GlobalSpotlight() {
       clearQueryOnClose
       radius="lg"
       scrollable
-      maxHeight={420}
+      maxHeight={460}
     />
   );
 }

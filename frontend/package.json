@@ -1,7 +1,7 @@
 {
   "name": "chronos_inventory_frontend",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,6 +19,7 @@
     "release:publish": "powershell -ExecutionPolicy Bypass -File .\\\\scripts\\\\release_publish.ps1",
     "changelog:sync": "node ./scripts/sync_changelog.mjs",
     "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -69,6 +70,7 @@
     "globals": "^16.5.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.48.0",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.7"
   }
 }

@@ -133,6 +133,41 @@ class MovementAnalyticsService:
             for row in rows
         ]
 
+    def get_stockout_risk(
+        self,
+        days: int,
+        date_to: date,
+        max_dias: int = 15,
+        limit: int = 5,
+        scope: Optional[int | str] = None,
+    ) -> List[dict]:
+        """Itens com saldo que zeram em ate `max_dias` no ritmo de venda dos ultimos `days` dias."""
+        cutoff_dt = datetime.combine(date_to, time.min) - timedelta(days=days - 1)
+        cutoff = cutoff_dt.strftime(DATE_FORMAT_DB)
+        date_to_limit = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+        rows = self.repo.get_stockout_risk_candidates(cutoff, date_to_limit, location_id=self.normalize_location(scope))
+        items: List[dict] = []
+        for row in rows:
+            estoque = int(row.get("estoque_atual") or 0)
+            total_saida = int(row.get("total_saida") or 0)
+            if estoque <= 0 or total_saida <= 0:
+                continue
+            media_diaria = total_saida / days
+            dias_cobertura = int(estoque / media_diaria)
+            if dias_cobertura > max_dias:
+                continue
+            items.append(
+                {
+                    "produto_id": int(row["produto_id"]),
+                    "nome": str(row["nome"]),
+                    "estoque_atual": estoque,
+                    "total_saida": total_saida,
+                    "dias_cobertura": dias_cobertura,
+                }
+            )
+        items.sort(key=lambda item: (item["dias_cobertura"], -item["total_saida"]))
+        return items[:limit]
+
     def get_external_transfer_totals(
         self,
         date_from: date,

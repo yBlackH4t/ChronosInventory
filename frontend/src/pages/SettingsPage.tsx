@@ -3,6 +3,7 @@ import { IconChevronRight } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../components/ui/PageHeader";
 import { ADMIN_NAV, usePrefetchRoute } from "../app/navigation";
+import AssistantSettingsPanel from "../components/settings/AssistantSettingsPanel";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -58,6 +59,8 @@ export default function SettingsPage() {
           </Stack>
         ))}
       </SimpleGrid>
+
+      <AssistantSettingsPanel />
     </Stack>
   );
 }

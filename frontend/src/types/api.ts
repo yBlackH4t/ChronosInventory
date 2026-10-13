@@ -279,6 +279,7 @@ export type ListMovementsParams = {
   destino_location_id?: number | null;
   date_from?: string;
   date_to?: string;
+  documento?: string;
   page?: number;
   page_size?: number;
   sort?: string;
@@ -392,6 +393,7 @@ export type OfficialBaseStatusOut = {
   server_port?: number;
   server_running?: boolean;
   server_urls?: string[];
+  server_token_set?: boolean;
   remote_server_url?: string | null;
   can_publish: boolean;
   can_publish_server?: boolean;
@@ -424,6 +426,7 @@ export type OfficialBaseConfigIn = {
   server_port?: number | null;
   remote_server_url?: string | null;
   server_enabled?: boolean | null;
+  server_token?: string | null;
 };
 
 export type OfficialBasePublishIn = {
@@ -666,6 +669,14 @@ export type RecentStockoutItem = {
   nome: string;
   total_saida_recente: number;
   last_sale?: string | null;
+};
+
+export type StockoutRiskItem = {
+  produto_id: number;
+  nome: string;
+  estoque_atual: number;
+  total_saida: number;
+  dias_cobertura: number;
 };
 
 export type ExternalTransferItem = {

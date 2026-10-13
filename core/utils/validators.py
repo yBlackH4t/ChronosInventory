@@ -4,7 +4,7 @@ Centraliza lógica de validação reutilizável.
 """
 
 import re
-from typing import Any, Optional
+from typing import Any
 from core.exceptions import ValidationException
 
 

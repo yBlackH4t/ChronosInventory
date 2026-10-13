@@ -6,13 +6,12 @@ Responsabilidade: validar, aplicar movimentacao e expor analytics.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from typing import List, Optional, Tuple
 
 from app.models.validators import StockMovementValidator
 from app.services.movement_analytics_service import MovementAnalyticsService
 from app.services.movement_rules_service import (
-    MOTIVO_AJUSTE_LABEL_MAP,
     NATUREZA_AJUSTE,
     NATUREZA_DEVOLUCAO,
     NATUREZA_OPERACAO_NORMAL,
@@ -293,9 +292,11 @@ class MovementService:
         sort_direction: str,
         limit: int,
         offset: int,
+        documento: Optional[str] = None,
     ) -> Tuple[List[MovementRecord], int]:
         df = date_from.strftime(DATE_FORMAT_DB) if date_from else None
         dt = date_to.strftime(DATE_FORMAT_DB) if date_to else None
+        documento = (documento or "").strip() or None
 
         rows = self.repo.list_movements(
             produto_id=produto_id,
@@ -305,6 +306,7 @@ class MovementService:
             destino_local_id=destino_location_id,
             date_from=df,
             date_to=dt,
+            documento=documento,
             sort_column=sort_column,
             sort_direction=sort_direction,
             limit=limit,
@@ -318,6 +320,7 @@ class MovementService:
             destino_local_id=destino_location_id,
             date_from=df,
             date_to=dt,
+            documento=documento,
         )
 
         return [
@@ -389,6 +392,16 @@ class MovementService:
 
     def get_recent_stockouts(self, days: int, date_to: date, limit: int = 5, scope: str = "AMBOS") -> List[dict]:
         return self.analytics.get_recent_stockouts(days, date_to, limit, scope)
+
+    def get_stockout_risk(
+        self,
+        days: int,
+        date_to: date,
+        max_dias: int = 15,
+        limit: int = 5,
+        scope: str = "AMBOS",
+    ) -> List[dict]:
+        return self.analytics.get_stockout_risk(days, date_to, max_dias, limit, scope)
 
     def get_external_transfer_totals(
         self,

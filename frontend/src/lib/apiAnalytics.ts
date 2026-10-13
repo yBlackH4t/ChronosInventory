@@ -6,6 +6,7 @@ import type {
   ExternalTransferItem,
   FlowPoint,
   RecentStockoutItem,
+  StockoutRiskItem,
   SaidasPoint,
   StockDistribution,
   StockEvolutionPoint,
@@ -218,6 +219,29 @@ export function createAnalyticsApi({
       });
       return request<RecentStockoutItem[]>(
         `/analytics/products/recent-stockouts${query}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getAnalyticsStockoutRisk(
+      params: {
+        days?: number;
+        max_dias?: number;
+        limit?: number;
+        scope?: AnalyticsScope;
+      } = {},
+      options: RequestInit = {},
+    ) {
+      const location_id = params.scope ?? null;
+      const query = buildQuery({
+        days: params.days,
+        max_dias: params.max_dias,
+        location_id,
+        limit: params.limit,
+      });
+      return request<StockoutRiskItem[]>(
+        `/analytics/products/stockout-risk${query}`,
         { method: "GET", ...options },
         baseUrl,
       );

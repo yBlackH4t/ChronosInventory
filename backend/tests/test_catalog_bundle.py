@@ -5,7 +5,6 @@ import sqlite3
 import sys
 from pathlib import Path
 
-import pytest
 
 from core.catalog.bundle import (
     DEFAULT_BUNDLE_PATH,

@@ -23,9 +23,12 @@ venv/
 *.bak
 *.log
 official_base_config.json
+assistente_config.json
+assistente_conhecimento.json
 stock_profiles.json
 backups/
 exports/
+local_share/
 backend/logs/
 debug_scripts/
 
@@ -47,6 +50,7 @@ frontend/src-tauri/target/
 frontend/src-tauri/release/
 frontend/src-tauri/gen/
 frontend/src-tauri/bin/*.exe
+frontend/src-tauri/bin/estoque_backend_lib/
 frontend/src-tauri/bin/*.dll
 frontend/src-tauri/bin/*.pdb
 frontend/src-tauri/bin/*.dll

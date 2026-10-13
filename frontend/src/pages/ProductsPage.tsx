@@ -37,8 +37,10 @@ import { ProductDetailsDrawer } from "../components/products/ProductDetailsDrawe
 import { ProductFormModal } from "../components/products/ProductFormModal";
 import { ProductsListTable } from "../components/products/ProductsListTable";
 import ProductLinkModal from "../components/products/ProductLinkModal";
+import { QuickMovementModal } from "../components/products/QuickMovementModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
+import { MAX_PRODUCT_IMAGES, useProductImages } from "../hooks/useProductImages";
 import { useScanner } from "../lib/useScanner";
 import {
   adjustmentReasonLabel,
@@ -52,8 +54,7 @@ import type {
   MovementOut,
   Product,
   ProductCreate,
-  ProductImageItem,
-  ProductImagesUploadOut,
+  ProductStatusBulkOut,
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
@@ -77,7 +78,6 @@ const SORT_OPTIONS = [
   { value: "-total_stock", label: "Maior estoque total" },
   { value: "total_stock", label: "Menor estoque total" },
 ];
-const MAX_IMAGES = 5;
 
 const PRODUCTS_TAB_ID = "products";
 
@@ -134,22 +134,30 @@ export default function ProductsPage() {
   const { listen } = useScanner();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // ?search= (from Ctrl+K) seeds the search once, then is removed from the URL.
-  const searchParam = searchParams.get("search");
+  const [hoveredProduct, setHoveredProduct] = useState<Product | null>(null);
+  const [quickMoveProduct, setQuickMoveProduct] = useState<Product | null>(null);
+  const [quickMoveOpened, setQuickMoveOpened] = useState(false);
+
+  const handleOpenQuickMove = (product: Product) => {
+    setQuickMoveProduct(product);
+    setQuickMoveOpened(true);
+  };
+
+  // ?search= (do Ctrl+K ou chat) preenche a busca; ?openId= abre direto o Drawer de detalhes
+  const searchParam = searchParams.get("search") || searchParams.get("q");
+  const openIdParam = searchParams.get("openId") || searchParams.get("id");
   const [appliedSearchParam, setAppliedSearchParam] = useState<string | null>(null);
-  if (searchParam !== appliedSearchParam) {
+  if (searchParam && searchParam !== appliedSearchParam) {
     setAppliedSearchParam(searchParam);
-    if (searchParam) {
-      setQuery(searchParam);
-      setPage(1);
-    }
+    setQuery(searchParam);
+    setPage(1);
   }
 
   useEffect(() => {
-    if (searchParam) {
+    if (searchParam || openIdParam) {
       setSearchParams({}, { replace: true });
     }
-  }, [searchParam, setSearchParams]);
+  }, [searchParam, openIdParam, setSearchParams]);
 
   const productsQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["produtos", profileScopeKey, debounced, page, pageSize, sort, stockFilter],
@@ -212,6 +220,24 @@ export default function ProductsPage() {
     onError: (error) => notifyError(error),
   });
 
+  const inactivateMutation = useMutation<
+    SuccessResponse<ProductStatusBulkOut>,
+    Error,
+    number
+  >({
+    mutationFn: (productId: number) =>
+      api.bulkUpdateProductStatus({ ids: [productId], ativo: false }),
+    onSuccess: () => {
+      notifySuccess("Produto inativado");
+      queryClient.invalidateQueries({
+        queryKey: ["produtos", profileScopeKey],
+      });
+      setDrawerOpened(false);
+      setSelectedSnapshot(null);
+    },
+    onError: (error) => notifyError(error),
+  });
+
   const deleteMutation = useMutation<
     SuccessResponse<{ id: number; nome: string; message: string }>,
     Error,
@@ -223,8 +249,30 @@ export default function ProductsPage() {
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });
+      setDrawerOpened(false);
+      setSelectedSnapshot(null);
     },
-    onError: (error) => notifyError(error),
+    onError: (error, productId) => {
+      const msg = error.message || "";
+      if (msg.includes("inative") || msg.includes("movimentaç")) {
+        modals.openConfirmModal({
+          title: "Não é possível excluir",
+          children: (
+            <Stack gap="xs">
+              <Text size="sm">{msg}</Text>
+              <Text size="xs" c="dimmed">
+                Deseja inativar o produto agora para tirá-lo da lista sem perder o histórico?
+              </Text>
+            </Stack>
+          ),
+          labels: { confirm: "Inativar produto", cancel: "Fechar" },
+          confirmProps: { color: "orange" },
+          onConfirm: () => inactivateMutation.mutate(productId),
+        });
+      } else {
+        notifyError(error);
+      }
+    },
   });
 
   const [formOpened, formHandlers] = useDisclosure(false);
@@ -305,7 +353,14 @@ export default function ProductsPage() {
     modals.openConfirmModal({
       title: "Excluir produto",
       children: (
-        <Text size="sm">Tem certeza que deseja excluir {product.nome}?</Text>
+        <Stack gap="xs">
+          <Text size="sm">
+            Tem certeza que deseja excluir <strong>{product.nome}</strong>?
+          </Text>
+          <Text size="xs" c="dimmed">
+            Produtos com movimentações não podem ser excluídos; inative para tirar da lista.
+          </Text>
+        </Stack>
       ),
       labels: { confirm: "Excluir", cancel: "Cancelar" },
       confirmProps: { color: "red" },
@@ -313,12 +368,26 @@ export default function ProductsPage() {
     });
   };
 
-  const [drawerOpened, setDrawerOpened] = useState<boolean>(
-    persistedState.drawerOpened,
-  );
-  const [selectedId, setSelectedId] = useState<number | null>(
-    persistedState.selectedId,
-  );
+  const [drawerOpened, setDrawerOpened] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const raw =
+        new URLSearchParams(window.location.search).get("openId") ||
+        new URLSearchParams(window.location.search).get("id");
+      if (raw && Number(raw) > 0) return true;
+    }
+    return persistedState.drawerOpened;
+  });
+
+  const [selectedId, setSelectedId] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const raw =
+        new URLSearchParams(window.location.search).get("openId") ||
+        new URLSearchParams(window.location.search).get("id");
+      if (raw && Number(raw) > 0) return Number(raw);
+    }
+    return persistedState.selectedId;
+  });
+
   const [selectedSnapshot, setSelectedSnapshot] = useState<Product | null>(
     null,
   );
@@ -349,81 +418,13 @@ export default function ProductsPage() {
 
   const currentProduct = detailQuery.data?.data ?? selectedSnapshot;
 
-  const imagesQuery = useQuery<
-    SuccessResponse<{
-      items: ProductImageItem[];
-      total: number;
-      max_images: number;
-    }>
-  >({
-    queryKey: ["produto-imagens", profileScopeKey, selectedId],
-    queryFn: ({ signal }) => api.listProductImages(selectedId!, { signal }),
-    enabled: !!selectedId,
-    retry: false,
-  });
-
-  const uploadImagesMutation = useMutation<
-    SuccessResponse<ProductImagesUploadOut>,
-    Error,
-    File[]
-  >({
-    mutationFn: (files: File[]) => api.uploadProductImages(selectedId!, files),
-    onSuccess: () => {
-      notifySuccess("Imagem(ns) adicionada(s)");
-      queryClient.invalidateQueries({
-        queryKey: ["produto-imagens", profileScopeKey, selectedId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["produtos", profileScopeKey],
-      });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const setPrimaryImageMutation = useMutation<
-    SuccessResponse<{ id: number; message: string }>,
-    Error,
-    number
-  >({
-    mutationFn: (imageId: number) =>
-      api.setPrimaryProductImage(selectedId!, imageId),
-    onSuccess: () => {
-      notifySuccess("Imagem principal definida");
-      queryClient.invalidateQueries({
-        queryKey: ["produto-imagens", profileScopeKey, selectedId],
-      });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const deleteImageMutation = useMutation<
-    SuccessResponse<{ id: number; message: string }>,
-    Error,
-    number
-  >({
-    mutationFn: (imageId: number) =>
-      api.deleteProductImage(selectedId!, imageId),
-    onSuccess: () => {
-      notifySuccess("Imagem removida");
-      queryClient.invalidateQueries({
-        queryKey: ["produto-imagens", profileScopeKey, selectedId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["produtos", profileScopeKey],
-      });
-    },
-    onError: (error) => notifyError(error),
-  });
-
-  const handleAddImages = (files: File[] | null) => {
-    if (!files || files.length === 0) return;
-    const currentTotal = imagesQuery.data?.data?.total ?? 0;
-    if (currentTotal + files.length > MAX_IMAGES) {
-      notifyError(new Error(`Limite de ${MAX_IMAGES} imagens por produto.`));
-      return;
-    }
-    uploadImagesMutation.mutate(files);
-  };
+  const {
+    imagesQuery,
+    uploadImagesMutation,
+    setPrimaryImageMutation,
+    deleteImageMutation,
+    handleAddImages,
+  } = useProductImages(selectedId, profileScopeKey);
 
   const [observacaoDraft, setObservacaoDraft] = useState<{
     productId: number | null;
@@ -493,6 +494,24 @@ export default function ProductsPage() {
       }).catch(console.error);
     });
   }, [listen]);
+
+  useEffect(() => {
+    if (!openIdParam) return;
+    const idNum = Number(openIdParam);
+    if (idNum > 0) {
+      api
+        .getProduct(idNum)
+        .then((res) => {
+          if (res.data) {
+            setSelectedId(idNum);
+            setSelectedSnapshot(res.data);
+            setDrawerOpened(true);
+            setHistoryPage(1);
+          }
+        })
+        .catch(console.error);
+    }
+  }, [openIdParam]);
 
   const historyQuery = useQuery<SuccessResponse<MovementOut[]>>({
     queryKey: [
@@ -609,11 +628,40 @@ export default function ProductsPage() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         searchInputRef.current?.focus();
+        return;
+      }
+
+      // Atalho N para movimentar estoque rápido
+      const activeEl = document.activeElement;
+      const isInput =
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT" ||
+          (activeEl as HTMLElement).isContentEditable);
+
+      if (isInput) return;
+
+      if (
+        event.key.toLowerCase() === "n" &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
+      ) {
+        const target =
+          hoveredProduct ||
+          (drawerOpened && currentProduct ? currentProduct : null) ||
+          selectedSnapshot;
+
+        if (target) {
+          event.preventDefault();
+          handleOpenQuickMove(target);
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [hoveredProduct, drawerOpened, currentProduct, selectedSnapshot]);
 
   const resetView = () => {
     setQuery(DEFAULT_PRODUCTS_TAB_STATE.query);
@@ -802,6 +850,8 @@ export default function ProductsPage() {
           setLinkModalProduct(product);
           openLinkModal();
         }}
+        onQuickMove={handleOpenQuickMove}
+        onHoverProduct={setHoveredProduct}
         onPageChange={setPage}
         locations={locations}
       />
@@ -840,7 +890,7 @@ export default function ProductsPage() {
         imagesLoading={imagesQuery.isLoading}
         imageItems={imagesQuery.data?.data?.items ?? []}
         imagesTotal={imagesQuery.data?.data?.total ?? 0}
-        maxImages={MAX_IMAGES}
+        maxImages={MAX_PRODUCT_IMAGES}
         onAddImages={handleAddImages}
         onSetPrimaryImage={(imageId) => setPrimaryImageMutation.mutate(imageId)}
         setPrimaryImageLoading={setPrimaryImageMutation.isPending}
@@ -887,6 +937,19 @@ export default function ProductsPage() {
         product={linkModalProduct}
         onSuccess={() => {
           closeLinkModal();
+          queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+        }}
+      />
+
+      <QuickMovementModal
+        opened={quickMoveOpened}
+        onClose={() => {
+          setQuickMoveOpened(false);
+          setQuickMoveProduct(null);
+        }}
+        product={quickMoveProduct}
+        locations={locations}
+        onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
         }}
       />

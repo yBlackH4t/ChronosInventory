@@ -1,7 +1,5 @@
 import pandas as pd
-import os
-import math
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from datetime import datetime
 
 from app.services.movement_service import MovementService

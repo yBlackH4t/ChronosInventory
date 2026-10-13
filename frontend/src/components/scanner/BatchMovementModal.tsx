@@ -205,7 +205,7 @@ export default function BatchMovementModal({
             data={["ENTRADA", "SAIDA", "TRANSFERENCIA"]}
             value={tipo}
             onChange={(val) => {
-              setTipo(val as any);
+              setTipo(val as MovementBatchCreate["tipo"]);
               if (val === "TRANSFERENCIA") {
                 setNatureza("OPERACAO_NORMAL");
               }
@@ -218,7 +218,7 @@ export default function BatchMovementModal({
               ? ["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA"] 
               : ["OPERACAO_NORMAL", "DEVOLUCAO", "AJUSTE"]}
             value={natureza}
-            onChange={(val) => setNatureza(val as any)}
+            onChange={(val) => setNatureza(val as NonNullable<MovementBatchCreate["natureza"]>)}
             allowDeselect={false}
           />
         </Group>
@@ -268,7 +268,7 @@ export default function BatchMovementModal({
           />
         </Group>
 
-        <Box style={{ border: "1px dashed #ccc", padding: "15px", borderRadius: "8px" }}>
+        <Box style={{ border: "1px dashed var(--border-strong)", padding: "15px", borderRadius: "8px" }}>
           <Stack gap="xs">
             <Text size="sm" fw={500}>Adicionar Itens ao Lote</Text>
             <Text size="xs" c="dimmed">

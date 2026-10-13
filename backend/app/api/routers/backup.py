@@ -225,6 +225,7 @@ def official_base_update_config(
         server_port=payload.server_port,
         remote_server_url=payload.remote_server_url,
         server_enabled=payload.server_enabled,
+        server_token=payload.server_token,
     )
     return ok(OfficialBaseStatusOut(**status))
 

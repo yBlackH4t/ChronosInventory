@@ -562,7 +562,7 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     async analyzeImportFile(file: File, options: RequestInit = {}) {
       const formData = new FormData();
       formData.append("file", file);
-      return request<{ file_id: string; headers: string[]; preview: any[] }>(
+      return request<{ file_id: string; headers: string[]; preview: Record<string, unknown>[] }>(
         "/import-dynamic/analyze",
         {
           method: "POST",

@@ -10,6 +10,25 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.0",
+    "date": "2026-10-13",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Assistente de IA (aba Assistente): pergunte pelo código da peça, pelo veículo ou motor (\"scania 440\", \"fh d13 2015\"), se duas peças são iguais, quando ela saiu ou chegou e qual é o código Master Power. A resposta vem do estoque. A IA gratuita só entra quando a busca direta não entende a pergunta.",
+      "Novo: Código de outro fabricante: mande um código OEM, Mahle, Biagio, Master Power ou de outra marca do catálogo e o assistente diz de que turbina é e quais delas temos.",
+      "Novo: Conhecimento do especialista: o admin ensina o que é igual, similar ou não serve. A lista \"Para revisar\" mostra os códigos perguntados que ainda não têm resposta, e o que é ensinado chega sozinho às outras máquinas.",
+      "Novo: WhatsApp em modo copiloto: responde só quando alguém da equipe reage com 🤖 na mensagem do cliente. Entende áudio e foto da plaqueta e tem os comandos /ensinar, /pendentes e /resumo.",
+      "Novo: Foto da plaqueta no chat e resumo diário na \"Mensagem para mim\" (o que zerou, o que mais saiu e o que pediram e não temos).",
+      "Novo: Movimentação rápida: tecla N no produto sob o mouse ou selecionado. A busca rápida (Ctrl+K) mostra o saldo por filial.",
+      "Novo: Movimentações: filtro pelo número do documento (NF).",
+      "Novo: Senha no servidor local da base oficial, a mesma em todas as máquinas.",
+      "Mudanca: Dashboard: filiais com um local só ficam escondidas e os itens perto de zerar aparecem em destaque.",
+      "Mudanca: Produto com movimentações não pode mais ser excluído: a tela oferece inativar, e o histórico fica guardado.",
+      "Mudanca: Janela do aplicativo com proteção extra e permissões mínimas.",
+      "Correcao: \"Salvar configuração\" da Base oficial voltou a funcionar."
+    ]
+  },
+  {
     "version": "2.3.0",
     "date": "2026-10-09",
     "title": "Melhorias e correcoes",

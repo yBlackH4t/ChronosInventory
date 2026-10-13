@@ -17,6 +17,7 @@ from backend.app.schemas.analytics import (
     StockDistributionOut,
     StockEvolutionPoint,
     StockSummaryOut,
+    StockoutRiskItem,
     TopSaidaItem,
     TopSemMovItem,
 )
@@ -165,6 +166,20 @@ def products_recent_stockouts(
     date_to = date_to or date.today()
     items = movement_service.get_recent_stockouts(days, date_to, limit=limit, scope=location_id)
     return ok([RecentStockoutItem(**item) for item in items])
+
+
+@router.get("/products/stockout-risk", response_model=SuccessResponse[list[StockoutRiskItem]])
+def products_stockout_risk(
+    days: int = Query(30, ge=1, le=365),
+    max_dias: int = Query(15, ge=1, le=365),
+    date_to: date | None = Query(None),
+    location_id: int | None = Query(None),
+    limit: int = Query(5, ge=1, le=20),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[StockoutRiskItem]]:
+    date_to = date_to or date.today()
+    items = movement_service.get_stockout_risk(days, date_to, max_dias=max_dias, limit=limit, scope=location_id)
+    return ok([StockoutRiskItem(**item) for item in items])
 
 
 # -----------------------------------------------------------------------------

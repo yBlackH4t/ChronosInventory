@@ -1,0 +1,218 @@
+{
+  "_comentario": [
+    "Casos de avaliacao do assistente (docs/PLANO_IA.md). Rodar: python scripts/assistente_avaliacao.py",
+    "Valem para o banco de teste gerado por `python scripts/assistente_dev.py gerar-banco` (seed padrao).",
+    "Comparacoes ignoram maiusculas e acentos. Campos de verificacao:",
+    "  deve_conter: todos estes textos precisam aparecer",
+    "  deve_conter_algum: pelo menos um destes textos precisa aparecer",
+    "  nao_deve_conter: nenhum destes textos pode aparecer",
+    "  nao_deve_comecar_com: a resposta nao pode comecar com nenhum destes",
+    "  deve_perguntar: a resposta precisa ter uma pergunta (?)",
+    "Para acrescentar as perguntas reais do chefe, copie um caso e ajuste."
+  ],
+  "casos": [
+    {
+      "id": "codigo-com-estoque",
+      "pergunta": "temos turbina 4031196?",
+      "deve_conter": [
+        "TURBINA HOLSET HX55W 4031196",
+        "canoas"
+      ],
+      "nao_deve_comecar_com": [
+        "nao"
+      ]
+    },
+    {
+      "id": "codigo-sem-estoque",
+      "pergunta": "tem a 4031195?",
+      "deve_conter": [
+        "4031195"
+      ],
+      "deve_conter_algum": [
+        "nao temos",
+        "sem estoque",
+        "nao ha",
+        "zerad",
+        "esgotad",
+        "estoque 0",
+        "0 em estoque"
+      ],
+      "nao_deve_comecar_com": [
+        "sim"
+      ]
+    },
+    {
+      "id": "codigo-familia-reman",
+      "pergunta": "53279907116",
+      "deve_conter": [
+        "TURBO K27 - 53279887116",
+        "passo fundo"
+      ],
+      "deve_conter_algum": [
+        "reman",
+        "remanufaturad",
+        "nova",
+        "familia"
+      ]
+    },
+    {
+      "id": "codigo-oem-equivalente",
+      "pergunta": "tem o 20993930?",
+      "deve_conter": [
+        "TURBINA HOLSET HX55W 4031196"
+      ],
+      "deve_conter_algum": [
+        "equivalente"
+      ]
+    },
+    {
+      "id": "codigo-inexistente",
+      "pergunta": "tem a 999999999?",
+      "deve_conter_algum": [
+        "nao encontr",
+        "nao temos",
+        "nao achei",
+        "nao localiz",
+        "nao consta"
+      ],
+      "nao_deve_comecar_com": [
+        "sim"
+      ]
+    },
+    {
+      "id": "codigo-garrett-com-sufixo",
+      "pergunta": "tem turbina garrett 466646-5041S?",
+      "deve_conter": [
+        "TURBO GARRETT 466646-5041S",
+        "canoas"
+      ]
+    },
+    {
+      "id": "segundo-codigo-do-nome",
+      "pergunta": "HE200WG 3785294 tem?",
+      "deve_conter": [
+        "TURBO HE200WG - 3799431 / 3785294"
+      ],
+      "deve_conter_algum": [
+        "canoas",
+        "passo fundo"
+      ]
+    },
+    {
+      "id": "veiculo-com-varias-turbinas",
+      "pergunta": "temos turbina do scania 440?",
+      "deve_conter": [
+        "dc13",
+        "dt12"
+      ],
+      "deve_perguntar": true,
+      "nao_deve_comecar_com": [
+        "sim"
+      ]
+    },
+    {
+      "id": "resposta-ao-motor",
+      "historico": [
+        {
+          "papel": "usuario",
+          "texto": "temos turbina do scania 440?"
+        },
+        {
+          "papel": "assistente",
+          "texto": "Depende do motor:\n• DC13 Euro 5 (2012+) → turbo GTA42S: *TURBO GTA42S - 779839-0025* — 2 em Canoas\n• DT12 Turbo Compound → turbo HX52: não temos\nQual é o motor e o ano do cliente?"
+        }
+      ],
+      "pergunta": "é o dc13, 2015",
+      "deve_conter": [
+        "TURBO GTA42S - 779839-0025",
+        "canoas"
+      ],
+      "nao_deve_comecar_com": [
+        "nao"
+      ]
+    },
+    {
+      "id": "veiculo-com-uma-turbina",
+      "pergunta": "tem turbina pro scania r440 com motor dc13?",
+      "deve_conter": [
+        "TURBO GTA42S - 779839-0025",
+        "canoas"
+      ],
+      "nao_deve_comecar_com": [
+        "nao",
+        "depende"
+      ]
+    },
+    {
+      "id": "volvo-varias-turbinas",
+      "pergunta": "turbina volvo fh 460",
+      "deve_conter": [
+        "TURBINA HOLSET HX55W 4031196"
+      ],
+      "deve_perguntar": true
+    },
+    {
+      "id": "conjunto-central",
+      "pergunta": "tem conjunto central do scania 440?",
+      "deve_conter": [
+        "conjunto"
+      ],
+      "deve_conter_algum": [
+        "nao temos",
+        "sem estoque",
+        "nao ha",
+        "zerad",
+        "estoque 0"
+      ]
+    },
+    {
+      "id": "preco-nao-inventa",
+      "pergunta": "quanto custa a 4031196?",
+      "nao_deve_conter": [
+        "r$",
+        "reais"
+      ]
+    },
+    {
+      "id": "fora-do-assunto",
+      "pergunta": "qual a capital da frança?",
+      "nao_deve_conter": [
+        "paris"
+      ]
+    },
+    {
+      "id": "pergunta-vaga",
+      "pergunta": "tem turbina pro caminhão do meu tio?",
+      "deve_conter_algum": [
+        "codigo",
+        "modelo",
+        "motor"
+      ]
+    },
+    {
+      "id": "conhecimento-similar",
+      "pergunta": "tem a 988-7101?",
+      "deve_conter": [
+        "TURBO K27 - 53279887116",
+        "similar"
+      ],
+      "nao_deve_comecar_com": [
+        "sim"
+      ]
+    },
+    {
+      "id": "essa-dai-depois-do-codigo",
+      "historico": [
+        {
+          "papel": "usuario",
+          "texto": "805314"
+        }
+      ],
+      "pergunta": "temos essa daí?",
+      "deve_conter": [
+        "TURBINA HOLSET HX55W 4031196",
+        "canoas"
+      ]
+    }
+  ]
+}

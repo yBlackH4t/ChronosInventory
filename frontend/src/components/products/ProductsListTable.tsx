@@ -10,6 +10,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowsExchange,
   IconBarcode,
   IconEdit,
   IconLink,
@@ -39,6 +40,8 @@ type ProductsListTableProps = {
   onOpenEdit: (product: Product) => void;
   onConfirmDelete: (product: Product) => void;
   onOpenLinks: (product: Product) => void;
+  onQuickMove?: (product: Product) => void;
+  onHoverProduct?: (product: Product | null) => void;
   onPageChange: (page: number) => void;
   locations?: InventoryLocation[];
 };
@@ -76,6 +79,8 @@ export function ProductsListTable({
   onOpenEdit,
   onConfirmDelete,
   onOpenLinks,
+  onQuickMove,
+  onHoverProduct,
   onPageChange,
   locations = [],
 }: ProductsListTableProps) {
@@ -138,7 +143,7 @@ export function ProductsListTable({
               <Table.Th w={90} ta="right">
                 Total
               </Table.Th>
-              <Table.Th w={156} />
+              <Table.Th w={196} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -165,6 +170,8 @@ export function ProductsListTable({
                   key={product.id}
                   className={selectedId === product.id ? "row-selected" : undefined}
                   onClick={() => onOpenDetails(product)}
+                  onMouseEnter={() => onHoverProduct?.(product)}
+                  onMouseLeave={() => onHoverProduct?.(null)}
                   style={{ cursor: "pointer", height: ROW_HEIGHT }}
                 >
                   <Table.Td>
@@ -189,7 +196,7 @@ export function ProductsListTable({
                           {condition.label}
                         </Badge>
                         <Text
-                          fw={600}
+                          fw={650}
                           size="sm"
                           truncate="end"
                           c={inStock ? undefined : "dimmed"}
@@ -240,6 +247,16 @@ export function ProductsListTable({
                       className="row-actions"
                       onClick={(event) => event.stopPropagation()}
                     >
+                      <Tooltip label="Movimentar estoque (tecla N)">
+                        <ActionIcon
+                          color="blue"
+                          variant="light"
+                          aria-label="Movimentar estoque (tecla N)"
+                          onClick={() => onQuickMove?.(product)}
+                        >
+                          <IconArrowsExchange size={16} stroke={1.75} />
+                        </ActionIcon>
+                      </Tooltip>
                       <Tooltip
                         label={hasLinks ? "Ver vínculos" : "Adicionar vínculo"}
                       >

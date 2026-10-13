@@ -6,7 +6,7 @@ Responsabilidade: salvar contagens, fechar/excluir sessao e aplicar ajustes.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from app.models.validators import StockMovementValidator
 from app.services.inventory_types import INVENTORY_STATUS_APLICADO, INVENTORY_STATUS_FECHADO

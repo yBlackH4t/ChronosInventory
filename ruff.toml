@@ -1,0 +1,11 @@
+# Lint minimo do backend: erros de sintaxe e problemas do pyflakes
+# (imports sem uso, nomes indefinidos, variaveis mortas).
+target-version = "py312"
+extend-exclude = ["scratch", "frontend"]
+
+[lint]
+select = ["E9", "F"]
+
+[lint.per-file-ignores]
+# __init__.py reexporta nomes de proposito.
+"__init__.py" = ["F401"]

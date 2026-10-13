@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 import tempfile
 from datetime import datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.services.backup_service import BackupService
@@ -15,9 +14,8 @@ from app.services.official_base_config_store import OfficialBaseConfigStore
 from app.services.official_base_publication_helper import OfficialBasePublicationHelper
 from app.services.official_base_status_service import OfficialBaseStatusService
 from app.services.local_share_service import LocalShareService
-from core.constants import APP_VERSION, DB_NAME, DATE_FORMAT_FILE
+from core.constants import APP_VERSION, DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
-from core.database.migration_manager import MigrationManager
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 from core.utils.validators import Validators
@@ -80,6 +78,7 @@ class OfficialBaseService:
         server_port: Optional[int] = None,
         remote_server_url: Optional[str] = None,
         server_enabled: Optional[bool] = None,
+        server_token: Optional[str] = None,
     ) -> Dict[str, Any]:
         self.config_store.save(
             role=role,
@@ -89,6 +88,7 @@ class OfficialBaseService:
             server_port=server_port,
             remote_server_url=remote_server_url,
             server_enabled=server_enabled,
+            server_token=server_token,
         )
         return self.get_status()
 

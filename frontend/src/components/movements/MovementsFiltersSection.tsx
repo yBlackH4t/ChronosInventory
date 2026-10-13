@@ -18,6 +18,7 @@ import {
 import { DatePickerInput } from "@mantine/dates";
 import {
   IconAdjustmentsHorizontal,
+  IconFileText,
   IconSearch,
   IconSortAscending,
   IconSortDescending,
@@ -43,6 +44,8 @@ type Props = {
   productLookupLoading: boolean;
   productSearch: string;
   onProductSearchChange: (value: string) => void;
+  documentoSearch: string;
+  onDocumentoSearchChange: (value: string) => void;
   filters: MovementFilters;
   setFilterValue: <K extends keyof MovementFilters>(
     field: K,
@@ -82,6 +85,8 @@ export default function MovementsFiltersSection({
   productLookupLoading,
   productSearch,
   onProductSearchChange,
+  documentoSearch,
+  onDocumentoSearchChange,
   filters,
   setFilterValue,
   pageSize,
@@ -133,6 +138,29 @@ export default function MovementsFiltersSection({
             : "Nenhum produto"
         }
         rightSection={productLookupLoading ? <Loader size="xs" /> : undefined}
+      />
+
+      <TextInput
+        aria-label="Buscar por documento"
+        placeholder="Nº do documento (ex.: NF 13923)"
+        size="md"
+        leftSection={<IconFileText size={18} stroke={1.5} />}
+        style={{ minWidth: 220 }}
+        value={documentoSearch}
+        onChange={(event) => onDocumentoSearchChange(event.currentTarget.value)}
+        rightSection={
+          documentoSearch ? (
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="sm"
+              aria-label="Limpar busca por documento"
+              onClick={() => onDocumentoSearchChange("")}
+            >
+              <IconX size={14} />
+            </ActionIcon>
+          ) : undefined
+        }
       />
 
       <SegmentedControl

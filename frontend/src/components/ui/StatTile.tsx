@@ -28,7 +28,7 @@ export default function StatTile({
   const body = (
     <>
       <Group justify="space-between" wrap="nowrap" gap="xs">
-        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+        <Group gap={8} wrap="nowrap" miw={0}>
           {accent && (
             <span
               style={{

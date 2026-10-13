@@ -10,6 +10,8 @@ import zipfile
 import pandas as pd
 from openpyxl import load_workbook
 
+from core.utils import file_utils
+
 
 def _create_product(client, nome="Produto Teste", qtd_canoas=1, qtd_pf=0):
     inventories = {}
@@ -87,6 +89,18 @@ def test_list_products_can_search_by_hash_id_and_status_screen(client):
     assert status_by_id.status_code == 200
     status_data = status_by_id.json()["data"]
     assert [item["id"] for item in status_data] == [other_id]
+
+
+def test_forced_app_dir_never_asks_to_restart(client, tmp_path, monkeypatch):
+    # Teste do assistente: CHRONOS_APP_DIR aponta para o banco de teste, fora da pasta do app.
+    # Antes a lista de estoques pedia reinicio para sempre e a tela ficava travada.
+    runtime_dir = tmp_path / "appdata"
+    monkeypatch.setattr(file_utils.FileUtils, "get_app_root_directory", staticmethod(lambda: str(tmp_path / "raiz")))
+    (tmp_path / "raiz").mkdir()
+    assert client.get("/sistema/estoques").json()["data"]["restart_required"] is True
+
+    monkeypatch.setenv("CHRONOS_APP_DIR", str(runtime_dir))
+    assert client.get("/sistema/estoques").json()["data"]["restart_required"] is False
 
 
 def test_stock_profiles_lifecycle(client):
@@ -407,6 +421,26 @@ def test_create_invalid_payload(client):
     assert body["error"]["code"] == "validation_error"
 
 
+def test_delete_product_keeps_the_movement_history(client):
+    # Cadastro errado (so o estoque inicial do cadastro): pode excluir.
+    mistake = _create_product(client, "Produto Cadastrado Errado", qtd_canoas=2, qtd_pf=0)
+    assert client.delete(f"/produtos/{mistake}").status_code == 200
+    assert client.get(f"/produtos/{mistake}").status_code == 404
+
+    # Com movimentacao depois do cadastro: excluir apagaria o historico; o caminho e inativar.
+    used = _create_product(client, "Produto Com Historico", qtd_canoas=3, qtd_pf=0)
+    sale = {"tipo": "SAIDA", "produto_id": used, "quantidade": 1, "origem_location_id": 11}
+    assert client.post("/movimentacoes", json=sale).status_code == 201
+
+    blocked = client.delete(f"/produtos/{used}")
+    assert blocked.status_code == 400
+    assert "inative o produto" in blocked.json()["error"]["message"]
+    assert client.get(f"/produtos/{used}").status_code == 200
+    history = client.get(f"/produtos/{used}/historico")
+    assert history.status_code == 200
+    assert len(history.json()["data"]) == 2  # entrada do cadastro + saida
+
+
 def test_movement_entry_increases_stock(client):
     product_id = _create_product(client, "Produto Entrada", qtd_canoas=1, qtd_pf=0)
 
@@ -679,6 +713,38 @@ def test_list_movements_pagination(client):
         "total_pages",
         "has_next",
     }
+
+
+def test_list_movements_filters_by_documento(client):
+    product_id = _create_product(client, "Produto Documento", qtd_canoas=0, qtd_pf=0)
+    for documento in ("NF 13923", "NF 50_1", None):
+        movement = {
+            "tipo": "ENTRADA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "destino_location_id": 11,
+        }
+        if documento:
+            movement["documento"] = documento
+        assert client.post("/movimentacoes", json=movement).status_code == 201
+
+    resp = client.get("/movimentacoes", params={"documento": "13923"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [row["documento"] for row in body["data"]] == ["NF 13923"]
+    assert body["meta"]["total_items"] == 1
+
+    resp = client.get("/movimentacoes", params={"documento": "nf"})
+    assert resp.json()["meta"]["total_items"] == 2
+
+    # "_" is matched literally, not as a LIKE wildcard.
+    resp = client.get("/movimentacoes", params={"documento": "0_1"})
+    assert [row["documento"] for row in resp.json()["data"]] == ["NF 50_1"]
+    resp = client.get("/movimentacoes", params={"documento": "5_"})
+    assert resp.json()["meta"]["total_items"] == 0
+
+    resp = client.get("/movimentacoes", params={"documento": "   "})
+    assert resp.json()["meta"]["total_items"] == 3
 
 
 def test_backup_create(client):
@@ -1537,6 +1603,62 @@ def test_analytics_recent_stockouts_only_considers_zero_stock_with_real_sales(cl
     ids_pf = {item["produto_id"] for item in data_pf}
     assert product_pf in ids_pf
     assert product_recent not in ids_pf
+
+
+def test_analytics_stockout_risk_uses_sales_pace(client):
+    # 30 vendidos em 30 dias = 1 por dia; 4 em estoque -> 4 dias de cobertura.
+    product_risk = _create_product(client, "Produto Em Risco", qtd_canoas=34, qtd_pf=0)
+    # 3 vendidos em 30 dias; 37 em estoque -> 370 dias, fora do alerta.
+    product_slow = _create_product(client, "Produto Giro Lento", qtd_canoas=40, qtd_pf=0)
+    # Ja zerado: aparece em "Zerados com venda recente", nao aqui.
+    product_zero = _create_product(client, "Produto Ja Zerado", qtd_canoas=5, qtd_pf=0)
+    # Transferencia externa nao conta como venda.
+    product_transfer = _create_product(client, "Produto Transferido", qtd_canoas=12, qtd_pf=0)
+    product_pf = _create_product(client, "Produto PF Em Risco", qtd_canoas=0, qtd_pf=32)
+
+    for produto_id, quantidade, local in (
+        (product_risk, 30, 11),
+        (product_slow, 3, 11),
+        (product_zero, 5, 11),
+        (product_pf, 30, 12),
+    ):
+        resp = client.post("/movimentacoes", json={
+            "tipo": "SAIDA",
+            "produto_id": produto_id,
+            "quantidade": quantidade,
+            "origem_location_id": local,
+            "data": "2026-02-10T10:00:00",
+        })
+        assert resp.status_code in (200, 201)
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA",
+        "produto_id": product_transfer,
+        "quantidade": 10,
+        "origem_location_id": 11,
+        "natureza": "TRANSFERENCIA_EXTERNA",
+        "local_externo": "MATRIZ",
+        "data": "2026-02-10T11:00:00",
+    })
+
+    resp = client.get("/analytics/products/stockout-risk?days=30&max_dias=15&date_to=2026-02-12&limit=10")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    by_id = {item["produto_id"]: item for item in data}
+    assert product_risk in by_id
+    assert by_id[product_risk]["estoque_atual"] == 4
+    assert by_id[product_risk]["total_saida"] == 30
+    assert by_id[product_risk]["dias_cobertura"] == 4
+    assert product_pf in by_id
+    assert product_slow not in by_id
+    assert product_zero not in by_id
+    assert product_transfer not in by_id
+
+    resp_canoas = client.get(
+        "/analytics/products/stockout-risk?days=30&max_dias=15&date_to=2026-02-12&location_id=11&limit=10"
+    )
+    ids_canoas = {item["produto_id"] for item in resp_canoas.json()["data"]}
+    assert product_risk in ids_canoas
+    assert product_pf not in ids_canoas
 
 
 def test_analytics_external_transfers_filters_type_scope_and_order(client):

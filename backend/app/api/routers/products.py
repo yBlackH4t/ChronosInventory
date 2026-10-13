@@ -5,7 +5,6 @@ from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
-from app.models.product import Product
 from app.services.image_service import ImageService
 from app.services.movement_service import MovementService
 from app.services.stock_service import StockService
@@ -21,7 +20,6 @@ from backend.app.schemas.product import (
     ProductImageSetPrimaryOut,
     ProductImageUploadOut,
     ProductImagesUploadOut,
-    LocationStock,
     ProductOut,
     ProductPatch,
     ProductStatusBulkIn,
@@ -30,8 +28,6 @@ from backend.app.schemas.product import (
     ProductPut,
     ProductCatalogResponseOut,
 )
-from core.database.connection import DatabaseConnection
-from core.database.repositories.inventory_location_repository import InventoryLocationRepository
 from core.exceptions import ValidationException
 
 

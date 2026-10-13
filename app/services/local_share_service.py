@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import json
 import socket
 import threading
@@ -15,6 +16,14 @@ from core.constants import APP_VERSION
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 
+# Senha do servidor local (Backup > Base oficial), a mesma em todas as maquinas da empresa.
+# Sem senha configurada o servidor continua aberto na rede, como antes.
+TOKEN_HEADER = "X-Chronos-Senha"
+WRONG_TOKEN_MESSAGE = (
+    "O servidor da outra maquina pede senha, e a desta maquina nao confere. Use a mesma senha do "
+    "servidor em todas as maquinas (Backup > Base oficial)."
+)
+
 
 class LocalShareService:
     _share_root_name = "local_share"
@@ -26,6 +35,9 @@ class LocalShareService:
     _official_manifest_filename = "base_oficial.json"
     _compare_zip_filename = "compare_base.zip"
     _compare_manifest_filename = "compare_base.json"
+    # Conhecimento do especialista (assistente de IA): um JSON pequeno, publicado a parte da base.
+    _knowledge_dirname = "knowledge"
+    _knowledge_filename = "conhecimento_assistente.json"
     _default_port = 8765
 
     _server_lock = threading.Lock()
@@ -36,6 +48,26 @@ class LocalShareService:
         "publisher_name": "",
         "port": _default_port,
     }
+
+    def configured_token(self) -> str:
+        """
+        Senha do servidor desta maquina, lida do arquivo a cada uso: trocar a senha vale na hora,
+        para o servidor e para as buscas em outras maquinas.
+        """
+        try:
+            with open(FileUtils.get_official_base_config_path(), "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError):
+            return ""
+        return str(data.get("server_token") or "").strip() if isinstance(data, dict) else ""
+
+    def _auth_headers(self) -> dict[str, str]:
+        token = self.configured_token()
+        return {TOKEN_HEADER: token} if token else {}
+
+    @staticmethod
+    def _token_matches(expected: str, received: Optional[str]) -> bool:
+        return not expected or hmac.compare_digest(expected.encode("utf-8"), str(received or "").encode("utf-8"))
 
     def get_storage_root(self) -> str:
         root = Path(FileUtils.get_app_root_directory()) / self._share_root_name
@@ -65,6 +97,30 @@ class LocalShareService:
             "latest_zip": str(latest_dir / self._compare_zip_filename),
             "latest_manifest": str(latest_dir / self._compare_manifest_filename),
         }
+
+    def get_knowledge_path(self) -> str:
+        return str(Path(self.get_storage_root()) / self._knowledge_dirname / self._latest_dirname / self._knowledge_filename)
+
+    def fetch_remote_knowledge(self, server_url: str) -> dict[str, Any]:
+        """Conhecimento do assistente publicado pela maquina publicadora (rota /knowledge)."""
+        url = f"{self.normalize_server_url(server_url)}/knowledge"
+        try:
+            response = requests.get(url, timeout=10, headers=self._auth_headers())
+        except requests.RequestException as exc:
+            raise ValidationException(f"Nao foi possivel conectar a maquina publicadora: {exc}") from exc
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            raise ValidationException(WRONG_TOKEN_MESSAGE)
+        if response.status_code == HTTPStatus.NOT_FOUND:
+            raise ValidationException("A maquina publicadora ainda nao publicou o conhecimento do assistente.")
+        if response.status_code != HTTPStatus.OK:
+            raise ValidationException(f"A maquina publicadora respondeu {response.status_code} ao enviar o conhecimento.")
+        try:
+            payload = response.json()
+        except Exception as exc:
+            raise ValidationException(f"Conhecimento recebido invalido: {exc}") from exc
+        if not isinstance(payload, dict):
+            raise ValidationException("Conhecimento recebido invalido.")
+        return payload
 
     def start_server(self, machine_label: str, publisher_name: str, port: int) -> dict[str, Any]:
         cls = type(self)
@@ -216,7 +272,7 @@ class LocalShareService:
     def fetch_remote_status(self, server_url: str) -> dict[str, Any]:
         url = f"{self.normalize_server_url(server_url)}/health"
         try:
-            response = requests.get(url, timeout=5)
+            response = requests.get(url, timeout=5, headers=self._auth_headers())
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel conectar ao servidor remoto: {exc}") from exc
 
@@ -232,6 +288,8 @@ class LocalShareService:
 
         if not isinstance(payload, dict):
             raise ValidationException("Resposta invalida do servidor remoto.")
+        if payload.get("senha_ok") is False:
+            raise ValidationException(WRONG_TOKEN_MESSAGE)
         payload["server_url"] = self.normalize_server_url(server_url)
         return payload
 
@@ -239,10 +297,12 @@ class LocalShareService:
         normalized_kind = self._normalize_kind(kind)
         url = f"{self.normalize_server_url(server_url)}/{normalized_kind}/manifest"
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=10, headers=self._auth_headers())
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel consultar o manifesto remoto: {exc}") from exc
 
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            raise ValidationException(WRONG_TOKEN_MESSAGE)
         if response.status_code == HTTPStatus.NOT_FOUND:
             raise ValidationException("O servidor remoto ainda nao publicou essa base.")
         if response.status_code != HTTPStatus.OK:
@@ -263,10 +323,12 @@ class LocalShareService:
         normalized_kind = self._normalize_kind(kind)
         url = f"{self.normalize_server_url(server_url)}/{normalized_kind}/download"
         try:
-            response = requests.get(url, timeout=60, stream=True)
+            response = requests.get(url, timeout=60, stream=True, headers=self._auth_headers())
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel baixar a base remota: {exc}") from exc
 
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            raise ValidationException(WRONG_TOKEN_MESSAGE)
         if response.status_code == HTTPStatus.NOT_FOUND:
             raise ValidationException("O servidor remoto ainda nao publicou essa base.")
         if response.status_code != HTTPStatus.OK:
@@ -298,8 +360,11 @@ class LocalShareService:
             def do_GET(self) -> None:  # noqa: N802
                 parsed = urlparse(self.path)
                 path = parsed.path.rstrip("/") or "/"
+                expected = service.configured_token()
+                authorized = service._token_matches(expected, self.headers.get(TOKEN_HEADER))
 
                 if path == "/health":
+                    # Aberto (serve para testar a conexao), mas sem nada do estoque.
                     service._send_json(
                         self,
                         {
@@ -308,10 +373,21 @@ class LocalShareService:
                             "machine_label": context["machine_label"],
                             "publisher_name": context["publisher_name"],
                             "server_port": context["port"],
+                            "senha_exigida": bool(expected),
+                            "senha_ok": authorized,
                             "official_available": Path(service.get_official_paths()["latest_manifest"]).is_file(),
                             "compare_available": Path(service.get_compare_paths()["latest_manifest"]).is_file(),
+                            "knowledge_available": Path(service.get_knowledge_path()).is_file(),
                         },
                     )
+                    return
+
+                if not authorized:
+                    service._send_json(self, {"erro": "senha_invalida"}, HTTPStatus.UNAUTHORIZED)
+                    return
+
+                if path == "/knowledge":
+                    service._send_json_file(self, service.get_knowledge_path())
                     return
 
                 if path == "/official/manifest":
@@ -359,9 +435,11 @@ class LocalShareService:
 
         self._send_json(handler, content)
 
-    def _send_json(self, handler: BaseHTTPRequestHandler, payload: dict[str, Any]) -> None:
+    def _send_json(
+        self, handler: BaseHTTPRequestHandler, payload: dict[str, Any], status: HTTPStatus = HTTPStatus.OK
+    ) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        handler.send_response(HTTPStatus.OK)
+        handler.send_response(status)
         handler.send_header("Content-Type", "application/json; charset=utf-8")
         handler.send_header("Content-Length", str(len(body)))
         handler.end_headers()

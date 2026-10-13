@@ -5,11 +5,13 @@ Regras centrais (usadas tanto na importacao quanto na busca e no vinculo):
 - canonical_code(): forma canonica de um codigo de peca para comparacao exata.
 - extract_codes_from_name(): extrai codigos do nome livre dos nossos produtos.
 - fix_mojibake(), rtf_to_text(): limpeza de texto vindo de catalogos externos.
+- search_words(): palavras normalizadas para busca em texto livre (aplicacoes).
 """
 
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Iterable, List, Optional, Set
 
 _NON_ALNUM = re.compile(r"[^0-9A-Z]")
@@ -300,6 +302,33 @@ def normalize_manufacturer(value: Optional[str]) -> str:
     text = clean_text(value) or ""
     upper = re.sub(r"\s+", " ", text).upper()
     return _BRAND_MAPPING.get(upper, upper)
+
+
+_LETTER_DIGIT_BOUNDARY = re.compile(r"(?<=[A-Z])(?=[0-9])|(?<=[0-9])(?=[A-Z])")
+_DOTTED_NUMBER = re.compile(r"(?<=\d)\.(?=\d)")
+
+
+def search_words(value: Optional[str]) -> List[str]:
+    """
+    Palavras normalizadas para comparar texto livre (veiculo, motor, pergunta).
+
+    Maiusculas, sem acentos, so A-Z/0-9, e letras separadas de numeros, para que
+    as variacoes de escrita virem as mesmas palavras. Numero com ponto fica junto
+    (modelo 8.150 nao e '8' + '150'):
+    'Scania R440'      -> ['SCANIA', 'R', '440']
+    'Ônibus K 440'     -> ['ONIBUS', 'K', '440']
+    'OM 366LA'         -> ['OM', '366', 'LA']
+    'DC13 Euro 3,4,5'  -> ['DC', '13', 'EURO', '3', '4', '5']
+    'Caminhão 8.150e'  -> ['CAMINHAO', '8150', 'E']
+    """
+    if not value:
+        return []
+    text = unicodedata.normalize("NFKD", fix_mojibake(str(value)) or "")
+    text = "".join(ch for ch in text if not unicodedata.combining(ch)).upper()
+    text = _DOTTED_NUMBER.sub("", text)
+    text = re.sub(r"[^0-9A-Z]+", " ", text)
+    text = _LETTER_DIGIT_BOUNDARY.sub(" ", text)
+    return text.split()
 
 
 def unique(values: Iterable[str]) -> List[str]:

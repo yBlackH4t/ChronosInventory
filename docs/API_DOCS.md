@@ -28,7 +28,7 @@ Erro:
 - `POST /produtos`
 - `PUT /produtos/{id}`
 - `PATCH /produtos/{id}`
-- `DELETE /produtos/{id}`
+- `DELETE /produtos/{id}` - so produto sem historico alem do estoque inicial do cadastro (`CADASTRO_INICIAL`). Com outras movimentacoes: 400 `validation_error` pedindo para inativar (o historico nao e apagado).
 - `GET /produtos/{id}/historico`
 
 Paginação (`/produtos`):
@@ -93,6 +93,9 @@ Regras:
   - evolucao de estoque total
 - `GET /analytics/products/inactive?days=30&date_to=YYYY-MM-DD&limit=5`
   - top itens sem movimentacao
+- `GET /analytics/products/stockout-risk?days=30&max_dias=15&location_id=&limit=5`
+  - itens com saldo que zeram em ate `max_dias` no ritmo de venda real (`SAIDA` normal) dos ultimos `days` dias
+  - retorna `estoque_atual`, `total_saida` e `dias_cobertura`, do mais urgente para o menos
 
 ### Endpoints legados mantidos
 - `GET /analytics/top-saidas`
@@ -107,6 +110,62 @@ Regras:
 - `POST /import/excel`
 - `POST /export/produtos` (stream `.xlsx`)
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)
+
+### Base oficial: senha do servidor local (porta 8765)
+- `PUT /backup/base-oficial/config` aceita `server_token` (min. 6 caracteres; `null` mantem, `""` remove). A mesma senha em todas as maquinas. `GET /backup/base-oficial/status` devolve so `server_token_set: bool` (a senha nunca volta).
+- Com senha, o servidor exige o cabecalho `X-Chronos-Senha` em `/official/*`, `/compare/*` (e `/knowledge` do assistente); sem ele responde 401. `/health` continua aberto e informa `senha_exigida` e `senha_ok`. As buscas desta maquina mandam a senha sozinhas; senha diferente vira uma mensagem explicando o que configurar.
+- Sem senha configurada, o servidor continua aberto como antes.
+
+## Assistente de IA
+Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A busca direta (sem IA) responde primeiro quando entende a pergunta (codigo, veiculo/motor, "essa dai"); a IA so entra quando ela nao entende. Sem IA disponivel, responde pela busca direta.
+- `POST /assistente/chat` - body `{ "mensagem": str (1-1000), "historico": [{ "papel": "usuario"|"assistente", "texto": str }] }`.
+  Resposta `{ resposta, produtos: [{ id, nome, categoria, estoque_total, estoque_por_local }], ferramentas_usadas, modo: "ia"|"busca_direta", aviso: str|null }`.
+  O backend nao guarda conversa: a tela envia o historico a cada pergunta. Nao retorna 503. `modo` = `busca_direta` com `aviso` null e o caso normal (a busca direta entendeu); com `aviso`, a IA falhou e a busca direta respondeu no lugar.
+- `GET /assistente/config` - `{ provedor, configurado, origem_chave, chave_mascarada, modelo, esforco, provedores: [{ id, nome, gratuito, precisa_chave, configurado, origem_chave, chave_mascarada, modelo }] }`.
+  Os campos do nivel de cima sao do provedor atual. Nunca devolve chaves.
+- `PUT /assistente/config` - body parcial `{ provedor?: "groq"|"gemini"|"ollama"|"anthropic"|"nenhum", api_key?, modelo?, esforco?: "low"|"medium"|"high"|"xhigh"|"max" }`.
+  `api_key` e `modelo` valem para o `provedor` enviado (ou o atual). `api_key: ""` remove a chave; `modelo: ""` volta ao padrao.
+  A configuracao fica em `assistente_config.json` na pasta do app (fora do banco e dos backups).
+- `POST /assistente/chat` aceita tambem `canal` (`app` | `whatsapp`, padrao `app`) e `autor` (ex.: numero do WhatsApp). Cada conversa vai para o historico do assistente.
+- `POST /assistente/chat/foto` - multipart: `foto` (arquivo de imagem), `mensagem?` (texto junto), `historico?` (JSON da lista de mensagens). Le os codigos da plaqueta (Groq, modelo com visao) e responde como o chat; a resposta traz `leitura_foto` (ex.: "Foto da plaqueta: 466646-5041S"). Foto ilegivel ou sem chave: `422 foto_ilegivel` com a explicacao.
+
+### Admin do assistente (maquina publicadora + senha)
+Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login) e a maquina configurada como publicadora da base oficial; sem isso: `403 admin_necessario`.
+- `GET /assistente/admin/status` - `{ maquina_publicadora, senha_definida, autenticado }`.
+- `POST /assistente/admin/senha` - `{ senha_nova (6+), senha_atual? }`. A atual e exigida quando ja existe senha. Trocar a senha encerra as sessoes.
+- `POST /assistente/admin/login` - `{ senha }` -> `{ token, expira_em }` (sessao de 8 h, some quando o backend reinicia).
+- `POST /assistente/admin/logout`.
+
+### Base de conhecimento do especialista
+- `GET /assistente/conhecimento?busca=&limite=&offset=` - regras `{ id, codigo_a, codigo_b, tipo: igual|similar|diferente, observacao, criado_em, atualizado_em }`. Leitura livre.
+- `POST /assistente/conhecimento` (admin) - `{ codigo_a, codigo_b, tipo, observacao? }`. Mesmo par de novo atualiza a regra. Tira os dois codigos da lista "Para revisar".
+- `DELETE /assistente/conhecimento/{id}` (admin).
+- `GET /assistente/conhecimento/sincronizacao` - conhecimento entre as maquinas (Fase 2c): `{ papel: publisher|consumer, configurado: bool (tem pasta/servidor para publicar ou receber; sem isso o `erro` so diz o que configurar), fonte: "servidor"|"pasta"|"servidor e pasta"|null, publicado_em, maquina, total_regras, atualizado_em, verificado_em, erro }`. Publicadora: para onde publicou. Outras: de onde e quando receberam. `erro` explica o que configurar.
+- `POST /assistente/conhecimento/sincronizar` - "Sincronizar agora": a publicadora publica de novo; as outras baixam a versao publicada (mesma resposta do GET). Sem admin.
+- A publicadora publica sozinha depois de cada regra criada, excluida ou aprovada, ao abrir o backend e a cada 10 min; as outras recebem ao abrir o backend e a cada 10 min. Arquivo `conhecimento_assistente.json` na pasta da base oficial (`latest/`) e na rota `GET /knowledge` do servidor local (porta 8765), que tambem passou a informar `knowledge_available` em `/health`.
+
+### Revisao e historico
+- `GET /assistente/revisao` (admin) - codigos pesquisados sem estoque ainda nao revisados: `{ codigo, vezes, ultima_vez, exemplo, conversas, conhecimento: [{codigo, relacao, obs}], sugestoes: [{codigo, produto_id, nome, estoque_total, motivo}] }`.
+- `POST /assistente/revisao/{codigo}/concluir` (admin) - tira o codigo da lista (volta se for perguntado de novo).
+- `GET /assistente/historico?limite=&offset=` (admin) - conversas, da mais nova para a mais antiga.
+- `PUT /assistente/historico/{id}/correcao` (admin) - `{ resposta_correta, observacao? }`.
+- `GET /assistente/historico/exportar` (admin) - arquivo JSONL (uma conversa por linha, sem o autor).
+
+### Propostas (/ensinar pelo WhatsApp)
+- `GET /assistente/propostas?status=pendente|aprovada|recusada|todas` (admin) - `{ id, criado_em, autor, codigo_a, codigo_b, tipo, observacao, status, decidido_em }`.
+- `POST /assistente/propostas/{id}/aprovar` (admin) - vira regra da base de conhecimento (devolve a regra). 404 se nao estiver pendente.
+- `POST /assistente/propostas/{id}/recusar` (admin).
+
+### Resumo diario (Mensagem para mim)
+- `GET /assistente/resumo` - `{ texto, ativo, hora, ultimo_envio }`: o resumo de hoje (zeraram desde ontem, mais sairam em 7 dias, perguntaram e nao temos em 7 dias) e a configuracao.
+- `PUT /assistente/resumo` (admin) - `{ ativo?, hora? ("HH:MM") }`. Com o WhatsApp do app conectado, o resumo vai sozinho para a "Mensagem para mim" uma vez por dia, depois da hora. Comando `/resumo` manda na hora.
+
+### WhatsApp (modo copiloto)
+Todas (admin): o QR code conecta o WhatsApp da empresa ao Chronos.
+- `GET /assistente/whatsapp/status` - `{ estado: parado|conectando|aguardando_qr|conectado|reconectando|desconectado|erro, qr, numero, erro, ativo }`. `qr` e o texto a desenhar como QR code (muda a cada ~20 s); so vem com `estado = aguardando_qr`.
+- `POST /assistente/whatsapp/iniciar` - liga a ponte (mostra QR se ainda nao conectou). Fica ligada nas proximas aberturas do app.
+- `POST /assistente/whatsapp/parar` - desliga a ponte (a conexao do aparelho continua salva).
+- `POST /assistente/whatsapp/desconectar` - tira o Chronos dos aparelhos conectados e apaga a sessao (precisa de QR de novo).
 
 ## Indices SQLite relevantes
 - `idx_produtos_nome`
@@ -125,3 +184,4 @@ Regras:
 - `invalid_transfer`
 - `not_found`
 - `internal_error`
+- `admin_necessario`

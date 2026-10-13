@@ -1,15 +1,13 @@
 {
   "identifier": "migrated",
-  "description": "permissions that were migrated from v1",
+  "description": "Permissoes da janela principal. O sidecar do backend e iniciado pelo Rust, entao a interface nao precisa executar comandos do shell.",
   "local": true,
   "windows": [
     "main"
   ],
   "permissions": [
     "core:default",
-    "shell:allow-execute",
-    "process:allow-restart",
-    "process:default",
-    "shell:default"
+    "dialog:allow-open",
+    "process:allow-restart"
   ]
 }

@@ -61,6 +61,7 @@ export type MovementsTabState = {
   pageSize: string;
   sort: string;
   productSearch: string;
+  documentoSearch?: string;
   showProductId: boolean;
   filters: SerializedMovementFilters;
   historyProductId: number | null;
@@ -99,6 +100,7 @@ export const DEFAULT_MOVEMENTS_TAB_STATE: MovementsTabState = {
   pageSize: "10",
   sort: "-data",
   productSearch: "",
+  documentoSearch: "",
   showProductId: false,
   filters: {
     produto_id: "",

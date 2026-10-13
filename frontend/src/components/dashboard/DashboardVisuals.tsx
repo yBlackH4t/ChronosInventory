@@ -1,5 +1,6 @@
 import {
   ActionIcon,
+  Badge,
   Button,
   ColorInput,
   Grid,
@@ -32,11 +33,15 @@ import type {
   FlowPoint,
   RecentStockoutItem,
   StockDistribution,
+  StockoutRiskItem,
   StockEvolutionPoint,
   TopSaidaItem,
 } from "../../lib/api";
 import { useLocations } from "../../hooks/useLocations";
 import { useChartTheme, useLocationColor } from "../../lib/chartTheme";
+
+// Eixo Y com largura "auto" e sem margem negativa: antes 1.400 aparecia cortado como "400".
+const formatAxisNumber = (value: number) => value.toLocaleString("pt-BR");
 
 type Scope = number | null;
 type PeriodMode = "week" | "month";
@@ -63,6 +68,9 @@ type DashboardVisualsProps = {
   onToggleAllExternalTransfers: () => void;
   recentStockouts: RecentStockoutItem[];
   recentStockoutsLoading: boolean;
+  stockoutRisk: StockoutRiskItem[];
+  stockoutRiskLoading: boolean;
+  multiLocation: boolean;
 };
 
 const PERIOD_LABELS: Record<PeriodMode, string> = {
@@ -82,6 +90,12 @@ function flowSeriesLabel(name: string | undefined): string {
   if (normalized === "entradas" || normalized === "entrada") return "Entradas";
   if (normalized === "saidas" || normalized === "saida") return "Saídas";
   return name ?? "Valor";
+}
+
+function coverageLabel(days: number): string {
+  if (days < 1) return "zera hoje";
+  if (days === 1) return "~1 dia";
+  return `~${days} dias`;
 }
 
 function PanelLoader() {
@@ -121,15 +135,20 @@ export default function DashboardVisuals({
   onToggleAllExternalTransfers,
   recentStockouts,
   recentStockoutsLoading,
+  stockoutRisk,
+  stockoutRiskLoading,
+  multiLocation,
 }: DashboardVisualsProps) {
   const { locations } = useLocations();
   const chart = useChartTheme();
   const { colorFor, setColor, palette } = useLocationColor();
 
   const scopeLabel =
-    scope === null
-      ? "Todas as filiais"
-      : (locations.find((l) => l.id === scope)?.name ?? `Local #${scope}`);
+    scope !== null
+      ? (locations.find((l) => l.id === scope)?.name ?? `Local #${scope}`)
+      : multiLocation
+        ? "Todas as filiais"
+        : (locations.find((l) => l.ativo)?.name ?? "Estoque");
   const periodContext = `${PERIOD_LABELS[periodMode]} · ${scopeLabel}`;
 
   const rankedSaidas = topSaidas.filter((item) => item.total_saida > 0);
@@ -154,6 +173,45 @@ export default function DashboardVisuals({
     tickLine: false,
   } as const;
 
+  const riskPanel = (
+    <Panel
+      title="Perto de zerar"
+      subtitle={`Pelo ritmo de saída dos últimos 30 dias · ${scopeLabel}`}
+    >
+      {stockoutRiskLoading ? (
+        <PanelLoader />
+      ) : stockoutRisk.length === 0 ? (
+        <EmptyState message="Nenhum item perto de zerar" />
+      ) : (
+        <Stack gap="sm" pt={4}>
+          {stockoutRisk.map((item) => (
+            <Group key={item.produto_id} justify="space-between" wrap="nowrap" gap="sm">
+              <Stack gap={0} miw={0}>
+                <MantineTooltip label={item.nome} openDelay={500}>
+                  <Text size="sm" truncate="end">
+                    {item.nome}
+                  </Text>
+                </MantineTooltip>
+                <Text size="xs" c="dimmed" className="num">
+                  {item.estoque_atual} em estoque · {item.total_saida} saíram em 30 dias
+                </Text>
+              </Stack>
+              <Badge
+                variant="light"
+                color={item.dias_cobertura <= 7 ? "red" : "orange"}
+                tt="none"
+                className="num"
+                style={{ flexShrink: 0 }}
+              >
+                {coverageLabel(item.dias_cobertura)}
+              </Badge>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Panel>
+  );
+
   return (
     <Stack gap="md">
       <Grid gutter="md">
@@ -167,7 +225,7 @@ export default function DashboardVisuals({
             ) : (
               <div style={{ width: "100%", height: CHART_HEIGHT }}>
                 <ResponsiveContainer>
-                  <AreaChart data={flow} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <AreaChart data={flow} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={chart.inflow} stopOpacity={0.18} />
@@ -180,7 +238,7 @@ export default function DashboardVisuals({
                     </defs>
                     <CartesianGrid vertical={false} stroke={chart.grid} />
                     <XAxis dataKey="period" {...axisProps} />
-                    <YAxis allowDecimals={false} width={40} {...axisProps} />
+                    <YAxis allowDecimals={false} width="auto" tickFormatter={formatAxisNumber} {...axisProps} />
                     <Tooltip
                       {...chart.tooltip}
                       cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
@@ -219,94 +277,98 @@ export default function DashboardVisuals({
           </Panel>
         </Grid.Col>
 
-        {/* Distribuição por filial */}
-        <Grid.Col span={{ base: 12, lg: 5 }}>
-          <Panel
-            title={scope === null ? "Distribuição por filial" : `Estoque em ${scopeLabel}`}
-            subtitle={`${distributionTotal.toLocaleString("pt-BR")} unidades em estoque`}
-            actions={
-              distributionItems.length > 0 ? (
-                <Popover width={240} position="bottom-end">
-                  <Popover.Target>
-                    <ActionIcon color="gray" size="sm" aria-label="Cores das filiais">
-                      <IconPalette size={16} stroke={1.5} />
-                    </ActionIcon>
-                  </Popover.Target>
-                  <Popover.Dropdown>
-                    <Text size="xs" fw={600} c="dimmed" mb="xs">
-                      Cores por filial
-                    </Text>
-                    <Stack gap="xs">
-                      {distributionItems.map((item) => (
+        {/* Distribuição por filial (só faz sentido com mais de um local) */}
+        {multiLocation ? (
+          <Grid.Col span={{ base: 12, lg: 5 }}>
+            <Panel
+              title={scope === null ? "Distribuição por filial" : `Estoque em ${scopeLabel}`}
+              subtitle={`${distributionTotal.toLocaleString("pt-BR")} unidades em estoque`}
+              actions={
+                distributionItems.length > 0 ? (
+                  <Popover width={240} position="bottom-end">
+                    <Popover.Target>
+                      <ActionIcon color="gray" size="sm" aria-label="Cores das filiais">
+                        <IconPalette size={16} stroke={1.5} />
+                      </ActionIcon>
+                    </Popover.Target>
+                    <Popover.Dropdown>
+                      <Text size="xs" fw={600} c="dimmed" mb="xs">
+                        Cores por filial
+                      </Text>
+                      <Stack gap="xs">
+                        {distributionItems.map((item) => (
+                          <Group key={item.local} justify="space-between" wrap="nowrap">
+                            <Text size="xs" truncate maw={90}>
+                              {item.local}
+                            </Text>
+                            <ColorInput
+                              size="xs"
+                              format="hex"
+                              swatches={palette}
+                              value={colorFor(item.local)}
+                              onChange={(val) => setColor(item.local, val)}
+                              w={120}
+                            />
+                          </Group>
+                        ))}
+                      </Stack>
+                    </Popover.Dropdown>
+                  </Popover>
+                ) : undefined
+              }
+            >
+              {distributionLoading ? (
+                <PanelLoader />
+              ) : distributionItems.length === 0 ? (
+                <EmptyState message="Sem estoque distribuído no momento" />
+              ) : (
+                <Stack gap="lg" pt={4}>
+                  <div className="share-bar" role="img" aria-label="Participação por filial">
+                    {distributionItems.map((item) => (
+                      <span
+                        key={item.local}
+                        title={`${item.local}: ${item.quantidade}`}
+                        style={{
+                          width: `${distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0}%`,
+                          background: colorFor(item.local),
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <Stack gap={10}>
+                    {distributionItems.map((item) => {
+                      const share =
+                        distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0;
+                      return (
                         <Group key={item.local} justify="space-between" wrap="nowrap">
-                          <Text size="xs" truncate maw={90}>
-                            {item.local}
-                          </Text>
-                          <ColorInput
-                            size="xs"
-                            format="hex"
-                            swatches={palette}
-                            value={colorFor(item.local)}
-                            onChange={(val) => setColor(item.local, val)}
-                            w={120}
-                          />
+                          <Group gap={8} wrap="nowrap" miw={0}>
+                            <span
+                              className="legend-swatch"
+                              style={{ background: colorFor(item.local) }}
+                            />
+                            <Text size="sm" truncate>
+                              {item.local}
+                            </Text>
+                          </Group>
+                          <Group gap="md" wrap="nowrap">
+                            <Text size="sm" fw={600} className="num">
+                              {item.quantidade.toLocaleString("pt-BR")}
+                            </Text>
+                            <Text size="xs" c="dimmed" w={44} ta="right" className="num">
+                              {share.toFixed(1)}%
+                            </Text>
+                          </Group>
                         </Group>
-                      ))}
-                    </Stack>
-                  </Popover.Dropdown>
-                </Popover>
-              ) : undefined
-            }
-          >
-            {distributionLoading ? (
-              <PanelLoader />
-            ) : distributionItems.length === 0 ? (
-              <EmptyState message="Sem estoque distribuído no momento" />
-            ) : (
-              <Stack gap="lg" pt={4}>
-                <div className="share-bar" role="img" aria-label="Participação por filial">
-                  {distributionItems.map((item) => (
-                    <span
-                      key={item.local}
-                      title={`${item.local}: ${item.quantidade}`}
-                      style={{
-                        width: `${distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0}%`,
-                        background: colorFor(item.local),
-                      }}
-                    />
-                  ))}
-                </div>
-                <Stack gap={10}>
-                  {distributionItems.map((item) => {
-                    const share =
-                      distributionTotal > 0 ? (item.quantidade / distributionTotal) * 100 : 0;
-                    return (
-                      <Group key={item.local} justify="space-between" wrap="nowrap">
-                        <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                          <span
-                            className="legend-swatch"
-                            style={{ background: colorFor(item.local) }}
-                          />
-                          <Text size="sm" truncate>
-                            {item.local}
-                          </Text>
-                        </Group>
-                        <Group gap="md" wrap="nowrap">
-                          <Text size="sm" fw={600} className="num">
-                            {item.quantidade.toLocaleString("pt-BR")}
-                          </Text>
-                          <Text size="xs" c="dimmed" w={44} ta="right" className="num">
-                            {share.toFixed(1)}%
-                          </Text>
-                        </Group>
-                      </Group>
-                    );
-                  })}
+                      );
+                    })}
+                  </Stack>
                 </Stack>
-              </Stack>
-            )}
-          </Panel>
-        </Grid.Col>
+              )}
+            </Panel>
+          </Grid.Col>
+        ) : (
+          <Grid.Col span={{ base: 12, lg: 5 }}>{riskPanel}</Grid.Col>
+        )}
 
         {/* Evolução do estoque */}
         <Grid.Col span={{ base: 12, lg: 7 }}>
@@ -318,7 +380,7 @@ export default function DashboardVisuals({
             ) : (
               <div style={{ width: "100%", height: CHART_HEIGHT }}>
                 <ResponsiveContainer>
-                  <AreaChart data={evolution} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <AreaChart data={evolution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="fillEvolution" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor={chart.series[0]} stopOpacity={0.16} />
@@ -327,7 +389,7 @@ export default function DashboardVisuals({
                     </defs>
                     <CartesianGrid vertical={false} stroke={chart.grid} />
                     <XAxis dataKey="period" {...axisProps} />
-                    <YAxis allowDecimals={false} width={40} {...axisProps} />
+                    <YAxis allowDecimals={false} width="auto" tickFormatter={formatAxisNumber} {...axisProps} />
                     <Tooltip
                       {...chart.tooltip}
                       cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
@@ -364,7 +426,7 @@ export default function DashboardVisuals({
                 {rankedSaidas.map((item, index) => (
                   <Stack key={item.produto_id} gap={6}>
                     <Group justify="space-between" wrap="nowrap" gap="sm">
-                      <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+                      <Group gap={10} wrap="nowrap" miw={0}>
                         <Text size="xs" c="dimmed" w={14} className="num">
                           {index + 1}
                         </Text>
@@ -387,6 +449,8 @@ export default function DashboardVisuals({
             )}
           </Panel>
         </Grid.Col>
+
+        {multiLocation ? <Grid.Col span={12}>{riskPanel}</Grid.Col> : null}
       </Grid>
 
       {/* Transferências externas */}

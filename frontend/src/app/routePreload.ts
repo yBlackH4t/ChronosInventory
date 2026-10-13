@@ -20,6 +20,7 @@ export const PAGE_IMPORTS = {
   "/locais": () => import("../pages/LocationsPage"),
   "/setup": () => import("../pages/SetupPage"),
   "/configuracoes": () => import("../pages/SettingsPage"),
+  "/assistente": () => import("../pages/AssistantPage"),
 } as const;
 
 export type PagePath = keyof typeof PAGE_IMPORTS;

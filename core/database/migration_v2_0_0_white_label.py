@@ -27,7 +27,7 @@ DEPOIS (Estrutura Dinâmica):
 
 import logging
 import sqlite3
-from typing import Callable, Optional
+from typing import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +177,7 @@ def migrate_to_white_label(conn: sqlite3.Connection) -> None:
         
         # Para produtos sem estoque em nenhuma location, criar registros com 0
         logger.info("  → Adding zero-quantity records for completeness...")
-        conn.execute(f"""
+        conn.execute("""
             INSERT OR IGNORE INTO product_inventory (produto_id, inventory_location_id, quantidade)
             SELECT p.id, l.id, 0
             FROM produtos p

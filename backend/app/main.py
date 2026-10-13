@@ -5,10 +5,17 @@ import ipaddress
 import logging
 import os
 import sqlite3
+import sys
+import tempfile
 import time
 import uuid
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+# Autodiagnostico do pacote: banco numa pasta temporaria, decidida antes de qualquer import
+# abrir o banco de verdade desta maquina.
+if "--diagnostico-assistente" in sys.argv:
+    os.environ["CHRONOS_APP_DIR"] = tempfile.mkdtemp(prefix="chronos_diag_")
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.services.assistant_admin_service import AdminRequiredError
 from app.services.backup_scheduler_service import BackupSchedulerService
 from app.services.local_share_service import LocalShareService
 from app.services.official_base_service import OfficialBaseService
@@ -53,6 +61,7 @@ from backend.app.api.routers import (
     inventory_locations,
     system,
     scanner,
+    assistant,
 )
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.common import SuccessResponse
@@ -105,12 +114,38 @@ def startup_runtime_services() -> None:
             publisher_name=str(official_base_cfg["publisher_name"]),
             port=int(official_base_cfg["server_port"]),
         )
+        # Ponte WhatsApp do assistente: religa se estava ligada (nunca impede o app de abrir).
+        try:
+            from app.services.whatsapp_service import WhatsAppService
+
+            WhatsAppService.instance().start_if_enabled()
+        except Exception:
+            LOG.exception("whatsapp: falha ao religar a ponte do assistente")
+        # Conhecimento do assistente: a publicadora publica e as outras recebem, agora e a cada 10 min.
+        try:
+            from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
+
+            AssistantKnowledgeSyncService.start_periodic()
+        except Exception:
+            LOG.exception("assistente: falha ao iniciar a sincronizacao do conhecimento")
 
 
 def shutdown_runtime_services() -> None:
     if os.getenv("APP_ENV", "").lower() != "test":
         BACKUP_SCHEDULER.stop()
         LOCAL_SHARE_SERVER.stop_server()
+        try:
+            from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
+
+            AssistantKnowledgeSyncService.stop_periodic()
+        except Exception:
+            LOG.exception("assistente: falha ao parar a sincronizacao do conhecimento")
+        try:
+            from app.services.whatsapp_service import WhatsAppService
+
+            WhatsAppService.instance().stop(remember=False)
+        except Exception:
+            LOG.exception("whatsapp: falha ao parar a ponte do assistente")
 
 
 @asynccontextmanager
@@ -209,6 +244,7 @@ app.include_router(inventory.router)
 app.include_router(inventory_locations.router)
 app.include_router(system.router)
 app.include_router(scanner.router)
+app.include_router(assistant.router)
 
 
 def _request_id(request: Request) -> str:
@@ -328,6 +364,11 @@ async def validation_exception_handler(request: Request, exc: ValidationExceptio
     return fail(400, "validation_error", str(exc), None, _request_id(request))
 
 
+@app.exception_handler(AdminRequiredError)
+async def admin_required_handler(request: Request, exc: AdminRequiredError) -> JSONResponse:
+    return fail(403, "admin_necessario", str(exc), None, _request_id(request))
+
+
 @app.exception_handler(ProductNotFoundException)
 async def product_not_found_handler(request: Request, exc: ProductNotFoundException) -> JSONResponse:
     return fail(404, "not_found", str(exc), None, _request_id(request))
@@ -426,6 +467,18 @@ if __name__ == "__main__":
         else:
             print(APP_VERSION)
         raise SystemExit(0)
+
+    if "--diagnostico-assistente" in sys.argv:
+        # Confere se o pacote (PyInstaller) trouxe o que o assistente usa; resultado em JSON.
+        from app.services.assistant_packaging_check import run_check
+
+        position = sys.argv.index("--diagnostico-assistente")
+        report = sys.argv[position + 1] if len(sys.argv) > position + 1 else "diagnostico_assistente.json"
+        passed = run_check(report, app=app)
+        import shutil
+
+        shutil.rmtree(os.environ["CHRONOS_APP_DIR"], ignore_errors=True)
+        raise SystemExit(0 if passed else 1)
 
     port = int(os.getenv("PORT", "8000"))
     # host=0.0.0.0 permite que celulares na mesma rede acessem o backend
