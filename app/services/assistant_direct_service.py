@@ -36,6 +36,16 @@ COMPARISON_WORDS = {
     "COMPATIVEIS", "DIFERENCA", "DIFERENTE", "DIFERENTES", "SIMILAR", "SIMILARES", "INTERCAMBIAVEL",
     "CORRESPONDE", "LUGAR",
 }
+# "quando saiu / quantas vendemos / teve venda esse mes?": verbo de movimento com tempo ou
+# quantidade, ou substantivo com tempo. Assim "quantos tem pra venda?" continua sendo estoque.
+MOVEMENT_VERBS = {
+    "SAIU", "SAIRAM", "VENDEU", "VENDEMOS", "VENDERAM", "VENDIDA", "VENDIDO", "VENDIDAS", "VENDIDOS",
+    "ENTROU", "ENTRARAM", "CHEGOU", "CHEGARAM", "TRANSFERIU", "TRANSFERIMOS", "TRANSFERIDA", "TRANSFERIDO",
+}
+MOVEMENT_NOUNS = {"SAIDA", "SAIDAS", "VENDA", "VENDAS", "ENTRADA", "ENTRADAS", "TRANSFERENCIA", "TRANSFERENCIAS"}
+MOVEMENT_ALONE = {"MOVIMENTACAO", "MOVIMENTACOES", "MOVIMENTOU", "HISTORICO", "GIRO"}
+TIME_WORDS = {"QUANDO", "ULTIMA", "ULTIMO", "ULTIMAS", "ULTIMOS", "VEZ", "DATA", "DIA", "MES", "ANO", "SEMANA"}
+COUNT_WORDS = {"QUANTAS", "QUANTOS"}
 # Palavras que apontam para o codigo da mensagem anterior ("temos essa daí?").
 REFERENCE_WORDS = {"ESSA", "ESSE", "ESTA", "ESTE", "DESSA", "DESSE", "DESTA", "DESTE", "DAI", "ELA", "ELE", "ISSO", "MESMA"}
 # Numero de chassi (VIN): 17 caracteres, sem I, O e Q. Nao e codigo de peca.
@@ -106,6 +116,15 @@ class AssistantDirectService:
             spaced = self._spaced_codes(search_text, tools_used)
             if spaced:
                 codes, code_source = spaced, " ".join(spaced)
+        topic_tool = self._topic_tool(mensagem) if codes else None
+        if topic_tool:
+            # "quando saiu a 409300-5031?", "qual o codigo master power dessa?"
+            parts = []
+            for code in codes:
+                output = self.tools.run_tool(topic_tool, {"codigo": _typed_code(code_source, code)})
+                tools_used.append(topic_tool)
+                parts.append(output.get("texto_pronto") or HELP_TEXT)
+            return make_result("\n\n".join(parts), [], tools_used, MODE_DIRECT), True
         pairs = self._comparison_pairs(mensagem, codes, code_source, historico or [])
         if pairs:
             parts = []
@@ -170,6 +189,20 @@ class AssistantDirectService:
             if self._known_code(joined, tools_used):
                 codes.append(joined)
         return codes[:MAX_CODES_PER_MESSAGE]
+
+    @staticmethod
+    def _topic_tool(mensagem: str) -> Optional[str]:
+        """A pergunta com codigo e sobre movimentacao ou sobre o codigo Master Power (e nao o estoque)?"""
+        words = set(search_words(mensagem))
+        if (
+            MOVEMENT_ALONE & words
+            or (MOVEMENT_VERBS & words and (TIME_WORDS | COUNT_WORDS) & words)
+            or (MOVEMENT_NOUNS & words and TIME_WORDS & words)
+        ):
+            return "movimentacoes_produto"
+        if "MASTER" in words or ("MP" in words and "CODIGO" in words) or "FICHA" in words:
+            return "codigo_master_power"
+        return None
 
     def _comparison_pairs(
         self, mensagem: str, codes: List[str], code_source: str, historico: List[Dict[str, str]]

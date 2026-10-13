@@ -108,7 +108,8 @@ def test_groq_runs_tools_and_returns_cited_products(tools, store):  # noqa: F811
     assert body["messages"][0]["role"] == "system"
     assert body["messages"][1] == {"role": "user", "content": VAGUE}
     assert {t["function"]["name"] for t in body["tools"]} == {
-        "buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "detalhe_produto"
+        "buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "movimentacoes_produto",
+        "codigo_master_power", "detalhe_produto",
     }
 
     # Segunda chamada: pedido de ferramenta + resultado, em JSON compacto.

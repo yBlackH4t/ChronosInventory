@@ -3,6 +3,7 @@
 import pytest
 
 from app.services.assistant_answer_format import display_code, format_application_answer
+from app.services.assistant_direct_service import AssistantDirectService
 from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
 from core.catalog.bundle import relink_catalog
 from core.catalog.normalization import search_words
@@ -299,8 +300,41 @@ def test_run_tool_reports_errors_instead_of_raising(tools):
     assert tools.run_tool("buscar_por_codigo", {"codigo": "4031196"})["temos_em_estoque"] is True
 
 
+def test_movements_of_a_code(client, tools):
+    sale = {"tipo": "SAIDA", "produto_id": tools.ids["k27"], "quantidade": 1, "origem_location_id": PF}
+    assert client.post("/movimentacoes", json=sale).status_code == 201
+
+    lines = tools.product_movements("5327-988-7116")["texto_pronto"].splitlines()
+    assert lines[0] == "*53279887116*:"
+    assert lines[1].startswith("• Última saída: ") and " — 1 un. de Passo Fundo" in lines[1]
+    assert lines[2].startswith("• Última entrada: ")  # o estoque inicial do cadastro
+    assert lines[-1].startswith("Saíram 1 un. nos últimos 90 dias")
+    assert tools.product_movements("9999999")["texto_pronto"] == "*9999999*: não achei esse código no cadastro."
+
+    # "quando saiu?" vai para as movimentacoes; "quantos tem pra venda?" continua sendo estoque.
+    direct = AssistantDirectService(tools)
+    assert direct.answer("qual foi a ultima vez que ela saiu? 53279887116")["ferramentas_usadas"] == [
+        "movimentacoes_produto"
+    ]
+    assert direct.answer("quantos tem pra venda da 53279887116?")["ferramentas_usadas"] == ["buscar_por_codigo"]
+
+
+def test_master_power_code(tools):
+    assert tools.catalog_code("4031196")["texto_pronto"] == (
+        "*4031196*: no catálogo Master Power é a *805314* — MP530w (turbo HX55W HE500WG)."
+    )
+    assert tools.catalog_code("9999999")["texto_pronto"] == (
+        "*9999999*: não achei esse código no catálogo Master Power."
+    )
+    answer = AssistantDirectService(tools).answer("qual o codigo master power dessa?", [{"papel": "usuario", "texto": "53279887116"}])
+    assert answer["resposta"] == "*53279887116*: no catálogo Master Power é a *802333* — MP400WS (turbo K27)."
+
+
 def test_tool_definitions_match_handlers():
     names = {tool["name"] for tool in ASSISTANT_TOOLS}
-    assert names == {"buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "detalhe_produto"}
+    assert names == {
+        "buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "movimentacoes_produto",
+        "codigo_master_power", "detalhe_produto",
+    }
     for tool in ASSISTANT_TOOLS:
         assert tool["input_schema"]["required"]

@@ -80,6 +80,11 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
   produto junta os dois ("53279907101/7210", "53279907210 (USE 7101)") ou "não sei". Sem
   confirmação do especialista, a pergunta vai para "Para revisar" com o outro código sugerido.
   "Mesma ficha do catálogo" **não** conta: uma ficha Master Power junta centenas de códigos.
+- **Movimentações e código Master Power** (2026-10-13): "quando saiu / vendemos / chegou a X?",
+  "quantas saíram?" -> `movimentacoes_produto` (última saída, entrada e transferência, com data,
+  quantidade, local e nota, e quanto saiu em 90 dias; estornos não contam). "Qual o código
+  Master Power da X?" -> `codigo_master_power` (a ficha do catálogo, turbo antes do conjunto
+  central). Só leitura, como as outras buscas: a IA não lê o banco inteiro nem roda SQL.
 - **"Para revisar":** códigos perguntados que não temos aparecem para o admin, com sugestões só
   quando há motivo: o código com que perguntaram se é igual e o que o cadastro junta no nome
   (o "mesmo início de código" foi tirado em 2026-10-13: todo K27 começa com 5327988). O admin

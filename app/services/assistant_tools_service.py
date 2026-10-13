@@ -14,13 +14,16 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.assistant_answer_format import (
     display_code,
     format_application_answer,
+    format_catalog_code_answer,
     format_code_answer,
     format_comparison_answer,
+    format_movements_answer,
     short_applications,
     wants_core,
 )
@@ -67,6 +70,9 @@ DEFAULT_LIMITS = ResultLimits()
 COMPACT_LIMITS = ResultLimits(
     products=8, catalog_items=6, code_catalog_items=3, applications_per_item=3, detail_applications=6, refs_per_brand=3
 )
+
+# "Quanto saiu": saidas (vendas) dos ultimos dias, alem da ultima.
+SALES_WINDOW_DAYS = 90
 
 # Completar codigo pelo final ("988-7101"): so a partir de 6 digitos ("7101" bate com dezenas).
 MIN_COMPLETION_LENGTH = 6
@@ -340,6 +346,75 @@ class AssistantToolsService:
         result["texto_pronto"] = format_comparison_answer(labels[0], labels[1], relation, catalog)
         return result
 
+    def _our_products_for_code(self, code: str) -> List[Dict[str, Any]]:
+        """Nossos produtos (ativos e inativos) com o codigo ou a versao nova/reman dele."""
+        return [
+            p
+            for p in self.products.get_all(search_term=code, status="TODOS")
+            if self._code_match(code, p["nome"]) in (MATCH_EXACT, MATCH_FAMILY)
+        ]
+
+    @staticmethod
+    def _checked_code(codigo: str) -> Tuple[str, str]:
+        typed = " ".join(str(codigo or "").split()).upper()
+        codes = extract_codes_from_name(typed, expand_family=False)
+        code = codes[0] if codes else canonical_code(typed)
+        if len(code) < 4 or not any(ch.isdigit() for ch in code):
+            raise ValidationException("Codigo muito curto. Informe o numero da peca (ex.: 4031196, 409300-5031).")
+        typed = next((t for t in re.split(r"[\s,;/()]+", typed) if canonical_code(t) == code), code)
+        return code, typed
+
+    def product_movements(self, codigo: str, today: Optional[date] = None) -> Dict[str, Any]:
+        """Ultima saida, entrada e transferencia do codigo (e da versao nova/reman), e quanto saiu."""
+        code, typed = self._checked_code(codigo)
+        products = self._our_products_for_code(code)
+        rows = self.repository.get_movements([int(p["id"]) for p in products])
+        # Estorno desfaz um lancamento errado: nao e "a ultima vez que saiu".
+        rows = [r for r in rows if str(r.get("natureza") or "").upper() != "ESTORNO"]
+        today = today or date.today()
+        since = (today - timedelta(days=SALES_WINDOW_DAYS)).isoformat()
+        sales = [r for r in rows if r["tipo"] == "SAIDA" and str(r.get("natureza") or "OPERACAO_NORMAL") == "OPERACAO_NORMAL"]
+        result: Dict[str, Any] = {
+            "codigo_pesquisado": code,
+            "produtos_cadastrados": [p["nome"] for p in products],
+            "ultimas": {
+                kind: next(({k: v for k, v in r.items() if k != "id"} for r in rows if r["tipo"] == kind), None)
+                for kind in ("SAIDA", "ENTRADA", "TRANSFERENCIA")
+            },
+            "saidas_ultimos_dias": sum(int(r["quantidade"] or 0) for r in sales if str(r["data_hora"]) >= since),
+            "saidas_total": sum(int(r["quantidade"] or 0) for r in sales),
+            "registros_desde": self.repository.first_movement_date(),
+        }
+        result["texto_pronto"] = format_movements_answer(display_code(typed), result, SALES_WINDOW_DAYS)
+        return result
+
+    def catalog_code(self, codigo: str) -> Dict[str, Any]:
+        """Codigo Master Power (ficha do catalogo) de uma peca: pela referencia ou pelo vinculo do nosso produto."""
+        code, typed = self._checked_code(codigo)
+        ids: List[int] = []
+        for variant in expand_family_codes([code]):
+            for row in self.catalog.search_catalog(variant, limit=5):
+                if int(row["id"]) not in ids:
+                    ids.append(int(row["id"]))
+        products = [p for p in self._our_products_for_code(code) if p.get("ativo", 1)]
+        for link in self.repository.get_product_catalog_ids([int(p["id"]) for p in products]):
+            if int(link["catalogo_produto_id"]) not in ids:
+                ids.append(int(link["catalogo_produto_id"]))
+        rows = {int(r["id"]): r for r in self.repository.get_catalog_products(ids)}
+        fichas = [
+            {
+                "codigo": rows[i]["codigo"],
+                "modelo": rows[i].get("modelo"),
+                "tipo": CATEGORY_CORE if "CONJUNTO" in str(rows[i].get("grupo") or "").upper() else CATEGORY_TURBO,
+            }
+            for i in ids
+            if i in rows
+        ]
+        fichas.sort(key=lambda f: 0 if f["tipo"] == CATEGORY_TURBO else 1)  # a turbina antes do conjunto central
+        result = {"codigo_pesquisado": code, "fichas_master_power": fichas}
+        result["texto_pronto"] = format_catalog_code_answer(display_code(typed), fichas)
+        return result
+
     def search_by_application(self, texto: str) -> Dict[str, Any]:
         terms = [w for w in search_words(texto) if w not in _STOPWORDS]
         if not terms:
@@ -455,6 +530,8 @@ class AssistantToolsService:
             "buscar_por_aplicacao": lambda a: self.search_by_application(str(a["texto"])),
             "detalhe_produto": lambda a: self.product_details(int(a["produto_id"])),
             "comparar_codigos": lambda a: self.compare_codes(str(a["codigo_a"]), str(a["codigo_b"])),
+            "movimentacoes_produto": lambda a: self.product_movements(str(a["codigo"])),
+            "codigo_master_power": lambda a: self.catalog_code(str(a["codigo"])),
         }
         handler = handlers.get(name)
         if handler is None:
@@ -634,6 +711,35 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
                 "codigo_b": {"type": "string", "description": "Segundo codigo, como o usuario escreveu."},
             },
             "required": ["codigo_a", "codigo_b"],
+        },
+    },
+    {
+        "name": "movimentacoes_produto",
+        "description": (
+            "Historico de movimentacoes de uma peca pelo codigo: ultima saida (venda), ultima entrada, ultima "
+            "transferencia (data, quantidade, local, nota) e quanto saiu nos ultimos 90 dias. Use para 'quando "
+            "saiu?', 'quando vendemos?', 'quando chegou?', 'quantas saíram?'. Devolve 'texto_pronto'."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"codigo": {"type": "string", "description": "Codigo da peca, ex.: 409300-5031."}},
+            "required": ["codigo"],
+        },
+    },
+    {
+        "name": "codigo_master_power",
+        "description": (
+            "Codigo Master Power (ficha do catalogo) de uma peca: 'qual o codigo master power da 409300-5031?'. "
+            "Devolve 'texto_pronto'."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"codigo": {"type": "string", "description": "Codigo da peca, ex.: 409300-5031."}},
+            "required": ["codigo"],
         },
     },
     {

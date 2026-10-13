@@ -155,6 +155,90 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+_NATURE_LABELS = {
+    "AJUSTE": "ajuste de estoque",
+    "DEVOLUCAO": "devolução",
+    "TRANSFERENCIA_EXTERNA": "transferência externa",
+}
+
+
+def _br_date(value: Any) -> str:
+    """'2026-03-27 17:46:22' -> '27/03/2026'."""
+    text = str(value or "")[:10]
+    return f"{text[8:10]}/{text[5:7]}/{text[:4]}" if len(text) == 10 and text[4] == "-" else text
+
+
+def _movement_line(label: str, row: Optional[Dict[str, Any]], show_product: bool) -> str:
+    if not row:
+        return f"• {label}: nenhuma registrada"
+    qty = int(row.get("quantidade") or 0)
+    text = f"• {label}: {_br_date(row.get('data_hora'))} — {qty} un."
+    origin, destination = row.get("origem"), row.get("destino") or row.get("local_externo")
+    if row.get("tipo") == "TRANSFERENCIA":
+        text += f" de {origin or 'outro local'} para {destination or 'outro local'}"
+    elif row.get("tipo") == "SAIDA" and origin:
+        text += f" de {origin}"
+    elif row.get("tipo") == "ENTRADA" and destination:
+        text += f" em {destination}"
+    details = [
+        _NATURE_LABELS.get(str(row.get("natureza") or "").upper()),
+        " ".join(str(row.get("observacao") or "").split())[:60] or None,
+        row.get("documento"),
+    ]
+    details = [d for d in details if d]
+    if details:
+        text += f" ({', '.join(details)})"
+    if show_product:
+        text += f" — {row.get('produto')}"
+    return text
+
+
+def format_movements_answer(code_label: str, output: Dict[str, Any], window_days: int) -> str:
+    """Resposta para movimentacoes_produto: ultima saida, entrada e transferencia, e quanto saiu."""
+    label = f"*{code_label}*"
+    if not output.get("produtos_cadastrados"):
+        return f"{label}: não achei esse código no cadastro."
+    last = output.get("ultimas") or {}
+    since = _br_date(output.get("registros_desde")) if output.get("registros_desde") else None
+    if not any(last.values()):
+        note = f" (os registros começam em {since})" if since else ""
+        return f"{label}: nenhuma movimentação registrada{note}."
+    # Varias versoes (nova, reman, montado): cada linha diz de qual produto foi.
+    show_product = len({r.get("produto") for r in last.values() if r}) > 1
+    lines = [
+        f"{label}:",
+        _movement_line("Última saída", last.get("SAIDA"), show_product),
+        _movement_line("Última entrada", last.get("ENTRADA"), show_product),
+    ]
+    if last.get("TRANSFERENCIA"):
+        lines.append(_movement_line("Última transferência", last["TRANSFERENCIA"], show_product))
+    total = f"; desde {since}: {output.get('saidas_total', 0)} un." if since else ""
+    lines.append(f"Saíram {output.get('saidas_ultimos_dias', 0)} un. nos últimos {window_days} dias{total}")
+    return "\n".join(lines)
+
+
+def format_catalog_code_answer(code_label: str, fichas: List[Dict[str, Any]]) -> str:
+    """Resposta para codigo_master_power: a ficha (codigo Master Power) e o modelo da turbina."""
+    label = f"*{code_label}*"
+    if not fichas:
+        return f"{label}: não achei esse código no catálogo Master Power."
+
+    def describe(ficha: Dict[str, Any]) -> str:
+        model = str(ficha.get("modelo") or "").strip()
+        mp, _, turbo = model.partition("(")
+        kind = "conjunto central" if ficha.get("tipo") == CATEGORY_CORE else "turbo"
+        text = f"*{ficha['codigo']}*"
+        if mp.strip():
+            text += f" — {mp.strip()}"
+        if turbo.strip(" )"):
+            text += f" ({kind} {turbo.strip(' )')})"
+        return text
+
+    if len(fichas) == 1:
+        return f"{label}: no catálogo Master Power é a {describe(fichas[0])}."
+    return "\n".join([f"{label}: no catálogo Master Power:", *[f"• {describe(f)}" for f in fichas[:MAX_LINES]]])
+
+
 def format_comparison_answer(
     code_a: str, code_b: str, relation: Dict[str, Any], catalog_lines: Optional[List[str]] = None
 ) -> str:
