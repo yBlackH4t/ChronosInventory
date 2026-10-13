@@ -279,6 +279,7 @@ export type ListMovementsParams = {
   destino_location_id?: number | null;
   date_from?: string;
   date_to?: string;
+  documento?: string;
   page?: number;
   page_size?: number;
   sort?: string;

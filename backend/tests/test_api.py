@@ -715,6 +715,38 @@ def test_list_movements_pagination(client):
     }
 
 
+def test_list_movements_filters_by_documento(client):
+    product_id = _create_product(client, "Produto Documento", qtd_canoas=0, qtd_pf=0)
+    for documento in ("NF 13923", "NF 50_1", None):
+        movement = {
+            "tipo": "ENTRADA",
+            "produto_id": product_id,
+            "quantidade": 1,
+            "destino_location_id": 11,
+        }
+        if documento:
+            movement["documento"] = documento
+        assert client.post("/movimentacoes", json=movement).status_code == 201
+
+    resp = client.get("/movimentacoes", params={"documento": "13923"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert [row["documento"] for row in body["data"]] == ["NF 13923"]
+    assert body["meta"]["total_items"] == 1
+
+    resp = client.get("/movimentacoes", params={"documento": "nf"})
+    assert resp.json()["meta"]["total_items"] == 2
+
+    # "_" is matched literally, not as a LIKE wildcard.
+    resp = client.get("/movimentacoes", params={"documento": "0_1"})
+    assert [row["documento"] for row in resp.json()["data"]] == ["NF 50_1"]
+    resp = client.get("/movimentacoes", params={"documento": "5_"})
+    assert resp.json()["meta"]["total_items"] == 0
+
+    resp = client.get("/movimentacoes", params={"documento": "   "})
+    assert resp.json()["meta"]["total_items"] == 3
+
+
 def test_backup_create(client):
     resp = client.post("/backup/criar")
     assert resp.status_code == 200
