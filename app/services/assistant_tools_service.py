@@ -94,7 +94,15 @@ _STOPWORDS = {
     "MEU", "MINHA", "SEU", "SUA", "ESSE", "ESSA", "ESTE", "ESTA", "ISSO", "AQUI",
     "OI", "OLA", "BOM", "BOA", "DIA", "TARDE", "NOITE", "ALGUM", "ALGUMA", "PRECISO", "PRECISA",
     "PECA", "PECAS", "CLIENTE", "VEICULO", "MODELO", "ANO",
+    # Conversa e texto colado de uma resposta ("Não temos esse código, mas temos:" achava o OM 457LA
+    # porque "NAO" aparece numa aplicacao).
+    "NAO", "SIM", "MAS", "OU", "SE", "JA", "SO", "MAIS", "AINDA", "TAMBEM", "TB", "TMB", "VC", "VOCE",
+    "CODIGO", "CODIGOS", "FAVOR", "OBRIGADO", "OBRIGADA", "TUDO", "NADA", "ENTAO", "PQ", "PORQUE",
+    "COMO", "ONDE", "ALGUEM", "QUERO", "QUER", "TER", "TINHA", "TEMOS", "ESTA", "ESTAO", "SAO", "E",
+    "MOMENTO", "AGORA", "HOJE", "OPCAO", "OPCOES",
 }
+# Motor Volvo: o chefe fala "D13", o catalogo escreve "D13" e "MD13".
+_SYNONYMS_ENGINE_LETTER = {"D": ("D", "MD")}
 
 # Apelidos de montadora -> palavras como aparecem no catalogo (qualquer uma serve).
 _SYNONYMS = {
@@ -114,6 +122,37 @@ _PARENS = re.compile(r"\(([^)]*)\)")
 
 def _is_year(term: str) -> bool:
     return len(term) == 4 and term.isdigit() and 1980 <= int(term) <= 2039
+
+
+_YEAR_IN_TEXT = re.compile(r"(?<!\d)(19[89]\d|20[0-3]\d)(?!\d)")
+
+
+def _year_range(text: str) -> Optional[Tuple[Optional[int], Optional[int]]]:
+    """
+    Anos em que a aplicacao vale, pelo texto do catalogo: 'A partir 2017' -> (2017, None),
+    'Até final de 2018' -> (None, 2018), '2019 – 2023' -> (2019, 2023), '2011+' -> (2011, None).
+    None quando o texto nao fala de ano.
+    """
+    upper = (text or "").upper().replace("É", "E")
+    years = [int(y) for y in _YEAR_IN_TEXT.findall(upper)]
+    if not years:
+        return None
+    low: Optional[int] = min(years)
+    high: Optional[int] = max(years)
+    if "PARTIR" in upper or "DESDE" in upper or re.search(r"(19|20)\d\d\s*\+", upper):
+        high = None
+    if re.search(r"\bATE\b", upper) and not re.search(r"(19|20)\d\d\s*(A|ATE|-|–)\s*(19|20)\d\d", upper):
+        low = None
+    return low, high
+
+
+def _year_fits(app: Dict[str, Any], year: int) -> bool:
+    """A aplicacao vale para esse ano? Sem ano no catalogo: pode ser (fica na lista)."""
+    span = _year_range(" ".join(str(app.get(k) or "") for k in ("veiculo", "motor", "complemento")))
+    if span is None:
+        return True
+    low, high = span
+    return (low is None or year >= low) and (high is None or year <= high)
 
 
 def _product_category(nome: str) -> str:
@@ -447,17 +486,27 @@ class AssistantToolsService:
         # Numero desconhecido continua obrigatorio ("scania 999" nao vira "qualquer Scania").
         # Ano ("dc13 2015") quase nunca esta escrito na aplicacao: vira filtro opcional, usado
         # so se alguma aplicacao tiver aquele numero (ex.: Axor 2035 continua funcionando).
-        ignored = [t for t in terms if t.isalpha() and not (set(_SYNONYMS.get(t, (t,))) & vocabulary)]
+        synonyms = {**_SYNONYMS, **_SYNONYMS_ENGINE_LETTER}
+        ignored = [t for t in terms if t.isalpha() and not (set(synonyms.get(t, (t,))) & vocabulary)]
         known = [t for t in terms if t not in ignored]
+        if known and all(_is_year(t) for t in known):
+            # So o ano ("2015"), sem veiculo nem motor: acharia qualquer aplicacao daquele ano.
+            raise ValidationException("Informe o veiculo ou o motor junto com o ano (ex.: 'volvo fh 2015').")
         required = [t for t in known if not _is_year(t)] or known
         optional = [t for t in known if t not in required]
-        alternatives = [set(_SYNONYMS.get(term, (term,))) for term in required]
+        alternatives = [set(synonyms.get(term, (term,))) for term in required]
 
         candidates = [(app, words) for app, words in indexed if alternatives and all(o & words for o in alternatives)]
         for term in optional:
-            narrowed = [(app, words) for app, words in candidates if term in words]
-            if narrowed:
-                candidates = narrowed
+            # Ano: vale o que o catalogo diz ("A partir 2017", "Até final de 2018", "2019 – 2023");
+            # aplicacao sem ano continua na lista.
+            # Senao, o numero pode ser parte do modelo (Axor 2035).
+            by_year = [(app, words) for app, words in candidates if _year_fits(app, int(term))]
+            by_word = [(app, words) for app, words in candidates if term in words]
+            if by_year and len(by_year) < len(candidates):
+                candidates = by_year
+            elif by_word:
+                candidates = by_word
             else:
                 ignored.append(term)
 

@@ -224,6 +224,10 @@ migrações novas no banco. Sempre numa **cópia**.
 - **Limite gratuito do Groq:** perguntas de código e veículo não gastam (busca direta); só as que
   a busca direta não entende vão para a IA. Sem IA, o assistente continua respondendo.
 - **Mensagem que mistura veículo e código de peça:** vale o código; o resto é ignorado.
+- **Depois de "Qual é o motor ou o ano do veículo?"** basta mandar "d13", "2015" ou "d13 2015":
+  junta com a pergunta original, inclusive numa segunda resposta seguida. O ano vale pelo texto do
+  catálogo ("A partir 2017", "Até final de 2018", "2019 – 2023"); aplicação sem ano continua na
+  lista. "D13" acha também o "MD13". Só o ano, sem veículo nem conversa antes, não é busca.
 - **Número de chassi** não é código de peça: com veículo junto, vale o veículo; só o chassi, a
   resposta pede o código da plaqueta ou o veículo e o motor. Uma regra ensinada para o chassi
   vale só para aquele caminhão; ensine de código para código.

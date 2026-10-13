@@ -4,7 +4,7 @@ import pytest
 
 from app.services.assistant_answer_format import display_code, format_application_answer
 from app.services.assistant_direct_service import AssistantDirectService
-from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
+from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService, _year_range
 from core.catalog.bundle import relink_catalog
 from core.catalog.normalization import search_words
 from core.database.connection import DatabaseConnection
@@ -105,6 +105,15 @@ def tools(client):
     service = AssistantToolsService()
     service.ids = ids
     return service
+
+
+def test_year_range_from_the_catalog_text():
+    assert _year_range("MD13 (A partir 2017)") == (2017, None)
+    assert _year_range("MD13 460/480/500/520 HP Euro 5 (Até final de 2018)") == (None, 2018)
+    assert _year_range("P3216 / D13C500 ((2019 – 2023))") == (2019, 2023)
+    assert _year_range("Europa (2006 / 2007/ 2011+)") == (2006, None)
+    assert _year_range("CURSOR 13 EURO 5 SCR 440/480 HP (2012 - 2015)") == (2012, 2015)
+    assert _year_range("DC13 SCR Euro 5 MWM 4.10") is None
 
 
 def test_search_words_normalizes_free_text():
@@ -213,7 +222,7 @@ def test_application_search_splits_same_vehicle_by_engine(tools):
     assert "mudam conforme o motor" in result["atencao"]
     assert list(result).index("atencao") < list(result).index("fichas_catalogo")
     assert result["texto_pronto"].startswith("Depende do motor:")
-    assert result["texto_pronto"].endswith("Qual é o motor do cliente?")
+    assert result["texto_pronto"].endswith("Qual é o motor ou o ano do veículo?")
 
     narrowed = tools.search_by_application("scania r440 dc13")
     assert [f["ficha"] for f in narrowed["fichas_catalogo"]] == ["805310"]
@@ -242,7 +251,7 @@ def test_application_answer_does_not_ask_the_engine_again():
     # So "scania 440" (o 440 esta no veiculo, nao no motor): continua perguntando.
     text = format_application_answer({"termos_usados": ["SCANIA", "440"], "fichas_catalogo": items})
     assert text.startswith("Depende do motor:")
-    assert text.endswith("Qual é o motor do cliente?")
+    assert text.endswith("Qual é o motor ou o ano do veículo?")
 
 
 def test_application_search_synonyms_and_model_numbers(tools):

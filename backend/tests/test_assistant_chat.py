@@ -425,12 +425,12 @@ def test_direct_search_by_application(tools):  # noqa: F811
         "• DT12-06/18 Euro 3 → turbo HX52 / HE500GF",
         "   ❌ não temos (cadastrado, sem estoque)",
     ]
-    assert scania[-1] == "Qual é o motor do cliente?"
+    assert scania[-1] == "Qual é o motor ou o ano do veículo?"
 
     # Resposta curta depois de o assistente perguntar: junta com a pergunta anterior.
     history = [
         {"papel": "usuario", "texto": "temos turbina do scania 440?"},
-        {"papel": "assistente", "texto": "Depende do motor: ... Qual é o motor do cliente?"},
+        {"papel": "assistente", "texto": "Depende do motor: ... Qual é o motor ou o ano do veículo?"},
     ]
     follow_up = direct.answer("dc13", history)["resposta"].splitlines()
     assert follow_up[0] == "Temos:"
@@ -438,6 +438,17 @@ def test_direct_search_by_application(tools):  # noqa: F811
     # Com o ano junto (que o catalogo nao cita), continua achando.
     with_year = direct.answer("é o dc13, 2015", history)["resposta"]
     assert "*TURBO GTA42S - 779839-0025*" in with_year
+    # So o ano: vale o que o catalogo diz ("A partir de 2012" nao serve para 2010).
+    older = direct.answer("2010", history)["resposta"].splitlines()
+    assert older[:2] == ["Não temos no momento:", "• DT12-06/18 Euro 3 → turbo HX52 / HE500GF"]
+    # Segunda resposta seguida ("dc13" e depois "2015"): continua sendo o Scania 440.
+    chained = history + [
+        {"papel": "usuario", "texto": "dc13"},
+        {"papel": "assistente", "texto": "\n".join(follow_up)},
+    ]
+    assert "*TURBO GTA42S - 779839-0025*" in direct.answer("2015", chained)["resposta"]
+    # Texto colado de uma resposta nao e veiculo (achava uma aplicacao pela palavra "não").
+    assert direct.try_answer("Não temos esse código, mas temos:") is None
 
     # Chefe cola o codigo e depois manda (em audio) "temos essa daí?".
     pasted = [{"papel": "usuario", "texto": "805314"}]

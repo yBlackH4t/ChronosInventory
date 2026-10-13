@@ -29,6 +29,9 @@ from app.services.assistant_tools_service import AssistantToolsService
 from core.catalog.normalization import canonical_code, extract_codes_from_name, search_words
 
 MAX_CODES_PER_MESSAGE = 3
+# Respostas seguidas a "Qual é o motor (ou o ano)?" que juntam com a pergunta original.
+MAX_FOLLOW_UPS = 3
+APPLICATION_ANSWER_STARTS = ("Depende do motor:", "Temos:", "Não temos no momento:")
 # "a 7101 é a mesma que a 7210?": pergunta sobre os dois codigos, nao sobre o estoque.
 COMPARISON_WORDS = {
     "IGUAL", "IGUAIS", "MESMA", "MESMO", "MESMAS", "MESMOS", "EQUIVALENTE", "EQUIVALENTES", "EQUIVALE",
@@ -233,16 +236,26 @@ class AssistantDirectService:
 
     @staticmethod
     def _application_queries(mensagem: str, historico: List[Dict[str, str]]) -> List[str]:
-        """Pergunta atual; antes dela, a pergunta anterior + a atual se o assistente tinha perguntado algo."""
-        queries = [mensagem]
-        if len(historico) >= 2:
-            last, previous = historico[-1], historico[-2]
-            asked_back = last.get("papel") == "assistente" and str(last.get("texto") or "").strip().endswith("?")
+        """
+        Pergunta atual; antes dela, as respostas do usuario as perguntas do assistente juntas com
+        a pergunta original: "turbina do fh?" -> "Qual é o motor?" -> "d13" -> (ainda varias) ->
+        "2015" vira "turbina do fh? d13 2015", depois "d13 2015" e por fim so "2015".
+        """
+        parts = [mensagem]
+        index = len(historico) - 1
+        while index >= 1 and len(parts) <= MAX_FOLLOW_UPS:
+            asked, previous = historico[index], historico[index - 1]
             previous_text = str(previous.get("texto") or "")
-            if (
-                asked_back
+            answer = str(asked.get("texto") or "").strip()
+            if not (
+                asked.get("papel") == "assistente"
+                # Perguntou ("Qual é o motor?") ou respondeu por veiculo: "2015" logo depois continua a busca.
+                and (answer.endswith("?") or answer.startswith(APPLICATION_ANSWER_STARTS))
                 and previous.get("papel") == "usuario"
                 and not extract_codes_from_name(previous_text, expand_family=False)
             ):
-                queries.insert(0, f"{previous_text} {mensagem}")
-        return queries
+                break
+            parts.insert(0, previous_text)
+            index -= 2
+        queries = [" ".join(parts[start:]) for start in range(len(parts))]
+        return list(dict.fromkeys(queries))

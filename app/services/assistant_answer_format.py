@@ -382,7 +382,7 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
     # Motor ja informado ("scania 440" + "dc13") e ainda ha opcoes: lista sem perguntar de novo.
     if len(engines) > 1 and not _engine_given(output, items[:MAX_LINES]):
         header = "Depende do motor:"
-        footer = "Qual é o motor do cliente?"
+        footer = "Qual é o motor ou o ano do veículo?"  # a resposta curta ("d13", "2015") junta com esta pergunta
     else:
         header = "Temos:" if any_stock else "Não temos no momento:"
         footer = None
