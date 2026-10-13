@@ -74,9 +74,17 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
   (796155-5002).
 - **Admin:** só a máquina **publicadora** da base oficial (Backup > Base oficial > "Papel desta
   máquina" = Publica a base) + senha. O login dura 8 h e fica só na memória do backend.
-- **"Para revisar":** códigos perguntados que não temos aparecem para o admin, com sugestões
-  (mesmo início de código BorgWarner). O admin ensina com "É igual" / "É similar" / "Não serve"
-  ou "Ensinar outro código". Uma regra por código (o sistema recusa "A OU B" num campo).
+- **"A é igual a B?"** (igual, a mesma, equivalente, serve no lugar...): a busca direta usa
+  `comparar_codigos` e responde a relação, sem falar de estoque: mesma peça (nova/reman), o que
+  o especialista ensinou (igual/similar/diferente), "provavelmente iguais" quando o nome de um
+  produto junta os dois ("53279907101/7210", "53279907210 (USE 7101)") ou "não sei". Sem
+  confirmação do especialista, a pergunta vai para "Para revisar" com o outro código sugerido.
+  "Mesma ficha do catálogo" **não** conta: uma ficha Master Power junta centenas de códigos.
+- **"Para revisar":** códigos perguntados que não temos aparecem para o admin, com sugestões só
+  quando há motivo: o código com que perguntaram se é igual e o que o cadastro junta no nome
+  (o "mesmo início de código" foi tirado em 2026-10-13: todo K27 começa com 5327988). O admin
+  ensina com "É igual" / "É similar" / "Não serve" ou "Ensinar outro código". "Não serve" tira
+  só a sugestão; o código continua na lista. Uma regra por código (o sistema recusa "A OU B").
 - **Histórico:** toda pergunta e resposta vai para `assistente_historico.db` (separado do
   estoque). O admin corrige respostas e exporta em JSONL (sem o telefone).
 - **Outras máquinas (Fase 2c):** a publicadora publica as regras num JSON pequeno, pela pasta

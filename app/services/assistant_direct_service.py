@@ -29,6 +29,13 @@ from app.services.assistant_tools_service import AssistantToolsService
 from core.catalog.normalization import canonical_code, extract_codes_from_name, search_words
 
 MAX_CODES_PER_MESSAGE = 3
+# "a 7101 é a mesma que a 7210?": pergunta sobre os dois codigos, nao sobre o estoque.
+COMPARISON_WORDS = {
+    "IGUAL", "IGUAIS", "MESMA", "MESMO", "MESMAS", "MESMOS", "EQUIVALENTE", "EQUIVALENTES", "EQUIVALE",
+    "SUBSTITUI", "SUBSTITUTA", "SUBSTITUTO", "SERVE", "SERVEM", "TROCA", "BATE", "BATEM", "COMPATIVEL",
+    "COMPATIVEIS", "DIFERENCA", "DIFERENTE", "DIFERENTES", "SIMILAR", "SIMILARES", "INTERCAMBIAVEL",
+    "CORRESPONDE", "LUGAR",
+}
 # Palavras que apontam para o codigo da mensagem anterior ("temos essa daí?").
 REFERENCE_WORDS = {"ESSA", "ESSE", "ESTA", "ESTE", "DESSA", "DESSE", "DESTA", "DESTE", "DAI", "ELA", "ELE", "ISSO", "MESMA"}
 # Numero de chassi (VIN): 17 caracteres, sem I, O e Q. Nao e codigo de peca.
@@ -99,6 +106,14 @@ class AssistantDirectService:
             spaced = self._spaced_codes(search_text, tools_used)
             if spaced:
                 codes, code_source = spaced, " ".join(spaced)
+        pairs = self._comparison_pairs(mensagem, codes, code_source, historico or [])
+        if pairs:
+            parts = []
+            for first, second in pairs:
+                output = self.tools.run_tool("comparar_codigos", {"codigo_a": first, "codigo_b": second})
+                tools_used.append("comparar_codigos")
+                parts.append(output.get("texto_pronto") or HELP_TEXT)
+            return make_result("\n\n".join(parts), [], tools_used, MODE_DIRECT), True
         if codes:
             parts = []
             for code in codes:
@@ -155,6 +170,26 @@ class AssistantDirectService:
             if self._known_code(joined, tools_used):
                 codes.append(joined)
         return codes[:MAX_CODES_PER_MESSAGE]
+
+    def _comparison_pairs(
+        self, mensagem: str, codes: List[str], code_source: str, historico: List[Dict[str, str]]
+    ) -> List[Tuple[str, str]]:
+        """
+        Pares de codigos de uma pergunta "e igual / a mesma / serve no lugar?" (o primeiro com
+        cada um dos outros). Com um codigo so e "essa", o outro e o da mensagem anterior.
+        """
+        words = set(search_words(mensagem))
+        if not COMPARISON_WORDS & words:
+            return []
+        typed = [_typed_code(code_source, c) for c in codes]
+        if len(typed) == 1 and code_source == mensagem and REFERENCE_WORDS & words:
+            previous = self._previous_user_text(historico)
+            earlier = extract_codes_from_name(previous or "", expand_family=False)[:1]
+            if earlier and earlier[0] != codes[0]:
+                typed.insert(0, _typed_code(previous or "", earlier[0]))
+        if len(typed) < 2:
+            return []
+        return [(typed[0], other) for other in typed[1:]]
 
     @staticmethod
     def _previous_user_text(historico: List[Dict[str, str]]) -> Optional[str]:

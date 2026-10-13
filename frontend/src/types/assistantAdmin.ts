@@ -35,7 +35,7 @@ export interface KnowledgeRuleRequest {
 
 export interface ReviewSuggestion {
   codigo: string;
-  produto_id: number;
+  produto_id: number | null;
   nome: string;
   estoque_total: number;
   motivo: string;

@@ -83,6 +83,13 @@ indicador do conhecimento no topo; peças relacionadas no catálogo com o estoqu
 - telas do assistente no tema claro e no escuro;
 - "Salvar configuração" da Base oficial funcionando no app.
 
+**Primeiro teste no banco real (2026-10-13, na empresa, cópia em `C:\teste_assistente`):** o dono
+achou o assistente "burro" em três pontos, corrigidos na branch `claude/project-thread-bwu9lo`
+(a partir da `feature/assistente-ia`): "A é a mesma que B?" agora responde a relação e não o
+estoque; o "Para revisar" só sugere com motivo (sem "mesmo início de código"); "Não serve" não
+tira mais o código da lista. Respostas por veículo em duas linhas por opção (✅/❌). Análise do
+banco real: `analise-estoque-db.md` na biblioteca do Projeto.
+
 ## 5. O que vamos fazer
 
 1. **Testar na empresa numa cópia do banco** (`docs/ASSISTENTE_IA.md`, seção 6). Vai ser o

@@ -91,7 +91,7 @@ def _kind(item: Dict[str, Any]) -> str:
     return "conjunto central" if item.get("tipo") == CATEGORY_CORE else "turbo"
 
 
-def _short_applications(item: Dict[str, Any], limit: int = 2) -> str:
+def short_applications(item: Dict[str, Any], limit: int = 2) -> str:
     labels: List[str] = []
     for app in item.get("aplicacoes") or []:
         text = app.get("veiculo") or ""
@@ -129,7 +129,8 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     elif with_stock:
         lines = [f"{label}: não temos esse código, mas temos:"] + [product_line(p) for p in with_stock[:MAX_LINES]]
     elif products:
-        lines = [f"{label}: não temos em estoque no momento."] + [product_line(p) for p in products[:3]]
+        # Cadastrado e zerado: a lista de produtos "sem estoque" so poluia a resposta.
+        lines = [f"{label}: não temos em estoque no momento."]
     elif items or taught:
         lines = [f"{label}: não temos esse código no estoque."]
     else:
@@ -146,9 +147,42 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
 
     if items:
         item = items[0]
-        apps = _short_applications(item)
-        info = f"Catálogo: {_kind(item)} {item.get('modelo') or item.get('ficha')}"
-        lines.append(f"{info} — {apps}" if apps else info)
+        apps = short_applications(item)
+        model = item.get("modelo") or item.get("ficha")
+        if item.get("tipo") == CATEGORY_CORE:
+            model = f"conjunto central {model}"
+        lines.append(f"Aplicação ({model}): {apps}" if apps else f"Catálogo: {model}")
+    return "\n".join(lines)
+
+
+def format_comparison_answer(
+    code_a: str, code_b: str, relation: Dict[str, Any], catalog_lines: Optional[List[str]] = None
+) -> str:
+    """Resposta para comparar_codigos ("a A e a mesma que a B?"): a relacao, sem falar de estoque."""
+    pair = f"*{code_a}* e *{code_b}*"
+    kind, source, note = relation.get("relacao"), relation.get("fonte"), relation.get("obs")
+    confirmed = True
+    if kind == "mesma_peca":
+        lines = [f"{pair}: é a mesma peça (versão nova/reman do mesmo código)."]
+    elif kind == "igual":
+        lines = [f"{pair}: sim, são iguais (troca direta), segundo o especialista."]
+        if note:
+            lines.append(f"Obs.: {note}")
+    elif kind == "similar":
+        lines = [f"{pair}: são similares, segundo o especialista: serve com ressalva."]
+        lines.append(f"Ressalva: {note}" if note else "Confira antes de trocar.")
+    elif kind == "diferente":
+        lines = [f"{pair}: não, são diferentes; uma não serve no lugar da outra (segundo o especialista)."]
+    elif source == "cadastro":
+        confirmed = False
+        lines = [f"{pair}: provavelmente são iguais. O cadastro junta os dois em *{relation.get('produto')}*."]
+    else:
+        confirmed = False
+        lines = [f"{pair}: não sei dizer se são iguais. O especialista ainda não ensinou essa."]
+    if catalog_lines:
+        lines += ["No catálogo:", *catalog_lines]
+    if not confirmed:
+        lines.append("Deixei para o especialista confirmar.")
     return "\n".join(lines)
 
 
@@ -194,12 +228,14 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
         ours = item.get("nossos_produtos") or []
         in_stock = [p for p in ours if p["estoque_total"] > 0]
         if in_stock:
-            status = f"*{in_stock[0]['nome']}* — {stock_text(in_stock[0])}"
+            status = f"✅ *{in_stock[0]['nome']}* — {stock_text(in_stock[0])}"
         elif ours:
-            status = "não temos (cadastrado, sem estoque)"
+            status = "❌ não temos (cadastrado, sem estoque)"
         else:
-            status = "não temos"
-        lines.append(f"• {_application_label(first_app)} → {_kind(item)} {item.get('modelo') or ''}: {status}")
+            status = "❌ não temos"
+        # Uma opcao em duas linhas: o motor/aplicacao e, embaixo, se temos (era tudo numa linha so).
+        lines.append(f"• {_application_label(first_app)} → {_kind(item)} {item.get('modelo') or ''}".rstrip())
+        lines.append(f"   {status}")
 
     any_stock = any(has_stock(i) for i in items[:MAX_LINES])
     # Motor ja informado ("scania 440" + "dc13") e ainda ha opcoes: lista sem perguntar de novo.

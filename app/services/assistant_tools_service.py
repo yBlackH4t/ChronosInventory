@@ -20,6 +20,8 @@ from app.services.assistant_answer_format import (
     display_code,
     format_application_answer,
     format_code_answer,
+    format_comparison_answer,
+    short_applications,
     wants_core,
 )
 from app.services.assistant_common import (  # noqa: F401  (reexportados para quem ja importa daqui)
@@ -31,7 +33,7 @@ from app.services.assistant_common import (  # noqa: F401  (reexportados para qu
     MATCH_EXPERT_SIMILAR,
     MATCH_FAMILY,
 )
-from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from app.services.assistant_knowledge_service import SOURCE_EXPERT, SOURCE_FAMILY, AssistantKnowledgeService
 from core.catalog.normalization import (
     canonical_code,
     expand_family_codes,
@@ -307,6 +309,37 @@ class AssistantToolsService:
             out.append(candidate)
         return out
 
+    def compare_codes(self, codigo_a: str, codigo_b: str) -> Dict[str, Any]:
+        """"A e B sao a mesma peca?": responde a pergunta, nao o estoque."""
+        typed = [" ".join(str(c or "").split()).upper() for c in (codigo_a, codigo_b)]
+        codes = [canonical_code(t) for t in typed]
+        for raw, code in zip(typed, codes):
+            if len(code) < 4 or not any(ch.isdigit() for ch in code):
+                raise ValidationException(f"Codigo invalido: {raw!r}. Informe os numeros das duas pecas.")
+        relation = self.knowledge.relation_between(codes[0], codes[1])
+        labels = [display_code(t) for t in typed]
+        result: Dict[str, Any] = {
+            "codigo_pesquisado": codes[0],
+            "outro_codigo": codes[1],
+            "relacao": relation["relacao"],
+            "fonte": relation["fonte"],
+        }
+        catalog = []
+        if relation["fonte"] not in (SOURCE_FAMILY, SOURCE_EXPERT):
+            # O especialista ainda nao disse: o que o catalogo sabe de cada um ajuda a decidir.
+            for code, label in zip(codes, labels):
+                rows = self.catalog.search_catalog(code, limit=1)
+                if not rows:
+                    catalog.append(f"• {label}: não está no catálogo")
+                    continue
+                apps = self._group_applications(self.repository.get_applications([int(rows[0]["id"])]))
+                item = {"aplicacoes": [_application_label(a) for a in apps.get(int(rows[0]["id"]), [])]}
+                model = _turbo_models(rows[0].get("modelo")) or rows[0].get("codigo")
+                uses = short_applications(item)
+                catalog.append(f"• {label}: {model}" + (f" — {uses}" if uses else ""))
+        result["texto_pronto"] = format_comparison_answer(labels[0], labels[1], relation, catalog)
+        return result
+
     def search_by_application(self, texto: str) -> Dict[str, Any]:
         terms = [w for w in search_words(texto) if w not in _STOPWORDS]
         if not terms:
@@ -421,6 +454,7 @@ class AssistantToolsService:
             "buscar_por_codigo": lambda a: self.search_by_code(str(a["codigo"])),
             "buscar_por_aplicacao": lambda a: self.search_by_application(str(a["texto"])),
             "detalhe_produto": lambda a: self.product_details(int(a["produto_id"])),
+            "comparar_codigos": lambda a: self.compare_codes(str(a["codigo_a"]), str(a["codigo_b"])),
         }
         handler = handlers.get(name)
         if handler is None:
@@ -582,6 +616,24 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
                 "texto": {"type": "string", "description": "Montadora, modelo e/ou motor, ex.: 'scania r 440 dc13'."}
             },
             "required": ["texto"],
+        },
+    },
+    {
+        "name": "comparar_codigos",
+        "description": (
+            "Responde se duas pecas sao a mesma ('a 53279887101 e igual a 53279887210?', 'serve no lugar?', "
+            "'e equivalente?'): o que o especialista ensinou (igual, similar, diferente), o cadastro e o "
+            "catalogo. Nao fala de estoque. Devolve 'texto_pronto' (a resposta pronta para enviar)."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "codigo_a": {"type": "string", "description": "Primeiro codigo, como o usuario escreveu."},
+                "codigo_b": {"type": "string", "description": "Segundo codigo, como o usuario escreveu."},
+            },
+            "required": ["codigo_a", "codigo_b"],
         },
     },
     {

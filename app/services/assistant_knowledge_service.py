@@ -13,6 +13,7 @@ codigo: ensinar a 5327-988-7101 vale tambem para a 5327-990-7101.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict, deque
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -31,10 +32,63 @@ TYPE_SIMILAR = "SIMILAR"
 TYPE_DIFFERENT = "DIFERENTE"
 VALID_TYPES = (TYPE_SAME, TYPE_SIMILAR, TYPE_DIFFERENT)
 
+# Resposta a "A e B sao a mesma peca?" (relation_between).
+RELATION_SAME_PART = "mesma_peca"  # mesmo codigo ou versao nova/reman
+RELATION_SAME = "igual"
+RELATION_SIMILAR = "similar"
+RELATION_DIFFERENT = "diferente"
+RELATION_PROBABLY_SAME = "provavel_igual"  # o cadastro junta os dois; o especialista confirma
+SOURCE_FAMILY = "familia"
+SOURCE_EXPERT = "especialista"
+SOURCE_REGISTRY = "cadastro"
+
 MAX_NOTE_LENGTH = 300
-# Sugestao por inicio de codigo: so para codigos numericos longos (BorgWarner 11 digitos).
-SUGGESTION_MIN_LENGTH = 10
-SUGGESTION_PREFIX_LENGTH = 7
+MAX_SUGGESTIONS = 5
+# Final abreviado no nome do produto: "53279907101/7210" ou "53279907210 (USE 7101)".
+_NAME_TOKEN = re.compile(r"[A-Z0-9][A-Z0-9.\-]*")
+_SHORT_SUFFIX_DIGITS = (3, 5)
+_MIN_FULL_CODE_DIGITS = 7
+_MIN_SUGGESTION_DIGITS = 6
+
+
+def codes_cited_in_name(name: Optional[str], expand_family: bool = True) -> Set[str]:
+    """
+    Codigos que o nome do produto cita, inclusive os finais abreviados depois de um codigo
+    completo: 'TURBO K27 - 53279907101/7210' -> {53279907101, 53279907210} (com as versoes
+    nova/reman). O cadastro da empresa junta assim as pecas que sao iguais.
+    """
+    codes: Set[str] = set(extract_codes_from_name(name or "", expand_family=False))
+    last_full: Optional[str] = None
+    previous = ""
+    for token in _NAME_TOKEN.findall(str(name or "").upper()):
+        token = token.strip(".-")
+        code = canonical_code(token)
+        if code.isdigit() and len(code) >= _MIN_FULL_CODE_DIGITS:
+            last_full = code
+        elif (
+            last_full
+            and code.isdigit()
+            and _SHORT_SUFFIX_DIGITS[0] <= len(code) <= _SHORT_SUFFIX_DIGITS[1]
+            and (previous == last_full or previous == "USE" or previous.startswith("+"))
+        ):
+            codes.add(last_full[: -len(code)] + code)
+            previous = "+" + code  # "7101/7210/7218": cada final completa o mesmo codigo
+            continue
+        previous = code if code.isdigit() and len(code) >= _MIN_FULL_CODE_DIGITS else token
+    return set(expand_family_codes(sorted(codes))) if expand_family else codes
+
+
+def _is_part_number(code: str) -> bool:
+    """Numero de peca de verdade (4031196, 53279887101, 7151895006), nao modelo como GTB2060."""
+    return is_searchable_code(code) and sum(ch.isdigit() for ch in code) >= _MIN_SUGGESTION_DIGITS
+
+
+def _as_written(name: str, code: str) -> str:
+    """O codigo como esta no nome do produto ('802774-9007'), em vez da forma canonica."""
+    for token in _NAME_TOKEN.findall(str(name or "").upper()):
+        if canonical_code(token.strip(".-")) == code:
+            return token.strip(".-")
+    return code
 
 
 def _closure(start: Iterable[str], edges: Dict[str, Set[str]]) -> Set[str]:
@@ -51,6 +105,10 @@ def _closure(start: Iterable[str], edges: Dict[str, Set[str]]) -> Set[str]:
 
 def _family(codes: Iterable[str]) -> Set[str]:
     return set(expand_family_codes(list(codes)))
+
+
+def _stock(product: Dict[str, Any]) -> int:
+    return sum(int(q or 0) for q in (product.get("inventories") or {}).values())
 
 
 def check_single_code(raw: str) -> None:
@@ -177,42 +235,99 @@ class AssistantKnowledgeService:
     # Sugestoes para o admin (nunca mostradas ao chefe)
     # ------------------------------------------------------------------
 
-    def suggestions(self, code: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def relation_between(self, code_a: str, code_b: str) -> Dict[str, Any]:
         """
-        Possiveis similares de um codigo sem estoque, para o admin confirmar ou recusar.
-        Hoje: nossos produtos com o mesmo inicio de codigo BorgWarner (5327-988-....).
+        O que se sabe sobre "A e B sao a mesma peca?":
+        {"relacao": RELATION_*, "fonte": SOURCE_*, "obs", "produto" (cadastro), "ficha" (catalogo)}.
+        Vale primeiro o que o especialista ensinou; depois o cadastro da empresa (um produto que
+        cita os dois codigos) e o catalogo (os dois na mesma ficha), que o especialista ainda
+        precisa confirmar.
+        """
+        a, b = canonical_code(code_a), canonical_code(code_b)
+        family_a, family_b = _family([a]), _family([b])
+        if family_a & family_b:
+            return {"relacao": RELATION_SAME_PART, "fonte": SOURCE_FAMILY}
+
+        relations = self.relations(a)
+        for key, relation in (("iguais", RELATION_SAME), ("similares", RELATION_SIMILAR)):
+            for item in relations[key]:
+                if _family([item["codigo_norm"]]) & family_b:
+                    return {"relacao": relation, "fonte": SOURCE_EXPERT, "obs": item.get("obs")}
+        if relations["diferentes"] & family_b:
+            return {"relacao": RELATION_DIFFERENT, "fonte": SOURCE_EXPERT}
+
+        for product in self._products_citing(a):
+            if codes_cited_in_name(product["nome"]) & family_b:
+                return {"relacao": RELATION_PROBABLY_SAME, "fonte": SOURCE_REGISTRY, "produto": product["nome"]}
+        # "Mesma ficha do catalogo" nao vale: uma ficha Master Power lista tudo o que ela substitui
+        # (centenas de codigos), entao ela nao diz que duas pecas sao iguais.
+        return {"relacao": None, "fonte": None}
+
+    def suggestions(
+        self, code: str, limit: int = MAX_SUGGESTIONS, asked_with: Iterable[str] = ()
+    ) -> List[Dict[str, Any]]:
+        """
+        Possiveis iguais de um codigo, para o admin confirmar ou recusar. So com motivo:
+        1. o codigo com que perguntaram se ele e igual ("a 7101 e a mesma que a 7210?");
+        2. o cadastro da empresa cita os dois ("53279907101/7210", "53279907210 (USE 7101)").
+        Nem "mesmo inicio de codigo" (todo K27 comeca com 5327988) nem "mesma ficha do catalogo"
+        (uma ficha Master Power junta centenas de codigos): as duas davam listas sem sentido.
+        O que ja foi ensinado (inclusive "nao serve") sai da lista.
         """
         code = canonical_code(code)
-        if not (code.isdigit() and len(code) >= SUGGESTION_MIN_LENGTH):
+        if not is_searchable_code(code):
             return []
         relations = self.relations(code)
         known = _family([code]) | relations["diferentes"]
         for item in relations["iguais"] + relations["similares"]:
             known |= _family([item["codigo_norm"]])
 
-        prefix = code[:SUGGESTION_PREFIX_LENGTH]
-        by_product: Dict[int, str] = {}
-        for row in self.repository.product_codes_with_prefix(prefix, len(code)):
-            if row["numero_norm"] in known:
-                continue
-            by_product.setdefault(int(row["produto_id"]), row["numero_norm"])
-        if not by_product:
-            return []
+        # (codigo, como escrever, motivo)
+        candidates: List[Tuple[str, str, str]] = [
+            (canonical_code(c), str(c), "perguntaram se é igual") for c in asked_with
+        ]
+        for product in self._products_citing(code):
+            for cited in sorted(codes_cited_in_name(product["nome"], expand_family=False)):
+                candidates.append((cited, _as_written(product["nome"], cited), f"o cadastro junta os dois: {product['nome']}"))
 
-        out = []
-        for product in self.products.get_by_ids(list(by_product)):
-            stock = sum(int(q or 0) for q in (product.get("inventories") or {}).values())
+        out: List[Dict[str, Any]] = []
+        for candidate, written, reason in candidates:
+            if len(out) >= limit:
+                break
+            if not _is_part_number(candidate) or _family([candidate]) & known:
+                continue
+            known |= _family([candidate])
+            product = self._product_with_code(candidate)
             out.append(
                 {
-                    "codigo": by_product[int(product["id"])],
-                    "produto_id": int(product["id"]),
-                    "nome": product["nome"],
-                    "estoque_total": stock,
-                    "motivo": f"mesmo início de código ({prefix})",
+                    "codigo": written,
+                    "produto_id": int(product["id"]) if product else None,
+                    "nome": product["nome"] if product else "Não cadastrado no estoque",
+                    "estoque_total": _stock(product) if product else 0,
+                    "motivo": reason,
                 }
             )
-        out.sort(key=lambda s: (-s["estoque_total"], s["codigo"]))
-        return out[:limit]
+        return out
+
+    def _products_citing(self, code: str) -> List[Dict[str, Any]]:
+        """Nossos produtos ativos cujo nome cita o codigo (inteiro ou so o final, "53279907101/7210")."""
+        family = _family([code])
+        found: Dict[int, Dict[str, Any]] = {}
+        for term in sorted({code, code[-4:]}):
+            for product in self.products.get_all(search_term=term, status="ATIVO"):
+                if codes_cited_in_name(product["nome"]) & family:
+                    found[int(product["id"])] = product
+        return sorted(found.values(), key=lambda p: (-_stock(p), p["nome"]))
+
+    def _product_with_code(self, code: str) -> Optional[Dict[str, Any]]:
+        """O nosso produto daquele codigo (ou da versao nova/reman), o de mais estoque."""
+        family = _family([code])
+        found: Dict[int, Dict[str, Any]] = {}
+        for variant in sorted(family):
+            for product in self.products.get_all(search_term=variant, status="ATIVO"):
+                if set(extract_codes_from_name(product["nome"])) & family:
+                    found[int(product["id"])] = product
+        return max(found.values(), key=lambda p: (_stock(p), -int(p["id"])), default=None)
 
     @staticmethod
     def _public_rule(rule: Dict[str, Any]) -> Dict[str, Any]:

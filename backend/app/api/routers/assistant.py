@@ -195,8 +195,10 @@ def add_knowledge(
 ):
     admin.require(_admin_token(request))
     rule = knowledge.add_rule(payload.codigo_a, payload.codigo_b, payload.tipo, payload.observacao)
-    # Ensinou sobre o codigo: ele sai da lista "Para revisar".
-    history.mark_reviewed([canonical_code(payload.codigo_a), canonical_code(payload.codigo_b)])
+    # Ensinou o que serve (igual/similar): o codigo sai da lista "Para revisar". "Nao serve" so
+    # tira aquela sugestao; o codigo continua na lista ate o admin ensinar o que serve ou concluir.
+    if rule["tipo"] != "diferente":
+        history.mark_reviewed([canonical_code(payload.codigo_a), canonical_code(payload.codigo_b)])
     sync.publish_in_background()  # vale nas outras maquinas tambem
     return ok(KnowledgeRuleOut(**rule), status_code=201)
 
@@ -235,7 +237,7 @@ def review_list(
         item["conhecimento"] = [
             {"codigo": r["codigo"], "relacao": "igual", "obs": r.get("obs")} for r in relations["iguais"]
         ] + [{"codigo": r["codigo"], "relacao": "similar", "obs": r.get("obs")} for r in relations["similares"]]
-        item["sugestoes"] = knowledge.suggestions(item["codigo"])
+        item["sugestoes"] = knowledge.suggestions(item["codigo"], asked_with=item.pop("comparado_com", []))
         items.append(ReviewItemOut(**item))
     return ok(items)
 
@@ -324,7 +326,8 @@ def approve_proposal(
         return fail(404, "not_found", "Proposta pendente não encontrada.", None, _request_id(request))
     rule = knowledge.add_rule(proposal["codigo_a"], proposal["codigo_b"], proposal["tipo"], proposal["observacao"])
     history.decide_proposal(proposal_id, "aprovada")
-    history.mark_reviewed([canonical_code(proposal["codigo_a"]), canonical_code(proposal["codigo_b"])])
+    if rule["tipo"] != "diferente":  # como no ensinar pela tela: "nao serve" mantem o codigo na revisao
+        history.mark_reviewed([canonical_code(proposal["codigo_a"]), canonical_code(proposal["codigo_b"])])
     sync.publish_in_background()
     return ok(KnowledgeRuleOut(**rule))
 

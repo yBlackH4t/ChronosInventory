@@ -301,6 +301,6 @@ def test_run_tool_reports_errors_instead_of_raising(tools):
 
 def test_tool_definitions_match_handlers():
     names = {tool["name"] for tool in ASSISTANT_TOOLS}
-    assert names == {"buscar_por_codigo", "buscar_por_aplicacao", "detalhe_produto"}
+    assert names == {"buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "detalhe_produto"}
     for tool in ASSISTANT_TOOLS:
         assert tool["input_schema"]["required"]
