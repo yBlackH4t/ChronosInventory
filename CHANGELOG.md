@@ -22,6 +22,13 @@ Formato recomendado:
 
 
 
+
+## [2.4.1] - 2026-10-13
+
+### Fixed
+- **"Atualização incompleta" depois de atualizar:** o serviço da versão anterior podia continuar aberto e segurar a porta do Chronos. Agora o Chronos fecha esse serviço sozinho ao abrir, e a atualização fecha o serviço antes de instalar.
+- Na tela "Atualização incompleta", o botão agora reinicia o Chronos e fecha o serviço antigo.
+
 ## [2.4.0] - 2026-10-13
 
 ### Added

@@ -159,13 +159,15 @@ export default function TopBar({ health }: { health: HealthOut }) {
 
           try {
             notifySuccess("Instalando atualizacao...");
+            // Baixa antes de fechar o backend: se o download falhar, o app continua funcionando.
+            await update.download();
             try {
               const { invoke } = await import("@tauri-apps/api/core");
               await invoke("kill_backend");
             } catch (e) {
               console.error("Falha ao matar backend antes do update:", e);
             }
-            await update.downloadAndInstall();
+            await update.install();
             await process.relaunch();
           } catch (error) {
             notifyError(error, "Falha ao instalar atualizacao.");

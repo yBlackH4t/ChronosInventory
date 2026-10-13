@@ -5,7 +5,7 @@ use std::{
     error::Error,
     fs::{create_dir_all, OpenOptions},
     io::Write,
-    net::TcpListener,
+    net::{SocketAddr, TcpListener, TcpStream},
     path::PathBuf,
     process::Command as StdCommand,
     sync::Mutex,
@@ -190,6 +190,13 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
 }
 
 fn is_backend_port_free() -> bool {
+    // O backend escuta em 0.0.0.0:8000, e no Windows o bind em 127.0.0.1:8000 funciona mesmo
+    // assim: o teste dizia "livre" com o backend antigo rodando (2.3.0 -> 2.4.0). Quem atende
+    // uma conexao em 127.0.0.1:8000 ocupa a porta.
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+    if TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok() {
+        return false;
+    }
     TcpListener::bind(("127.0.0.1", 8000)).is_ok()
 }
 

@@ -10,6 +10,15 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.1",
+    "date": "2026-10-13",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: \"Atualização incompleta\" depois de atualizar: o serviço da versão anterior podia continuar aberto e segurar a porta do Chronos. Agora o Chronos fecha esse serviço sozinho ao abrir, e a atualização fecha o serviço antes de instalar.",
+      "Correcao: Na tela \"Atualização incompleta\", o botão agora reinicia o Chronos e fecha o serviço antigo."
+    ]
+  },
+  {
     "version": "2.4.0",
     "date": "2026-10-13",
     "title": "Melhorias e correcoes",
