@@ -15,7 +15,9 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     "title": "Correcao e estabilidade",
     "highlights": [
       "Correcao: \"Atualização incompleta\" depois de atualizar: o serviço da versão anterior podia continuar aberto e segurar a porta do Chronos. Agora o Chronos fecha esse serviço sozinho ao abrir, e a atualização fecha o serviço antes de instalar.",
-      "Correcao: Na tela \"Atualização incompleta\", o botão agora reinicia o Chronos e fecha o serviço antigo."
+      "Correcao: Na tela \"Atualização incompleta\", o botão agora reinicia o Chronos e fecha o serviço antigo.",
+      "Correcao: Fechar o Chronos não pisca mais uma janela de prompt várias vezes.",
+      "Correcao: Imprimir (etiquetas, NF-e e folha de inventário) não abre mais uma página em branco antes da impressão de verdade."
     ]
   },
   {

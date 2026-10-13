@@ -28,6 +28,8 @@ Formato recomendado:
 ### Fixed
 - **"Atualização incompleta" depois de atualizar:** o serviço da versão anterior podia continuar aberto e segurar a porta do Chronos. Agora o Chronos fecha esse serviço sozinho ao abrir, e a atualização fecha o serviço antes de instalar.
 - Na tela "Atualização incompleta", o botão agora reinicia o Chronos e fecha o serviço antigo.
+- Fechar o Chronos não pisca mais uma janela de prompt várias vezes.
+- Imprimir (etiquetas, NF-e e folha de inventário) não abre mais uma página em branco antes da impressão de verdade.
 
 ## [2.4.0] - 2026-10-13
 
