@@ -141,6 +141,19 @@ def test_code_search_accepts_oem_and_family_variants(tools):
         "TURBINA HOLSET HX55W 4031196",
         "TURBO HOLSET HX55W 4044318",
     }
+    # A resposta diz de quem e o codigo e de que ficha, depois as nossas opcoes.
+    assert by_oem["texto_pronto"].splitlines()[:3] == [
+        "*20993930*: é código OEM (original da montadora); no catálogo Master Power é a "
+        "*805314* (MP530w — turbo HX55W HE500WG).",
+        "Não temos esse código, mas temos:",
+        "• *TURBINA HOLSET HX55W 4031196* — 2 em Canoas (equivalente pelo catálogo, conferir)",
+    ]
+    assert tools.search_by_code("TC0710447")["texto_pronto"].startswith("*TC0710447*: é código Mahle; ")
+    assert tools.search_by_code("805314")["texto_pronto"].startswith(
+        "*805314*: é o código Master Power da ficha *805314* (MP530w — turbo HX55W HE500WG)."
+    )
+    # O nosso proprio codigo continua com "temos." (sem dizer de que fabricante e).
+    assert tools.search_by_code("4031196")["texto_pronto"].startswith("*4031196*: temos.")
 
     reman = tools.search_by_code("53279907116")
     (k27,) = reman["produtos"]

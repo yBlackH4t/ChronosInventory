@@ -214,7 +214,18 @@ class AssistantToolsService:
         )
 
         catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=self.limits.code_catalog_items)]
-        catalog_items = self._catalog_items(catalog_ids, highlight=set(expand_family_codes([code])))
+        family = expand_family_codes([code])
+        catalog_items = self._catalog_items(catalog_ids, highlight=set(family))
+        # De que fabricante e o codigo pesquisado em cada ficha ("é código OEM da turbina tal").
+        brands: Dict[int, List[str]] = {}
+        for ref in self.repository.get_reference_brands(catalog_ids, family):
+            names = brands.setdefault(int(ref["catalogo_produto_id"]), [])
+            if ref["fabricante"] not in names:
+                names.append(ref["fabricante"])
+        for item in catalog_items:
+            if canonical_code(item["ficha"]) in family:
+                item["e_o_codigo_da_ficha"] = True  # o proprio codigo Master Power
+            item["codigo_pesquisado_e"] = brands.get(item["id"], [])
         applications = self._group_applications(self.repository.get_applications(catalog_ids))
         for item in catalog_items:
             apps = applications.get(item["id"], [])
@@ -604,6 +615,7 @@ class AssistantToolsService:
                     "ficha": row["codigo"],
                     "tipo": CATEGORY_CORE if "CONJUNTO" in str(row.get("grupo") or "").upper() else CATEGORY_TURBO,
                     "modelo": _turbo_models(row.get("modelo")),
+                    "modelo_master_power": str(row.get("modelo") or "").partition("(")[0].strip() or None,
                     "atendemos_marca": bool(brand_refs),
                     "referencias": {
                         brand: numbers[:self.limits.refs_per_brand] for brand, numbers in brand_refs.items()

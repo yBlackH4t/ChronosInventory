@@ -109,6 +109,48 @@ def _application_label(app: Dict[str, Any]) -> str:
     return label
 
 
+_BRAND_LABELS = {
+    "OEM": "OEM (original da montadora)",
+    "MASTER POWER": "Master Power",
+    "BORGWARNER": "BorgWarner",
+    "REFERÊNCIA": "de referência",
+    "BTS": "BTS",
+    "MWM": "MWM",
+    "IHI": "IHI",
+    "CZ": "CZ",
+    "PAI": "PAI",
+}
+
+
+def _brand_label(brand: str) -> str:
+    return _BRAND_LABELS.get(brand.upper(), brand.capitalize())
+
+
+def _ficha_label(item: Dict[str, Any]) -> str:
+    """'*805314* (MP530w — turbo HX55W HE500WG)'."""
+    kind = "conjunto central" if item.get("tipo") == CATEGORY_CORE else "turbo"
+    parts = [p for p in (item.get("modelo_master_power"), f"{kind} {item['modelo']}" if item.get("modelo") else None) if p]
+    return f"*{item['ficha']}*" + (f" ({' — '.join(parts)})" if parts else "")
+
+
+def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
+    """
+    'é código OEM (original da montadora); no catálogo Master Power é a *805314* (...).' para um
+    codigo que nao e nosso mas esta no catalogo. None se o catalogo nao diz de quem e o codigo.
+    """
+    own_ficha = [i for i in items if i.get("e_o_codigo_da_ficha")]
+    if own_ficha:
+        return f"é o código Master Power da ficha {_ficha_label(own_ficha[0])}."
+    found = [i for i in items if i.get("codigo_pesquisado_e")]
+    if not found:
+        return None
+    found.sort(key=lambda i: 1 if i.get("tipo") == CATEGORY_CORE else 0)
+    brands = list(dict.fromkeys(b for i in found for b in i["codigo_pesquisado_e"]))
+    fichas = ", ".join(_ficha_label(i) for i in found[:3])
+    where = "é a" if len(found) == 1 else "aparece em"
+    return f"é código {' e '.join(_brand_label(b) for b in brands)}; no catálogo Master Power {where} {fichas}."
+
+
 def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     """Resposta para buscar_por_codigo. `code_label` e o codigo como a pessoa escreveu."""
     if "erro" in output:
@@ -124,8 +166,19 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
 
     with_stock = [p for p in products if p["estoque_total"] > 0]
     own_stock = [p for p in with_stock if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
+    own = any(p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY) for p in products)
+    identified = None if own else _identification(output.get("fichas_catalogo") or [])
     if own_stock:
         lines = [f"{label}: temos."] + [product_line(p) for p in with_stock[:MAX_LINES]]
+    elif identified:
+        # Codigo de outro fabricante (OEM, Mahle, Master Power...): diz de que turbina e, depois as opcoes.
+        lines = [f"{label}: {identified}"]
+        if with_stock:
+            lines += ["Não temos esse código, mas temos:"] + [product_line(p) for p in with_stock[:MAX_LINES]]
+        elif products:
+            lines.append("Das nossas turbinas dessa ficha, nenhuma tem estoque agora.")
+        else:
+            lines.append("Não temos nenhuma turbina dessa ficha cadastrada.")
     elif with_stock:
         lines = [f"{label}: não temos esse código, mas temos:"] + [product_line(p) for p in with_stock[:MAX_LINES]]
     elif products:

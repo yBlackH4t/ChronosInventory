@@ -73,6 +73,21 @@ class AssistantRepository(BaseRepository):
             tuple(catalog_ids) + tuple(brands),
         )
 
+    def get_reference_brands(self, catalog_ids: List[int], codes: List[str]) -> List[Dict[str, Any]]:
+        """De que fabricante e o codigo em cada ficha (OEM, Mahle, Garrett...): as referencias que batem."""
+        if not catalog_ids or not codes:
+            return []
+        return self._execute_query(
+            f"""
+            SELECT catalogo_produto_id, fabricante, numero
+            FROM catalogo_referencias
+            WHERE catalogo_produto_id IN ({_placeholders(catalog_ids)})
+              AND numero_norm IN ({_placeholders(codes)})
+            ORDER BY id
+            """,
+            (*catalog_ids, *codes),
+        )
+
     def get_linked_product_ids(self, catalog_ids: List[int]) -> List[Dict[str, Any]]:
         """Nossos produtos ativos ligados as fichas (vinculos rejeitados ficam de fora)."""
         if not catalog_ids:
