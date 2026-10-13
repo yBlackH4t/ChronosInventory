@@ -160,7 +160,7 @@ Replace-RegexOnce `
 
 Replace-RegexOnce `
   -Path (Join-Path $frontendDir "package-lock.json") `
-  -Pattern '("packages"\s*:\s*\{\s*""\s*:\s*\{\s*"name"\s*:\s*"frontend"\s*,\s*"version"\s*:\s*")([^"]+)(")' `
+  -Pattern '("packages"\s*:\s*\{\s*""\s*:\s*\{\s*"name"\s*:\s*"[^"]*"\s*,\s*"version"\s*:\s*")([^"]+)(")' `
   -Label "frontend.package-lock.json (packages.\"\".)"
 
 # Tauri metadata
@@ -171,7 +171,7 @@ Replace-RegexOnce `
 
 Replace-RegexOnce `
   -Path (Join-Path $frontendDir "src-tauri\tauri.conf.json") `
-  -Pattern '("package"\s*:\s*\{\s*"productName"\s*:\s*"[^"]+"\s*,\s*"version"\s*:\s*")([^"]+)(")' `
+  -Pattern '(\n  "version"\s*:\s*")([^"]+)(")' `
   -Label "frontend.src-tauri.tauri.conf.json"
 
 Replace-RegexOnce `

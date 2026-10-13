@@ -422,6 +422,19 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-13 — Claude Code — Teste no banco real e versão 2.4.0
+- Branch: `claude/project-thread-bwu9lo` (PR para `feature/assistente-ia`).
+- O que foi feito, a partir do teste do dono numa cópia do banco da empresa: "A é igual a B?"
+  (`comparar_codigos`), "Para revisar" só com sugestões que têm motivo e "Não serve" mantendo o
+  código, movimentações (`movimentacoes_produto`), código Master Power (`codigo_master_power`),
+  "é código OEM/Mahle/... da ficha X: temos", busca por veículo respondendo só o motor ou o ano
+  (filtro de ano pelo texto do catálogo, "D13" = "MD13"), "essa/dessa" usando a turbina da última
+  resposta, e a versão 2.4.0 com o CHANGELOG.
+- Arquivos principais: `app/services/assistant_*.py`, `core/database/repositories/assistant_repository.py`,
+  `backend/app/api/routers/assistant.py`, `frontend/src/components/assistant/AdminReviewTab.tsx`,
+  `CHANGELOG.md`, `frontend/scripts/bump_version.ps1`.
+- Verificações: versões, pytest, Ruff, build, lint e Vitest; respostas conferidas na cópia do banco.
+
 ### 2026-10-10 — Claude Code — Backend empacotado em pasta, sem UPX
 - Branch: `claude/project-thread-caz59j` (PR para `feature/assistente-ia`).
 - O que foi feito: o `build_backend.ps1` passou de `--onefile` para `--onedir` com

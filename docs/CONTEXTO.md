@@ -92,23 +92,23 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
-1. **Testar na empresa numa cópia do banco** (`docs/ASSISTENTE_IA.md`, seção 6). Vai ser o
-   primeiro teste com os dados reais, e esta versão cria tabelas novas no banco.
-2. Testar o conhecimento chegando numa segunda máquina.
+1. ✅ **Testado na empresa numa cópia do banco** (2026-10-13): as tabelas novas foram criadas sem
+   erro e as correções do teste entraram na `feature/assistente-ia`.
+2. Testar o conhecimento chegando numa segunda máquina (falta; se falhar, o app não quebra).
 3. ✅ **Instalador testado** (2026-10-11, na Área Restrita do Windows): o instalador com a CSP
-   e o backend em pasta (PRs #4 e #5) funcionou. Falta só o **scanner do celular**, que a Área
-   Restrita não deixa testar: conferir no computador real junto com o passo 1.
+   e o backend em pasta (PRs #4 e #5) funcionou. ✅ Scanner do celular conferido pelo dono na
+   empresa em 2026-10-13.
    Para gerar o instalador local: venv com `py -3.12` (o `python` do PATH desta máquina é o
    3.14 de 32 bits, que não instala as dependências) e
    `npx tauri build --bundles msi --config <json com "createUpdaterArtifacts": false>`, porque a
    chave de assinatura só existe no GitHub. Não commitar o `estoque_backend.spec` que o build
    reescreve com caminhos locais.
 4. **Versão 2.4.0:**
-   - rodar `frontend/scripts/bump_version.ps1 2.4.0`;
-   - escrever a seção `## [2.4.0]` do `CHANGELOG.md` (é o texto de "Novidades da versão") e
-     rodar `npm run changelog:sync`;
-   - o dono junta na `main` e cria a tag `v2.4.0`. **A tag publica a atualização para todas
-     as máquinas**, pela GitHub Release (`.github/workflows/release.yml`).
+   - ✅ versão trocada para 2.4.0 e `## [2.4.0]` escrita no `CHANGELOG.md` (2026-10-13; o
+     `bump_version.ps1` foi corrigido para o `package-lock` e o `tauri.conf.json` do Tauri 2);
+   - **falta:** o dono junta a `feature/assistente-ia` na `main` (PR #2) e cria a tag `v2.4.0`.
+     **A tag publica a atualização para todas as máquinas**, pela GitHub Release
+     (`.github/workflows/release.yml`). Fazer backup do banco antes.
 
 Depois (decisão do dono em 2026-10-11: **estabilidade e segurança primeiro**, uma coisa por versão):
 - **usuários, login e papéis**: desenho em `docs/PLANO_USUARIOS.md` (local agora, preparado para
