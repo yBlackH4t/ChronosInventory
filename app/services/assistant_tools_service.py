@@ -37,6 +37,7 @@ from app.services.assistant_common import (  # noqa: F401  (reexportados para qu
     MATCH_FAMILY,
 )
 from app.services.assistant_knowledge_service import SOURCE_EXPERT, SOURCE_FAMILY, AssistantKnowledgeService
+from core.catalog.own_fichas import OWN_SOURCE_CODE
 from core.catalog.normalization import (
     canonical_code,
     expand_family_codes,
@@ -450,7 +451,10 @@ class AssistantToolsService:
         for link in self.repository.get_product_catalog_ids([int(p["id"]) for p in products]):
             if int(link["catalogo_produto_id"]) not in ids:
                 ids.append(int(link["catalogo_produto_id"]))
-        rows = {int(r["id"]): r for r in self.repository.get_catalog_products(ids)}
+        # So o catalogo Master Power: a ficha propria da empresa nao tem codigo Master Power.
+        rows = {
+            int(r["id"]): r for r in self.repository.get_catalog_products(ids) if r.get("fonte") != OWN_SOURCE_CODE
+        }
         fichas = [
             {
                 "codigo": rows[i]["codigo"],
@@ -665,6 +669,7 @@ class AssistantToolsService:
                     "tipo": CATEGORY_CORE if "CONJUNTO" in str(row.get("grupo") or "").upper() else CATEGORY_TURBO,
                     "modelo": _turbo_models(row.get("modelo")),
                     "modelo_master_power": str(row.get("modelo") or "").partition("(")[0].strip() or None,
+                    "ficha_propria": row.get("fonte") == OWN_SOURCE_CODE,
                     "atendemos_marca": bool(brand_refs),
                     "referencias": {
                         brand: numbers[:self.limits.refs_per_brand] for brand, numbers in brand_refs.items()

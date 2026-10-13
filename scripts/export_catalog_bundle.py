@@ -52,6 +52,19 @@ def export_bundle(source_db: str, output_path: str) -> dict:
                 out.execute(f"INSERT INTO main.{table} ({col_sql}) SELECT {col_sql} FROM src.{table}")
             out.commit()
             out.execute("DETACH DATABASE src")
+            # Fichas proprias sao desta empresa e viajam com o conhecimento do assistente, nao no pacote.
+            own = [r[0] for r in out.execute(
+                "SELECT cp.id FROM catalogo_produtos cp JOIN catalogo_fontes f ON f.id = cp.fonte_id "
+                "WHERE f.codigo = 'PROPRIA'"
+            )]
+            for table, column in (("catalogo_referencias", "catalogo_produto_id"),
+                                  ("catalogo_aplicacoes", "catalogo_produto_id"),
+                                  ("catalogo_relacionados", "catalogo_produto_id"),
+                                  ("catalogo_relacionados", "relacionado_id"),
+                                  ("catalogo_produtos", "id")):
+                out.executemany(f"DELETE FROM {table} WHERE {column} = ?", [(i,) for i in own])
+            out.execute("DELETE FROM catalogo_fontes WHERE codigo = 'PROPRIA'")
+            out.commit()
 
             counts = {t: out.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in BUNDLE_TABLES}
             if counts["catalogo_produtos"] == 0:

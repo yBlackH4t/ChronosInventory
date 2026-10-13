@@ -49,6 +49,16 @@ BUNDLE_TABLES = (
 KEY_BUNDLE_HASH = "catalog_bundle_hash"
 KEY_LINK_SIGNATURE = "catalog_link_signature"
 LINK_STATUS_AUTO = "AUTO"
+# KEY_BUNDLE_HASH depois de importar o arquivo da Master Power pela tela: "local:<versao>".
+LOCAL_IMPORT_PREFIX = "local:"
+
+
+def _is_newer(candidate: Any, current: Any) -> bool:
+    """A versao do catalogo `candidate` e mais nova que `current`? ("21" > "20"; sem numero: nao)."""
+    try:
+        return float(str(candidate).strip()) > float(str(current).strip())
+    except (TypeError, ValueError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -167,10 +177,21 @@ def apply_catalog_bundle(db_connection, bundle_path: Optional[str] = None) -> Di
             if installed_hash == bundle_hash:
                 return {"status": "atualizado", "hash": bundle_hash}
 
-            local_count = conn.execute("SELECT COUNT(*) FROM catalogo_produtos").fetchone()[0]
+            # As fichas proprias nao contam: elas sao recopiadas depois (core/catalog/own_fichas.py).
+            local_count = conn.execute(
+                """
+                SELECT COUNT(*) FROM catalogo_produtos cp JOIN catalogo_fontes f ON f.id = cp.fonte_id
+                WHERE f.codigo <> 'PROPRIA'
+                """
+            ).fetchone()[0]
             if local_count and not installed_hash:
                 # Catalogo importado nesta maquina (ex.: a maquina de origem): nao sobrescrever.
                 return {"status": "catalogo_local_mantido", "produtos": local_count}
+            if local_count and installed_hash.startswith(LOCAL_IMPORT_PREFIX):
+                # Importado pela tela "Atualizar catálogo": so um pacote de versao mais nova substitui.
+                local_version = installed_hash[len(LOCAL_IMPORT_PREFIX):]
+                if not _is_newer(meta.get("fonte_versao"), local_version):
+                    return {"status": "catalogo_local_mantido", "versao_local": local_version}
 
             conn.execute("ATTACH DATABASE ? AS bundle", (bundle_db,))
             try:
@@ -281,6 +302,150 @@ def relink_catalog(db_connection, force: bool = False) -> Dict[str, Any]:
         conn.close()
 
 
+def link_product(db_connection, product_id: int) -> Dict[str, Any]:
+    """
+    Liga um produto ao catalogo logo depois de cadastrar ou renomear (antes so acontecia na
+    proxima abertura do app): refaz os codigos do nome dele e os vinculos automaticos.
+    Vinculos confirmados ou rejeitados a mao ficam como estao.
+    """
+    from app.services.catalog_sync_service import CatalogSyncService
+    from core.catalog.normalization import extract_codes_from_name
+
+    conn = db_connection.get_connection()
+    try:
+        ensure_catalog_schema(conn)
+        conn.commit()
+        if not conn.execute("SELECT COUNT(*) FROM catalogo_produtos").fetchone()[0]:
+            return {"status": "sem_catalogo"}
+        row = conn.execute("SELECT nome FROM produtos WHERE id = ?", (product_id,)).fetchone()
+        if not row:
+            return {"status": "sem_produto"}
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM produto_codigos WHERE produto_id = ? AND origem = 'NOME'", (product_id,))
+            conn.executemany(
+                "INSERT OR IGNORE INTO produto_codigos (produto_id, numero_norm, origem) VALUES (?, ?, 'NOME')",
+                [(product_id, code) for code in extract_codes_from_name(row[0])],
+            )
+            manual = conn.execute(
+                """
+                SELECT catalogo_produto_id, status, codigos_em_comum FROM produto_catalogo_vinculo
+                WHERE produto_id = ? AND status <> ?
+                """,
+                (product_id, LINK_STATUS_AUTO),
+            ).fetchall()
+            conn.execute(
+                "DELETE FROM produto_catalogo_vinculo WHERE produto_id = ? AND status = ?",
+                (product_id, LINK_STATUS_AUTO),
+            )
+            CatalogSyncService(db_connection)._enrich_existing_products(conn, [product_id])
+            # O enriquecimento grava AUTO por cima; o que o usuario decidiu vale mais (como no relink).
+            for catalogo_id, status, comuns in manual:
+                conn.execute(
+                    """
+                    INSERT INTO produto_catalogo_vinculo (produto_id, catalogo_produto_id, status, codigos_em_comum)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(produto_id, catalogo_produto_id) DO UPDATE SET
+                        status = excluded.status,
+                        atualizado_em = CURRENT_TIMESTAMP
+                    """,
+                    (product_id, catalogo_id, status, comuns),
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        links = conn.execute(
+            "SELECT COUNT(*) FROM produto_catalogo_vinculo WHERE produto_id = ?", (product_id,)
+        ).fetchone()[0]
+        return {"status": "ligado", "vinculos": links}
+    finally:
+        conn.close()
+
+
+def import_catalog_file(db_connection, source_path: str, original_name: Optional[str] = None) -> Dict[str, Any]:
+    """
+    "Atualizar catálogo": importa o arquivo da Master Power (CatalogoMasterPower_Aberto.db) nesta
+    maquina, recopia as fichas proprias e religa os produtos. Marca o catalogo como importado
+    aqui, para o pacote embutido de uma versao do app nao voltar o catalogo para tras.
+    """
+    from app.services.catalog_import_service import CatalogImportService
+    from core.catalog.own_fichas import materialize
+    from core.exceptions import ValidationException
+
+    try:
+        probe = sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)
+        try:
+            tables = {r[0].upper() for r in probe.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        finally:
+            probe.close()
+    except sqlite3.DatabaseError as exc:
+        raise ValidationException(f"O arquivo não é um banco do catálogo Master Power ({exc}).")
+    if "PRODUTO" not in tables:
+        raise ValidationException(
+            "O arquivo não parece ser o catálogo da Master Power (falta a tabela PRODUTO). "
+            "Escolha o CatalogoMasterPower_Aberto.db."
+        )
+
+    stats = CatalogImportService(db_connection).import_master_power_catalog(source_path)
+    conn = db_connection.get_connection()
+    try:
+        _ensure_system_info(conn)
+        row = conn.execute(
+            "SELECT versao, data_emissao FROM catalogo_fontes WHERE codigo = 'MASTER_POWER'"
+        ).fetchone()
+        version = str(row[0]) if row and row[0] is not None else ""
+        if original_name:
+            conn.execute(
+                "UPDATE catalogo_fontes SET arquivo_origem = ? WHERE codigo = 'MASTER_POWER'", (original_name,)
+            )
+        _set_system(conn, KEY_BUNDLE_HASH, f"{LOCAL_IMPORT_PREFIX}{version}")
+        conn.commit()
+        materialize(conn)
+    finally:
+        conn.close()
+    links = relink_catalog(db_connection, force=True)
+    return {
+        "versao": version or None,
+        "data_emissao": row[1] if row else None,
+        "importacao": stats,
+        "produtos_vinculados": links.get("produtos_vinculados"),
+    }
+
+
+def catalog_status(db_connection) -> Dict[str, Any]:
+    """Versao do catalogo Master Power desta maquina e de onde veio (pacote do app ou importado)."""
+    conn = db_connection.get_connection()
+    try:
+        ensure_catalog_schema(conn)
+        _ensure_system_info(conn)
+        conn.commit()
+        source = conn.execute(
+            "SELECT versao, data_emissao, importado_em FROM catalogo_fontes WHERE codigo = 'MASTER_POWER'"
+        ).fetchone()
+        counts = dict(
+            conn.execute(
+                """
+                SELECT f.codigo, COUNT(cp.id) FROM catalogo_fontes f
+                LEFT JOIN catalogo_produtos cp ON cp.fonte_id = f.id GROUP BY f.codigo
+                """
+            ).fetchall()
+        )
+        installed = _get_system(conn, KEY_BUNDLE_HASH) or ""
+        linked = conn.execute("SELECT COUNT(DISTINCT produto_id) FROM produto_catalogo_vinculo").fetchone()[0]
+    finally:
+        conn.close()
+    return {
+        "versao": source[0] if source else None,
+        "data_emissao": source[1] if source else None,
+        "importado_em": source[2] if source else None,
+        "origem": "importado" if installed.startswith(LOCAL_IMPORT_PREFIX) else ("pacote" if installed else "local"),
+        "fichas_master_power": int(counts.get("MASTER_POWER") or 0),
+        "fichas_proprias": int(counts.get("PROPRIA") or 0),
+        "produtos_vinculados": int(linked or 0),
+    }
+
+
 def run_catalog_startup(db_connection) -> None:
     """Chamado na abertura do backend. Nunca levanta excecao."""
     try:
@@ -288,6 +453,20 @@ def run_catalog_startup(db_connection) -> None:
         logger.info("catalog bundle: %s", result)
     except Exception:
         logger.exception("catalog bundle: falha ao aplicar o pacote do catalogo")
+    try:
+        from core.catalog.own_fichas import materialize
+
+        conn = db_connection.get_connection()
+        try:
+            ensure_catalog_schema(conn)
+            _ensure_system_info(conn)
+            conn.commit()
+            if materialize(conn):
+                logger.info("catalog: fichas proprias copiadas para o catalogo")
+        finally:
+            conn.close()
+    except Exception:
+        logger.exception("catalog: falha ao copiar as fichas proprias")
     try:
         result = relink_catalog(db_connection)
         logger.info("catalog links: %s", result)

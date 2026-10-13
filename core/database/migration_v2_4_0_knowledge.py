@@ -35,6 +35,24 @@ KNOWLEDGE_SCHEMA_SQL = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_conhecimento_a ON conhecimento_equivalencias(codigo_a_norm)",
     "CREATE INDEX IF NOT EXISTS idx_conhecimento_b ON conhecimento_equivalencias(codigo_b_norm)",
+    # Ficha propria (2.4.1): aplicacoes e codigos que a empresa cadastra para uma turbina que o
+    # catalogo Master Power nao tem. Fica fora das tabelas catalogo_* (que o pacote do catalogo
+    # substitui) e e copiada para elas por core/catalog/own_fichas.py.
+    """
+    CREATE TABLE IF NOT EXISTS fichas_proprias (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codigo TEXT NOT NULL,
+        codigo_norm TEXT NOT NULL UNIQUE,
+        marca TEXT NOT NULL,
+        tipo TEXT NOT NULL DEFAULT 'TURBO',
+        modelo TEXT,
+        observacao TEXT,
+        aplicacoes_json TEXT NOT NULL DEFAULT '[]',
+        codigos_json TEXT NOT NULL DEFAULT '[]',
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
 )
 
 

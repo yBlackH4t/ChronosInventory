@@ -22,6 +22,20 @@ Formato recomendado:
 
 
 
+
+## [2.4.1] - 2026-10-13
+
+### Added
+- **Ficha própria:** na aba Catálogo do produto, cadastre as aplicações (montadora, veículo, motor, ano) e os outros códigos (OEM, antigos) de uma turbina que o catálogo Master Power não tem. O assistente passa a achar a turbina por eles, e a ficha vai para as outras máquinas junto com o conhecimento do assistente.
+- **Atualizar catálogo:** em Backup > Catálogo, escolha o arquivo novo da Master Power e o Chronos atualiza as fichas nesta máquina, sem esperar uma versão nova.
+
+### Fixed
+- **"Atualização incompleta" depois de atualizar:** o serviço da versão anterior podia continuar aberto e segurar a porta do Chronos. Agora o Chronos fecha esse serviço sozinho ao abrir, e a atualização fecha o serviço antes de instalar.
+- Na tela "Atualização incompleta", o botão agora reinicia o Chronos e fecha o serviço antigo.
+- Fechar o Chronos não pisca mais uma janela de prompt várias vezes.
+- Imprimir (etiquetas, NF-e e folha de inventário) não abre mais uma página em branco antes da impressão de verdade.
+- Turbina nova (ou renomeada) já aparece ligada ao catálogo na hora. Antes só ligava na próxima abertura do Chronos, e o assistente não a achava pela busca por veículo.
+
 ## [2.4.0] - 2026-10-13
 
 ### Added

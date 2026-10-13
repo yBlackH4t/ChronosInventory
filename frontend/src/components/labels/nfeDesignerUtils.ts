@@ -70,43 +70,7 @@ export function loadLayoutFromStorage(): ShippingLabelDesignerLayout {
   }
 }
 
-export function printHtml(html: string) {
-  if (typeof document === "undefined" || typeof window === "undefined") return;
-  const frame = document.createElement("iframe");
-  frame.style.position = "fixed";
-  frame.style.right = "0";
-  frame.style.bottom = "0";
-  frame.style.width = "0";
-  frame.style.height = "0";
-  frame.style.border = "0";
-  frame.style.visibility = "hidden";
-
-  const cleanup = () => {
-    window.setTimeout(() => {
-      if (frame.parentNode) frame.parentNode.removeChild(frame);
-    }, 500);
-  };
-
-  frame.onload = () => {
-    const frameWindow = frame.contentWindow;
-    if (!frameWindow) {
-      cleanup();
-      return;
-    }
-    frameWindow.focus();
-    frameWindow.print();
-    cleanup();
-  };
-
-  document.body.appendChild(frame);
-  if (!frame.contentDocument) {
-    cleanup();
-    return;
-  }
-  frame.contentDocument.open();
-  frame.contentDocument.write(html);
-  frame.contentDocument.close();
-}
+export { printHtml } from "../../lib/printHtml";
 
 export function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false;

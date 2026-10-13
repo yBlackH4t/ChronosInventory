@@ -36,6 +36,7 @@ import type {
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { printHtml } from "../lib/printHtml";
 import {
   ADJUSTMENT_REASON_OPTIONS,
   DEFAULT_INVENTORY_TAB_STATE,
@@ -720,49 +721,7 @@ export default function InventoryPage() {
       totalRows: 56,
     });
 
-    const frame = document.createElement("iframe");
-    frame.style.position = "fixed";
-    frame.style.right = "0";
-    frame.style.bottom = "0";
-    frame.style.width = "0";
-    frame.style.height = "0";
-    frame.style.border = "0";
-    frame.style.visibility = "hidden";
-
-    const cleanup = () => {
-      window.setTimeout(() => {
-        if (frame.parentNode) {
-          frame.parentNode.removeChild(frame);
-        }
-      }, 500);
-    };
-
-    frame.onload = () => {
-      const frameWindow = frame.contentWindow;
-      if (!frameWindow) {
-        cleanup();
-        notifyError(new Error("Nao foi possivel abrir a impressao da folha."));
-        return;
-      }
-      frameWindow.focus();
-      frameWindow.print();
-      cleanup();
-    };
-
-    frame.onerror = () => {
-      cleanup();
-      notifyError(new Error("Falha ao preparar a folha para impressao."));
-    };
-
-    document.body.appendChild(frame);
-    if (!frame.contentDocument) {
-      cleanup();
-      notifyError(new Error("Falha ao criar documento de impressao."));
-      return;
-    }
-    frame.contentDocument.open();
-    frame.contentDocument.write(html);
-    frame.contentDocument.close();
+    printHtml(html, (message) => notifyError(new Error(message)));
   };
 
   return (

@@ -20,7 +20,7 @@ import type {
 import { notifyError, notifySuccess } from "../lib/notify";
 import { restartApplication } from "../lib/restartApp";
 
-type BackupSection = "locais" | "oficial" | "diagnostico";
+type BackupSection = "locais" | "oficial" | "catalogo" | "diagnostico";
 
 export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   const queryClient = useQueryClient();

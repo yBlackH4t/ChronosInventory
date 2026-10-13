@@ -50,7 +50,16 @@ export function useTauriUpdater() {
               loading: true,
               autoClose: false,
             });
-            await update.downloadAndInstall();
+            await update.download();
+            // Fecha o backend antes de instalar: senao ele fica rodando com a versao antiga e
+            // segura a porta 8000 ("Atualizacao incompleta" na 2.4.0).
+            try {
+              const { invoke } = await import("@tauri-apps/api/core");
+              await invoke("kill_backend");
+            } catch (e) {
+              console.error("Falha ao fechar o backend antes do update:", e);
+            }
+            await update.install();
             await process.relaunch();
           } catch (err) {
             const message =

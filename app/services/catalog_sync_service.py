@@ -88,8 +88,10 @@ class CatalogSyncService:
         finally:
             conn.close()
 
-    def _enrich_existing_products(self, conn: sqlite3.Connection) -> Dict[str, int]:
-        """Vincula nossos produtos existentes aos produtos do catalogo."""
+    def _enrich_existing_products(
+        self, conn: sqlite3.Connection, product_ids: Optional[List[int]] = None
+    ) -> Dict[str, int]:
+        """Vincula nossos produtos existentes (ou so `product_ids`) aos produtos do catalogo."""
         c = conn.cursor()
 
         # Carregar todas as referencias do catalogo indexadas por numero_norm
@@ -106,9 +108,16 @@ class CatalogSyncService:
             c.execute("SELECT id, UPPER(COALESCE(grupo, '')) FROM catalogo_produtos").fetchall()
         )
 
-        our_prods = c.execute(
-            "SELECT id, nome, UPPER(nome) FROM produtos WHERE ativo = 1"
-        ).fetchall()
+        if product_ids is None:
+            our_prods = c.execute(
+                "SELECT id, nome, UPPER(nome) FROM produtos WHERE ativo = 1"
+            ).fetchall()
+        else:
+            marks = ",".join("?" for _ in product_ids) or "NULL"
+            our_prods = c.execute(
+                f"SELECT id, nome, UPPER(nome) FROM produtos WHERE ativo = 1 AND id IN ({marks})",
+                tuple(product_ids),
+            ).fetchall()
 
         vinculos_payload = []
         vinculados_count = 0

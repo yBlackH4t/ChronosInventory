@@ -14,6 +14,11 @@ import type {
   ListProductsStatusParams,
   SuccessResponse,
   ProductCatalogResponse,
+  OwnFicha,
+  OwnFichaIn,
+  OwnFichaList,
+  CatalogStatus,
+  CatalogImportOut,
 } from "../types/api";
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -234,6 +239,45 @@ export function createProductsApi({
           body: JSON.stringify(payload),
           ...options,
         },
+        baseUrl,
+      );
+    },
+
+    // Ficha própria e "Atualizar catálogo"
+    async listOwnFichas(codigo?: string, options: RequestInit = {}) {
+      return request<OwnFichaList>(
+        `/catalogo/fichas-proprias${buildQuery({ codigo })}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async saveOwnFicha(payload: OwnFichaIn, id?: number, options: RequestInit = {}) {
+      return request<OwnFicha>(
+        id ? `/catalogo/fichas-proprias/${id}` : `/catalogo/fichas-proprias`,
+        { method: id ? "PUT" : "POST", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
+    async deleteOwnFicha(id: number, options: RequestInit = {}) {
+      return request<{ removido: boolean }>(
+        `/catalogo/fichas-proprias/${id}`,
+        { method: "DELETE", ...options },
+        baseUrl,
+      );
+    },
+
+    async getCatalogStatus(options: RequestInit = {}) {
+      return request<CatalogStatus>(`/catalogo/status`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async importCatalog(file: File, options: RequestInit = {}) {
+      const form = new FormData();
+      form.append("file", file);
+      return request<CatalogImportOut>(
+        `/catalogo/importar`,
+        { method: "POST", body: form, ...options },
         baseUrl,
       );
     },

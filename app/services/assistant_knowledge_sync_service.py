@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from app.services.assistant_knowledge_service import MAX_NOTE_LENGTH, VALID_TYPES
+from core.catalog import own_fichas
 from core.catalog.normalization import canonical_code, is_searchable_code
 from core.constants import APP_VERSION
 from core.database.repositories.knowledge_repository import KnowledgeRepository
@@ -184,6 +185,7 @@ class AssistantKnowledgeSyncService:
             "publicado_em": state.get("publicado_em"),
             "maquina": state.get("maquina"),
             "total_regras": int(state.get("total_regras") or 0),
+            "total_fichas": int(state.get("total_fichas") or 0),
             "atualizado_em": state.get("atualizado_em"),
             "verificado_em": state.get("verificado_em"),
             "erro": state.get("erro"),
@@ -211,9 +213,12 @@ class AssistantKnowledgeSyncService:
     def _publish(self, config: Dict[str, Any]) -> None:
         rules = self.repository.export_rules()
         digest = rules_hash(rules)
+        fichas = self._export_fichas()
+        fichas_digest = own_fichas.fichas_hash(fichas)
         previous = self._state()
-        # Mesmas regras de antes (ex.: backend reaberto): mantem a data da versao.
-        published_at = previous.get("publicado_em") if previous.get("sha256") == digest else None
+        # Mesmas regras e fichas de antes (ex.: backend reaberto): mantem a data da versao.
+        same = previous.get("sha256") == digest and previous.get("fichas_sha256") == fichas_digest
+        published_at = previous.get("publicado_em") if same else None
         payload = {
             "formato": FORMAT_VERSION,
             "publicado_em": published_at or _now(),
@@ -223,6 +228,9 @@ class AssistantKnowledgeSyncService:
             "total_regras": len(rules),
             "sha256": digest,
             "regras": rules,
+            # Fichas proprias (2.4.1). Quem e da 2.4.0 ignora estas chaves.
+            "fichas": fichas,
+            "fichas_sha256": fichas_digest,
         }
 
         reached, errors = [], []
@@ -246,6 +254,8 @@ class AssistantKnowledgeSyncService:
             {
                 "fonte": " e ".join(reached) or None,
                 "sha256": digest,
+                "fichas_sha256": fichas_digest,
+                "total_fichas": len(fichas),
                 "publicado_em": payload["publicado_em"],
                 "maquina": payload["maquina"],
                 "total_regras": len(rules),
@@ -287,6 +297,7 @@ class AssistantKnowledgeSyncService:
 
         try:
             rules, digest = self._validated(payload)
+            fichas = self._validated_fichas(payload)
         except ValidationException as exc:
             self._save_state({**state, "erro": str(exc)})
             return
@@ -294,6 +305,11 @@ class AssistantKnowledgeSyncService:
         if rules_hash(self.repository.export_rules()) != digest:
             self.repository.replace_all(rules)
             state["atualizado_em"] = state["verificado_em"]
+        if fichas is not None and own_fichas.fichas_hash(self._export_fichas()) != own_fichas.fichas_hash(fichas):
+            self._replace_fichas(fichas)
+            state["atualizado_em"] = state["verificado_em"]
+        if fichas is not None:
+            state["total_fichas"] = len(fichas)
         self._save_state(
             {
                 **state,
@@ -368,6 +384,46 @@ class AssistantKnowledgeSyncService:
                 }
             )
         return rules, rules_hash(rules)
+
+    @staticmethod
+    def _validated_fichas(payload: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+        """Fichas proprias do arquivo publicado (None = publicadora da 2.4.0, sem fichas)."""
+        raw = payload.get("fichas")
+        if raw is None:
+            return None
+        if not isinstance(raw, list) or len(raw) > MAX_RULES:
+            raise ValidationException("As fichas próprias publicadas estão num formato inválido; nada foi alterado.")
+        try:
+            received = own_fichas.fichas_hash(raw)
+        except (AttributeError, KeyError, TypeError):
+            raise ValidationException("As fichas próprias publicadas estão num formato inválido; nada foi alterado.")
+        if str(payload.get("fichas_sha256") or "") != received:
+            raise ValidationException("O arquivo do conhecimento veio incompleto ou alterado; nada foi alterado.")
+        return [own_fichas.normalize_ficha(item) for item in raw]
+
+    def _export_fichas(self) -> List[Dict[str, Any]]:
+        from core.database.connection import DatabaseConnection
+
+        conn = DatabaseConnection().get_connection()
+        try:
+            return own_fichas.export_fichas(conn)
+        finally:
+            conn.close()
+
+    def _replace_fichas(self, fichas: List[Dict[str, Any]]) -> None:
+        from core.database.connection import DatabaseConnection
+
+        db = DatabaseConnection()
+        conn = db.get_connection()
+        try:
+            own_fichas.replace_all(conn, fichas)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+        own_fichas.refresh(db)
 
     # ------------------------------------------------------------------
     # Estado

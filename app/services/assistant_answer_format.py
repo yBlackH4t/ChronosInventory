@@ -131,7 +131,8 @@ def _brand_label(brand: str) -> str:
 def _ficha_label(item: Dict[str, Any]) -> str:
     """'*805314* (MP530w — turbo HX55W HE500WG)'."""
     kind = "conjunto central" if item.get("tipo") == CATEGORY_CORE else "turbo"
-    parts = [p for p in (item.get("modelo_master_power"), f"{kind} {item['modelo']}" if item.get("modelo") else None) if p]
+    mp_name = None if item.get("ficha_propria") else item.get("modelo_master_power")
+    parts = [p for p in (mp_name, f"{kind} {item['modelo']}" if item.get("modelo") else None) if p]
     return f"*{item['ficha']}*" + (f" ({' — '.join(parts)})" if parts else "")
 
 
@@ -150,7 +151,13 @@ def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
     brands = list(dict.fromkeys(b for i in found for b in i["codigo_pesquisado_e"]))
     fichas = ", ".join(_ficha_label(i) for i in found[:3])
     where = "é a" if len(found) == 1 else "aparece em"
-    return f"É código {' e '.join(_brand_label(b) for b in brands)}; no catálogo Master Power {where} {fichas}."
+    if all(i.get("ficha_propria") for i in found):
+        place = "na ficha própria"
+    elif any(i.get("ficha_propria") for i in found):
+        place = "no catálogo e na ficha própria"
+    else:
+        place = "no catálogo Master Power"
+    return f"É código {' e '.join(_brand_label(b) for b in brands)}; {place} {where} {fichas}."
 
 
 def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:

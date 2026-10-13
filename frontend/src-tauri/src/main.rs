@@ -5,7 +5,7 @@ use std::{
     error::Error,
     fs::{create_dir_all, OpenOptions},
     io::Write,
-    net::TcpListener,
+    net::{SocketAddr, TcpListener, TcpStream},
     path::PathBuf,
     process::Command as StdCommand,
     sync::Mutex,
@@ -185,11 +185,22 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
     }
     
     // Garantia extra: builds antigos (onefile) tinham um processo filho que o child.kill()
-    // nao alcancava, e um backend de versao anterior pode ter ficado aberto.
-    force_kill_backend_processes();
+    // nao alcancava, e um backend de versao anterior pode ter ficado aberto. So quando a porta
+    // continua ocupada: ao fechar o app, stop_backend roda ate 3 vezes (fechar janela, sair) e
+    // cada taskkill piscava um prompt.
+    if !wait_backend_port_release(Duration::from_millis(800)) {
+        force_kill_backend_processes();
+    }
 }
 
 fn is_backend_port_free() -> bool {
+    // O backend escuta em 0.0.0.0:8000, e no Windows o bind em 127.0.0.1:8000 funciona mesmo
+    // assim: o teste dizia "livre" com o backend antigo rodando (2.3.0 -> 2.4.0). Quem atende
+    // uma conexao em 127.0.0.1:8000 ocupa a porta.
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+    if TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok() {
+        return false;
+    }
     TcpListener::bind(("127.0.0.1", 8000)).is_ok()
 }
 
@@ -206,8 +217,11 @@ fn wait_backend_port_release(timeout: Duration) -> bool {
 
 #[cfg(target_os = "windows")]
 fn taskkill_image(image_name: &str) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000; // sem a janela de prompt piscando
     match StdCommand::new("taskkill")
         .args(["/F", "/T", "/IM", image_name])
+        .creation_flags(CREATE_NO_WINDOW)
         .output()
     {
         Ok(output) => {

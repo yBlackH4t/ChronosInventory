@@ -156,6 +156,47 @@ export type ProductCatalogResponse = {
   vinculos: ProductCatalogLink[];
 };
 
+// Ficha própria: turbina que o catálogo Master Power não tem.
+export type OwnFichaApplication = {
+  montadora?: string | null;
+  veiculo?: string | null;
+  motor?: string | null;
+  complemento?: string | null;
+};
+
+export type OwnFichaCode = { fabricante: string; numero?: string | null };
+
+export type OwnFichaIn = {
+  codigo: string;
+  marca: string;
+  tipo: "TURBO" | "CONJUNTO";
+  modelo?: string | null;
+  observacao?: string | null;
+  aplicacoes: OwnFichaApplication[];
+  codigos: OwnFichaCode[];
+};
+
+export type OwnFicha = OwnFichaIn & { id: number; codigo_norm: string; atualizado_em?: string | null };
+
+export type OwnFichaList = { fichas: OwnFicha[]; pode_editar: boolean; motivo?: string | null };
+
+export type CatalogStatus = {
+  versao?: string | null;
+  data_emissao?: string | null;
+  importado_em?: string | null;
+  origem: "pacote" | "importado" | "local";
+  fichas_master_power: number;
+  fichas_proprias: number;
+  produtos_vinculados: number;
+};
+
+export type CatalogImportOut = {
+  versao?: string | null;
+  data_emissao?: string | null;
+  produtos_vinculados?: number | null;
+  status: CatalogStatus;
+};
+
 export type ProductImageUploadOut = {
   id: number;
   message: string;

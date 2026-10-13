@@ -50,9 +50,10 @@ class AssistantRepository(BaseRepository):
             return []
         return self._execute_query(
             f"""
-            SELECT id, codigo, descricao, grupo, modelo
-            FROM catalogo_produtos
-            WHERE id IN ({_placeholders(catalog_ids)})
+            SELECT cp.id, cp.codigo, cp.descricao, cp.grupo, cp.modelo, f.codigo AS fonte
+            FROM catalogo_produtos cp
+            LEFT JOIN catalogo_fontes f ON f.id = cp.fonte_id
+            WHERE cp.id IN ({_placeholders(catalog_ids)})
             """,
             tuple(catalog_ids),
         )

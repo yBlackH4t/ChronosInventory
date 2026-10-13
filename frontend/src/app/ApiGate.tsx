@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Button, Center, Loader, Stack, Text, Title } from "@mantine/core";
 import { api } from "../lib/apiClient";
 import type { HealthOut } from "../lib/api";
+import { restartApplication } from "../lib/restartApp";
 import { isTauri } from "../lib/tauri";
 
 // The backend is a single-file executable: it unpacks itself on every start, and the
@@ -108,11 +109,12 @@ export function ApiGate({
             {incompatible.backendVersion}
           </Text>
           <Text c="dimmed" ta="center">
-            Reinstale a versao mais recente do Chronos Inventory para
-            sincronizar os componentes.
+            Normalmente e o servico da versao anterior que ficou aberto.
+            Reiniciar o Chronos fecha esse servico e abre o da versao nova.
           </Text>
-          <Button onClick={() => window.location.reload()}>
-            Tentar novamente
+          {/* restart_app fecha qualquer estoque_backend.exe que ainda segure a porta 8000. */}
+          <Button onClick={() => void restartApplication()}>
+            Reiniciar o Chronos
           </Button>
         </Stack>
       </Center>
