@@ -42,6 +42,9 @@ export function useMovementsPageState() {
   const [productSearch, setProductSearch] = useState(
     persistedState.productSearch,
   );
+  const [documentoSearch, setDocumentoSearchValue] = useState(
+    persistedState.documentoSearch ?? "",
+  );
   const [showProductId, setShowProductId] = useState(
     persistedState.showProductId,
   );
@@ -57,6 +60,10 @@ export function useMovementsPageState() {
   );
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
   const [debouncedProductSearch] = useDebouncedValue(productSearch, 300);
+  const [debouncedDocumentoSearch] = useDebouncedValue(
+    documentoSearch.trim(),
+    300,
+  );
   const [historyOpened, historyHandlers] = useDisclosure(
     persistedState.historyOpened,
   );
@@ -116,6 +123,7 @@ export function useMovementsPageState() {
       pageSize,
       sort,
       serializedFilters,
+      debouncedDocumentoSearch,
     ],
     queryFn: ({ signal }) =>
       api.listMovements(
@@ -141,6 +149,7 @@ export function useMovementsPageState() {
                 .endOf("day")
                 .format("YYYY-MM-DDTHH:mm:ss")
             : undefined,
+          documento: debouncedDocumentoSearch || undefined,
           page,
           page_size: Number(pageSize),
           sort,
@@ -180,6 +189,7 @@ export function useMovementsPageState() {
     if (filtersForm.values.destino_location_id) count += 1;
     if (filtersForm.values.date_from) count += 1;
     if (filtersForm.values.date_to) count += 1;
+    if (documentoSearch.trim()) count += 1;
     if (sort !== DEFAULT_MOVEMENTS_TAB_STATE.sort) count += 1;
     if (pageSize !== DEFAULT_MOVEMENTS_TAB_STATE.pageSize) count += 1;
     return count;
@@ -191,6 +201,7 @@ export function useMovementsPageState() {
     filtersForm.values.destino_location_id,
     filtersForm.values.date_from,
     filtersForm.values.date_to,
+    documentoSearch,
     pageSize,
     sort,
   ]);
@@ -204,6 +215,7 @@ export function useMovementsPageState() {
         pageSize,
         sort,
         productSearch,
+        documentoSearch,
         showProductId,
         filters: serializedFilters,
         historyProductId,
@@ -212,6 +224,7 @@ export function useMovementsPageState() {
       });
     },
     [
+      documentoSearch,
       historyOpened,
       historyProductId,
       page,
@@ -261,8 +274,14 @@ export function useMovementsPageState() {
     [filtersForm],
   );
 
+  const setDocumentoSearch = useCallback((value: string) => {
+    setDocumentoSearchValue(value);
+    setPage(1);
+  }, []);
+
   const clearFilters = useCallback(() => {
     filtersForm.setValues({ ...DEFAULT_MOVEMENT_FILTERS });
+    setDocumentoSearchValue("");
     setPage(1);
   }, [filtersForm]);
 
@@ -271,6 +290,7 @@ export function useMovementsPageState() {
     setPageSize(DEFAULT_MOVEMENTS_TAB_STATE.pageSize);
     setSort(DEFAULT_MOVEMENTS_TAB_STATE.sort);
     setProductSearch(DEFAULT_MOVEMENTS_TAB_STATE.productSearch);
+    setDocumentoSearchValue("");
     setShowProductId(DEFAULT_MOVEMENTS_TAB_STATE.showProductId);
     setShowAdvancedFilters(false);
     setHistoryProductId(DEFAULT_MOVEMENTS_TAB_STATE.historyProductId);
@@ -298,6 +318,7 @@ export function useMovementsPageState() {
     activeViewCount,
     clearFilters,
     closeHistory,
+    documentoSearch,
     filters: filtersForm.values,
     historyErrorMessage,
     historyOpened,
@@ -315,6 +336,7 @@ export function useMovementsPageState() {
     productSearch,
     resetView,
     rows: listQuery.data?.data ?? [],
+    setDocumentoSearch,
     setFilterValue,
     setPage,
     setPageSize: (value: string) => {

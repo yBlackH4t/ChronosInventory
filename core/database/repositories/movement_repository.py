@@ -182,6 +182,11 @@ class MovementRepository(BaseRepository):
 
 
 
+    @staticmethod
+    def _like_contains(term: str) -> str:
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return f"%{escaped}%"
+
     def list_movements(
         self,
         produto_id: Optional[int] = None,
@@ -191,6 +196,7 @@ class MovementRepository(BaseRepository):
         destino_local_id: Optional[int] = None,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
+        documento: Optional[str] = None,
         sort_column: str = "data",
         sort_direction: str = "DESC",
         limit: int = 20,
@@ -241,6 +247,9 @@ class MovementRepository(BaseRepository):
         if date_to:
             query += " AND m.data_hora <= ?"
             params.append(date_to)
+        if documento:
+            query += " AND m.documento LIKE ? ESCAPE '\\'"
+            params.append(self._like_contains(documento))
 
         query += f" ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -256,6 +265,7 @@ class MovementRepository(BaseRepository):
         destino_local_id: Optional[int] = None,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
+        documento: Optional[str] = None,
     ) -> int:
         query = """
             SELECT COUNT(*) as total
@@ -285,6 +295,9 @@ class MovementRepository(BaseRepository):
         if date_to:
             query += " AND data_hora <= ?"
             params.append(date_to)
+        if documento:
+            query += " AND documento LIKE ? ESCAPE '\\'"
+            params.append(self._like_contains(documento))
 
         result = self._execute_query(query, tuple(params))
         return result[0]["total"] if result else 0
