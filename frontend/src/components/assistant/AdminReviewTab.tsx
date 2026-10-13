@@ -452,7 +452,7 @@ export default function AdminReviewTab() {
             {item.sugestoes && item.sugestoes.length > 0 ? (
               <Stack gap="xs" mt="xs">
                 <Text size="xs" fw={600} c="dimmed">
-                  Sugestões automáticas no catálogo:
+                  Pode ser igual a:
                 </Text>
                 {item.sugestoes.map((sug: ReviewSuggestion) => (
                   <Card
@@ -466,18 +466,20 @@ export default function AdminReviewTab() {
                       <div style={{ flex: 1, minWidth: 240 }}>
                         <Group gap="xs">
                           <Text fw={600} size="sm">
+                            {sug.codigo}
+                          </Text>
+                          <Text size="sm" c="dimmed">
                             {sug.nome}
                           </Text>
-                          <Badge size="xs" color="blue" variant="outline">
-                            Código: {sug.codigo}
-                          </Badge>
-                          <Badge
-                            size="xs"
-                            color={sug.estoque_total > 0 ? "teal" : "gray"}
-                            variant="light"
-                          >
-                            Estoque: {sug.estoque_total}
-                          </Badge>
+                          {sug.produto_id !== null && (
+                            <Badge
+                              size="xs"
+                              color={sug.estoque_total > 0 ? "teal" : "gray"}
+                              variant="light"
+                            >
+                              Estoque: {sug.estoque_total}
+                            </Badge>
+                          )}
                         </Group>
                         {sug.motivo && (
                           <Text size="xs" c="dimmed" mt={2}>
@@ -532,7 +534,8 @@ export default function AdminReviewTab() {
               </Stack>
             ) : (
               <Text size="xs" c="dimmed" mt="xs" fs="italic">
-                Nenhuma sugestão automática encontrada no estoque para este código.
+                Nenhuma sugestão: o cadastro e o catálogo não ligam este código a outro. Use
+                "Ensinar outro código".
               </Text>
             )}
 

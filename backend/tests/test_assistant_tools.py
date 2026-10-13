@@ -3,7 +3,8 @@
 import pytest
 
 from app.services.assistant_answer_format import display_code, format_application_answer
-from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
+from app.services.assistant_direct_service import AssistantDirectService
+from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService, _year_range
 from core.catalog.bundle import relink_catalog
 from core.catalog.normalization import search_words
 from core.database.connection import DatabaseConnection
@@ -106,6 +107,15 @@ def tools(client):
     return service
 
 
+def test_year_range_from_the_catalog_text():
+    assert _year_range("MD13 (A partir 2017)") == (2017, None)
+    assert _year_range("MD13 460/480/500/520 HP Euro 5 (Até final de 2018)") == (None, 2018)
+    assert _year_range("P3216 / D13C500 ((2019 – 2023))") == (2019, 2023)
+    assert _year_range("Europa (2006 / 2007/ 2011+)") == (2006, None)
+    assert _year_range("CURSOR 13 EURO 5 SCR 440/480 HP (2012 - 2015)") == (2012, 2015)
+    assert _year_range("DC13 SCR Euro 5 MWM 4.10") is None
+
+
 def test_search_words_normalizes_free_text():
     assert search_words("Scania R440") == ["SCANIA", "R", "440"]
     assert search_words("Ônibus K 440") == ["ONIBUS", "K", "440"]
@@ -140,6 +150,21 @@ def test_code_search_accepts_oem_and_family_variants(tools):
         "TURBINA HOLSET HX55W 4031196",
         "TURBO HOLSET HX55W 4044318",
     }
+    # O cliente mandou o codigo de outro fabricante: as nossas turbinas daquela ficha sao "temos",
+    # e a resposta diz de quem e o codigo.
+    assert by_oem["texto_pronto"].splitlines()[:3] == [
+        "*20993930*: temos.",
+        "É código OEM (original da montadora); no catálogo Master Power é a "
+        "*805314* (MP530w — turbo HX55W HE500WG).",
+        "• *TURBINA HOLSET HX55W 4031196* — 2 em Canoas",
+    ]
+    assert tools.search_by_code("TC0710447")["texto_pronto"].splitlines()[1].startswith("É código Mahle; ")
+    assert tools.search_by_code("805314")["texto_pronto"].splitlines()[:2] == [
+        "*805314*: temos.",
+        "É o código Master Power da ficha *805314* (MP530w — turbo HX55W HE500WG).",
+    ]
+    # O nosso proprio codigo continua com "temos." (sem dizer de que fabricante e).
+    assert tools.search_by_code("4031196")["texto_pronto"].startswith("*4031196*: temos.")
 
     reman = tools.search_by_code("53279907116")
     (k27,) = reman["produtos"]
@@ -197,7 +222,7 @@ def test_application_search_splits_same_vehicle_by_engine(tools):
     assert "mudam conforme o motor" in result["atencao"]
     assert list(result).index("atencao") < list(result).index("fichas_catalogo")
     assert result["texto_pronto"].startswith("Depende do motor:")
-    assert result["texto_pronto"].endswith("Qual é o motor do cliente?")
+    assert result["texto_pronto"].endswith("Qual é o motor ou o ano do veículo?")
 
     narrowed = tools.search_by_application("scania r440 dc13")
     assert [f["ficha"] for f in narrowed["fichas_catalogo"]] == ["805310"]
@@ -226,7 +251,7 @@ def test_application_answer_does_not_ask_the_engine_again():
     # So "scania 440" (o 440 esta no veiculo, nao no motor): continua perguntando.
     text = format_application_answer({"termos_usados": ["SCANIA", "440"], "fichas_catalogo": items})
     assert text.startswith("Depende do motor:")
-    assert text.endswith("Qual é o motor do cliente?")
+    assert text.endswith("Qual é o motor ou o ano do veículo?")
 
 
 def test_application_search_synonyms_and_model_numbers(tools):
@@ -299,8 +324,41 @@ def test_run_tool_reports_errors_instead_of_raising(tools):
     assert tools.run_tool("buscar_por_codigo", {"codigo": "4031196"})["temos_em_estoque"] is True
 
 
+def test_movements_of_a_code(client, tools):
+    sale = {"tipo": "SAIDA", "produto_id": tools.ids["k27"], "quantidade": 1, "origem_location_id": PF}
+    assert client.post("/movimentacoes", json=sale).status_code == 201
+
+    lines = tools.product_movements("5327-988-7116")["texto_pronto"].splitlines()
+    assert lines[0] == "*53279887116*:"
+    assert lines[1].startswith("• Última saída: ") and " — 1 un. de Passo Fundo" in lines[1]
+    assert lines[2].startswith("• Última entrada: ")  # o estoque inicial do cadastro
+    assert lines[-1].startswith("Saíram 1 un. nos últimos 90 dias")
+    assert tools.product_movements("9999999")["texto_pronto"] == "*9999999*: não achei esse código no cadastro."
+
+    # "quando saiu?" vai para as movimentacoes; "quantos tem pra venda?" continua sendo estoque.
+    direct = AssistantDirectService(tools)
+    assert direct.answer("qual foi a ultima vez que ela saiu? 53279887116")["ferramentas_usadas"] == [
+        "movimentacoes_produto"
+    ]
+    assert direct.answer("quantos tem pra venda da 53279887116?")["ferramentas_usadas"] == ["buscar_por_codigo"]
+
+
+def test_master_power_code(tools):
+    assert tools.catalog_code("4031196")["texto_pronto"] == (
+        "*4031196*: no catálogo Master Power é a *805314* — MP530w (turbo HX55W HE500WG)."
+    )
+    assert tools.catalog_code("9999999")["texto_pronto"] == (
+        "*9999999*: não achei esse código no catálogo Master Power."
+    )
+    answer = AssistantDirectService(tools).answer("qual o codigo master power dessa?", [{"papel": "usuario", "texto": "53279887116"}])
+    assert answer["resposta"] == "*53279887116*: no catálogo Master Power é a *802333* — MP400WS (turbo K27)."
+
+
 def test_tool_definitions_match_handlers():
     names = {tool["name"] for tool in ASSISTANT_TOOLS}
-    assert names == {"buscar_por_codigo", "buscar_por_aplicacao", "detalhe_produto"}
+    assert names == {
+        "buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "movimentacoes_produto",
+        "codigo_master_power", "detalhe_produto",
+    }
     for tool in ASSISTANT_TOOLS:
         assert tool["input_schema"]["required"]

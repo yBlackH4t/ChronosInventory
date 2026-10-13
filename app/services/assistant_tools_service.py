@@ -14,12 +14,17 @@ from __future__ import annotations
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.assistant_answer_format import (
     display_code,
     format_application_answer,
+    format_catalog_code_answer,
     format_code_answer,
+    format_comparison_answer,
+    format_movements_answer,
+    short_applications,
     wants_core,
 )
 from app.services.assistant_common import (  # noqa: F401  (reexportados para quem ja importa daqui)
@@ -31,7 +36,7 @@ from app.services.assistant_common import (  # noqa: F401  (reexportados para qu
     MATCH_EXPERT_SIMILAR,
     MATCH_FAMILY,
 )
-from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from app.services.assistant_knowledge_service import SOURCE_EXPERT, SOURCE_FAMILY, AssistantKnowledgeService
 from core.catalog.normalization import (
     canonical_code,
     expand_family_codes,
@@ -66,6 +71,9 @@ COMPACT_LIMITS = ResultLimits(
     products=8, catalog_items=6, code_catalog_items=3, applications_per_item=3, detail_applications=6, refs_per_brand=3
 )
 
+# "Quanto saiu": saidas (vendas) dos ultimos dias, alem da ultima.
+SALES_WINDOW_DAYS = 90
+
 # Completar codigo pelo final ("988-7101"): so a partir de 6 digitos ("7101" bate com dezenas).
 MIN_COMPLETION_LENGTH = 6
 MAX_CODE_COMPLETIONS = 8
@@ -86,7 +94,15 @@ _STOPWORDS = {
     "MEU", "MINHA", "SEU", "SUA", "ESSE", "ESSA", "ESTE", "ESTA", "ISSO", "AQUI",
     "OI", "OLA", "BOM", "BOA", "DIA", "TARDE", "NOITE", "ALGUM", "ALGUMA", "PRECISO", "PRECISA",
     "PECA", "PECAS", "CLIENTE", "VEICULO", "MODELO", "ANO",
+    # Conversa e texto colado de uma resposta ("Não temos esse código, mas temos:" achava o OM 457LA
+    # porque "NAO" aparece numa aplicacao).
+    "NAO", "SIM", "MAS", "OU", "SE", "JA", "SO", "MAIS", "AINDA", "TAMBEM", "TB", "TMB", "VC", "VOCE",
+    "CODIGO", "CODIGOS", "FAVOR", "OBRIGADO", "OBRIGADA", "TUDO", "NADA", "ENTAO", "PQ", "PORQUE",
+    "COMO", "ONDE", "ALGUEM", "QUERO", "QUER", "TER", "TINHA", "TEMOS", "ESTA", "ESTAO", "SAO", "E",
+    "MOMENTO", "AGORA", "HOJE", "OPCAO", "OPCOES",
 }
+# Motor Volvo: o chefe fala "D13", o catalogo escreve "D13" e "MD13".
+_SYNONYMS_ENGINE_LETTER = {"D": ("D", "MD")}
 
 # Apelidos de montadora -> palavras como aparecem no catalogo (qualquer uma serve).
 _SYNONYMS = {
@@ -106,6 +122,37 @@ _PARENS = re.compile(r"\(([^)]*)\)")
 
 def _is_year(term: str) -> bool:
     return len(term) == 4 and term.isdigit() and 1980 <= int(term) <= 2039
+
+
+_YEAR_IN_TEXT = re.compile(r"(?<!\d)(19[89]\d|20[0-3]\d)(?!\d)")
+
+
+def _year_range(text: str) -> Optional[Tuple[Optional[int], Optional[int]]]:
+    """
+    Anos em que a aplicacao vale, pelo texto do catalogo: 'A partir 2017' -> (2017, None),
+    'Até final de 2018' -> (None, 2018), '2019 – 2023' -> (2019, 2023), '2011+' -> (2011, None).
+    None quando o texto nao fala de ano.
+    """
+    upper = (text or "").upper().replace("É", "E")
+    years = [int(y) for y in _YEAR_IN_TEXT.findall(upper)]
+    if not years:
+        return None
+    low: Optional[int] = min(years)
+    high: Optional[int] = max(years)
+    if "PARTIR" in upper or "DESDE" in upper or re.search(r"(19|20)\d\d\s*\+", upper):
+        high = None
+    if re.search(r"\bATE\b", upper) and not re.search(r"(19|20)\d\d\s*(A|ATE|-|–)\s*(19|20)\d\d", upper):
+        low = None
+    return low, high
+
+
+def _year_fits(app: Dict[str, Any], year: int) -> bool:
+    """A aplicacao vale para esse ano? Sem ano no catalogo: pode ser (fica na lista)."""
+    span = _year_range(" ".join(str(app.get(k) or "") for k in ("veiculo", "motor", "complemento")))
+    if span is None:
+        return True
+    low, high = span
+    return (low is None or year >= low) and (high is None or year <= high)
 
 
 def _product_category(nome: str) -> str:
@@ -206,7 +253,18 @@ class AssistantToolsService:
         )
 
         catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=self.limits.code_catalog_items)]
-        catalog_items = self._catalog_items(catalog_ids, highlight=set(expand_family_codes([code])))
+        family = expand_family_codes([code])
+        catalog_items = self._catalog_items(catalog_ids, highlight=set(family))
+        # De que fabricante e o codigo pesquisado em cada ficha ("é código OEM da turbina tal").
+        brands: Dict[int, List[str]] = {}
+        for ref in self.repository.get_reference_brands(catalog_ids, family):
+            names = brands.setdefault(int(ref["catalogo_produto_id"]), [])
+            if ref["fabricante"] not in names:
+                names.append(ref["fabricante"])
+        for item in catalog_items:
+            if canonical_code(item["ficha"]) in family:
+                item["e_o_codigo_da_ficha"] = True  # o proprio codigo Master Power
+            item["codigo_pesquisado_e"] = brands.get(item["id"], [])
         applications = self._group_applications(self.repository.get_applications(catalog_ids))
         for item in catalog_items:
             apps = applications.get(item["id"], [])
@@ -307,6 +365,106 @@ class AssistantToolsService:
             out.append(candidate)
         return out
 
+    def compare_codes(self, codigo_a: str, codigo_b: str) -> Dict[str, Any]:
+        """"A e B sao a mesma peca?": responde a pergunta, nao o estoque."""
+        typed = [" ".join(str(c or "").split()).upper() for c in (codigo_a, codigo_b)]
+        codes = [canonical_code(t) for t in typed]
+        for raw, code in zip(typed, codes):
+            if len(code) < 4 or not any(ch.isdigit() for ch in code):
+                raise ValidationException(f"Codigo invalido: {raw!r}. Informe os numeros das duas pecas.")
+        relation = self.knowledge.relation_between(codes[0], codes[1])
+        labels = [display_code(t) for t in typed]
+        result: Dict[str, Any] = {
+            "codigo_pesquisado": codes[0],
+            "outro_codigo": codes[1],
+            "relacao": relation["relacao"],
+            "fonte": relation["fonte"],
+        }
+        catalog = []
+        if relation["fonte"] not in (SOURCE_FAMILY, SOURCE_EXPERT):
+            # O especialista ainda nao disse: o que o catalogo sabe de cada um ajuda a decidir.
+            for code, label in zip(codes, labels):
+                rows = self.catalog.search_catalog(code, limit=1)
+                if not rows:
+                    catalog.append(f"• {label}: não está no catálogo")
+                    continue
+                apps = self._group_applications(self.repository.get_applications([int(rows[0]["id"])]))
+                item = {"aplicacoes": [_application_label(a) for a in apps.get(int(rows[0]["id"]), [])]}
+                model = _turbo_models(rows[0].get("modelo")) or rows[0].get("codigo")
+                uses = short_applications(item)
+                catalog.append(f"• {label}: {model}" + (f" — {uses}" if uses else ""))
+        result["texto_pronto"] = format_comparison_answer(labels[0], labels[1], relation, catalog)
+        return result
+
+    def _our_products_for_code(self, code: str) -> List[Dict[str, Any]]:
+        """Nossos produtos (ativos e inativos) com o codigo ou a versao nova/reman dele."""
+        return [
+            p
+            for p in self.products.get_all(search_term=code, status="TODOS")
+            if self._code_match(code, p["nome"]) in (MATCH_EXACT, MATCH_FAMILY)
+        ]
+
+    @staticmethod
+    def _checked_code(codigo: str) -> Tuple[str, str]:
+        typed = " ".join(str(codigo or "").split()).upper()
+        codes = extract_codes_from_name(typed, expand_family=False)
+        code = codes[0] if codes else canonical_code(typed)
+        if len(code) < 4 or not any(ch.isdigit() for ch in code):
+            raise ValidationException("Codigo muito curto. Informe o numero da peca (ex.: 4031196, 409300-5031).")
+        typed = next((t for t in re.split(r"[\s,;/()]+", typed) if canonical_code(t) == code), code)
+        return code, typed
+
+    def product_movements(self, codigo: str, today: Optional[date] = None) -> Dict[str, Any]:
+        """Ultima saida, entrada e transferencia do codigo (e da versao nova/reman), e quanto saiu."""
+        code, typed = self._checked_code(codigo)
+        products = self._our_products_for_code(code)
+        rows = self.repository.get_movements([int(p["id"]) for p in products])
+        # Estorno desfaz um lancamento errado: nao e "a ultima vez que saiu".
+        rows = [r for r in rows if str(r.get("natureza") or "").upper() != "ESTORNO"]
+        today = today or date.today()
+        since = (today - timedelta(days=SALES_WINDOW_DAYS)).isoformat()
+        sales = [r for r in rows if r["tipo"] == "SAIDA" and str(r.get("natureza") or "OPERACAO_NORMAL") == "OPERACAO_NORMAL"]
+        result: Dict[str, Any] = {
+            "codigo_pesquisado": code,
+            "produtos_cadastrados": [p["nome"] for p in products],
+            "ultimas": {
+                kind: next(({k: v for k, v in r.items() if k != "id"} for r in rows if r["tipo"] == kind), None)
+                for kind in ("SAIDA", "ENTRADA", "TRANSFERENCIA")
+            },
+            "saidas_ultimos_dias": sum(int(r["quantidade"] or 0) for r in sales if str(r["data_hora"]) >= since),
+            "saidas_total": sum(int(r["quantidade"] or 0) for r in sales),
+            "registros_desde": self.repository.first_movement_date(),
+        }
+        result["texto_pronto"] = format_movements_answer(display_code(typed), result, SALES_WINDOW_DAYS)
+        return result
+
+    def catalog_code(self, codigo: str) -> Dict[str, Any]:
+        """Codigo Master Power (ficha do catalogo) de uma peca: pela referencia ou pelo vinculo do nosso produto."""
+        code, typed = self._checked_code(codigo)
+        ids: List[int] = []
+        for variant in expand_family_codes([code]):
+            for row in self.catalog.search_catalog(variant, limit=5):
+                if int(row["id"]) not in ids:
+                    ids.append(int(row["id"]))
+        products = [p for p in self._our_products_for_code(code) if p.get("ativo", 1)]
+        for link in self.repository.get_product_catalog_ids([int(p["id"]) for p in products]):
+            if int(link["catalogo_produto_id"]) not in ids:
+                ids.append(int(link["catalogo_produto_id"]))
+        rows = {int(r["id"]): r for r in self.repository.get_catalog_products(ids)}
+        fichas = [
+            {
+                "codigo": rows[i]["codigo"],
+                "modelo": rows[i].get("modelo"),
+                "tipo": CATEGORY_CORE if "CONJUNTO" in str(rows[i].get("grupo") or "").upper() else CATEGORY_TURBO,
+            }
+            for i in ids
+            if i in rows
+        ]
+        fichas.sort(key=lambda f: 0 if f["tipo"] == CATEGORY_TURBO else 1)  # a turbina antes do conjunto central
+        result = {"codigo_pesquisado": code, "fichas_master_power": fichas}
+        result["texto_pronto"] = format_catalog_code_answer(display_code(typed), fichas)
+        return result
+
     def search_by_application(self, texto: str) -> Dict[str, Any]:
         terms = [w for w in search_words(texto) if w not in _STOPWORDS]
         if not terms:
@@ -328,17 +486,27 @@ class AssistantToolsService:
         # Numero desconhecido continua obrigatorio ("scania 999" nao vira "qualquer Scania").
         # Ano ("dc13 2015") quase nunca esta escrito na aplicacao: vira filtro opcional, usado
         # so se alguma aplicacao tiver aquele numero (ex.: Axor 2035 continua funcionando).
-        ignored = [t for t in terms if t.isalpha() and not (set(_SYNONYMS.get(t, (t,))) & vocabulary)]
+        synonyms = {**_SYNONYMS, **_SYNONYMS_ENGINE_LETTER}
+        ignored = [t for t in terms if t.isalpha() and not (set(synonyms.get(t, (t,))) & vocabulary)]
         known = [t for t in terms if t not in ignored]
+        if known and all(_is_year(t) for t in known):
+            # So o ano ("2015"), sem veiculo nem motor: acharia qualquer aplicacao daquele ano.
+            raise ValidationException("Informe o veiculo ou o motor junto com o ano (ex.: 'volvo fh 2015').")
         required = [t for t in known if not _is_year(t)] or known
         optional = [t for t in known if t not in required]
-        alternatives = [set(_SYNONYMS.get(term, (term,))) for term in required]
+        alternatives = [set(synonyms.get(term, (term,))) for term in required]
 
         candidates = [(app, words) for app, words in indexed if alternatives and all(o & words for o in alternatives)]
         for term in optional:
-            narrowed = [(app, words) for app, words in candidates if term in words]
-            if narrowed:
-                candidates = narrowed
+            # Ano: vale o que o catalogo diz ("A partir 2017", "Até final de 2018", "2019 – 2023");
+            # aplicacao sem ano continua na lista.
+            # Senao, o numero pode ser parte do modelo (Axor 2035).
+            by_year = [(app, words) for app, words in candidates if _year_fits(app, int(term))]
+            by_word = [(app, words) for app, words in candidates if term in words]
+            if by_year and len(by_year) < len(candidates):
+                candidates = by_year
+            elif by_word:
+                candidates = by_word
             else:
                 ignored.append(term)
 
@@ -421,6 +589,9 @@ class AssistantToolsService:
             "buscar_por_codigo": lambda a: self.search_by_code(str(a["codigo"])),
             "buscar_por_aplicacao": lambda a: self.search_by_application(str(a["texto"])),
             "detalhe_produto": lambda a: self.product_details(int(a["produto_id"])),
+            "comparar_codigos": lambda a: self.compare_codes(str(a["codigo_a"]), str(a["codigo_b"])),
+            "movimentacoes_produto": lambda a: self.product_movements(str(a["codigo"])),
+            "codigo_master_power": lambda a: self.catalog_code(str(a["codigo"])),
         }
         handler = handlers.get(name)
         if handler is None:
@@ -493,6 +664,7 @@ class AssistantToolsService:
                     "ficha": row["codigo"],
                     "tipo": CATEGORY_CORE if "CONJUNTO" in str(row.get("grupo") or "").upper() else CATEGORY_TURBO,
                     "modelo": _turbo_models(row.get("modelo")),
+                    "modelo_master_power": str(row.get("modelo") or "").partition("(")[0].strip() or None,
                     "atendemos_marca": bool(brand_refs),
                     "referencias": {
                         brand: numbers[:self.limits.refs_per_brand] for brand, numbers in brand_refs.items()
@@ -582,6 +754,53 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
                 "texto": {"type": "string", "description": "Montadora, modelo e/ou motor, ex.: 'scania r 440 dc13'."}
             },
             "required": ["texto"],
+        },
+    },
+    {
+        "name": "comparar_codigos",
+        "description": (
+            "Responde se duas pecas sao a mesma ('a 53279887101 e igual a 53279887210?', 'serve no lugar?', "
+            "'e equivalente?'): o que o especialista ensinou (igual, similar, diferente), o cadastro e o "
+            "catalogo. Nao fala de estoque. Devolve 'texto_pronto' (a resposta pronta para enviar)."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "codigo_a": {"type": "string", "description": "Primeiro codigo, como o usuario escreveu."},
+                "codigo_b": {"type": "string", "description": "Segundo codigo, como o usuario escreveu."},
+            },
+            "required": ["codigo_a", "codigo_b"],
+        },
+    },
+    {
+        "name": "movimentacoes_produto",
+        "description": (
+            "Historico de movimentacoes de uma peca pelo codigo: ultima saida (venda), ultima entrada, ultima "
+            "transferencia (data, quantidade, local, nota) e quanto saiu nos ultimos 90 dias. Use para 'quando "
+            "saiu?', 'quando vendemos?', 'quando chegou?', 'quantas saíram?'. Devolve 'texto_pronto'."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"codigo": {"type": "string", "description": "Codigo da peca, ex.: 409300-5031."}},
+            "required": ["codigo"],
+        },
+    },
+    {
+        "name": "codigo_master_power",
+        "description": (
+            "Codigo Master Power (ficha do catalogo) de uma peca: 'qual o codigo master power da 409300-5031?'. "
+            "Devolve 'texto_pronto'."
+        ),
+        "strict": True,
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"codigo": {"type": "string", "description": "Codigo da peca, ex.: 409300-5031."}},
+            "required": ["codigo"],
         },
     },
     {

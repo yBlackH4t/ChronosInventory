@@ -119,7 +119,7 @@ class KnowledgeSyncOut(BaseModel):
 
 class ReviewSuggestionOut(BaseModel):
     codigo: str
-    produto_id: int
+    produto_id: int | None = None  # codigo perguntado que nao esta cadastrado no estoque
     nome: str
     estoque_total: int
     motivo: str

@@ -29,6 +29,26 @@ from app.services.assistant_tools_service import AssistantToolsService
 from core.catalog.normalization import canonical_code, extract_codes_from_name, search_words
 
 MAX_CODES_PER_MESSAGE = 3
+# Respostas seguidas a "Qual é o motor (ou o ano)?" que juntam com a pergunta original.
+MAX_FOLLOW_UPS = 3
+APPLICATION_ANSWER_STARTS = ("Depende do motor:", "Temos:", "Não temos no momento:")
+# "a 7101 é a mesma que a 7210?": pergunta sobre os dois codigos, nao sobre o estoque.
+COMPARISON_WORDS = {
+    "IGUAL", "IGUAIS", "MESMA", "MESMO", "MESMAS", "MESMOS", "EQUIVALENTE", "EQUIVALENTES", "EQUIVALE",
+    "SUBSTITUI", "SUBSTITUTA", "SUBSTITUTO", "SERVE", "SERVEM", "TROCA", "BATE", "BATEM", "COMPATIVEL",
+    "COMPATIVEIS", "DIFERENCA", "DIFERENTE", "DIFERENTES", "SIMILAR", "SIMILARES", "INTERCAMBIAVEL",
+    "CORRESPONDE", "LUGAR",
+}
+# "quando saiu / quantas vendemos / teve venda esse mes?": verbo de movimento com tempo ou
+# quantidade, ou substantivo com tempo. Assim "quantos tem pra venda?" continua sendo estoque.
+MOVEMENT_VERBS = {
+    "SAIU", "SAIRAM", "VENDEU", "VENDEMOS", "VENDERAM", "VENDIDA", "VENDIDO", "VENDIDAS", "VENDIDOS",
+    "ENTROU", "ENTRARAM", "CHEGOU", "CHEGARAM", "TRANSFERIU", "TRANSFERIMOS", "TRANSFERIDA", "TRANSFERIDO",
+}
+MOVEMENT_NOUNS = {"SAIDA", "SAIDAS", "VENDA", "VENDAS", "ENTRADA", "ENTRADAS", "TRANSFERENCIA", "TRANSFERENCIAS"}
+MOVEMENT_ALONE = {"MOVIMENTACAO", "MOVIMENTACOES", "MOVIMENTOU", "HISTORICO", "GIRO"}
+TIME_WORDS = {"QUANDO", "ULTIMA", "ULTIMO", "ULTIMAS", "ULTIMOS", "VEZ", "DATA", "DIA", "MES", "ANO", "SEMANA"}
+COUNT_WORDS = {"QUANTAS", "QUANTOS"}
 # Palavras que apontam para o codigo da mensagem anterior ("temos essa daí?").
 REFERENCE_WORDS = {"ESSA", "ESSE", "ESTA", "ESTE", "DESSA", "DESSE", "DESTA", "DESTE", "DAI", "ELA", "ELE", "ISSO", "MESMA"}
 # Numero de chassi (VIN): 17 caracteres, sem I, O e Q. Nao e codigo de peca.
@@ -36,6 +56,9 @@ _VIN = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 # Codigo falado que a transcricao escreveu com espacos: "5327 988 7101".
 _SPACED_DIGITS = re.compile(r"(?<![\w.,])\d{2,7}(?: \d{2,7}){1,4}(?![\w.,])")
 _YEAR = re.compile(r"^(19[5-9]\d|20[0-4]\d)$")
+_BOLD = re.compile(r"\*([^*\n]+)\*")
+_ANSWER_SUBJECT = re.compile(r"(?:^|\n\n)\*([^*\n]+)\*:")
+TOPIC_WITHOUT_CODE_TEXT = "De qual peça? Mande o código (ex.: 4031196) ou pergunte logo depois de eu mostrar a turbina."
 MIN_SPACED_CODE_LENGTH = 6
 MAX_SPACED_CODE_LENGTH = 13
 CHASSIS_TEXT = (
@@ -89,16 +112,41 @@ class AssistantDirectService:
             codes = [c for c in codes if c not in chassis]
             for vin in chassis:
                 search_text = re.sub(re.escape(vin), " ", search_text, flags=re.IGNORECASE)
-        if not codes and not chassis:
+        if not codes and not chassis and REFERENCE_WORDS & set(search_words(mensagem)):
             # "temos essa daí?" logo depois de colar um código: usa o código da mensagem anterior.
             previous = self._previous_user_text(historico or [])
-            if previous and REFERENCE_WORDS & set(search_words(mensagem)):
+            if previous:
                 codes = extract_codes_from_name(previous, expand_family=False)[:MAX_CODES_PER_MESSAGE]
                 code_source = previous
+            if not codes:
+                # "qual o código master dessa?" depois de uma busca por veículo: a turbina que a
+                # última resposta mostrou.
+                codes, code_source = self._codes_in_last_answer(historico or [])
         if not codes:
             spaced = self._spaced_codes(search_text, tools_used)
             if spaced:
                 codes, code_source = spaced, " ".join(spaced)
+        topic_tool = self._topic_tool(mensagem)
+        if topic_tool and not codes and not chassis:
+            # Pergunta de movimentacao ou de codigo Master Power sem codigo: nao e busca por veiculo
+            # ("codigo master" achava a Renault Master).
+            return make_result(TOPIC_WITHOUT_CODE_TEXT, [], tools_used, MODE_DIRECT), True
+        if topic_tool and codes:
+            # "quando saiu a 409300-5031?", "qual o codigo master power dessa?"
+            parts = []
+            for code in codes:
+                output = self.tools.run_tool(topic_tool, {"codigo": _typed_code(code_source, code)})
+                tools_used.append(topic_tool)
+                parts.append(output.get("texto_pronto") or HELP_TEXT)
+            return make_result("\n\n".join(parts), [], tools_used, MODE_DIRECT), True
+        pairs = self._comparison_pairs(mensagem, codes, code_source, historico or [])
+        if pairs:
+            parts = []
+            for first, second in pairs:
+                output = self.tools.run_tool("comparar_codigos", {"codigo_a": first, "codigo_b": second})
+                tools_used.append("comparar_codigos")
+                parts.append(output.get("texto_pronto") or HELP_TEXT)
+            return make_result("\n\n".join(parts), [], tools_used, MODE_DIRECT), True
         if codes:
             parts = []
             for code in codes:
@@ -157,6 +205,68 @@ class AssistantDirectService:
         return codes[:MAX_CODES_PER_MESSAGE]
 
     @staticmethod
+    def _topic_tool(mensagem: str) -> Optional[str]:
+        """A pergunta e sobre movimentacao ou sobre o codigo Master Power (e nao o estoque)?"""
+        words = set(search_words(mensagem))
+        if (
+            MOVEMENT_ALONE & words
+            or (MOVEMENT_VERBS & words and (TIME_WORDS | COUNT_WORDS) & words)
+            or (MOVEMENT_NOUNS & words and TIME_WORDS & words)
+        ):
+            return "movimentacoes_produto"
+        # "Master" sozinho pode ser a Renault Master: precisa de "código", "power", "MP" ou "ficha".
+        if ("MASTER" in words and {"POWER", "CODIGO", "MP", "FICHA"} & words) or "FICHA" in words or (
+            "MP" in words and "CODIGO" in words
+        ):
+            return "codigo_master_power"
+        return None
+
+    @staticmethod
+    def _codes_in_last_answer(historico: List[Dict[str, str]]) -> Tuple[List[str], str]:
+        """
+        Codigos das turbinas que a ultima resposta mostrou ("✅ *TURBO HOLSET HX55W - 4031196/...*"):
+        o primeiro codigo de cada produto, ate 3.
+        """
+        for item in reversed(historico):
+            if item.get("papel") == "usuario":
+                return [], ""
+            if item.get("papel") != "assistente":
+                continue
+            text = str(item.get("texto") or "")
+            subjects = _ANSWER_SUBJECT.findall(text)
+            if subjects:  # resposta por codigo ("*4031196*: temos.", um bloco por codigo): "essa" sao eles
+                codes = [c for s in subjects for c in extract_codes_from_name(s, expand_family=False)[:1]]
+                return list(dict.fromkeys(codes))[:MAX_CODES_PER_MESSAGE], "\n".join(subjects)
+            codes: List[str] = []
+            names = _BOLD.findall(text)
+            for name in names:
+                found = extract_codes_from_name(name, expand_family=False)
+                if found and found[0] not in codes:
+                    codes.append(found[0])
+            return codes[:MAX_CODES_PER_MESSAGE], "\n".join(names)
+        return [], ""
+
+    def _comparison_pairs(
+        self, mensagem: str, codes: List[str], code_source: str, historico: List[Dict[str, str]]
+    ) -> List[Tuple[str, str]]:
+        """
+        Pares de codigos de uma pergunta "e igual / a mesma / serve no lugar?" (o primeiro com
+        cada um dos outros). Com um codigo so e "essa", o outro e o da mensagem anterior.
+        """
+        words = set(search_words(mensagem))
+        if not COMPARISON_WORDS & words:
+            return []
+        typed = [_typed_code(code_source, c) for c in codes]
+        if len(typed) == 1 and code_source == mensagem and REFERENCE_WORDS & words:
+            previous = self._previous_user_text(historico)
+            earlier = extract_codes_from_name(previous or "", expand_family=False)[:1]
+            if earlier and earlier[0] != codes[0]:
+                typed.insert(0, _typed_code(previous or "", earlier[0]))
+        if len(typed) < 2:
+            return []
+        return [(typed[0], other) for other in typed[1:]]
+
+    @staticmethod
     def _previous_user_text(historico: List[Dict[str, str]]) -> Optional[str]:
         for item in reversed(historico):
             if item.get("papel") == "usuario" and str(item.get("texto") or "").strip():
@@ -165,16 +275,26 @@ class AssistantDirectService:
 
     @staticmethod
     def _application_queries(mensagem: str, historico: List[Dict[str, str]]) -> List[str]:
-        """Pergunta atual; antes dela, a pergunta anterior + a atual se o assistente tinha perguntado algo."""
-        queries = [mensagem]
-        if len(historico) >= 2:
-            last, previous = historico[-1], historico[-2]
-            asked_back = last.get("papel") == "assistente" and str(last.get("texto") or "").strip().endswith("?")
+        """
+        Pergunta atual; antes dela, as respostas do usuario as perguntas do assistente juntas com
+        a pergunta original: "turbina do fh?" -> "Qual é o motor?" -> "d13" -> (ainda varias) ->
+        "2015" vira "turbina do fh? d13 2015", depois "d13 2015" e por fim so "2015".
+        """
+        parts = [mensagem]
+        index = len(historico) - 1
+        while index >= 1 and len(parts) <= MAX_FOLLOW_UPS:
+            asked, previous = historico[index], historico[index - 1]
             previous_text = str(previous.get("texto") or "")
-            if (
-                asked_back
+            answer = str(asked.get("texto") or "").strip()
+            if not (
+                asked.get("papel") == "assistente"
+                # Perguntou ("Qual é o motor?") ou respondeu por veiculo: "2015" logo depois continua a busca.
+                and (answer.endswith("?") or answer.startswith(APPLICATION_ANSWER_STARTS))
                 and previous.get("papel") == "usuario"
                 and not extract_codes_from_name(previous_text, expand_family=False)
             ):
-                queries.insert(0, f"{previous_text} {mensagem}")
-        return queries
+                break
+            parts.insert(0, previous_text)
+            index -= 2
+        queries = [" ".join(parts[start:]) for start in range(len(parts))]
+        return list(dict.fromkeys(queries))

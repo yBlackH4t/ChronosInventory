@@ -21,6 +21,28 @@ Formato recomendado:
 
 
 
+
+## [2.4.0] - 2026-10-13
+
+### Added
+- **Assistente de IA (aba Assistente):** pergunte pelo código da peça, pelo veículo ou motor ("scania 440", "fh d13 2015"), se duas peças são iguais, quando ela saiu ou chegou e qual é o código Master Power. A resposta vem do estoque. A IA gratuita só entra quando a busca direta não entende a pergunta.
+- **Código de outro fabricante:** mande um código OEM, Mahle, Biagio, Master Power ou de outra marca do catálogo e o assistente diz de que turbina é e quais delas temos.
+- **Conhecimento do especialista:** o admin ensina o que é igual, similar ou não serve. A lista "Para revisar" mostra os códigos perguntados que ainda não têm resposta, e o que é ensinado chega sozinho às outras máquinas.
+- **WhatsApp em modo copiloto:** responde só quando alguém da equipe reage com 🤖 na mensagem do cliente. Entende áudio e foto da plaqueta e tem os comandos /ensinar, /pendentes e /resumo.
+- **Foto da plaqueta no chat** e **resumo diário** na "Mensagem para mim" (o que zerou, o que mais saiu e o que pediram e não temos).
+- **Movimentação rápida:** tecla N no produto sob o mouse ou selecionado. A busca rápida (Ctrl+K) mostra o saldo por filial.
+- **Movimentações:** filtro pelo número do documento (NF).
+- **Senha no servidor local da base oficial**, a mesma em todas as máquinas.
+
+### Changed
+- Dashboard: filiais com um local só ficam escondidas e os itens perto de zerar aparecem em destaque.
+- Produto com movimentações não pode mais ser excluído: a tela oferece inativar, e o histórico fica guardado.
+- Janela do aplicativo com proteção extra e permissões mínimas.
+
+### Fixed
+- "Salvar configuração" da Base oficial voltou a funcionar.
+- Eixo dos gráficos do Dashboard e altura da tela do Assistente.
+
 ## [2.3.0] - 2026-10-09
 
 ### Added

@@ -22,6 +22,8 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional
 from core.utils.file_utils import FileUtils
 
 HISTORY_DB_NAME = "assistente_historico.db"
+# Comparacao ("A e igual a B?") ja respondida com certeza: mesma familia ou regra do especialista.
+CONFIRMED_SOURCES = ("familia", "especialista")
 
 _SCHEMA = (
     """
@@ -105,7 +107,12 @@ class AssistantHistoryService:
         missing = [
             c["codigo"]
             for c in consultas
-            if c.get("ferramenta") == "buscar_por_codigo" and c.get("codigo") and c.get("temos_em_estoque") is False
+            if c.get("codigo")
+            and (
+                (c.get("ferramenta") == "buscar_por_codigo" and c.get("temos_em_estoque") is False)
+                # "A e igual a B?" sem resposta do especialista: ele confirma pela lista "Para revisar".
+                or (c.get("ferramenta") == "comparar_codigos" and c.get("fonte") not in CONFIRMED_SOURCES)
+            )
         ]
         conn = self._connect()
         try:
@@ -169,7 +176,7 @@ class AssistantHistoryService:
         try:
             done = {r["codigo_norm"]: r["ate_conversa_id"] for r in conn.execute("SELECT * FROM revisao_codigos")}
             rows = conn.execute(
-                "SELECT id, criado_em, pergunta, codigos_sem_estoque FROM conversas "
+                "SELECT id, criado_em, pergunta, codigos_sem_estoque, consultas_json FROM conversas "
                 "WHERE codigos_sem_estoque <> '' ORDER BY id"
             ).fetchall()
         finally:
@@ -177,14 +184,22 @@ class AssistantHistoryService:
 
         items: Dict[str, Dict[str, Any]] = {}
         for row in rows:
+            compared = _loads(row["consultas_json"], [])
             for code in filter(None, row["codigos_sem_estoque"].split(",")):
                 if code in done and row["id"] <= done[code]:
                     continue  # ja revisado; volta se for perguntado de novo depois
-                item = items.setdefault(code, {"codigo": code, "vezes": 0, "conversas": []})
+                item = items.setdefault(code, {"codigo": code, "vezes": 0, "conversas": [], "comparado_com": []})
                 item["vezes"] += 1
                 item["ultima_vez"] = row["criado_em"]
                 item["exemplo"] = row["pergunta"]
                 item["conversas"].append(int(row["id"]))
+                # "A e igual a B?": o B e a primeira sugestao para o admin.
+                for call in compared if isinstance(compared, list) else []:
+                    if not isinstance(call, dict) or call.get("ferramenta") != "comparar_codigos":
+                        continue
+                    other = call.get("outro_codigo")
+                    if call.get("codigo") == code and other and other not in item["comparado_com"]:
+                        item["comparado_com"].append(other)
         ordered = sorted(items.values(), key=lambda i: i["ultima_vez"], reverse=True)
         ordered.sort(key=lambda i: -i["vezes"])  # mais perguntados primeiro; empate: mais recente
         return ordered[:limit]

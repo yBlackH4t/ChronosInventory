@@ -112,7 +112,19 @@ def test_admin_flow_through_the_api(client, tools):  # noqa: F811
         assert "não encontrei" in first.json()["data"]["resposta"]
         (item,) = client.get("/assistente/revisao", headers=auth).json()["data"]
         assert item["codigo"] == "53279887101"
-        assert item["sugestoes"][0]["nome"] == "TURBO K27 - 53279887116"
+        assert item["sugestoes"] == []  # so o mesmo inicio de codigo nao e motivo
+
+        # "E igual a 7116?": a pergunta responde a relacao e a 7116 vira a sugestao da revisao.
+        asked = client.post("/assistente/chat", json={"mensagem": "a 5327-988-7101 é igual a 5327-988-7116?"})
+        assert "não sei dizer se são iguais" in asked.json()["data"]["resposta"]
+        (item,) = client.get("/assistente/revisao", headers=auth).json()["data"]
+        assert [s["nome"] for s in item["sugestoes"]] == ["TURBO K27 - 53279887116"]
+
+        # "Nao serve" tira so a sugestao: o codigo continua na lista para ensinar o que serve.
+        refused = {"codigo_a": "53279887101", "codigo_b": "53279887116", "tipo": "diferente"}
+        assert client.post("/assistente/conhecimento", json=refused, headers=auth).status_code == 201
+        (item,) = client.get("/assistente/revisao", headers=auth).json()["data"]
+        assert item["codigo"] == "53279887101" and item["sugestoes"] == []
 
         # O admin ensina; o codigo sai da revisao e a proxima resposta ja usa a regra.
         created = client.post("/assistente/conhecimento", json=rule, headers=auth)
@@ -128,11 +140,14 @@ def test_admin_flow_through_the_api(client, tools):  # noqa: F811
 
         # Historico: lista, correcao e exportacao em JSONL (sem o telefone).
         conversations = client.get("/assistente/historico", headers=auth).json()["data"]
-        assert [c["pergunta"] for c in conversations] == ["tem a 5327-988-7101?", "tem a 5327-988-7101?"]
-        assert conversations[1]["autor"] == "5551999"
-        assert conversations[1]["consultas"][0]["ferramenta"] == "buscar_por_codigo"
+        assert [c["pergunta"] for c in conversations] == [
+            "tem a 5327-988-7101?", "a 5327-988-7101 é igual a 5327-988-7116?", "tem a 5327-988-7101?"
+        ]
+        assert conversations[-1]["autor"] == "5551999"
+        assert conversations[-1]["consultas"][0]["ferramenta"] == "buscar_por_codigo"
+        assert conversations[1]["consultas"][0]["ferramenta"] == "comparar_codigos"
         fix = client.put(
-            f"/assistente/historico/{conversations[1]['id']}/correcao",
+            f"/assistente/historico/{conversations[-1]['id']}/correcao",
             json={"resposta_correta": "Temos a similar 7116 (muda o atuador)."},
             headers=auth,
         )
@@ -142,7 +157,7 @@ def test_admin_flow_through_the_api(client, tools):  # noqa: F811
         exported = client.get("/assistente/historico/exportar", headers=auth)
         assert exported.status_code == 200
         lines = [json.loads(line) for line in exported.text.splitlines()]
-        assert len(lines) == 2
+        assert len(lines) == 3
         assert lines[0]["resposta_correta"] == "Temos a similar 7116 (muda o atuador)."
         assert all("autor" not in line for line in lines)
 

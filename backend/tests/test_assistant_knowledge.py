@@ -2,10 +2,11 @@
 
 import pytest
 
-from app.services.assistant_knowledge_service import AssistantKnowledgeService
+from app.services.assistant_direct_service import AssistantDirectService
+from app.services.assistant_knowledge_service import AssistantKnowledgeService, codes_cited_in_name
 from core.database.connection import DatabaseConnection
 from core.exceptions import ValidationException
-from test_assistant_tools import tools  # noqa: F401  (fixture: catalogo + produtos de teste)
+from test_assistant_tools import _create_product, tools  # noqa: F401  (fixture: catalogo + produtos de teste)
 
 
 @pytest.fixture()
@@ -149,16 +150,74 @@ def test_taught_code_without_product_is_still_mentioned(tools, knowledge):  # no
     ]
 
 
-def test_suggestions_for_the_admin(tools, knowledge):  # noqa: F811
-    (suggestion,) = knowledge.suggestions("5327-988-7101")
-    assert suggestion["nome"] == "TURBO K27 - 53279887116"
-    assert suggestion["estoque_total"] == 3
-    assert suggestion["motivo"] == "mesmo início de código (5327988)"
+def test_suggestions_for_the_admin(client, tools, knowledge):  # noqa: F811
+    # So o mesmo inicio de codigo (todo K27 comeca com 5327988) nao e motivo: sem sugestao.
+    assert knowledge.suggestions("5327-988-7101") == []
+
+    # Perguntaram se a 7101 e igual a 7116: a 7116 vira a sugestao, com o nosso produto.
+    (asked,) = knowledge.suggestions("5327-988-7101", asked_with=["53279887116"])
+    assert asked["nome"] == "TURBO K27 - 53279887116"
+    assert asked["estoque_total"] == 3
+    assert asked["motivo"] == "perguntaram se é igual"
+
+    # O cadastro junta os dois codigos ("53279907101/7210"): sugestao com o motivo.
+    _create_product(client, "TURBO K27 - 53279907101/7210 (MONTADO)", {})
+    (joined,) = knowledge.suggestions("53279887210")
+    assert joined["codigo"] == "53279907101"
+    assert joined["motivo"] == "o cadastro junta os dois: TURBO K27 - 53279907101/7210 (MONTADO)"
 
     # Recusada (diferente) ou ja ensinada: nao aparece mais.
     knowledge.add_rule("53279887101", "53279887116", "diferente")
-    assert knowledge.suggestions("5327-988-7101") == []
-
-    # So para codigos numericos longos (BorgWarner).
-    assert knowledge.suggestions("4031196") == []
+    knowledge.add_rule("53279887101", "53279887210", "igual")
+    assert knowledge.suggestions("5327-988-7101", asked_with=["53279887116"]) == []
     assert isinstance(AssistantKnowledgeService.suggestions, object)
+
+
+def test_product_name_that_joins_two_codes():
+    assert codes_cited_in_name("TURBO K27 - 53279907101/7210 (MONTADO)", expand_family=False) == {
+        "53279907101", "53279907210"
+    }
+    assert codes_cited_in_name("TURBO K27 - 53279907210 (USE 7101)", expand_family=False) == {
+        "53279907210", "53279907101"
+    }
+    assert codes_cited_in_name("TURBO BORG K27 53279907227/7218/7219", expand_family=False) == {
+        "53279907227", "53279907218", "53279907219"
+    }
+    assert "53279887210" in codes_cited_in_name("TURBO K27 - 53279907101/7210")  # versao nova
+    assert codes_cited_in_name("TURBO HX52 - 4038621 / 5610133/5644540", expand_family=False) == {
+        "4038621", "5610133", "5644540"
+    }
+
+
+def test_compare_two_codes(tools, knowledge):  # noqa: F811
+    same = tools.compare_codes("5327-988-7101", "5327-990-7101")
+    assert same["texto_pronto"] == "*53279887101* e *53279907101*: é a mesma peça (versão nova/reman do mesmo código)."
+
+    unknown = tools.compare_codes("53279887101", "53279887116")
+    assert unknown["relacao"] is None
+    lines = unknown["texto_pronto"].splitlines()
+    assert lines[0] == "*53279887101* e *53279887116*: não sei dizer se são iguais. O especialista ainda não ensinou essa."
+    assert lines[-1] == "Deixei para o especialista confirmar."
+
+    knowledge.add_rule("53279887101", "53279887116", "igual", "muda a etiqueta")
+    taught = tools.compare_codes("53279887116", "5327-990-7101")  # vale nos dois sentidos e para a reman
+    assert taught["relacao"] == "igual" and taught["fonte"] == "especialista"
+    assert taught["texto_pronto"].splitlines() == [
+        "*53279887116* e *53279907101*: sim, são iguais (troca direta), segundo o especialista.",
+        "Obs.: muda a etiqueta",
+    ]
+
+    knowledge.add_rule("4031196", "4044318", "diferente")
+    assert tools.compare_codes("4044318", "4031196")["texto_pronto"].startswith(
+        "*4044318* e *4031196*: não, são diferentes"
+    )
+
+    # "é a mesma?" responde a pergunta, nao o estoque; "essa" usa o codigo da mensagem anterior.
+    direct = AssistantDirectService(tools)
+    answer = direct.answer("a 53279887101 é a mesma que a 53279887116?")
+    assert answer["resposta"].startswith("*53279887101* e *53279887116*: sim, são iguais")
+    assert answer["ferramentas_usadas"] == ["comparar_codigos"]
+    that_one = direct.answer("essa serve no lugar da 53279887116?", [{"papel": "usuario", "texto": "53279887101"}])
+    assert that_one["resposta"].startswith("*53279887101* e *53279887116*: sim")
+    # Sem palavra de comparacao, dois codigos continuam sendo busca de estoque.
+    assert direct.answer("temos 4031196 e 53279887116?")["resposta"].startswith("*4031196*: temos.")

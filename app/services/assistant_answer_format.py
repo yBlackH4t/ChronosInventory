@@ -65,9 +65,11 @@ def stock_text(product: Dict[str, Any]) -> str:
     return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " e " + parts[-1]
 
 
-def _match_note(product: Dict[str, Any]) -> Optional[str]:
+def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[str]:
     match = product.get("correspondencia")
     note = product.get("obs_especialista")
+    if match == MATCH_CATALOG and not catalog_note:
+        return None
     if match == MATCH_FAMILY:
         return "versão nova/reman do mesmo código"
     if match == MATCH_EXPERT_SAME:
@@ -79,8 +81,8 @@ def _match_note(product: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def product_line(product: Dict[str, Any]) -> str:
-    notes = [n for n in (_match_note(product),) if n]
+def product_line(product: Dict[str, Any], catalog_note: bool = True) -> str:
+    notes = [n for n in (_match_note(product, catalog_note),) if n]
     if product.get("categoria") == CATEGORY_CORE:
         notes.append("conjunto central")
     suffix = f" ({'; '.join(notes)})" if notes else ""
@@ -91,7 +93,7 @@ def _kind(item: Dict[str, Any]) -> str:
     return "conjunto central" if item.get("tipo") == CATEGORY_CORE else "turbo"
 
 
-def _short_applications(item: Dict[str, Any], limit: int = 2) -> str:
+def short_applications(item: Dict[str, Any], limit: int = 2) -> str:
     labels: List[str] = []
     for app in item.get("aplicacoes") or []:
         text = app.get("veiculo") or ""
@@ -109,6 +111,48 @@ def _application_label(app: Dict[str, Any]) -> str:
     return label
 
 
+_BRAND_LABELS = {
+    "OEM": "OEM (original da montadora)",
+    "MASTER POWER": "Master Power",
+    "BORGWARNER": "BorgWarner",
+    "REFERÊNCIA": "de referência",
+    "BTS": "BTS",
+    "MWM": "MWM",
+    "IHI": "IHI",
+    "CZ": "CZ",
+    "PAI": "PAI",
+}
+
+
+def _brand_label(brand: str) -> str:
+    return _BRAND_LABELS.get(brand.upper(), brand.capitalize())
+
+
+def _ficha_label(item: Dict[str, Any]) -> str:
+    """'*805314* (MP530w — turbo HX55W HE500WG)'."""
+    kind = "conjunto central" if item.get("tipo") == CATEGORY_CORE else "turbo"
+    parts = [p for p in (item.get("modelo_master_power"), f"{kind} {item['modelo']}" if item.get("modelo") else None) if p]
+    return f"*{item['ficha']}*" + (f" ({' — '.join(parts)})" if parts else "")
+
+
+def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
+    """
+    'É código OEM (original da montadora); no catálogo Master Power é a *805314* (...).' para um
+    codigo que nao e nosso mas esta no catalogo. None se o catalogo nao diz de quem e o codigo.
+    """
+    own_ficha = [i for i in items if i.get("e_o_codigo_da_ficha")]
+    if own_ficha:
+        return f"É o código Master Power da ficha {_ficha_label(own_ficha[0])}."
+    found = [i for i in items if i.get("codigo_pesquisado_e")]
+    if not found:
+        return None
+    found.sort(key=lambda i: 1 if i.get("tipo") == CATEGORY_CORE else 0)
+    brands = list(dict.fromkeys(b for i in found for b in i["codigo_pesquisado_e"]))
+    fichas = ", ".join(_ficha_label(i) for i in found[:3])
+    where = "é a" if len(found) == 1 else "aparece em"
+    return f"É código {' e '.join(_brand_label(b) for b in brands)}; no catálogo Master Power {where} {fichas}."
+
+
 def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     """Resposta para buscar_por_codigo. `code_label` e o codigo como a pessoa escreveu."""
     if "erro" in output:
@@ -124,12 +168,26 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
 
     with_stock = [p for p in products if p["estoque_total"] > 0]
     own_stock = [p for p in with_stock if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
+    own = any(p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY) for p in products)
+    identified = None if own else _identification(output.get("fichas_catalogo") or [])
     if own_stock:
         lines = [f"{label}: temos."] + [product_line(p) for p in with_stock[:MAX_LINES]]
+    elif identified:
+        # Codigo de outro fabricante (OEM, Mahle, Master Power...): o cliente pediu por ele, e as nossas
+        # turbinas daquela ficha sao a mesma peca na marca que vendemos. Entao "temos", sem "conferir".
+        if with_stock:
+            lines = [f"{label}: temos.", identified] + [
+                product_line(p, catalog_note=False) for p in with_stock[:MAX_LINES]
+            ]
+        elif products:
+            lines = [f"{label}: não temos em estoque no momento.", identified]
+        else:
+            lines = [f"{label}: não temos.", f"{identified[:-1]}; não temos nenhuma turbina dela cadastrada."]
     elif with_stock:
         lines = [f"{label}: não temos esse código, mas temos:"] + [product_line(p) for p in with_stock[:MAX_LINES]]
     elif products:
-        lines = [f"{label}: não temos em estoque no momento."] + [product_line(p) for p in products[:3]]
+        # Cadastrado e zerado: a lista de produtos "sem estoque" so poluia a resposta.
+        lines = [f"{label}: não temos em estoque no momento."]
     elif items or taught:
         lines = [f"{label}: não temos esse código no estoque."]
     else:
@@ -146,9 +204,126 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
 
     if items:
         item = items[0]
-        apps = _short_applications(item)
-        info = f"Catálogo: {_kind(item)} {item.get('modelo') or item.get('ficha')}"
-        lines.append(f"{info} — {apps}" if apps else info)
+        apps = short_applications(item)
+        model = item.get("modelo") or item.get("ficha")
+        if item.get("tipo") == CATEGORY_CORE:
+            model = f"conjunto central {model}"
+        lines.append(f"Aplicação ({model}): {apps}" if apps else f"Catálogo: {model}")
+    return "\n".join(lines)
+
+
+_NATURE_LABELS = {
+    "AJUSTE": "ajuste de estoque",
+    "DEVOLUCAO": "devolução",
+    "TRANSFERENCIA_EXTERNA": "transferência externa",
+}
+
+
+def _br_date(value: Any) -> str:
+    """'2026-03-27 17:46:22' -> '27/03/2026'."""
+    text = str(value or "")[:10]
+    return f"{text[8:10]}/{text[5:7]}/{text[:4]}" if len(text) == 10 and text[4] == "-" else text
+
+
+def _movement_line(label: str, row: Optional[Dict[str, Any]], show_product: bool) -> str:
+    if not row:
+        return f"• {label}: nenhuma registrada"
+    qty = int(row.get("quantidade") or 0)
+    text = f"• {label}: {_br_date(row.get('data_hora'))} — {qty} un."
+    origin, destination = row.get("origem"), row.get("destino") or row.get("local_externo")
+    if row.get("tipo") == "TRANSFERENCIA":
+        text += f" de {origin or 'outro local'} para {destination or 'outro local'}"
+    elif row.get("tipo") == "SAIDA" and origin:
+        text += f" de {origin}"
+    elif row.get("tipo") == "ENTRADA" and destination:
+        text += f" em {destination}"
+    details = [
+        _NATURE_LABELS.get(str(row.get("natureza") or "").upper()),
+        " ".join(str(row.get("observacao") or "").split())[:60] or None,
+        row.get("documento"),
+    ]
+    details = [d for d in details if d]
+    if details:
+        text += f" ({', '.join(details)})"
+    if show_product:
+        text += f" — {row.get('produto')}"
+    return text
+
+
+def format_movements_answer(code_label: str, output: Dict[str, Any], window_days: int) -> str:
+    """Resposta para movimentacoes_produto: ultima saida, entrada e transferencia, e quanto saiu."""
+    label = f"*{code_label}*"
+    if not output.get("produtos_cadastrados"):
+        return f"{label}: não achei esse código no cadastro."
+    last = output.get("ultimas") or {}
+    since = _br_date(output.get("registros_desde")) if output.get("registros_desde") else None
+    if not any(last.values()):
+        note = f" (os registros começam em {since})" if since else ""
+        return f"{label}: nenhuma movimentação registrada{note}."
+    # Varias versoes (nova, reman, montado): cada linha diz de qual produto foi.
+    show_product = len({r.get("produto") for r in last.values() if r}) > 1
+    lines = [
+        f"{label}:",
+        _movement_line("Última saída", last.get("SAIDA"), show_product),
+        _movement_line("Última entrada", last.get("ENTRADA"), show_product),
+    ]
+    if last.get("TRANSFERENCIA"):
+        lines.append(_movement_line("Última transferência", last["TRANSFERENCIA"], show_product))
+    total = f"; desde {since}: {output.get('saidas_total', 0)} un." if since else ""
+    lines.append(f"Saíram {output.get('saidas_ultimos_dias', 0)} un. nos últimos {window_days} dias{total}")
+    return "\n".join(lines)
+
+
+def format_catalog_code_answer(code_label: str, fichas: List[Dict[str, Any]]) -> str:
+    """Resposta para codigo_master_power: a ficha (codigo Master Power) e o modelo da turbina."""
+    label = f"*{code_label}*"
+    if not fichas:
+        return f"{label}: não achei esse código no catálogo Master Power."
+
+    def describe(ficha: Dict[str, Any]) -> str:
+        model = str(ficha.get("modelo") or "").strip()
+        mp, _, turbo = model.partition("(")
+        kind = "conjunto central" if ficha.get("tipo") == CATEGORY_CORE else "turbo"
+        text = f"*{ficha['codigo']}*"
+        if mp.strip():
+            text += f" — {mp.strip()}"
+        if turbo.strip(" )"):
+            text += f" ({kind} {turbo.strip(' )')})"
+        return text
+
+    if len(fichas) == 1:
+        return f"{label}: no catálogo Master Power é a {describe(fichas[0])}."
+    return "\n".join([f"{label}: no catálogo Master Power:", *[f"• {describe(f)}" for f in fichas[:MAX_LINES]]])
+
+
+def format_comparison_answer(
+    code_a: str, code_b: str, relation: Dict[str, Any], catalog_lines: Optional[List[str]] = None
+) -> str:
+    """Resposta para comparar_codigos ("a A e a mesma que a B?"): a relacao, sem falar de estoque."""
+    pair = f"*{code_a}* e *{code_b}*"
+    kind, source, note = relation.get("relacao"), relation.get("fonte"), relation.get("obs")
+    confirmed = True
+    if kind == "mesma_peca":
+        lines = [f"{pair}: é a mesma peça (versão nova/reman do mesmo código)."]
+    elif kind == "igual":
+        lines = [f"{pair}: sim, são iguais (troca direta), segundo o especialista."]
+        if note:
+            lines.append(f"Obs.: {note}")
+    elif kind == "similar":
+        lines = [f"{pair}: são similares, segundo o especialista: serve com ressalva."]
+        lines.append(f"Ressalva: {note}" if note else "Confira antes de trocar.")
+    elif kind == "diferente":
+        lines = [f"{pair}: não, são diferentes; uma não serve no lugar da outra (segundo o especialista)."]
+    elif source == "cadastro":
+        confirmed = False
+        lines = [f"{pair}: provavelmente são iguais. O cadastro junta os dois em *{relation.get('produto')}*."]
+    else:
+        confirmed = False
+        lines = [f"{pair}: não sei dizer se são iguais. O especialista ainda não ensinou essa."]
+    if catalog_lines:
+        lines += ["No catálogo:", *catalog_lines]
+    if not confirmed:
+        lines.append("Deixei para o especialista confirmar.")
     return "\n".join(lines)
 
 
@@ -194,18 +369,20 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
         ours = item.get("nossos_produtos") or []
         in_stock = [p for p in ours if p["estoque_total"] > 0]
         if in_stock:
-            status = f"*{in_stock[0]['nome']}* — {stock_text(in_stock[0])}"
+            status = f"✅ *{in_stock[0]['nome']}* — {stock_text(in_stock[0])}"
         elif ours:
-            status = "não temos (cadastrado, sem estoque)"
+            status = "❌ não temos (cadastrado, sem estoque)"
         else:
-            status = "não temos"
-        lines.append(f"• {_application_label(first_app)} → {_kind(item)} {item.get('modelo') or ''}: {status}")
+            status = "❌ não temos"
+        # Uma opcao em duas linhas: o motor/aplicacao e, embaixo, se temos (era tudo numa linha so).
+        lines.append(f"• {_application_label(first_app)} → {_kind(item)} {item.get('modelo') or ''}".rstrip())
+        lines.append(f"   {status}")
 
     any_stock = any(has_stock(i) for i in items[:MAX_LINES])
     # Motor ja informado ("scania 440" + "dc13") e ainda ha opcoes: lista sem perguntar de novo.
     if len(engines) > 1 and not _engine_given(output, items[:MAX_LINES]):
         header = "Depende do motor:"
-        footer = "Qual é o motor do cliente?"
+        footer = "Qual é o motor ou o ano do veículo?"  # a resposta curta ("d13", "2015") junta com esta pergunta
     else:
         header = "Temos:" if any_stock else "Não temos no momento:"
         footer = None

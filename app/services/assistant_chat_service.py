@@ -45,7 +45,8 @@ def _summarize_call(name: str, arguments: Any, output: Dict[str, Any]) -> Dict[s
     """Resumo de uma busca para o historico (sem o JSON inteiro)."""
     summary: Dict[str, Any] = {"ferramenta": name, "entrada": arguments}
     for key, label in (("erro", "erro"), ("codigo_pesquisado", "codigo"), ("temos_em_estoque", "temos_em_estoque"),
-                       ("total_fichas", "total_fichas")):
+                       ("total_fichas", "total_fichas"), ("outro_codigo", "outro_codigo"), ("relacao", "relacao"),
+                       ("fonte", "fonte")):
         if key in output:
             summary[label] = output[key]
     products = list(output.get("produtos") or [])

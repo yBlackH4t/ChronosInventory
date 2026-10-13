@@ -8,7 +8,7 @@ nunca altera dados. As regras de busca e o formato das respostas ficam em
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from core.database.repositories.base_repository import BaseRepository
 
@@ -71,6 +71,21 @@ class AssistantRepository(BaseRepository):
             ORDER BY id
             """,
             tuple(catalog_ids) + tuple(brands),
+        )
+
+    def get_reference_brands(self, catalog_ids: List[int], codes: List[str]) -> List[Dict[str, Any]]:
+        """De que fabricante e o codigo em cada ficha (OEM, Mahle, Garrett...): as referencias que batem."""
+        if not catalog_ids or not codes:
+            return []
+        return self._execute_query(
+            f"""
+            SELECT catalogo_produto_id, fabricante, numero
+            FROM catalogo_referencias
+            WHERE catalogo_produto_id IN ({_placeholders(catalog_ids)})
+              AND numero_norm IN ({_placeholders(codes)})
+            ORDER BY id
+            """,
+            (*catalog_ids, *codes),
         )
 
     def get_linked_product_ids(self, catalog_ids: List[int]) -> List[Dict[str, Any]]:
@@ -142,6 +157,32 @@ class AssistantRepository(BaseRepository):
             tuple(codes) * 3,
         )
         return {str(row["codigo"]) for row in rows}
+
+    def get_movements(self, product_ids: List[int], limit: int = 200) -> List[Dict[str, Any]]:
+        """Movimentacoes dos produtos, da mais recente para a mais antiga, com o nome dos locais."""
+        if not product_ids:
+            return []
+        return self._execute_query(
+            f"""
+            SELECT m.id, m.data_hora, m.tipo, m.produto_id, p.nome AS produto, m.quantidade, m.observacao,
+                   m.natureza, m.documento, m.local_externo,
+                   COALESCE(NULLIF(TRIM(lo.label), ''), lo.nome) AS origem,
+                   COALESCE(NULLIF(TRIM(ld.label), ''), ld.nome) AS destino
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            LEFT JOIN locais lo ON lo.id = m.origem_local_id
+            LEFT JOIN locais ld ON ld.id = m.destino_local_id
+            WHERE m.produto_id IN ({_placeholders(product_ids)})
+            ORDER BY m.data_hora DESC, m.id DESC
+            LIMIT ?
+            """,
+            (*product_ids, limit),
+        )
+
+    def first_movement_date(self) -> Optional[str]:
+        """Data da movimentacao mais antiga do banco (desde quando ha registro)."""
+        rows = self._execute_query("SELECT MIN(data_hora) AS primeira FROM movimentacoes")
+        return str(rows[0]["primeira"]) if rows and rows[0]["primeira"] else None
 
     def get_location_labels(self) -> Dict[int, str]:
         rows = self._execute_query(

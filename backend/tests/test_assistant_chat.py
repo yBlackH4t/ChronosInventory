@@ -108,7 +108,8 @@ def test_groq_runs_tools_and_returns_cited_products(tools, store):  # noqa: F811
     assert body["messages"][0]["role"] == "system"
     assert body["messages"][1] == {"role": "user", "content": VAGUE}
     assert {t["function"]["name"] for t in body["tools"]} == {
-        "buscar_por_codigo", "buscar_por_aplicacao", "detalhe_produto"
+        "buscar_por_codigo", "buscar_por_aplicacao", "comparar_codigos", "movimentacoes_produto",
+        "codigo_master_power", "detalhe_produto",
     }
 
     # Segunda chamada: pedido de ferramenta + resultado, em JSON compacto.
@@ -417,22 +418,47 @@ def test_direct_search_by_application(tools):  # noqa: F811
 
     scania = direct.answer("temos turbina do scania 440?")["resposta"].splitlines()
     assert scania[0] == "Depende do motor:"
-    assert scania[1].startswith("• DC13 SCR Euro 5 (A partir de 2012) → turbo GTA42S / HE500WG:")
-    assert scania[1].endswith("*TURBO GTA42S - 779839-0025* — 1 em Passo Fundo")
-    assert scania[2] == "• DT12-06/18 Euro 3 → turbo HX52 / HE500GF: não temos (cadastrado, sem estoque)"
-    assert scania[-1] == "Qual é o motor do cliente?"
+    # Cada opcao em duas linhas: o motor e, embaixo, se temos.
+    assert scania[1:5] == [
+        "• DC13 SCR Euro 5 (A partir de 2012) → turbo GTA42S / HE500WG",
+        "   ✅ *TURBO GTA42S - 779839-0025* — 1 em Passo Fundo",
+        "• DT12-06/18 Euro 3 → turbo HX52 / HE500GF",
+        "   ❌ não temos (cadastrado, sem estoque)",
+    ]
+    assert scania[-1] == "Qual é o motor ou o ano do veículo?"
 
     # Resposta curta depois de o assistente perguntar: junta com a pergunta anterior.
     history = [
         {"papel": "usuario", "texto": "temos turbina do scania 440?"},
-        {"papel": "assistente", "texto": "Depende do motor: ... Qual é o motor do cliente?"},
+        {"papel": "assistente", "texto": "Depende do motor: ... Qual é o motor ou o ano do veículo?"},
     ]
     follow_up = direct.answer("dc13", history)["resposta"].splitlines()
     assert follow_up[0] == "Temos:"
-    assert "*TURBO GTA42S - 779839-0025*" in follow_up[1]
+    assert "*TURBO GTA42S - 779839-0025*" in follow_up[2]
     # Com o ano junto (que o catalogo nao cita), continua achando.
     with_year = direct.answer("é o dc13, 2015", history)["resposta"]
     assert "*TURBO GTA42S - 779839-0025*" in with_year
+    # So o ano: vale o que o catalogo diz ("A partir de 2012" nao serve para 2010).
+    older = direct.answer("2010", history)["resposta"].splitlines()
+    assert older[:2] == ["Não temos no momento:", "• DT12-06/18 Euro 3 → turbo HX52 / HE500GF"]
+    # Segunda resposta seguida ("dc13" e depois "2015"): continua sendo o Scania 440.
+    chained = history + [
+        {"papel": "usuario", "texto": "dc13"},
+        {"papel": "assistente", "texto": "\n".join(follow_up)},
+    ]
+    assert "*TURBO GTA42S - 779839-0025*" in direct.answer("2015", chained)["resposta"]
+    # Texto colado de uma resposta nao e veiculo (achava uma aplicacao pela palavra "não").
+    assert direct.try_answer("Não temos esse código, mas temos:") is None
+    # "Qual o código master dessa?" logo depois: a turbina que a resposta mostrou (nao a Renault Master).
+    master = direct.answer("qual o codigo master dessa?", chained)["resposta"]
+    assert master == "*779839-0025*: no catálogo Master Power é a *805310* — MP500W (turbo GTA42S / HE500WG)."
+    # E "quando saiu essa?" depois disso continua na mesma turbina.
+    after = chained + [
+        {"papel": "usuario", "texto": "qual o codigo master dessa?"},
+        {"papel": "assistente", "texto": master},
+    ]
+    assert direct.answer("quando saiu essa?", after)["resposta"].startswith("*779839-0025*:")
+    assert direct.answer("qual o codigo master power?")["resposta"].startswith("De qual peça?")
 
     # Chefe cola o codigo e depois manda (em audio) "temos essa daí?".
     pasted = [{"papel": "usuario", "texto": "805314"}]
