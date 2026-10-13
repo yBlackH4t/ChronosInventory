@@ -36,6 +36,16 @@ class BackupRestoreOut(BaseModel):
     validation_result: str
 
 
+class BackupRecoverPhotosOut(BaseModel):
+    backup_name: str
+    safety_backup: str
+    produtos_com_foto_na_origem: int
+    produtos_recuperados: int
+    fotos_copiadas: int
+    produtos_ja_com_foto: int
+    produtos_nao_encontrados: int
+
+
 class BackupAutoConfigOut(BaseModel):
     enabled: bool
     hour: int = Field(ge=0, le=23)
@@ -210,3 +220,5 @@ class OfficialBaseApplyOut(BaseModel):
     db_version: str
     notes: str | None = None
     restart_required: bool
+    fotos_mantidas: int = 0
+    produtos_com_fotos_mantidas: int = 0

@@ -18,6 +18,7 @@ import { loadTabState, saveTabState } from "../state/tabStateCache";
 import type {
   BackupListItemOut,
   BackupOut,
+  BackupRecoverPhotosOut,
   BackupRestoreOut,
   BackupRestoreTestOut,
   BackupValidateOut,
@@ -129,6 +130,31 @@ export default function BackupPage() {
       queryClient.invalidateQueries({ queryKey: ["backup-list"] });
       queryClient.invalidateQueries({ queryKey: ["backup-validate-current"] });
       setSelectedValidation(null);
+    },
+    onError: (error) => notifyError(error),
+  });
+
+  const recoverPhotosMutation = useMutation<
+    SuccessResponse<BackupRecoverPhotosOut>,
+    Error,
+    string
+  >({
+    mutationFn: (backupName) =>
+      api.backupRecoverPhotos({ backup_name: backupName }),
+    onSuccess: (response) => {
+      const data = response.data;
+      if (data.produtos_recuperados > 0) {
+        notifySuccess(
+          `${data.fotos_copiadas} foto(s) recuperada(s) em ${data.produtos_recuperados} produto(s).`,
+        );
+      } else {
+        notifySuccess(
+          "Nenhuma foto para recuperar: os produtos deste backup ja tem foto ou nao existem mais.",
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["produtos"] });
+      queryClient.invalidateQueries({ queryKey: ["produto-imagens"] });
+      queryClient.invalidateQueries({ queryKey: ["backup-list"] });
     },
     onError: (error) => notifyError(error),
   });
@@ -261,6 +287,22 @@ export default function BackupPage() {
       labels: { confirm: "Restaurar agora", cancel: "Cancelar" },
       confirmProps: { color: "red" },
       onConfirm: () => restoreMutation.mutate(effectiveSelectedBackupName),
+    });
+  };
+
+  const confirmRecoverPhotos = () => {
+    if (!effectiveSelectedBackupName) return;
+    modals.openConfirmModal({
+      title: "Recuperar fotos do backup",
+      children: (
+        <Text size="sm">
+          As fotos do backup {effectiveSelectedBackupName} voltam para os
+          produtos que hoje estao sem foto. O resto do banco (estoque,
+          movimentacoes, cadastros) nao muda.
+        </Text>
+      ),
+      labels: { confirm: "Recuperar fotos", cancel: "Cancelar" },
+      onConfirm: () => recoverPhotosMutation.mutate(effectiveSelectedBackupName),
     });
   };
 
@@ -399,6 +441,8 @@ export default function BackupPage() {
             restoreTestLoading={restoreTestMutation.isPending}
             onRestore={confirmRestore}
             restoreLoading={restoreMutation.isPending}
+            onRecoverPhotos={confirmRecoverPhotos}
+            recoverPhotosLoading={recoverPhotosMutation.isPending}
             selectedBackup={selectedBackup}
             formatBytes={bytesToHuman}
             selectedValidation={selectedValidation}

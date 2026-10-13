@@ -37,6 +37,7 @@ import type {
   OfficialBaseHistoryItemOut,
   AnalyticsScope,
   ImportSummary,
+  BackupRecoverPhotosOut,
   BackupRestoreIn,
   MovementBatchCreate,
 } from "../types/api";
@@ -246,6 +247,21 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     async backupRestore(payload: BackupRestoreIn, options: RequestInit = {}) {
       return request<BackupRestoreOut>(
         `/backup/restaurar`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+          ...options,
+        },
+        baseUrl,
+      );
+    },
+
+    async backupRecoverPhotos(
+      payload: BackupRestoreIn,
+      options: RequestInit = {},
+    ) {
+      return request<BackupRecoverPhotosOut>(
+        `/backup/recuperar-fotos`,
         {
           method: "POST",
           body: JSON.stringify(payload),

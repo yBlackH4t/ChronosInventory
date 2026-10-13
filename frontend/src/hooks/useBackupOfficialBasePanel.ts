@@ -151,7 +151,12 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         server_url: officialRemoteServerUrlInput.trim() || undefined,
       }),
     onSuccess: async (response) => {
-      notifySuccess("Base oficial aplicada com sucesso.");
+      const keptPhotos = response.data.fotos_mantidas ?? 0;
+      notifySuccess(
+        keptPhotos > 0
+          ? `Base oficial aplicada. ${keptPhotos} foto(s) desta maquina foram mantidas.`
+          : "Base oficial aplicada com sucesso.",
+      );
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
       queryClient.invalidateQueries({
         queryKey: ["official-base-server-history"],
@@ -386,7 +391,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     modals.openConfirmModal({
       title: "Atualizar minha base local",
       children:
-        "O sistema vai criar um backup automatico do banco atual, baixar a base oficial do servidor remoto informado e reiniciar o aplicativo ao final.",
+        "O sistema vai criar um backup automatico do banco atual, baixar a base oficial do servidor remoto informado e reiniciar o aplicativo ao final. As fotos de produto colocadas nesta maquina sao mantidas.",
       labels: { confirm: "Atualizar base", cancel: "Cancelar" },
       confirmProps: { color: "orange" },
       onConfirm: () => officialBaseApplyMutation.mutate(),

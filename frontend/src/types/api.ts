@@ -315,6 +315,16 @@ export type BackupRestoreOut = {
   validation_result: string;
 };
 
+export type BackupRecoverPhotosOut = {
+  backup_name: string;
+  safety_backup: string;
+  produtos_com_foto_na_origem: number;
+  produtos_recuperados: number;
+  fotos_copiadas: number;
+  produtos_ja_com_foto: number;
+  produtos_nao_encontrados: number;
+};
+
 export type BackupAutoConfigOut = {
   enabled: boolean;
   hour: number;
@@ -470,6 +480,8 @@ export type OfficialBaseApplyOut = {
   db_version: string;
   notes?: string | null;
   restart_required: boolean;
+  fotos_mantidas?: number;
+  produtos_com_fotos_mantidas?: number;
 };
 
 export type LocalShareServerOut = {
