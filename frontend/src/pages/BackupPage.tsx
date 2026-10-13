@@ -11,6 +11,7 @@ import { LocalBackupsSection } from "../components/backup/LocalBackupsSection";
 import { IconDatabasePlus } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
+import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
 import { useBackupAutoConfig } from "../hooks/useBackupAutoConfig";
 import { useBackupOfficialBasePanel } from "../hooks/useBackupOfficialBasePanel";
 import { downloadBlob } from "../lib/download";
@@ -27,7 +28,7 @@ import type {
 import { notifyError, notifySuccess } from "../lib/notify";
 
 type BackupTabState = {
-  activeSection: "locais" | "oficial" | "diagnostico";
+  activeSection: "locais" | "oficial" | "catalogo" | "diagnostico";
   selectedBackupName: string | null;
   scrollY: number;
 };
@@ -299,6 +300,7 @@ export default function BackupPage() {
         <Tabs.List>
           <Tabs.Tab value="locais">Backups locais</Tabs.Tab>
           <Tabs.Tab value="oficial">Base oficial</Tabs.Tab>
+          <Tabs.Tab value="catalogo">Catálogo</Tabs.Tab>
           <Tabs.Tab value="diagnostico">Recuperação</Tabs.Tab>
         </Tabs.List>
 
@@ -404,6 +406,9 @@ export default function BackupPage() {
             selectedValidation={selectedValidation}
             backups={backups}
           />
+        </Tabs.Panel>
+        <Tabs.Panel value="catalogo" pt="md">
+          <CatalogUpdateSection />
         </Tabs.Panel>
         <Tabs.Panel value="diagnostico" pt="md">
           <BackupDiagnosticsSection

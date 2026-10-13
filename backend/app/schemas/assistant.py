@@ -112,6 +112,7 @@ class KnowledgeSyncOut(BaseModel):
     publicado_em: str | None = None
     maquina: str | None = None
     total_regras: int = 0
+    total_fichas: int = 0
     atualizado_em: str | None = None
     verificado_em: str | None = None
     erro: str | None = None

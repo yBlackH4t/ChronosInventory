@@ -85,6 +85,14 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
   porque temos), depois de quem é o código ("É código OEM / Mahle / Biagio...; no catálogo Master
   Power é a *805314* (MP530w — turbo HX55W HE500WG)") e as nossas turbinas daquela ficha com
   estoque, sem o "conferir". O código da própria ficha vira "É o código Master Power da ficha...".
+- **Ficha própria** (2.4.1): turbina que o catálogo não tem ganha aplicações e outros códigos na
+  aba Catálogo do produto. Fica na tabela `fichas_proprias` e é copiada para as tabelas
+  `catalogo_*` com a fonte "PROPRIA" (`core/catalog/own_fichas.py`), então todas as buscas a usam
+  sem código novo. Edita a publicadora (ou uma máquina sem fonte configurada); viaja no mesmo JSON
+  do conhecimento (chaves `fichas` e `fichas_sha256`, ignoradas pela 2.4.0).
+- **Atualizar catálogo** (2.4.1): Backup > Catálogo importa o `CatalogoMasterPower_Aberto.db`
+  (`POST /catalogo/importar`). A máquina fica marcada como "local:<versão>" e só um pacote de
+  versão mais nova substitui o catálogo dela.
 - **Movimentações e código Master Power** (2026-10-13): "quando saiu / vendemos / chegou a X?",
   "quantas saíram?" -> `movimentacoes_produto` (última saída, entrada e transferência, com data,
   quantidade, local e nota, e quanto saiu em 90 dias; estornos não contam). "Qual o código

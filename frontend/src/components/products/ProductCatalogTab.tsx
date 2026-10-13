@@ -29,6 +29,7 @@ import { api } from "../../lib/apiClient";
 import { brandColor } from "../../lib/brands";
 import { useProfileScope } from "../../state/profileScope";
 import type { ProductCatalogLink } from "../../types/api";
+import { OwnFichaPanel } from "./OwnFichaPanel";
 
 type ProductCatalogTabProps = {
   productId: number;
@@ -201,16 +202,19 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
 
   if (!data || data.vinculos.length === 0) {
     return (
-      <div className="stock-tile" style={{ padding: 20 }}>
-        <Group justify="center" gap="sm">
-          <IconInfoCircle size={18} stroke={1.5} color="var(--text-subtle)" />
-          <Text size="sm" c="dimmed">
-            {catalogQuery.isError
-              ? "Não foi possível carregar o catálogo deste produto."
-              : "Nenhuma ficha de catálogo vinculada a este produto ainda."}
-          </Text>
-        </Group>
-      </div>
+      <Stack gap="md">
+        <div className="stock-tile" style={{ padding: 20 }}>
+          <Group justify="center" gap="sm">
+            <IconInfoCircle size={18} stroke={1.5} color="var(--text-subtle)" />
+            <Text size="sm" c="dimmed">
+              {catalogQuery.isError
+                ? "Não foi possível carregar o catálogo deste produto."
+                : "Nenhuma ficha de catálogo vinculada a este produto ainda."}
+            </Text>
+          </Group>
+        </div>
+        {data && <OwnFichaPanel productName={data.product_nome} />}
+      </Stack>
     );
   }
 
@@ -219,6 +223,7 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
 
   return (
     <Stack gap="md">
+      <OwnFichaPanel productName={data.product_nome} />
       {/* Mais de uma ficha (ex: turbo completo e variação) */}
       {data.vinculos.length > 1 && (
         <ScrollArea type="never">
