@@ -224,6 +224,11 @@ migrações novas no banco. Sempre numa **cópia**.
 - **Limite gratuito do Groq:** perguntas de código e veículo não gastam (busca direta); só as que
   a busca direta não entende vão para a IA. Sem IA, o assistente continua respondendo.
 - **Mensagem que mistura veículo e código de peça:** vale o código; o resto é ignorado.
+- **"Essa/dessa" sem código:** vale o código da mensagem anterior do usuário; se ela não tem
+  código, vale a turbina que a última resposta mostrou (o código de cada "*PRODUTO*", até 3), ou
+  o código do assunto ("*4031196*: ..."). Assim "qual o código master dessa?" depois de uma busca
+  por veículo responde a turbina mostrada. "Master" só é Master Power com "código", "power", "MP"
+  ou "ficha" (senão é a Renault Master).
 - **Depois de "Qual é o motor ou o ano do veículo?"** basta mandar "d13", "2015" ou "d13 2015":
   junta com a pergunta original, inclusive numa segunda resposta seguida. O ano vale pelo texto do
   catálogo ("A partir 2017", "Até final de 2018", "2019 – 2023"); aplicação sem ano continua na

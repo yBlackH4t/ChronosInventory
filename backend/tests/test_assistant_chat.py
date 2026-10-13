@@ -449,6 +449,16 @@ def test_direct_search_by_application(tools):  # noqa: F811
     assert "*TURBO GTA42S - 779839-0025*" in direct.answer("2015", chained)["resposta"]
     # Texto colado de uma resposta nao e veiculo (achava uma aplicacao pela palavra "não").
     assert direct.try_answer("Não temos esse código, mas temos:") is None
+    # "Qual o código master dessa?" logo depois: a turbina que a resposta mostrou (nao a Renault Master).
+    master = direct.answer("qual o codigo master dessa?", chained)["resposta"]
+    assert master == "*779839-0025*: no catálogo Master Power é a *805310* — MP500W (turbo GTA42S / HE500WG)."
+    # E "quando saiu essa?" depois disso continua na mesma turbina.
+    after = chained + [
+        {"papel": "usuario", "texto": "qual o codigo master dessa?"},
+        {"papel": "assistente", "texto": master},
+    ]
+    assert direct.answer("quando saiu essa?", after)["resposta"].startswith("*779839-0025*:")
+    assert direct.answer("qual o codigo master power?")["resposta"].startswith("De qual peça?")
 
     # Chefe cola o codigo e depois manda (em audio) "temos essa daí?".
     pasted = [{"papel": "usuario", "texto": "805314"}]

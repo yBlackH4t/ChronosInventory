@@ -56,6 +56,9 @@ _VIN = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 # Codigo falado que a transcricao escreveu com espacos: "5327 988 7101".
 _SPACED_DIGITS = re.compile(r"(?<![\w.,])\d{2,7}(?: \d{2,7}){1,4}(?![\w.,])")
 _YEAR = re.compile(r"^(19[5-9]\d|20[0-4]\d)$")
+_BOLD = re.compile(r"\*([^*\n]+)\*")
+_ANSWER_SUBJECT = re.compile(r"(?:^|\n\n)\*([^*\n]+)\*:")
+TOPIC_WITHOUT_CODE_TEXT = "De qual peça? Mande o código (ex.: 4031196) ou pergunte logo depois de eu mostrar a turbina."
 MIN_SPACED_CODE_LENGTH = 6
 MAX_SPACED_CODE_LENGTH = 13
 CHASSIS_TEXT = (
@@ -109,18 +112,26 @@ class AssistantDirectService:
             codes = [c for c in codes if c not in chassis]
             for vin in chassis:
                 search_text = re.sub(re.escape(vin), " ", search_text, flags=re.IGNORECASE)
-        if not codes and not chassis:
+        if not codes and not chassis and REFERENCE_WORDS & set(search_words(mensagem)):
             # "temos essa daí?" logo depois de colar um código: usa o código da mensagem anterior.
             previous = self._previous_user_text(historico or [])
-            if previous and REFERENCE_WORDS & set(search_words(mensagem)):
+            if previous:
                 codes = extract_codes_from_name(previous, expand_family=False)[:MAX_CODES_PER_MESSAGE]
                 code_source = previous
+            if not codes:
+                # "qual o código master dessa?" depois de uma busca por veículo: a turbina que a
+                # última resposta mostrou.
+                codes, code_source = self._codes_in_last_answer(historico or [])
         if not codes:
             spaced = self._spaced_codes(search_text, tools_used)
             if spaced:
                 codes, code_source = spaced, " ".join(spaced)
-        topic_tool = self._topic_tool(mensagem) if codes else None
-        if topic_tool:
+        topic_tool = self._topic_tool(mensagem)
+        if topic_tool and not codes and not chassis:
+            # Pergunta de movimentacao ou de codigo Master Power sem codigo: nao e busca por veiculo
+            # ("codigo master" achava a Renault Master).
+            return make_result(TOPIC_WITHOUT_CODE_TEXT, [], tools_used, MODE_DIRECT), True
+        if topic_tool and codes:
             # "quando saiu a 409300-5031?", "qual o codigo master power dessa?"
             parts = []
             for code in codes:
@@ -195,7 +206,7 @@ class AssistantDirectService:
 
     @staticmethod
     def _topic_tool(mensagem: str) -> Optional[str]:
-        """A pergunta com codigo e sobre movimentacao ou sobre o codigo Master Power (e nao o estoque)?"""
+        """A pergunta e sobre movimentacao ou sobre o codigo Master Power (e nao o estoque)?"""
         words = set(search_words(mensagem))
         if (
             MOVEMENT_ALONE & words
@@ -203,9 +214,37 @@ class AssistantDirectService:
             or (MOVEMENT_NOUNS & words and TIME_WORDS & words)
         ):
             return "movimentacoes_produto"
-        if "MASTER" in words or ("MP" in words and "CODIGO" in words) or "FICHA" in words:
+        # "Master" sozinho pode ser a Renault Master: precisa de "código", "power", "MP" ou "ficha".
+        if ("MASTER" in words and {"POWER", "CODIGO", "MP", "FICHA"} & words) or "FICHA" in words or (
+            "MP" in words and "CODIGO" in words
+        ):
             return "codigo_master_power"
         return None
+
+    @staticmethod
+    def _codes_in_last_answer(historico: List[Dict[str, str]]) -> Tuple[List[str], str]:
+        """
+        Codigos das turbinas que a ultima resposta mostrou ("✅ *TURBO HOLSET HX55W - 4031196/...*"):
+        o primeiro codigo de cada produto, ate 3.
+        """
+        for item in reversed(historico):
+            if item.get("papel") == "usuario":
+                return [], ""
+            if item.get("papel") != "assistente":
+                continue
+            text = str(item.get("texto") or "")
+            subjects = _ANSWER_SUBJECT.findall(text)
+            if subjects:  # resposta por codigo ("*4031196*: temos.", um bloco por codigo): "essa" sao eles
+                codes = [c for s in subjects for c in extract_codes_from_name(s, expand_family=False)[:1]]
+                return list(dict.fromkeys(codes))[:MAX_CODES_PER_MESSAGE], "\n".join(subjects)
+            codes: List[str] = []
+            names = _BOLD.findall(text)
+            for name in names:
+                found = extract_codes_from_name(name, expand_family=False)
+                if found and found[0] not in codes:
+                    codes.append(found[0])
+            return codes[:MAX_CODES_PER_MESSAGE], "\n".join(names)
+        return [], ""
 
     def _comparison_pairs(
         self, mensagem: str, codes: List[str], code_source: str, historico: List[Dict[str, str]]
