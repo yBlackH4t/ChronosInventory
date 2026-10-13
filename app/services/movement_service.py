@@ -292,9 +292,11 @@ class MovementService:
         sort_direction: str,
         limit: int,
         offset: int,
+        documento: Optional[str] = None,
     ) -> Tuple[List[MovementRecord], int]:
         df = date_from.strftime(DATE_FORMAT_DB) if date_from else None
         dt = date_to.strftime(DATE_FORMAT_DB) if date_to else None
+        documento = (documento or "").strip() or None
 
         rows = self.repo.list_movements(
             produto_id=produto_id,
@@ -304,6 +306,7 @@ class MovementService:
             destino_local_id=destino_location_id,
             date_from=df,
             date_to=dt,
+            documento=documento,
             sort_column=sort_column,
             sort_direction=sort_direction,
             limit=limit,
@@ -317,6 +320,7 @@ class MovementService:
             destino_local_id=destino_location_id,
             date_from=df,
             date_to=dt,
+            documento=documento,
         )
 
         return [

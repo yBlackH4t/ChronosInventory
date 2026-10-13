@@ -103,6 +103,8 @@ function MovementsPageContent() {
           productLookupLoading={state.productLookupLoading}
           productSearch={state.productSearch}
           onProductSearchChange={state.setProductSearch}
+          documentoSearch={state.documentoSearch}
+          onDocumentoSearchChange={state.setDocumentoSearch}
           filters={state.filters}
           setFilterValue={state.setFilterValue}
           pageSize={state.pageSize}
