@@ -281,6 +281,67 @@ def relink_catalog(db_connection, force: bool = False) -> Dict[str, Any]:
         conn.close()
 
 
+def link_product(db_connection, product_id: int) -> Dict[str, Any]:
+    """
+    Liga um produto ao catalogo logo depois de cadastrar ou renomear (antes so acontecia na
+    proxima abertura do app): refaz os codigos do nome dele e os vinculos automaticos.
+    Vinculos confirmados ou rejeitados a mao ficam como estao.
+    """
+    from app.services.catalog_sync_service import CatalogSyncService
+    from core.catalog.normalization import extract_codes_from_name
+
+    conn = db_connection.get_connection()
+    try:
+        ensure_catalog_schema(conn)
+        conn.commit()
+        if not conn.execute("SELECT COUNT(*) FROM catalogo_produtos").fetchone()[0]:
+            return {"status": "sem_catalogo"}
+        row = conn.execute("SELECT nome FROM produtos WHERE id = ?", (product_id,)).fetchone()
+        if not row:
+            return {"status": "sem_produto"}
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM produto_codigos WHERE produto_id = ? AND origem = 'NOME'", (product_id,))
+            conn.executemany(
+                "INSERT OR IGNORE INTO produto_codigos (produto_id, numero_norm, origem) VALUES (?, ?, 'NOME')",
+                [(product_id, code) for code in extract_codes_from_name(row[0])],
+            )
+            manual = conn.execute(
+                """
+                SELECT catalogo_produto_id, status, codigos_em_comum FROM produto_catalogo_vinculo
+                WHERE produto_id = ? AND status <> ?
+                """,
+                (product_id, LINK_STATUS_AUTO),
+            ).fetchall()
+            conn.execute(
+                "DELETE FROM produto_catalogo_vinculo WHERE produto_id = ? AND status = ?",
+                (product_id, LINK_STATUS_AUTO),
+            )
+            CatalogSyncService(db_connection)._enrich_existing_products(conn, [product_id])
+            # O enriquecimento grava AUTO por cima; o que o usuario decidiu vale mais (como no relink).
+            for catalogo_id, status, comuns in manual:
+                conn.execute(
+                    """
+                    INSERT INTO produto_catalogo_vinculo (produto_id, catalogo_produto_id, status, codigos_em_comum)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(produto_id, catalogo_produto_id) DO UPDATE SET
+                        status = excluded.status,
+                        atualizado_em = CURRENT_TIMESTAMP
+                    """,
+                    (product_id, catalogo_id, status, comuns),
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        links = conn.execute(
+            "SELECT COUNT(*) FROM produto_catalogo_vinculo WHERE produto_id = ?", (product_id,)
+        ).fetchone()[0]
+        return {"status": "ligado", "vinculos": links}
+    finally:
+        conn.close()
+
+
 def run_catalog_startup(db_connection) -> None:
     """Chamado na abertura do backend. Nunca levanta excecao."""
     try:

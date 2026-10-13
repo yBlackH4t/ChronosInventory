@@ -30,6 +30,7 @@ Formato recomendado:
 - Na tela "Atualização incompleta", o botão agora reinicia o Chronos e fecha o serviço antigo.
 - Fechar o Chronos não pisca mais uma janela de prompt várias vezes.
 - Imprimir (etiquetas, NF-e e folha de inventário) não abre mais uma página em branco antes da impressão de verdade.
+- Turbina nova (ou renomeada) já aparece ligada ao catálogo na hora. Antes só ligava na próxima abertura do Chronos, e o assistente não a achava pela busca por veículo.
 
 ## [2.4.0] - 2026-10-13
 

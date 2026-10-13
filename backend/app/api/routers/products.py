@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -32,10 +33,22 @@ from core.exceptions import ValidationException
 
 
 router = APIRouter(prefix="/produtos", tags=["produtos"])
+LOG = logging.getLogger(__name__)
 
 _MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
 _ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
+
+
+def _link_to_catalog(product_id: int) -> None:
+    """Liga o produto novo ou renomeado ao catalogo na hora (a busca por veiculo do assistente usa)."""
+    from core.catalog.bundle import link_product
+    from core.database.connection import DatabaseConnection
+
+    try:
+        link_product(DatabaseConnection(), int(product_id))
+    except Exception:  # o cadastro ja foi salvo; o vinculo sai na proxima abertura do app
+        LOG.exception("catalogo: falha ao ligar o produto %s", product_id)
 
 
 def _parse_sort(sort: str | None) -> tuple[str, str]:
@@ -205,6 +218,7 @@ def create_product(
         documento_movimento=payload.documento_movimento,
         observacao_movimento=payload.observacao_movimento,
     )
+    _link_to_catalog(product.id)
     return ok(product.to_dict(), status_code=201)
 
 
@@ -221,6 +235,7 @@ def replace_product(
         observacao=payload.observacao,
         produto_vinculado_id=payload.produto_vinculado_id,
     )
+    _link_to_catalog(product_id)
     return ok(product.to_dict())
 
 
@@ -253,6 +268,8 @@ def update_product(
         observacao=observacao,
         produto_vinculado_id=produto_vinculado_id,
     )
+    if nome is not UNSET:
+        _link_to_catalog(product_id)
     return ok(product.to_dict())
 
 

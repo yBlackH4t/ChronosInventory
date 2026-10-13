@@ -324,6 +324,20 @@ def test_run_tool_reports_errors_instead_of_raising(tools):
     assert tools.run_tool("buscar_por_codigo", {"codigo": "4031196"})["temos_em_estoque"] is True
 
 
+def test_new_product_is_linked_to_the_catalog_right_away(client, tools):
+    # Antes o vinculo so saia na proxima abertura do app: a busca por veiculo nao achava a turbina nova.
+    new_id = _create_product(client, "TURBO HOLSET HE500WG NOVA 3791212", {CANOAS: 4})
+    links = client.get(f"/produtos/{new_id}/catalogo").json()["data"]["vinculos"]
+    assert [link["codigo"] for link in links] == ["805310"]
+    texto = tools.search_by_application("scania 440 dc13")["texto_pronto"]
+    assert "TURBO HOLSET HE500WG NOVA 3791212" in texto
+
+    # Renomeou para um codigo de outra ficha: o vinculo automatico acompanha.
+    assert client.patch(f"/produtos/{new_id}", json={"nome": "TURBO HX52 NOVA 4031343"}).status_code == 200
+    links = client.get(f"/produtos/{new_id}/catalogo").json()["data"]["vinculos"]
+    assert [link["codigo"] for link in links] == ["805470"]
+
+
 def test_movements_of_a_code(client, tools):
     sale = {"tipo": "SAIDA", "produto_id": tools.ids["k27"], "quantidade": 1, "origem_location_id": PF}
     assert client.post("/movimentacoes", json=sale).status_code == 201
