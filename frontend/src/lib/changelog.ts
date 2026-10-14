@@ -11,10 +11,15 @@ export type ReleaseEntry = {
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
     "version": "2.4.2",
-    "date": "2026-10-13",
-    "title": "Novas funcionalidades",
+    "date": "2026-10-14",
+    "title": "Melhorias e correcoes",
     "highlights": [
-      "Novo: Sugerir ao admin: na tela do Assistente, qualquer colega sugere \"este código é igual (ou similar, ou não serve) àquele\" pelo próprio Chronos. A sugestão chega na máquina que publica a base, em Assistente > Admin > Para revisar, e só vale depois que o admin aprova."
+      "Novo: Baixa por NF-e: bipe o código de barras do DANFE (com o celular ou com o leitor) e o Chronos abre a conferência da nota com os itens já ligados aos produtos. Confira e clique em \"Dar saída\" ou \"Dar entrada\"; o estoque é movimentado com o documento \"NF número\". A mesma nota não pode ser lançada duas vezes, e nota cancelada é recusada. Também fica em Movimentações > \"Baixa por NF-e\".",
+      "Novo: Notas de saída: o Chronos lê o XML nas pastas do emissor (Questor). As pastas ficam em \"Baixa por NF-e\" > Configurar.",
+      "Novo: Notas de entrada (fornecedor): com o certificado digital A1 da empresa configurado, o Chronos baixa o XML da nota direto da SEFAZ. Em \"Baixa por NF-e\" > Configurar, informe o arquivo .pfx, a senha e o \"CNPJ desta loja\".",
+      "Novo: O Chronos lembra qual produto você escolheu para cada item de cada fornecedor e sugere na próxima nota.",
+      "Novo: Sugerir ao admin: na tela do Assistente, qualquer colega sugere \"este código é igual (ou similar, ou não serve) àquele\" pelo próprio Chronos. A sugestão chega na máquina que publica a base, em Assistente > Admin > Para revisar, e só vale depois que o admin aprova.",
+      "Correcao: Leitor do celular sem câmera ao vivo: quando o navegador bloqueia a câmera (página sem https), aparece o botão \"TIRAR FOTO DO CÓDIGO\" e o Chronos lê o código pela foto."
     ]
   },
   {
