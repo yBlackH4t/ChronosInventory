@@ -10,6 +10,15 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.3",
+    "date": "2026-10-14",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Mudanca: Baixa por NF-e com natureza e observação: na conferência da nota, escolha a natureza (operação normal, transferência externa ou ajuste), o local externo e a observação antes de dar entrada ou saída. Nota da matriz ou de outra filial (mesma raiz de CNPJ) já vem como transferência externa.",
+      "Correcao: Nota lançada com a natureza errada: estorne as movimentações dela e bipe de novo para lançar certo. Antes, a nota continuava marcada como \"já baixada\"."
+    ]
+  },
+  {
     "version": "2.4.2",
     "date": "2026-10-14",
     "title": "Melhorias e correcoes",

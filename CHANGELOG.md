@@ -24,6 +24,14 @@ Formato recomendado:
 
 
 
+## [2.4.3] - 2026-10-14
+
+### Changed
+- **Baixa por NF-e com natureza e observação:** na conferência da nota, escolha a natureza (operação normal, transferência externa ou ajuste), o local externo e a observação antes de dar entrada ou saída. Nota da matriz ou de outra filial (mesma raiz de CNPJ) já vem como transferência externa.
+
+### Fixed
+- Nota lançada com a natureza errada: estorne as movimentações dela e bipe de novo para lançar certo. Antes, a nota continuava marcada como "já baixada".
+
 ## [2.4.2] - 2026-10-14
 
 ### Added

@@ -422,6 +422,16 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-14 — Claude Code — Natureza e observação na baixa por NF-e (2.4.3)
+- Branch: `claude/project-thread-dcq6wk`. Pedido: a NF da matriz (e de outras filiais) é
+  transferência externa, não entrada de fábrica; a conferência da nota precisa deixar escolher a
+  natureza e a observação.
+- A tela traz Natureza (operação normal, transferência externa ou ajuste), Local externo, Motivo do
+  ajuste e Observação, já sugeridos: outra parte com a mesma raiz de CNPJ da loja vem como
+  transferência externa (`_suggested_movement` em `app/services/nfe_service.py`).
+- Nota com todas as movimentações estornadas fica livre para lançar de novo (`_active_baixa`).
+- Versão 2.4.3 e CHANGELOG. Verificações: `pytest`, `npm run build`, `npm run lint`.
+
 ### 2026-10-14 — Claude Code — Baixa por NF-e bipando o DANFE
 - Branch: `claude/project-thread-dcq6wk` (PR para `main`, separado do PR #11).
 - Pedido: bipar com o celular o código de barras da NF de saída e o Chronos dar baixa nos itens.

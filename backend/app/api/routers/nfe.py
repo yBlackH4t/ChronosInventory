@@ -44,6 +44,10 @@ class NfeBaixaIn(BaseModel):
     tipo: Literal["SAIDA", "ENTRADA"]
     location_id: int = Field(ge=1)
     itens: List[NfeBaixaItem] = Field(min_length=1, max_length=990)
+    natureza: Literal["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "AJUSTE"] = "OPERACAO_NORMAL"
+    local_externo: Optional[str] = Field(default=None, max_length=120)
+    motivo_ajuste: Optional[str] = Field(default=None, max_length=40)
+    observacao: Optional[str] = Field(default=None, max_length=200)
 
 
 @router.get("/config")
@@ -79,5 +83,9 @@ def baixar(chave: str, payload: NfeBaixaIn, service: NfeService = Depends(get_nf
         tipo=payload.tipo,
         location_id=payload.location_id,
         itens=[i.model_dump() for i in payload.itens],
+        natureza=payload.natureza,
+        local_externo=payload.local_externo,
+        motivo_ajuste=payload.motivo_ajuste,
+        observacao=payload.observacao,
     )
     return ok(result, status_code=201)

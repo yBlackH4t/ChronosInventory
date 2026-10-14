@@ -17,9 +17,10 @@ import { IconAlertTriangle, IconFileInvoice, IconSearch, IconSettings } from "@t
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/apiClient";
-import type { NfeItemPreview, NfePreview, NfeProduto } from "../../lib/api";
+import type { NfeItemPreview, NfeNatureza, NfePreview, NfeProduto } from "../../lib/api";
 import { formatNfeKey, parseNfeKey } from "../../lib/nfe";
 import { notifyError, notifySuccess } from "../../lib/notify";
+import { PRODUCT_ADJUSTMENT_REASON_OPTIONS } from "../../lib/productMovement";
 import { useLocations } from "../../hooks/useLocations";
 import NfeSettingsPanel from "./NfeSettingsPanel";
 
@@ -59,11 +60,25 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   const [rows, setRows] = useState<Record<number, RowState>>({});
   const [tipo, setTipo] = useState<"SAIDA" | "ENTRADA">("SAIDA");
   const [locationId, setLocationId] = useState<string | null>(null);
+  const [natureza, setNatureza] = useState<NfeNatureza>("OPERACAO_NORMAL");
+  const [localExterno, setLocalExterno] = useState("");
+  const [motivoAjuste, setMotivoAjuste] = useState<string | null>(null);
+  const [observacao, setObservacao] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFolders, setShowFolders] = useState(false);
   const searchTimers = useRef<Record<number, number>>({});
+
+  // Natureza, local externo e observacao vem sugeridos pela nota (matriz/filial = transferencia externa).
+  const applyTipo = (data: NfePreview, next: "SAIDA" | "ENTRADA") => {
+    setTipo(next);
+    const sugerido = data.movimento_sugerido?.[next];
+    setNatureza(sugerido?.natureza ?? "OPERACAO_NORMAL");
+    setLocalExterno(sugerido?.local_externo ?? "");
+    setObservacao(sugerido?.observacao ?? "");
+    setMotivoAjuste(null);
+  };
 
   const load = async (raw: string) => {
     const key = parseNfeKey(raw);
@@ -79,7 +94,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       const res = await api.getNfe(key);
       const data = res.data;
       setNota(data);
-      setTipo(data.tipo_sugerido);
+      applyTipo(data, data.tipo_sugerido);
       const next: Record<number, RowState> = {};
       for (const item of data.itens) {
         next[item.item] = {
@@ -178,9 +193,12 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       if (semSaldo) list.push(`Saldo insuficiente neste local em ${semSaldo === 1 ? "1 item" : `${semSaldo} itens`}.`);
     }
     if (!locationId) list.push("Escolha o local.");
+    if (natureza === "TRANSFERENCIA_EXTERNA" && !localExterno.trim()) list.push("Informe o local externo.");
+    if (natureza === "AJUSTE" && !motivoAjuste) list.push("Escolha o motivo do ajuste.");
+    if (natureza === "AJUSTE" && !observacao.trim()) list.push("Escreva a observação do ajuste.");
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nota, rows, tipo, locationId]);
+  }, [nota, rows, tipo, locationId, natureza, localExterno, motivoAjuste, observacao]);
 
   const confirm = async () => {
     if (!nota || !locationId || problems.length) return;
@@ -194,6 +212,10 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
           produto_id: Number(rows[i.item].produtoId),
           quantidade: rows[i.item].quantidade,
         })),
+        natureza,
+        local_externo: natureza === "TRANSFERENCIA_EXTERNA" ? localExterno.trim() : undefined,
+        motivo_ajuste: natureza === "AJUSTE" && motivoAjuste ? motivoAjuste : undefined,
+        observacao: observacao.trim() || undefined,
       });
       notifySuccess(
         `${tipo === "SAIDA" ? "Saída" : "Entrada"} da ${res.data.documento} lançada (${res.data.movimentacoes.length} ${
@@ -274,7 +296,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                   { value: "ENTRADA", label: "Entrada (soma ao estoque)" },
                 ]}
                 value={tipo}
-                onChange={(v) => v && setTipo(v as "SAIDA" | "ENTRADA")}
+                onChange={(v) => v && applyTipo(nota, v as "SAIDA" | "ENTRADA")}
                 allowDeselect={false}
               />
               <Select
@@ -285,6 +307,46 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                 allowDeselect={false}
               />
             </Group>
+
+            <Group grow align="flex-start">
+              <Select
+                label="Natureza"
+                description="Nota da matriz ou de outra filial é transferência externa."
+                data={[
+                  { value: "OPERACAO_NORMAL", label: tipo === "SAIDA" ? "Operação normal (venda)" : "Operação normal (fábrica / fornecedor)" },
+                  { value: "TRANSFERENCIA_EXTERNA", label: "Transferência externa (matriz / filial)" },
+                  { value: "AJUSTE", label: "Ajuste" },
+                ]}
+                value={natureza}
+                onChange={(v) => v && setNatureza(v as NfeNatureza)}
+                allowDeselect={false}
+              />
+              {natureza === "TRANSFERENCIA_EXTERNA" && (
+                <TextInput
+                  label="Local externo"
+                  description={tipo === "SAIDA" ? "Para onde vai." : "De onde vem."}
+                  value={localExterno}
+                  onChange={(e) => setLocalExterno(e.currentTarget.value)}
+                  maxLength={120}
+                />
+              )}
+              {natureza === "AJUSTE" && (
+                <Select
+                  label="Motivo do ajuste"
+                  description="Obrigatório para ajuste."
+                  data={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
+                  value={motivoAjuste}
+                  onChange={setMotivoAjuste}
+                  allowDeselect={false}
+                />
+              )}
+            </Group>
+            <TextInput
+              label="Observação"
+              value={observacao}
+              onChange={(e) => setObservacao(e.currentTarget.value)}
+              maxLength={200}
+            />
 
             <Table verticalSpacing="xs">
               <Table.Thead>
