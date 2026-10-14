@@ -1,8 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { baseUrl } from "./apiClient";
+import { parseNfeKey } from "./nfe";
 
 type ScannerListener = (code: string) => void;
 const listeners = new Set<ScannerListener>();
+// Chave do DANFE (NF-e) vai so para quem baixa a nota, nao para as buscas de produto.
+const nfeListeners = new Set<ScannerListener>();
 let ws: WebSocket | null = null;
 let reconnectTimer: number | null = null;
 
@@ -37,7 +40,12 @@ export function useScanner() {
           try {
             const data = JSON.parse(event.data);
             if (data.code) {
-              listeners.forEach((listener) => listener(data.code));
+              const chave = parseNfeKey(String(data.code));
+              if (chave && nfeListeners.size > 0) {
+                nfeListeners.forEach((listener) => listener(chave));
+              } else {
+                listeners.forEach((listener) => listener(data.code));
+              }
             }
           } catch (e) {
             console.error("Failed to parse scanner message", e);
@@ -76,5 +84,12 @@ export function useScanner() {
     };
   }, []);
 
-  return { isConnected, listen };
+  const listenNfe = useCallback((callback: ScannerListener) => {
+    nfeListeners.add(callback);
+    return () => {
+      nfeListeners.delete(callback);
+    };
+  }, []);
+
+  return { isConnected, listen, listenNfe };
 }

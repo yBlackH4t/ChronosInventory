@@ -24,6 +24,7 @@ venv/
 *.log
 official_base_config.json
 assistente_config.json
+nfe_config.json
 assistente_conhecimento.json
 stock_profiles.json
 backups/

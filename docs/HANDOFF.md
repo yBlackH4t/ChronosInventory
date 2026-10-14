@@ -422,6 +422,22 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-14 — Claude Code — Baixa por NF-e bipando o DANFE
+- Branch: `claude/project-thread-dcq6wk` (PR para `main`, separado do PR #11).
+- Pedido: bipar com o celular o código de barras da NF de saída e o Chronos dar baixa nos itens.
+- O código de barras do DANFE é só a chave (44 dígitos). O app procura o XML dessa chave nas
+  pastas do Questor (`C:\nQuestorEmp\NFe\Geradas` e `...\Distribuicao`, editáveis em
+  "Pastas dos XMLs"), mostra os itens ligados aos produtos (pelo código de peça da descrição,
+  ou pelo que já foi usado antes para o mesmo código do emissor) e lança tudo de uma vez com o
+  documento "NF <número>". Nota cancelada, sem autorização ou já baixada é recusada.
+- Onde: `core/nfe_xml.py`, `app/services/nfe_service.py`, `backend/app/api/routers/nfe.py`,
+  `frontend/src/components/scanner/NfeMovementModal.tsx` (aberto de qualquer tela pelo
+  `NfeScanHost` no layout; botão "Baixa por NF-e" em Movimentações).
+- Entrada de NF de fornecedor: o XML não fica na máquina (nota só em papel), então continua pela
+  "Movimentação em lote".
+- Verificações: `pytest` (206 ok), `npm run build`, `npm run lint` sem erros, `vitest` ok; tela
+  conferida no navegador (bipe pelo celular abre a nota, baixa, segunda leitura avisa "já baixada").
+
 ### 2026-10-13 — Claude Code — Fotos de produto não somem ao "Atualizar base"
 - Branch: `claude/project-thread-itvf2t` (PR para `main`, junto da 2.4.1).
 - Causa: as fotos ficam dentro do banco (`product_images`). "Atualizar base" (base oficial)

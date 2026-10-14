@@ -928,3 +928,57 @@ export type DownloadResponse = {
 export type SelectedStockReportIn = {
   product_ids: number[];
 };
+
+// Baixa por NF-e (bipa o codigo de barras do DANFE e le o XML da nota)
+export type NfeProduto = {
+  id: number;
+  nome: string;
+  estoque: Record<string, number>;
+};
+
+export type NfeItemPreview = {
+  item: number;
+  codigo: string;
+  ean: string;
+  descricao: string;
+  unidade: string;
+  quantidade: number | null;
+  quantidade_nota: string;
+  produto_sugerido: NfeProduto | null;
+  confianca: "aprendido" | "codigo" | "duvida" | "nenhum";
+  candidatos: NfeProduto[];
+};
+
+export type NfePreview = {
+  chave: string;
+  numero: number;
+  serie: number;
+  tipo_sugerido: "SAIDA" | "ENTRADA";
+  natureza_operacao: string;
+  emissao: string;
+  emitente: string;
+  destinatario: string;
+  autorizada: boolean;
+  cancelada: boolean;
+  ja_baixada: { tipo: string; data: string } | null;
+  arquivo: string;
+  itens: NfeItemPreview[];
+};
+
+export type NfeBaixaIn = {
+  tipo: "SAIDA" | "ENTRADA";
+  location_id: number;
+  itens: { item: number; produto_id: number; quantidade: number }[];
+};
+
+export type NfeBaixaOut = {
+  chave: string;
+  numero: number;
+  documento: string;
+  tipo: string;
+  movimentacoes: number[];
+};
+
+export type NfeConfig = {
+  pastas_xml: string[];
+};

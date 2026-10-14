@@ -113,7 +113,13 @@ HTML_CONTENT = """
             
             startOverlay.style.display = 'none';
 
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150}, aspectRatio: 1.0 });
+            // Area larga: o codigo do DANFE (chave da NF-e, 44 digitos) e comprido.
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", {
+                fps: 10,
+                qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.max(80, Math.floor(Math.min(h * 0.4, 180))) }),
+                aspectRatio: 1.0,
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            });
             html5QrcodeScanner.render(onScanSuccess);
         });
 
@@ -179,8 +185,14 @@ async def receive_barcode(payload: BarcodePayload, stock_service: StockService =
     display_name = payload.code
     code_upper = payload.code.upper()
     
+    from core.nfe_xml import chave_from_code, chave_numero
+
+    chave = chave_from_code(payload.code)
     try:
-        if code_upper.startswith("CI-"):
+        if chave:
+            serie, numero = chave_numero(chave)
+            display_name = f"NF-e {numero} (serie {serie})"
+        elif code_upper.startswith("CI-"):
             pid = int(code_upper.replace("CI-", ""))
             prod = stock_service.get_product_by_id(pid)
             if prod:

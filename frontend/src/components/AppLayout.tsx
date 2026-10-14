@@ -11,6 +11,7 @@ import { restartApplication } from "../lib/restartApp";
 import { PRIMARY_NAV } from "../app/navigation";
 import { preloadRoute } from "../app/routePreload";
 import TopBar from "./shell/TopBar";
+import NfeScanHost from "./scanner/NfeScanHost";
 
 const TOPBAR_HEIGHT = 97; // 52px row + 44px tabs + 1px border
 
@@ -117,6 +118,7 @@ export default function AppLayout({
         >
           {children}
         </div>
+        <NfeScanHost />
       </AppShell.Main>
     </AppShell>
   );

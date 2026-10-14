@@ -104,6 +104,13 @@ Regras:
 - `GET /analytics/estoque-evolucao`
 - `GET /analytics/top-sem-mov`
 
+## Baixa por NF-e (codigo de barras do DANFE)
+- O codigo de barras do DANFE e a chave de acesso (44 digitos). O app procura o XML autorizado dessa chave nas pastas configuradas (e subpastas): primeiro pelo nome do arquivo, depois pelo comeco do conteudo.
+- `GET /nfe/config` / `PUT /nfe/config` `{pastas_xml: [..]}` (ate 10). Padrao: `C:\nQuestorEmp\NFe\Geradas` e `C:\nQuestorEmp\NFe\Distribuicao`. Fica em `nfe_config.json` na pasta do app (por maquina, fora do banco).
+- `GET /nfe/{chave}`: cabecalho da nota (`numero`, `serie`, `tipo_sugerido` SAIDA/ENTRADA pelo `tpNF`, `destinatario`, `autorizada`, `cancelada` se houver o evento 110111 na pasta, `ja_baixada`) e `itens` com `produto_sugerido`, `confianca` (`aprendido` | `codigo` | `duvida` | `nenhum`) e `candidatos` (com `estoque` por local). 400 se a chave for invalida; 404 se o XML nao estiver nas pastas.
+- `POST /nfe/{chave}/baixa` `{tipo, location_id, itens: [{item, produto_id, quantidade}]}`: todos os itens da nota, numa transacao. Movimentacoes com `documento` "NF <numero>" e `observacao` "NF-e <numero> serie <serie> - <destinatario>". Recusa (400) nota cancelada, sem autorizacao ou ja baixada (tabela `nfe_baixas`). Guarda `nfe_item_vinculos` (CNPJ do emitente + codigo do item -> produto) para sugerir na proxima nota.
+- O leitor do celular (`POST /api/scanner/barcode`) mostra "NF-e <numero>" no historico; a tela abre a conferencia da nota em qualquer aba.
+
 ## Backup / Import / Export / Relatorios
 - `POST /backup/criar`
 - `POST /backup/restaurar` (501)
