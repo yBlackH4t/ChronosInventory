@@ -198,3 +198,23 @@ export async function updateAssistantConfig(data: AssistantConfigUpdate): Promis
   });
   return parseResponse<AssistantConfig>(response);
 }
+
+export type ProposalSuggestion = {
+  codigo_a: string;
+  codigo_b: string;
+  tipo: "igual" | "similar" | "diferente";
+  observacao?: string;
+  autor?: string;
+};
+
+/** "Sugerir ao admin": vai para a maquina publicadora (ou fica aqui, se esta e a que aprova). */
+export async function suggestProposal(
+  data: ProposalSuggestion,
+): Promise<{ id: number | null; destino: "esta_maquina" | "publicadora" }> {
+  const response = await fetch(`${baseUrl}/assistente/propostas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseResponse(response);
+}

@@ -23,6 +23,12 @@ Formato recomendado:
 
 
 
+
+## [2.4.2] - 2026-10-13
+
+### Added
+- **Sugerir ao admin:** na tela do Assistente, qualquer colega sugere "este código é igual (ou similar, ou não serve) àquele" pelo próprio Chronos. A sugestão chega na máquina que publica a base, em Assistente > Admin > Para revisar, e só vale depois que o admin aprova.
+
 ## [2.4.1] - 2026-10-13
 
 ### Added

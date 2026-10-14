@@ -5,6 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
@@ -297,6 +298,22 @@ def correct_answer(
 # ----------------------------------------------------------------------
 # Propostas de regra mandadas pelo WhatsApp (/ensinar)
 # ----------------------------------------------------------------------
+
+
+class ProposalSuggestIn(BaseModel):
+    codigo_a: str
+    codigo_b: str
+    tipo: str
+    observacao: Optional[str] = None
+    autor: Optional[str] = None
+
+
+@router.post("/propostas", status_code=201)
+def suggest_proposal(payload: ProposalSuggestIn):
+    """"Sugerir ao admin" (qualquer maquina): vai para a publicadora, onde o admin aprova."""
+    from app.services.assistant_proposal_service import AssistantProposalService
+
+    return ok(AssistantProposalService().submit(payload.model_dump()), status_code=201)
 
 
 @router.get("/propostas", response_model=SuccessResponse[list[ProposalOut]])
