@@ -260,3 +260,55 @@ def test_sefaz_response_parsing():
     ).encode()
     result = parse_response(body)
     assert result.c_stat == "138" and result.xml == xml and not result.so_resumo
+
+
+def test_note_from_another_branch_enters_as_external_transfer_and_can_be_redone(client, tmp_path):
+    matriz = ("03897158000102", "MONTREAL COMERCIO DE PECAS LTDA")
+    canoas = ("03897158000285", "MONTREAL COMERCIO DE PECAS - CANOAS")
+    _setup(client, tmp_path, xml=_xml(itens=(("805", "TURBO K27 - 53279887220/7214", "2"),), emit=matriz, dest=canoas))
+    client.put("/nfe/config", json={"pastas_xml": [str(tmp_path / "Geradas")], "cnpj_loja": "03.897.158/0002-85"})
+    k27 = _product(client, "TURBO K27 - 53279887220", 1)
+
+    data = client.get(f"/nfe/{CHAVE}").json()["data"]
+    assert data["tipo_sugerido"] == "ENTRADA"
+    sugerido = data["movimento_sugerido"]["ENTRADA"]
+    assert sugerido["natureza"] == "TRANSFERENCIA_EXTERNA"
+    assert sugerido["local_externo"] == "MONTREAL COMERCIO DE PECAS LTDA"
+    assert sugerido["observacao"].startswith("NF-e 14560 serie 2")
+
+    # Primeiro lancada como entrada normal (como antes)...
+    itens = [{"item": 1, "produto_id": k27, "quantidade": 2}]
+    first = client.post(f"/nfe/{CHAVE}/baixa", json={"tipo": "ENTRADA", "location_id": CANOAS, "itens": itens})
+    assert first.status_code == 201, first.text
+    [mov_id] = first.json()["data"]["movimentacoes"]
+    assert _stock(client, k27) == 3
+
+    # ...estornada, a nota fica livre para lancar de novo, agora como transferencia externa.
+    estorno = client.post("/movimentacoes", json={
+        "tipo": "SAIDA", "produto_id": k27, "quantidade": 2, "origem_location_id": CANOAS,
+        "natureza": "ESTORNO", "movimento_ref_id": mov_id, "observacao": "Estorno",
+    })
+    assert estorno.status_code == 201, estorno.text
+    assert client.get(f"/nfe/{CHAVE}").json()["data"]["ja_baixada"] is None
+
+    body = {
+        "tipo": "ENTRADA", "location_id": CANOAS, "itens": itens,
+        "natureza": "TRANSFERENCIA_EXTERNA", "local_externo": "Matriz Biguacu",
+        "observacao": "Transferencia da matriz",
+    }
+    again = client.post(f"/nfe/{CHAVE}/baixa", json=body)
+    assert again.status_code == 201, again.text
+    assert _stock(client, k27) == 3
+    mov = client.get("/movimentacoes", params={"documento": "14560", "tipo": "ENTRADA"}).json()["data"][0]
+    assert (mov["natureza"], mov["local_externo"], mov["observacao"]) == (
+        "TRANSFERENCIA_EXTERNA", "Matriz Biguacu", "Transferencia da matriz"
+    )
+
+    # Transferencia externa sem o local e recusada, sem lancar nada.
+    client.post("/movimentacoes", json={
+        "tipo": "SAIDA", "produto_id": k27, "quantidade": 2, "origem_location_id": CANOAS,
+        "natureza": "ESTORNO", "movimento_ref_id": again.json()["data"]["movimentacoes"][0],
+    })
+    no_place = client.post(f"/nfe/{CHAVE}/baixa", json={**body, "local_externo": ""})
+    assert no_place.status_code == 400 and "local externo" in no_place.json()["error"]["message"]
+    assert _stock(client, k27) == 1

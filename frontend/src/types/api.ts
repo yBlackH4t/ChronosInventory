@@ -963,12 +963,25 @@ export type NfePreview = {
   ja_baixada: { tipo: string; data: string } | null;
   arquivo: string;
   itens: NfeItemPreview[];
+  movimento_sugerido: Record<"SAIDA" | "ENTRADA", NfeMovimentoSugerido>;
+};
+
+export type NfeNatureza = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "AJUSTE";
+
+export type NfeMovimentoSugerido = {
+  natureza: NfeNatureza;
+  local_externo: string;
+  observacao: string;
 };
 
 export type NfeBaixaIn = {
   tipo: "SAIDA" | "ENTRADA";
   location_id: number;
   itens: { item: number; produto_id: number; quantidade: number }[];
+  natureza?: NfeNatureza;
+  local_externo?: string;
+  motivo_ajuste?: string;
+  observacao?: string;
 };
 
 export type NfeBaixaOut = {

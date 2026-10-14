@@ -36,6 +36,8 @@ CERTIFICATE_FILENAME = "nfe_certificado.pfx"
 DEFAULT_UF = "43"  # RS: UF de quem consulta na SEFAZ
 MAX_FOLDERS = 10
 MAX_CANDIDATES = 5
+# Naturezas que a baixa por NF aceita (devolucao exige a movimentacao de origem; estorno e outra tela).
+NATUREZAS_NF = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "AJUSTE"}
 
 _SCHEMA = (
     """
@@ -64,6 +66,32 @@ _SCHEMA = (
 def _ensure_schema(conn) -> None:
     for statement in _SCHEMA:
         conn.execute(statement)
+
+
+def _active_baixa(conn, chave: str):
+    """Baixa registrada da nota, ou None se todas as movimentacoes dela ja foram estornadas
+    (assim a nota pode ser lancada de novo, ex.: com outra natureza)."""
+    row = conn.execute(
+        "SELECT tipo, data_hora, movimentacao_ids FROM nfe_baixas WHERE chave = ?", (chave,)
+    ).fetchone()
+    if row is None:
+        return None
+    try:
+        ids = [int(i) for i in json.loads(row["movimentacao_ids"] or "[]")]
+    except (TypeError, ValueError):
+        return row
+    if not ids:
+        return row
+    marks = ",".join("?" for _ in ids)
+    estornados = conn.execute(
+        f"SELECT COUNT(DISTINCT movimento_ref_id) FROM movimentacoes "
+        f"WHERE natureza = 'ESTORNO' AND movimento_ref_id IN ({marks})",
+        ids,
+    ).fetchone()[0]
+    if estornados < len(set(ids)):
+        return row
+    conn.execute("DELETE FROM nfe_baixas WHERE chave = ?", (chave,))
+    return None
 
 
 def _config_path() -> str:
@@ -223,6 +251,33 @@ def _description_codes(descricao: str, ean: str) -> List[str]:
     return codes
 
 
+def _other_party(documento: NfeDocumento, tipo: str) -> tuple[str, str]:
+    """(nome, documento) de quem esta do outro lado da nota, para quem lanca o tipo dado."""
+    if tipo == "SAIDA":
+        return documento.destinatario_nome or "", documento.destinatario_documento or ""
+    return documento.emitente_nome or "", documento.emitente_cnpj or ""
+
+
+def _same_company(cnpj_a: str, cnpj_b: Optional[str]) -> bool:
+    """Matriz e filiais tem a mesma raiz (8 primeiros digitos) do CNPJ."""
+    a, b = _only_digits(cnpj_a), _only_digits(cnpj_b)
+    return len(a) == 14 and len(b) == 14 and a[:8] == b[:8]
+
+
+def _suggested_movement(documento: NfeDocumento, tipo: str, cnpj_loja: Optional[str]) -> Dict[str, str]:
+    """Natureza, local externo e observacao que a tela ja traz preenchidos (editaveis)."""
+    nome, doc = _other_party(documento, tipo)
+    observacao = f"NF-e {documento.numero} serie {documento.serie}"
+    if nome:
+        observacao = f"{observacao} - {nome}"
+    transferencia = _same_company(doc, cnpj_loja)
+    return {
+        "natureza": "TRANSFERENCIA_EXTERNA" if transferencia else "OPERACAO_NORMAL",
+        "local_externo": (nome or "Outra filial")[:120] if transferencia else "",
+        "observacao": observacao[:200],
+    }
+
+
 def _suggested_type(documento: NfeDocumento, cnpj_loja: Optional[str]) -> str:
     """Do ponto de vista desta loja: nota recebida e entrada; nota emitida segue o tpNF."""
     if cnpj_loja and documento.destinatario_documento == cnpj_loja and documento.emitente_cnpj != cnpj_loja:
@@ -298,18 +353,22 @@ class NfeService:
         conn = self.db.get_connection()
         try:
             _ensure_schema(conn)
-            baixa = conn.execute(
-                "SELECT tipo, data_hora FROM nfe_baixas WHERE chave = ?", (documento.chave,)
-            ).fetchone()
+            baixa = _active_baixa(conn, documento.chave)
+            conn.commit()
             itens = [self._suggest(conn, documento, item) for item in documento.itens]
         finally:
             conn.close()
 
+        cnpj_loja = load_config()["cnpj_loja"]
+        tipo_sugerido = _suggested_type(documento, cnpj_loja)
         return {
             "chave": documento.chave,
             "numero": documento.numero,
             "serie": documento.serie,
-            "tipo_sugerido": _suggested_type(documento, load_config()["cnpj_loja"]),
+            "tipo_sugerido": tipo_sugerido,
+            "movimento_sugerido": {
+                tipo: _suggested_movement(documento, tipo, cnpj_loja) for tipo in ("SAIDA", "ENTRADA")
+            },
             "natureza_operacao": documento.natureza_operacao,
             "emissao": documento.emissao,
             "emitente": documento.emitente_nome,
@@ -416,10 +475,17 @@ class NfeService:
         tipo: str,
         location_id: int,
         itens: List[Dict[str, int]],
+        natureza: Optional[str] = None,
+        local_externo: Optional[str] = None,
+        motivo_ajuste: Optional[str] = None,
+        observacao: Optional[str] = None,
     ) -> Dict[str, Any]:
         tipo = (tipo or "").upper()
         if tipo not in {"SAIDA", "ENTRADA"}:
             raise ValidationException("Tipo deve ser SAIDA ou ENTRADA.")
+        natureza = (natureza or "OPERACAO_NORMAL").upper()
+        if natureza not in NATUREZAS_NF:
+            raise ValidationException("Natureza deve ser operacao normal, transferencia externa ou ajuste.")
         documento = self._load(code)
         if documento.cancelada:
             raise ValidationException("Esta NF-e foi cancelada; nada foi baixado.")
@@ -443,18 +509,14 @@ class NfeService:
             )
 
         documento_mov = f"NF {documento.numero}"
-        observacao = f"NF-e {documento.numero} serie {documento.serie}"
-        outra_parte = documento.destinatario_nome if tipo == "SAIDA" else documento.emitente_nome
-        if outra_parte:
-            observacao = f"{observacao} - {outra_parte}"
-        observacao = observacao[:200]
+        observacao = (observacao or "").strip()[:200] or _suggested_movement(documento, tipo, None)["observacao"]
         now = datetime.now().strftime(DATE_FORMAT_DB)
 
         conn = self.db.get_connection()
         try:
             _ensure_schema(conn)
             conn.execute("BEGIN IMMEDIATE")
-            if conn.execute("SELECT 1 FROM nfe_baixas WHERE chave = ?", (documento.chave,)).fetchone():
+            if _active_baixa(conn, documento.chave) is not None:
                 raise ValidationException(f"A NF {documento.numero} ja foi baixada no estoque.")
 
             records: List[MovementRecord] = []
@@ -468,9 +530,9 @@ class NfeService:
                     location_id if tipo == "SAIDA" else None,
                     location_id if tipo == "ENTRADA" else None,
                     observacao,
-                    "OPERACAO_NORMAL",
-                    None,
-                    None,
+                    natureza,
+                    motivo_ajuste,
+                    local_externo,
                     documento_mov,
                     None,
                     None,
