@@ -63,6 +63,7 @@ from backend.app.api.routers import (
     scanner,
     assistant,
     catalog,
+    nfe,
 )
 from backend.app.api.responses import fail, ok
 from backend.app.schemas.common import SuccessResponse
@@ -247,6 +248,7 @@ app.include_router(system.router)
 app.include_router(scanner.router)
 app.include_router(assistant.router)
 app.include_router(catalog.router)
+app.include_router(nfe.router)
 
 
 def _request_id(request: Request) -> str:

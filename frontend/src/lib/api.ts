@@ -5,6 +5,12 @@ import { createProductsApi } from "./productsApi";
 
 import { ApiError } from "../types/api";
 import type {
+  NfePreview,
+  NfeBaixaIn,
+  NfeBaixaOut,
+  NfeConfig,
+  NfeConfigIn,
+  NfeCertificadoIn,
   OfficialBaseDirectoryTestOut,
   OfficialBaseApplyOut,
   OfficialBaseDeleteIn,
@@ -192,6 +198,47 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
         },
         baseUrl,
       );
+    },
+
+    // Baixa por NF-e: a chave vem do codigo de barras do DANFE.
+    async getNfe(chave: string, options: RequestInit = {}) {
+      return request<NfePreview>(
+        `/nfe/${encodeURIComponent(chave)}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async baixarNfe(chave: string, payload: NfeBaixaIn, options: RequestInit = {}) {
+      return request<NfeBaixaOut>(
+        `/nfe/${encodeURIComponent(chave)}/baixa`,
+        { method: "POST", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
+    async getNfeConfig(options: RequestInit = {}) {
+      return request<NfeConfig>(`/nfe/config`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async saveNfeConfig(payload: NfeConfigIn, options: RequestInit = {}) {
+      return request<NfeConfig>(
+        `/nfe/config`,
+        { method: "PUT", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
+    async saveNfeCertificado(payload: NfeCertificadoIn, options: RequestInit = {}) {
+      return request<NfeConfig>(
+        `/nfe/certificado`,
+        { method: "PUT", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
+    async removeNfeCertificado(options: RequestInit = {}) {
+      return request<NfeConfig>(`/nfe/certificado`, { method: "DELETE", ...options }, baseUrl);
     },
 
     async listMovements(

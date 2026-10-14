@@ -40,6 +40,7 @@ HTML_CONTENT = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Scanner Chronos</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #121212; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
         #reader { width: 100%; max-width: 600px; }
@@ -63,6 +64,14 @@ HTML_CONTENT = """
 
     <div class="header">Chronos Scanner</div>
     <div id="reader"></div>
+    <!-- Sem https (pagina aberta pelo IP da maquina) o navegador nao libera a camera ao vivo,
+         mas deixa tirar foto: o codigo e lido da foto. -->
+    <div id="photo-mode" style="display: none; width: 100%; max-width: 600px; padding: 20px 15px; box-sizing: border-box; text-align: center;">
+        <label for="photo-input" style="display: block; padding: 22px 10px; font-size: 1.2rem; background: #4ade80; color: #111; border-radius: 10px; font-weight: bold; cursor: pointer;">TIRAR FOTO DO CÓDIGO</label>
+        <input id="photo-input" type="file" accept="image/*" capture="environment" style="display: none;">
+        <div style="margin-top: 12px; color: #aaa; font-size: 0.85rem;">Fotografe o código de barras com o celular parado e com luz. Na nota, é o código acima da chave de acesso.</div>
+    </div>
+
     <div class="status" id="status-text">Apontando câmera...</div>
     
     <div class="history-container">
@@ -76,6 +85,10 @@ HTML_CONTENT = """
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
         
+        if (!window.isSecureContext) {
+            startBtn.innerText = 'COMEÇAR';
+        }
+
         let isProcessing = false;
         let html5QrcodeScanner = null;
         let audioCtx = null;
@@ -113,9 +126,155 @@ HTML_CONTENT = """
             
             startOverlay.style.display = 'none';
 
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 150}, aspectRatio: 1.0 });
+            if (!window.isSecureContext) {
+                document.getElementById('photo-mode').style.display = 'block';
+                statusText.innerText = 'Toque no botão e fotografe o código';
+                return;
+            }
+
+            // Area larga: o codigo do DANFE (chave da NF-e, 44 digitos) e comprido.
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", {
+                fps: 10,
+                qrbox: (w, h) => ({ width: Math.floor(w * 0.9), height: Math.max(80, Math.floor(Math.min(h * 0.4, 180))) }),
+                aspectRatio: 1.0,
+                experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+            });
             html5QrcodeScanner.render(onScanSuccess);
         });
+
+        document.getElementById('photo-input').addEventListener('change', async (event) => {
+            const input = event.target;
+            const file = input.files && input.files[0];
+            if (!file) return;
+            statusText.style.color = '#4ade80';
+            statusText.innerText = 'Lendo a foto...';
+            if (typeof ZXing === 'undefined') {
+                statusText.style.color = '#f87171';
+                statusText.innerText = 'O leitor não carregou: o celular precisa de internet. Recarregue a página.';
+                input.value = '';
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            try {
+                const img = new Image();
+                img.src = url;
+                await img.decode();
+                await new Promise((r) => setTimeout(r, 30)); // deixa a mensagem aparecer
+                const code = decodePhoto(img);
+                if (code) {
+                    sendBarcode(code);
+                } else {
+                    statusText.style.color = '#f87171';
+                    statusText.innerText = 'Não achei código na foto. Tente de novo, com o celular parado e com luz.';
+                }
+            } catch (err) {
+                statusText.style.color = '#f87171';
+                statusText.innerText = 'Não consegui abrir a foto. Tente de novo.';
+            } finally {
+                URL.revokeObjectURL(url);
+                input.value = '';
+            }
+        });
+
+        // Le codigo de barras de uma foto. Primeiro a foto inteira; se falhar, acha as faixas com
+        // cara de codigo de barras (muitas barras alinhadas por varias linhas) e le cada uma
+        // recortada, com margem branca: na DANFE as linhas do quadro ficam coladas no codigo.
+        function decodePhoto(img) {
+          const Z = window.ZXing;
+          const hints = new Map();
+          hints.set(Z.DecodeHintType.TRY_HARDER, true);
+          const reader = new Z.MultiFormatReader();
+          reader.setHints(hints);
+          const decodeCanvas = (c) => {
+            try {
+              return reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(c)))).getText();
+            } catch (e) {
+              return null;
+            }
+          };
+          for (const maxW of [1600, 800]) {
+            const scale = Math.min(1, maxW / img.naturalWidth);
+            const W = Math.round(img.naturalWidth * scale), H = Math.round(img.naturalHeight * scale);
+            const c = document.createElement("canvas");
+            c.width = W; c.height = H;
+            const ctx = c.getContext("2d", { willReadFrequently: true });
+            ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+            ctx.drawImage(img, 0, 0, W, H);
+            const whole = decodeCanvas(c);
+            if (whole) return whole;
+            const bands = findBarcodeBands(ctx.getImageData(0, 0, W, H), W, H);
+            for (const box of bands) for (const extra of [0.06, 0.02, 0.12]) {
+              // Recorta da foto original (barras finas se perdem na reducao), com margem branca.
+              const mx = (box.x1 - box.x0) * extra, my = (box.y1 - box.y0) * 0.1;
+              const x0 = Math.max(0, box.x0 - mx), x1 = Math.min(W, box.x1 + mx);
+              const y0 = Math.max(0, box.y0 - my), y1 = Math.min(H, box.y1 + my);
+              const sx = x0 / scale, sy = y0 / scale;
+              const sw = (x1 - x0) / scale, sh = (y1 - y0) / scale;
+              const k = Math.min(1, 2400 / sw);
+              const pad = 40;
+              const out = document.createElement("canvas");
+              out.width = Math.round(sw * k) + 2 * pad; out.height = Math.round(sh * k) + 2 * pad;
+              const octx = out.getContext("2d");
+              octx.fillStyle = "#fff"; octx.fillRect(0, 0, out.width, out.height);
+              octx.drawImage(img, sx, sy, sw, sh, pad, pad, Math.round(sw * k), Math.round(sh * k));
+              const text = decodeCanvas(out);
+              if (text) return text;
+            }
+          }
+          return null;
+        }
+        
+        function findBarcodeBands(data, W, H) {
+          const px = data.data;
+          const gray = new Uint8Array(W * H);
+          let sum = 0;
+          for (let i = 0; i < W * H; i++) {
+            const g = (px[4 * i] * 3 + px[4 * i + 1] * 6 + px[4 * i + 2]) / 10;
+            gray[i] = g; sum += g;
+          }
+          const GAP = 14, MIN_LEN = 120, MIN_TRANS = 40;
+          // Por linha: o trecho mais comprido com transicoes preto/branco proximas umas das outras.
+          const rows = [];
+          for (let y = 0; y < H; y += 2) {
+            let lo = 255, hi = 0;
+            for (let x = 0; x < W; x++) { const g = gray[y * W + x]; if (g < lo) lo = g; if (g > hi) hi = g; }
+            if (hi - lo < 60) { rows.push(null); continue; }
+            const thr = (lo + hi) / 2;
+            let prev = gray[y * W] < thr, segStart = -1, last = -1, count = 0, best = null;
+            for (let x = 1; x < W; x++) {
+              const cur = gray[y * W + x] < thr;
+              if (cur === prev) continue;
+              prev = cur;
+              if (last >= 0 && x - last <= GAP) { count++; }
+              else {
+                if (segStart >= 0 && last - segStart >= MIN_LEN && count >= MIN_TRANS && (!best || last - segStart > best.x1 - best.x0)) best = { x0: segStart, x1: last, n: count };
+                segStart = x; count = 1;
+              }
+              last = x;
+            }
+            if (segStart >= 0 && last - segStart >= MIN_LEN && count >= MIN_TRANS && (!best || last - segStart > best.x1 - best.x0)) best = { x0: segStart, x1: last, n: count };
+            rows.push(best);
+          }
+          // Faixas: linhas seguidas com o trecho no mesmo lugar (barras sao verticais).
+          const bands = [];
+          let cur = null;
+          rows.forEach((seg, i) => {
+            const y = i * 2;
+            if (seg && cur && Math.abs(seg.x0 - cur.lx0) <= 8 && Math.abs(seg.x1 - cur.lx1) <= 8) {
+              // Compara com a linha anterior: aceita o codigo um pouco torto na foto.
+              cur.y1 = y; cur.rows++; cur.lx0 = seg.x0; cur.lx1 = seg.x1;
+              cur.x0 = Math.min(cur.x0, seg.x0); cur.x1 = Math.max(cur.x1, seg.x1);
+            } else {
+              if (cur && cur.rows >= 6) bands.push(cur);
+              cur = seg ? { x0: seg.x0, x1: seg.x1, lx0: seg.x0, lx1: seg.x1, y0: y, y1: y, rows: 1 } : null;
+            }
+          });
+          if (cur && cur.rows >= 6) bands.push(cur);
+          bands.sort((a, b) => b.rows * (b.x1 - b.x0) - a.rows * (a.x1 - a.x0));
+          return bands.slice(0, 6).map((b) => ({
+            x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y1,
+          }));
+        }
 
         function sendBarcode(code) {
             if (isProcessing) return;
@@ -179,8 +338,14 @@ async def receive_barcode(payload: BarcodePayload, stock_service: StockService =
     display_name = payload.code
     code_upper = payload.code.upper()
     
+    from core.nfe_xml import chave_from_code, chave_numero
+
+    chave = chave_from_code(payload.code)
     try:
-        if code_upper.startswith("CI-"):
+        if chave:
+            serie, numero = chave_numero(chave)
+            display_name = f"NF-e {numero} (serie {serie})"
+        elif code_upper.startswith("CI-"):
             pid = int(code_upper.replace("CI-", ""))
             prod = stock_service.get_product_by_id(pid)
             if prod:

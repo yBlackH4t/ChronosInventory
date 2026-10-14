@@ -1,12 +1,13 @@
 import { Component, useEffect, type ReactNode } from "react";
-import { Button, Stack } from "@mantine/core";
+import { Button, Group, Stack } from "@mantine/core";
 import { useState } from "react";
-import { IconQrcode } from "@tabler/icons-react";
+import { IconFileInvoice, IconQrcode } from "@tabler/icons-react";
 
 import MovementsFiltersSection from "../components/movements/MovementsFiltersSection";
 import MovementsHistoryModal from "../components/movements/MovementsHistoryModal";
 import MovementsTableSection from "../components/movements/MovementsTableSection";
 import BatchMovementModal from "../components/scanner/BatchMovementModal";
+import { openNfeMovement } from "../lib/nfe";
 import EmptyState from "../components/ui/EmptyState";
 import PageHeader from "../components/ui/PageHeader";
 import { useMovementsPageState } from "../hooks/useMovementsPageState";
@@ -81,12 +82,21 @@ function MovementsPageContent() {
           title="Movimentações"
           subtitle="Entradas, saídas, transferências e devoluções de todas as filiais."
           actions={
-            <Button
-              leftSection={<IconQrcode size={16} stroke={1.5} />}
-              onClick={() => setBatchModalOpened(true)}
-            >
-              Movimentação em lote
-            </Button>
+            <Group gap="xs">
+              <Button
+                variant="light"
+                leftSection={<IconFileInvoice size={16} stroke={1.5} />}
+                onClick={() => openNfeMovement()}
+              >
+                Baixa por NF-e
+              </Button>
+              <Button
+                leftSection={<IconQrcode size={16} stroke={1.5} />}
+                onClick={() => setBatchModalOpened(true)}
+              >
+                Movimentação em lote
+              </Button>
+            </Group>
           }
         />
 
