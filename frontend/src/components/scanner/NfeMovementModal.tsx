@@ -354,7 +354,8 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                   <Table.Th>Item da nota</Table.Th>
                   <Table.Th style={{ width: "40%" }}>Produto no Chronos</Table.Th>
                   <Table.Th style={{ width: 100 }}>Qtd.</Table.Th>
-                  <Table.Th style={{ width: 70 }}>Saldo</Table.Th>
+                  <Table.Th style={{ width: 70 }}>Hoje</Table.Th>
+                  <Table.Th style={{ width: 70 }}>Fica</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -363,6 +364,8 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                   const badge = CONFIANCA_LABEL[item.confianca];
                   const stock = stockOf(row);
                   const short = tipo === "SAIDA" && stock !== null && stock < (row?.quantidade ?? 0);
+                  const after =
+                    stock === null ? null : stock + (tipo === "SAIDA" ? -1 : 1) * (row?.quantidade ?? 0);
                   return (
                     <Table.Tr key={item.item}>
                       <Table.Td>
@@ -400,6 +403,11 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                       <Table.Td>
                         <Text size="sm" c={short ? "red" : undefined} fw={short ? 600 : undefined}>
                           {stock ?? "—"}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" fw={600} c={short ? "red" : tipo === "SAIDA" ? "orange" : "teal"}>
+                          {after ?? "—"}
                         </Text>
                       </Table.Td>
                     </Table.Tr>
