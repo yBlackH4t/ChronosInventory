@@ -981,4 +981,17 @@ export type NfeBaixaOut = {
 
 export type NfeConfig = {
   pastas_xml: string[];
+  cnpj_loja?: string | null;
+  uf?: string;
+  certificado?: { titular: string; cnpj: string | null; validade: string } | null;
+};
+
+export type NfeConfigIn = {
+  pastas_xml: string[];
+  cnpj_loja?: string | null;
+};
+
+export type NfeCertificadoIn = {
+  arquivo: string;
+  senha: string;
 };

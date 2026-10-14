@@ -25,6 +25,8 @@ venv/
 official_base_config.json
 assistente_config.json
 nfe_config.json
+nfe_certificado.pfx
+nfe_xml/
 assistente_conhecimento.json
 stock_profiles.json
 backups/

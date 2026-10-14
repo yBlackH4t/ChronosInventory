@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
@@ -32,6 +32,8 @@ DEFAULT_XML_FOLDERS = [
     r"C:\nQuestorEmp\NFe\Distribuicao",
 ]
 CONFIG_FILENAME = "nfe_config.json"
+CERTIFICATE_FILENAME = "nfe_certificado.pfx"
+DEFAULT_UF = "43"  # RS: UF de quem consulta na SEFAZ
 MAX_FOLDERS = 10
 MAX_CANDIDATES = 5
 
@@ -68,22 +70,59 @@ def _config_path() -> str:
     return os.path.join(FileUtils.get_app_root_directory(), CONFIG_FILENAME)
 
 
-def load_config() -> Dict[str, Any]:
+def _certificate_path() -> str:
+    return os.path.join(FileUtils.get_app_root_directory(), CERTIFICATE_FILENAME)
+
+
+def xml_download_dir() -> str:
+    """XMLs baixados da SEFAZ ficam aqui (e o Chronos sempre procura aqui tambem)."""
+    path = os.path.join(FileUtils.get_app_root_directory(), "nfe_xml")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _only_digits(value: Any) -> str:
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
+def _read_raw() -> Dict[str, Any]:
     path = _config_path()
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _write_raw(data: Dict[str, Any]) -> None:
+    with open(_config_path(), "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, indent=2)
+
+
+def load_config() -> Dict[str, Any]:
+    """Configuracao desta maquina, sem segredos (a senha do certificado nunca sai daqui)."""
+    data = _read_raw()
     folders = list(DEFAULT_XML_FOLDERS)
-    if os.path.isfile(path):
-        try:
-            with open(path, "r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            saved = data.get("pastas_xml")
-            if isinstance(saved, list):
-                folders = [str(p).strip() for p in saved if str(p).strip()][:MAX_FOLDERS]
-        except (OSError, ValueError):
-            pass
-    return {"pastas_xml": folders}
+    saved = data.get("pastas_xml")
+    if isinstance(saved, list):
+        folders = [str(p).strip() for p in saved if str(p).strip()][:MAX_FOLDERS]
+    cert = data.get("certificado") if isinstance(data.get("certificado"), dict) else None
+    has_cert = bool(cert and cert.get("senha") and os.path.isfile(_certificate_path()))
+    return {
+        "pastas_xml": folders,
+        "cnpj_loja": _only_digits(data.get("cnpj_loja")) or None,
+        "uf": str(data.get("uf") or DEFAULT_UF),
+        "certificado": (
+            {"titular": cert.get("titular"), "cnpj": cert.get("cnpj"), "validade": cert.get("validade")}
+            if has_cert else None
+        ),
+    }
 
 
-def save_config(pastas_xml: List[str]) -> Dict[str, Any]:
+def save_config(pastas_xml: List[str], cnpj_loja: Optional[str] = None) -> Dict[str, Any]:
     folders: List[str] = []
     for raw in pastas_xml:
         folder = str(raw or "").strip()
@@ -95,9 +134,71 @@ def save_config(pastas_xml: List[str]) -> Dict[str, Any]:
             folders.append(folder)
     if len(folders) > MAX_FOLDERS:
         raise ValidationException(f"Informe no maximo {MAX_FOLDERS} pastas.")
-    with open(_config_path(), "w", encoding="utf-8") as fh:
-        json.dump({"pastas_xml": folders}, fh, ensure_ascii=False, indent=2)
-    return {"pastas_xml": folders}
+    data = _read_raw()
+    data["pastas_xml"] = folders
+    if cnpj_loja is not None:
+        cnpj = _only_digits(cnpj_loja)
+        if cnpj and len(cnpj) != 14:
+            raise ValidationException("CNPJ da loja deve ter 14 numeros.")
+        data["cnpj_loja"] = cnpj or None
+    _write_raw(data)
+    return load_config()
+
+
+def save_certificate(arquivo: str, senha: str) -> Dict[str, Any]:
+    """Confere o certificado A1 (.pfx) e guarda uma copia nesta maquina, com a senha protegida."""
+    from core import secret_box
+    from core.nfe_sefaz import SefazError, certificate_info
+
+    arquivo = (arquivo or "").strip().strip('"')
+    if not arquivo.lower().endswith((".pfx", ".p12")) or not os.path.isfile(arquivo):
+        raise ValidationException("Arquivo do certificado nao encontrado (precisa ser .pfx ou .p12).")
+    if os.path.getsize(arquivo) > 100 * 1024:
+        raise ValidationException("Esse arquivo e grande demais para ser um certificado .pfx.")
+    with open(arquivo, "rb") as fh:
+        pfx = fh.read()
+    try:
+        info = certificate_info(pfx, senha)
+    except SefazError as exc:
+        raise ValidationException(str(exc)) from exc
+    if info.validade < datetime.now(timezone.utc):
+        raise ValidationException(f"Este certificado venceu em {info.validade:%d/%m/%Y}.")
+
+    with open(_certificate_path(), "wb") as fh:
+        fh.write(pfx)
+    data = _read_raw()
+    data["certificado"] = {
+        "titular": info.titular,
+        "cnpj": info.cnpj,
+        "validade": info.validade.strftime("%Y-%m-%d"),
+        "senha": secret_box.protect(senha),
+    }
+    if not data.get("cnpj_loja") and info.cnpj:
+        data["cnpj_loja"] = info.cnpj
+    _write_raw(data)
+    return load_config()
+
+
+def remove_certificate() -> Dict[str, Any]:
+    try:
+        os.remove(_certificate_path())
+    except OSError:
+        pass
+    data = _read_raw()
+    data.pop("certificado", None)
+    _write_raw(data)
+    return load_config()
+
+
+def _certificate_secret() -> Optional[tuple[bytes, str]]:
+    from core import secret_box
+
+    cert = _read_raw().get("certificado")
+    if not isinstance(cert, dict) or not cert.get("senha") or not os.path.isfile(_certificate_path()):
+        return None
+    with open(_certificate_path(), "rb") as fh:
+        pfx = fh.read()
+    return pfx, secret_box.unprotect(cert["senha"])
 
 
 def _quantity(value: Decimal) -> Optional[int]:
@@ -122,10 +223,20 @@ def _description_codes(descricao: str, ean: str) -> List[str]:
     return codes
 
 
+def _suggested_type(documento: NfeDocumento, cnpj_loja: Optional[str]) -> str:
+    """Do ponto de vista desta loja: nota recebida e entrada; nota emitida segue o tpNF."""
+    if cnpj_loja and documento.destinatario_documento == cnpj_loja and documento.emitente_cnpj != cnpj_loja:
+        return "ENTRADA" if documento.tipo_nf == 1 else "SAIDA"
+    return "SAIDA" if documento.tipo_nf == 1 else "ENTRADA"
+
+
 class NfeService:
-    def __init__(self, movement_service: Optional[MovementService] = None) -> None:
+    def __init__(self, movement_service: Optional[MovementService] = None, downloader=None) -> None:
         self.db = DatabaseConnection()
         self.movements = movement_service or MovementService()
+        if downloader is None:
+            from core.nfe_sefaz import download_nfe as downloader
+        self.downloader = downloader
 
     # ------------------------------------------------------------------
     # Leitura
@@ -135,18 +246,52 @@ class NfeService:
         chave = chave_from_code(code)
         if not chave:
             raise ValidationException("Codigo lido nao e uma chave de NF-e valida (44 digitos).")
-        folders = load_config()["pastas_xml"]
+        config = load_config()
+        folders = [*config["pastas_xml"], xml_download_dir()]
         documento = find_nfe_by_chave(chave, folders)
-        if documento is None:
-            existing = [f for f in folders if os.path.isdir(f)]
-            if not existing:
-                raise ProductNotFoundException(
-                    "Nenhuma das pastas de XML existe nesta maquina. Confira as pastas em 'Pastas dos XMLs'."
-                )
+        if documento is not None:
+            return documento
+        if config["certificado"]:
+            return self._download(chave, config)
+        if not any(os.path.isdir(f) for f in config["pastas_xml"]):
             raise ProductNotFoundException(
-                "XML da nota nao encontrado nas pastas configuradas. A nota foi emitida nesta maquina?"
+                "Nenhuma das pastas de XML existe nesta maquina. Confira em 'Configurar'."
             )
-        return documento
+        raise ProductNotFoundException(
+            "XML da nota nao encontrado nas pastas. Para notas de fornecedor, cadastre o certificado "
+            "digital em 'Configurar' e o Chronos baixa o XML da SEFAZ."
+        )
+
+    def _download(self, chave: str, config: Dict[str, Any]) -> NfeDocumento:
+        """Nota que nao esta nas pastas (ex.: de fornecedor): baixa o XML da SEFAZ e guarda."""
+        from core.nfe_sefaz import MOTIVOS, SefazError
+
+        secret = _certificate_secret()
+        if secret is None:
+            raise ValidationException("Certificado digital nao configurado nesta maquina.")
+        pfx, senha = secret
+        cnpj = config["cnpj_loja"] or (config["certificado"] or {}).get("cnpj")
+        if not cnpj:
+            raise ValidationException("Informe o CNPJ desta loja em 'Configurar'.")
+        try:
+            result = self.downloader(chave, pfx=pfx, senha=senha, cnpj=cnpj, uf=config["uf"])
+        except SefazError as exc:
+            raise ValidationException(str(exc)) from exc
+        if result.xml:
+            destino = os.path.join(xml_download_dir(), f"{chave}-nfe.xml")
+            with open(destino, "wb") as fh:
+                fh.write(result.xml)
+            documento = find_nfe_by_chave(chave, [xml_download_dir()])
+            if documento is not None:
+                return documento
+            raise ValidationException("A SEFAZ mandou um XML que nao e desta nota.")
+        if result.so_resumo:
+            raise ValidationException(
+                "A SEFAZ so liberou o resumo desta nota: a empresa ainda precisa registrar a "
+                "'ciencia da operacao' dela (no Questor ou no portal da NF-e). Depois, bipe de novo."
+            )
+        motivo = MOTIVOS.get(result.c_stat) or f"A SEFAZ respondeu: {result.c_stat} - {result.motivo}"
+        raise ProductNotFoundException(motivo)
 
     def preview(self, code: str) -> Dict[str, Any]:
         documento = self._load(code)
@@ -164,7 +309,7 @@ class NfeService:
             "chave": documento.chave,
             "numero": documento.numero,
             "serie": documento.serie,
-            "tipo_sugerido": "SAIDA" if documento.tipo_nf == 1 else "ENTRADA",
+            "tipo_sugerido": _suggested_type(documento, load_config()["cnpj_loja"]),
             "natureza_operacao": documento.natureza_operacao,
             "emissao": documento.emissao,
             "emitente": documento.emitente_nome,
@@ -299,7 +444,7 @@ class NfeService:
 
         documento_mov = f"NF {documento.numero}"
         observacao = f"NF-e {documento.numero} serie {documento.serie}"
-        outra_parte = documento.destinatario_nome if documento.tipo_nf == 1 else documento.emitente_nome
+        outra_parte = documento.destinatario_nome if tipo == "SAIDA" else documento.emitente_nome
         if outra_parte:
             observacao = f"{observacao} - {outra_parte}"
         observacao = observacao[:200]

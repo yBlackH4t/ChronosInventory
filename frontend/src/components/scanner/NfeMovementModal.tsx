@@ -11,10 +11,9 @@ import {
   Stack,
   Table,
   Text,
-  Textarea,
   TextInput,
 } from "@mantine/core";
-import { IconAlertTriangle, IconFileInvoice, IconFolder, IconSearch } from "@tabler/icons-react";
+import { IconAlertTriangle, IconFileInvoice, IconSearch, IconSettings } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/apiClient";
@@ -22,6 +21,7 @@ import type { NfeItemPreview, NfePreview, NfeProduto } from "../../lib/api";
 import { formatNfeKey, parseNfeKey } from "../../lib/nfe";
 import { notifyError, notifySuccess } from "../../lib/notify";
 import { useLocations } from "../../hooks/useLocations";
+import NfeSettingsPanel from "./NfeSettingsPanel";
 
 type RowState = {
   produtoId: string | null;
@@ -63,7 +63,6 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   const [saving, setSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFolders, setShowFolders] = useState(false);
-  const [folders, setFolders] = useState("");
   const searchTimers = useRef<Record<number, number>>({});
 
   const load = async (raw: string) => {
@@ -124,31 +123,6 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   useEffect(() => {
     if (!locationId && activeLocations.length > 0) setLocationId(String(activeLocations[0].id));
   }, [activeLocations, locationId]);
-
-  const openFolders = async () => {
-    const next = !showFolders;
-    setShowFolders(next);
-    if (next) {
-      try {
-        const res = await api.getNfeConfig();
-        setFolders(res.data.pastas_xml.join("\n"));
-      } catch (e) {
-        notifyError(e, "Não foi possível ler as pastas dos XMLs.");
-      }
-    }
-  };
-
-  const saveFolders = async () => {
-    try {
-      const pastas = folders.split("\n").map((f) => f.trim()).filter(Boolean);
-      await api.saveNfeConfig({ pastas_xml: pastas });
-      notifySuccess("Pastas dos XMLs salvas.");
-      setShowFolders(false);
-      if (input) void load(input);
-    } catch (e) {
-      notifyError(e, "Não foi possível salvar as pastas.");
-    }
-  };
 
   const updateRow = (item: number, patch: Partial<RowState>) => {
     setRows((current) => ({ ...current, [item]: { ...current[item], ...patch } }));
@@ -244,7 +218,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
           <TextInput
             style={{ flex: 1 }}
             label="Chave da NF-e"
-            description="Bipe o código de barras do DANFE (celular ou leitor) ou digite a chave."
+            description="Bipe o código de barras do DANFE (celular ou leitor) ou digite a chave. Nota de fornecedor é baixada da SEFAZ com o certificado."
             placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
@@ -256,27 +230,19 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
           <Button leftSection={<IconSearch size={16} />} onClick={() => void load(input)} loading={loading}>
             Buscar
           </Button>
-          <Button variant="subtle" leftSection={<IconFolder size={16} />} onClick={() => void openFolders()}>
-            Pastas dos XMLs
+          <Button variant="subtle" leftSection={<IconSettings size={16} />} onClick={() => setShowFolders((v) => !v)}>
+            Configurar
           </Button>
         </Group>
 
         <Collapse in={showFolders}>
-          <Stack gap="xs">
-            <Textarea
-              label="Pastas onde o emissor salva os XMLs (uma por linha)"
-              description="O Chronos procura a nota nessas pastas e nas subpastas."
-              autosize
-              minRows={2}
-              value={folders}
-              onChange={(e) => setFolders(e.currentTarget.value)}
-            />
-            <Group justify="flex-end">
-              <Button size="xs" onClick={() => void saveFolders()}>
-                Salvar pastas
-              </Button>
-            </Group>
-          </Stack>
+          <NfeSettingsPanel
+            opened={showFolders}
+            onSaved={() => {
+              setShowFolders(false);
+              if (input) void load(input);
+            }}
+          />
         </Collapse>
 
         {loadError && (

@@ -9,6 +9,8 @@ import type {
   NfeBaixaIn,
   NfeBaixaOut,
   NfeConfig,
+  NfeConfigIn,
+  NfeCertificadoIn,
   OfficialBaseDirectoryTestOut,
   OfficialBaseApplyOut,
   OfficialBaseDeleteIn,
@@ -219,12 +221,24 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<NfeConfig>(`/nfe/config`, { method: "GET", ...options }, baseUrl);
     },
 
-    async saveNfeConfig(payload: NfeConfig, options: RequestInit = {}) {
+    async saveNfeConfig(payload: NfeConfigIn, options: RequestInit = {}) {
       return request<NfeConfig>(
         `/nfe/config`,
         { method: "PUT", body: JSON.stringify(payload), ...options },
         baseUrl,
       );
+    },
+
+    async saveNfeCertificado(payload: NfeCertificadoIn, options: RequestInit = {}) {
+      return request<NfeConfig>(
+        `/nfe/certificado`,
+        { method: "PUT", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
+    async removeNfeCertificado(options: RequestInit = {}) {
+      return request<NfeConfig>(`/nfe/certificado`, { method: "DELETE", ...options }, baseUrl);
     },
 
     async listMovements(

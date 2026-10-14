@@ -4,7 +4,7 @@ Baixa de estoque por NF-e: o leitor manda a chave do DANFE e o app le o XML da n
 
 from __future__ import annotations
 
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,6 +23,13 @@ def get_nfe_service() -> NfeService:
 class NfeConfigIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pastas_xml: List[str] = Field(default_factory=list, max_length=nfe_service.MAX_FOLDERS)
+    cnpj_loja: Optional[str] = Field(default=None, max_length=20)
+
+
+class NfeCertificadoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    arquivo: str = Field(min_length=1, max_length=260)
+    senha: str = Field(min_length=1, max_length=200)
 
 
 class NfeBaixaItem(BaseModel):
@@ -46,7 +53,18 @@ def get_config():
 
 @router.put("/config")
 def put_config(payload: NfeConfigIn):
-    return ok(nfe_service.save_config(payload.pastas_xml))
+    return ok(nfe_service.save_config(payload.pastas_xml, payload.cnpj_loja))
+
+
+@router.put("/certificado")
+def put_certificado(payload: NfeCertificadoIn):
+    """Certificado A1 desta maquina: o Chronos guarda uma copia e a senha protegida pelo Windows."""
+    return ok(nfe_service.save_certificate(payload.arquivo, payload.senha))
+
+
+@router.delete("/certificado")
+def delete_certificado():
+    return ok(nfe_service.remove_certificate())
 
 
 @router.get("/{chave}")

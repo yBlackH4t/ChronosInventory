@@ -433,8 +433,10 @@ npm run lint
 - Onde: `core/nfe_xml.py`, `app/services/nfe_service.py`, `backend/app/api/routers/nfe.py`,
   `frontend/src/components/scanner/NfeMovementModal.tsx` (aberto de qualquer tela pelo
   `NfeScanHost` no layout; botão "Baixa por NF-e" em Movimentações).
-- Entrada de NF de fornecedor: o XML não fica na máquina (nota só em papel), então continua pela
-  "Movimentação em lote".
+- Entrada de NF de fornecedor: com o certificado A1 da empresa (Baixa por NF-e > Configurar), a
+  nota que não está nas pastas tem o XML baixado da SEFAZ pela chave (`core/nfe_sefaz.py`, só
+  consulta). Testado pelo dono com o certificado real em 2026-10-14 (NF 74883 veio completa).
+- Celular: pelo IP (http) o navegador bloqueia a câmera ao vivo; a página lê o código de uma foto.
 - Verificações: `pytest` (206 ok), `npm run build`, `npm run lint` sem erros, `vitest` ok; tela
   conferida no navegador (bipe pelo celular abre a nota, baixa, segunda leitura avisa "já baixada").
 

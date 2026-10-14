@@ -56,6 +56,14 @@ def _claude() -> None:
     import anthropic  # noqa: F401
 
 
+def _nfe_certificate() -> None:
+    # Baixa de NF-e de fornecedor: le o certificado A1 e confia na cadeia ICP-Brasil do Windows.
+    import truststore  # noqa: F401
+    from cryptography.hazmat.primitives.serialization import pkcs12  # noqa: F401
+
+    import core.nfe_sefaz  # noqa: F401
+
+
 def _catalog_bundle() -> None:
     from core.catalog.bundle import bundled_catalog_path
 
@@ -70,6 +78,7 @@ CHECKS: List[Tuple[str, Callable[[], None]]] = [
     ("Fotos (Pillow)", _pillow),
     ("Claude (anthropic)", _claude),
     ("Catálogo embutido", _catalog_bundle),
+    ("NF-e de fornecedor (certificado digital)", _nfe_certificate),
 ]
 
 

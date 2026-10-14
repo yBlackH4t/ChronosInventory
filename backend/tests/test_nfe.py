@@ -7,7 +7,8 @@ CHAVE = "43261003897158000285550020000145601821211022"
 EMIT_CNPJ = "03897158000285"
 
 
-def _xml(chave=CHAVE, itens=(("0004389", "TURBO GARRET GT4594BNS 876272-5017S", "2.0000"),), c_stat="100"):
+def _xml(chave=CHAVE, itens=(("0004389", "TURBO GARRET GT4594BNS 876272-5017S", "2.0000"),), c_stat="100",
+         emit=(EMIT_CNPJ, "MONTREAL COMERCIO DE PECAS - CANOAS"), dest=("53870235000109", "B2PECAS LTDA")):
     dets = "".join(
         f"""<det nItem="{n}"><prod><cProd>{codigo}</cProd><cEAN>SEM GTIN</cEAN><xProd>{desc}</xProd>
         <NCM>84148021</NCM><CFOP>5102</CFOP><uCom>PC</uCom><qCom>{qtd}</qCom></prod></det>"""
@@ -18,8 +19,8 @@ def _xml(chave=CHAVE, itens=(("0004389", "TURBO GARRET GT4594BNS 876272-5017S", 
 <NFe><infNFe Id="NFe{chave}" versao="4.00">
 <ide><natOp>VENDA DE MERCADORIAS</natOp><serie>2</serie><nNF>14560</nNF>
 <dhEmi>2026-10-13T15:29:00-03:00</dhEmi><tpNF>1</tpNF></ide>
-<emit><CNPJ>{EMIT_CNPJ}</CNPJ><xNome>MONTREAL COMERCIO DE PECAS - CANOAS</xNome></emit>
-<dest><CNPJ>53870235000109</CNPJ><xNome>B2PECAS LTDA</xNome></dest>
+<emit><CNPJ>{emit[0]}</CNPJ><xNome>{emit[1]}</xNome></emit>
+<dest><CNPJ>{dest[0]}</CNPJ><xNome>{dest[1]}</xNome></dest>
 {dets}
 </infNFe></NFe>
 <protNFe versao="4.00"><infProt><chNFe>{chave}</chNFe><cStat>{c_stat}</cStat></infProt></protNFe>
@@ -142,3 +143,120 @@ def _fix_dv(chave: str) -> str:
         if chave_from_code(candidate):
             return candidate
     raise AssertionError
+
+
+# ---------------------------------------------------------------------------
+# Nota de fornecedor: o XML vem da SEFAZ com o certificado A1 da empresa
+# ---------------------------------------------------------------------------
+
+ENTRADA = "42261003897158000102550020000748831471059984"
+
+
+def _pfx(tmp_path, senha="segredo1"):
+    import datetime
+
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives.serialization import pkcs12
+    from cryptography.x509.oid import NameOID
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "MONTREAL COMERCIO DE PECAS LTDA:03897158000102")])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    cert = (
+        x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key())
+        .serial_number(1).not_valid_before(now - datetime.timedelta(days=1))
+        .not_valid_after(now + datetime.timedelta(days=300)).sign(key, hashes.SHA256())
+    )
+    path = tmp_path / "certificado.pfx"
+    path.write_bytes(pkcs12.serialize_key_and_certificates(
+        b"t", key, cert, None, serialization.BestAvailableEncryption(senha.encode())
+    ))
+    return str(path)
+
+
+def test_supplier_note_is_downloaded_with_the_certificate_and_enters_stock(client, tmp_path, monkeypatch):
+    from core import nfe_sefaz
+
+    _setup(client, tmp_path)
+    k27 = _product(client, "TURBO K27 - 53279887220", 1)
+    calls = []
+
+    def fake_download(chave, *, pfx, senha, cnpj, uf):
+        calls.append((chave, senha, cnpj, uf))
+        xml = _xml(
+            chave=ENTRADA, itens=(("805", "TURBO K27 - 53279887220/7214", "2.0000"),),
+            emit=("03897158000102", "MONTREAL COMERCIO DE PECAS LTDA"),
+            dest=("03897158000285", "MONTREAL COMERCIO DE PECAS - CANOAS"),
+        )
+        return nfe_sefaz.SefazResult(c_stat="138", motivo="Documento localizado", xml=xml)
+
+    monkeypatch.setattr(nfe_sefaz, "download_nfe", fake_download)
+
+    # Sem certificado: explica o que fazer.
+    missing = client.get(f"/nfe/{ENTRADA}")
+    assert missing.status_code == 404 and "certificado" in missing.json()["error"]["message"]
+
+    wrong = client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "errada"})
+    assert wrong.status_code == 400 and "Senha errada" in wrong.json()["error"]["message"]
+    saved = client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    assert saved.status_code == 200, saved.text
+    config = saved.json()["data"]
+    assert config["certificado"]["cnpj"] == "03897158000102" and "senha" not in config["certificado"]
+    assert "segredo1" not in saved.text
+    client.put("/nfe/config", json={"pastas_xml": config["pastas_xml"], "cnpj_loja": "03.897.158/0002-85"})
+
+    preview = client.get(f"/nfe/{ENTRADA}")
+    assert preview.status_code == 200, preview.text
+    data = preview.json()["data"]
+    assert data["tipo_sugerido"] == "ENTRADA" and data["numero"] == 14560
+    assert data["itens"][0]["produto_sugerido"]["id"] == k27
+    assert calls == [(ENTRADA, "segredo1", "03897158000285", "43")]
+
+    # A segunda leitura usa o XML guardado: nao consulta a SEFAZ de novo.
+    assert client.get(f"/nfe/{ENTRADA}").status_code == 200 and len(calls) == 1
+
+    body = {"tipo": "ENTRADA", "location_id": CANOAS, "itens": [{"item": 1, "produto_id": k27, "quantidade": 2}]}
+    assert client.post(f"/nfe/{ENTRADA}/baixa", json=body).status_code == 201
+    assert _stock(client, k27) == 3
+    mov = client.get("/movimentacoes", params={"documento": "14560", "tipo": "ENTRADA"}).json()["data"][0]
+    assert "MONTREAL COMERCIO DE PECAS LTDA" in mov["observacao"]
+
+
+def test_sefaz_answers_are_explained(client, tmp_path, monkeypatch):
+    from core import nfe_sefaz
+
+    _setup(client, tmp_path)
+    client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    answers = iter([
+        nfe_sefaz.SefazResult(c_stat="138", motivo="ok", so_resumo=True),
+        nfe_sefaz.SefazResult(c_stat="656", motivo="Consumo Indevido"),
+    ])
+    monkeypatch.setattr(nfe_sefaz, "download_nfe", lambda *a, **k: next(answers))
+
+    resumo = client.get(f"/nfe/{ENTRADA}")
+    assert resumo.status_code == 400 and "ciencia da operacao" in resumo.json()["error"]["message"]
+    blocked = client.get(f"/nfe/{ENTRADA}")
+    assert blocked.status_code == 404 and "Espere 1 hora" in blocked.json()["error"]["message"]
+
+    removed = client.delete("/nfe/certificado").json()["data"]
+    assert removed["certificado"] is None
+
+
+def test_sefaz_response_parsing():
+    import base64
+    import gzip
+
+    from core.nfe_sefaz import parse_response
+
+    xml = _xml(chave=ENTRADA)
+    doc = base64.b64encode(gzip.compress(xml)).decode()
+    body = (
+        '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body>'
+        '<retDistDFeInt xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01"><cStat>138</cStat>'
+        f'<xMotivo>Documento localizado</xMotivo><loteDistDFeInt><docZip NSU="1" schema="procNFe_v4.00.xsd">{doc}'
+        "</docZip></loteDistDFeInt></retDistDFeInt></soap:Body></soap:Envelope>"
+    ).encode()
+    result = parse_response(body)
+    assert result.c_stat == "138" and result.xml == xml and not result.so_resumo
