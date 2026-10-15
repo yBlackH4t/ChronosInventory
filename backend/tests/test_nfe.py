@@ -312,3 +312,36 @@ def test_note_from_another_branch_enters_as_external_transfer_and_can_be_redone(
     no_place = client.post(f"/nfe/{CHAVE}/baixa", json={**body, "local_externo": ""})
     assert no_place.status_code == 400 and "local externo" in no_place.json()["error"]["message"]
     assert _stock(client, k27) == 1
+
+
+def test_item_that_is_not_stock_can_be_ignored_and_is_remembered(client, tmp_path):
+    vendas = _setup(client, tmp_path, xml=_xml(itens=(
+        ("294", "CASCO", "3"),
+        ("0004389", "TURBO GARRET GT4594BNS 876272-5017S", "1"),
+    )))
+    turbo = _product(client, "TURBO GARRETT GT4594BNS 876272-5017S", 2)
+    casco, item = client.get(f"/nfe/{CHAVE}").json()["data"]["itens"]
+    assert casco["ignorar"] is False and casco["produto_sugerido"] is None
+
+    # Sem produto e sem "ignorar": recusa.
+    base = {"tipo": "SAIDA", "location_id": CANOAS}
+    missing = client.post(f"/nfe/{CHAVE}/baixa", json={**base, "itens": [
+        {"item": 1, "quantidade": 3}, {"item": 2, "produto_id": turbo, "quantidade": 1},
+    ]})
+    assert missing.status_code == 400 and "Ignorar" in missing.json()["error"]["message"]
+    only_ignored = client.post(f"/nfe/{CHAVE}/baixa", json={**base, "itens": [
+        {"item": 1, "ignorar": True}, {"item": 2, "ignorar": True},
+    ]})
+    assert only_ignored.status_code == 400
+
+    done = client.post(f"/nfe/{CHAVE}/baixa", json={**base, "itens": [
+        {"item": 1, "ignorar": True}, {"item": 2, "produto_id": turbo, "quantidade": 1},
+    ]})
+    assert done.status_code == 201, done.text
+    assert len(done.json()["data"]["movimentacoes"]) == 1
+    assert _stock(client, turbo) == 1
+
+    # Na proxima nota do mesmo emissor, o CASCO ja vem marcado para ignorar.
+    other = _fix_dv("43261003897158000285550020000145611821211025")
+    (vendas / f"{other}-nfe.xml").write_bytes(_xml(chave=other, itens=(("294", "CASCO", "1"),)))
+    assert client.get(f"/nfe/{other}").json()["data"]["itens"][0]["ignorar"] is True
