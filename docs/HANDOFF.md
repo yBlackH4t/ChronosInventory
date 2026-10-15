@@ -422,6 +422,13 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-15 — Claude Code — NF-e recém-emitida dizia "sem autorização" (2.5.1)
+- Branch: `claude/project-thread-dcq6wk`. NF 14566, emitida na hora: a conferência dizia "O XML não
+  tem a autorização da SEFAZ". `find_nfe_by_chave` ficava com o primeiro XML da chave, mesmo sem o
+  protocolo, quando havia mais de um (assinado e procNFe). Agora prefere o autorizado e, se o achado
+  pelo nome não tem protocolo, procura nos outros arquivos. O aviso mostra o arquivo lido.
+- Versão 2.5.1 e CHANGELOG.
+
 ### 2026-10-15 — Claude Code — Release mais rápido (cache)
 - Branch: `claude/project-thread-1tkomm`. Pedido: "o release build and publish demora uns 15 min".
 - Medido na 2.4.5 (14 min 24 s): compilar o Rust do zero 6 min 13 s, testes 2 min, PyInstaller

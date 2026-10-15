@@ -185,25 +185,34 @@ def find_nfe_by_chave(chave: str, folders: Iterable[str]) -> Optional[NfeDocumen
     files = _xml_files(folders)
     named = [path for path in files if chave in os.path.basename(path)]
 
+    # O emissor pode guardar mais de um XML da mesma chave (ex.: o assinado, antes da SEFAZ
+    # responder, e o "procNFe" com o protocolo). Vale o autorizado; sem ele, o primeiro achado.
     documento: Optional[NfeDocumento] = None
     cancelada = False
-    for path in named:
-        try:
-            content = _read(path)
-        except OSError:
-            continue
+
+    def consider(path: str, content: bytes) -> None:
+        nonlocal documento, cancelada
         if _is_cancel_event(content, chave):
             cancelada = True
-            continue
-        if documento is None and b"infNFe" in content:
-            try:
-                parsed = parse_nfe_xml(content, arquivo=path)
-            except (ET.ParseError, ValueError):
-                continue
-            if parsed.chave == chave:
-                documento = parsed
+            return
+        if b"infNFe" not in content:
+            return
+        try:
+            parsed = parse_nfe_xml(content, arquivo=path)
+        except (ET.ParseError, ValueError):
+            return
+        if parsed.chave != chave:
+            return
+        if documento is None or (parsed.autorizada and not documento.autorizada):
+            documento = parsed
 
-    if documento is None:
+    for path in named:
+        try:
+            consider(path, _read(path))
+        except OSError:
+            continue
+
+    if documento is None or not documento.autorizada:
         needle = chave.encode()
         named_set = set(named)
         others = [path for path in files if path not in named_set]
@@ -211,20 +220,12 @@ def find_nfe_by_chave(chave: str, folders: Iterable[str]) -> Optional[NfeDocumen
         for path in others:
             try:
                 head = _read(path, _HEAD_BYTES)
+                if needle not in head:
+                    continue
+                consider(path, _read(path))
             except OSError:
                 continue
-            if needle not in head:
-                continue
-            content = _read(path)
-            if _is_cancel_event(content, chave):
-                cancelada = True
-                continue
-            try:
-                parsed = parse_nfe_xml(content, arquivo=path)
-            except (ET.ParseError, ValueError):
-                continue
-            if parsed.chave == chave:
-                documento = parsed
+            if documento is not None and documento.autorizada:
                 break
 
     if documento is not None:

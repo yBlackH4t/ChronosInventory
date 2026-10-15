@@ -345,3 +345,17 @@ def test_item_that_is_not_stock_can_be_ignored_and_is_remembered(client, tmp_pat
     other = _fix_dv("43261003897158000285550020000145611821211025")
     (vendas / f"{other}-nfe.xml").write_bytes(_xml(chave=other, itens=(("294", "CASCO", "1"),)))
     assert client.get(f"/nfe/{other}").json()["data"]["itens"][0]["ignorar"] is True
+
+
+def test_authorized_xml_wins_over_the_unsigned_copy_of_the_same_note(client, tmp_path):
+    vendas = _setup(client, tmp_path, xml=_xml(c_stat=""), filename=f"{CHAVE}-nfe.xml")
+    # Sem o protocolo, a nota nao pode ser baixada.
+    assert client.get(f"/nfe/{CHAVE}").json()["data"]["autorizada"] is False
+
+    # Quando o emissor grava o XML com o protocolo (outro arquivo), vale esse.
+    (vendas / f"{CHAVE}-procNFe.xml").write_bytes(_xml())
+    data = client.get(f"/nfe/{CHAVE}").json()["data"]
+    assert data["autorizada"] is True and data["arquivo"].endswith("-procNFe.xml")
+    # Mesmo com o arquivo autorizado em outra pasta, sem a chave no nome.
+    (vendas / f"{CHAVE}-procNFe.xml").rename(tmp_path / "Geradas" / "nota.xml")
+    assert client.get(f"/nfe/{CHAVE}").json()["data"]["autorizada"] is True

@@ -184,7 +184,12 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     if (!nota) return [];
     const list: string[] = [];
     if (nota.cancelada) list.push("Esta nota foi cancelada.");
-    if (!nota.autorizada) list.push("O XML não tem a autorização da SEFAZ.");
+    if (!nota.autorizada) {
+      const arquivo = nota.arquivo.split(/[\\/]/).pop();
+      list.push(
+        `O XML desta nota ainda não tem a autorização da SEFAZ (${arquivo}). Confira se ela foi autorizada no emissor e clique em Buscar de novo.`,
+      );
+    }
     if (nota.ja_baixada) list.push(`Esta nota já foi baixada em ${formatEmissao(nota.ja_baixada.data)}.`);
     const semProduto = nota.itens.filter((i) => !rows[i.item]?.produtoId && !rows[i.item]?.ignorar).length;
     if (nota.itens.every((i) => rows[i.item]?.ignorar)) list.push("Todos os itens estão marcados para ignorar.");
