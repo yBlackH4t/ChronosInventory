@@ -163,3 +163,14 @@ def test_whatsapp_vehicle_answer_in_the_boss_format(client, tools):  # noqa: F81
     assert not any(line.startswith(("•", "✅", "Depende")) for line in lines)
     # No app, a resposta completa continua.
     assert not AssistantDirectService(tools).answer("scania 440 euro 3")["resposta"].startswith("*Consulta")
+
+
+def test_vehicle_question_ignores_the_previous_code_and_unknown_words(tools):  # noqa: F811
+    # Pergunta por veiculo: o codigo da conversa anterior era outro pedido.
+    assert question_from(
+        {"intencao": "aplicacao", "codigos": ["876271515151517"], "veiculo": "scania r460"},
+        ["turbina do scania super R460", "876271515151517"],
+    ) == "turbina scania r460"
+    # "super" nao esta no catalogo junto com o R 440: sai, e a busca acha o R 440.
+    found = tools.search_by_application("scania super r440")
+    assert "SUPER" in found["termos_ignorados"] and found["total_fichas"]

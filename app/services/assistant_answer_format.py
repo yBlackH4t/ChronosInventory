@@ -202,7 +202,11 @@ def _main_code(name: str) -> Optional[str]:
     from core.catalog.normalization import extract_codes_from_name
 
     codes = extract_codes_from_name(name, expand_family=False)
-    return display_code(codes[0]) if codes else None
+    if not codes:
+        return None
+    # O numero da peca, nao o modelo: "GTC4594SBN - 852915-5007S" -> 852915-5007S.
+    best = max(codes, key=lambda c: sum(ch.isdigit() for ch in c))
+    return display_code(best, garrett=len(re.sub(r"\D", "", best)) == 10)
 
 
 def format_code_compact(code_label: str, output: Dict[str, Any], locations: List[str]) -> Optional[str]:
@@ -473,6 +477,11 @@ ENGINE_QUESTION = "Qual é o motor ou o ano do veículo?"  # a resposta curta ("
 MORE_OPTIONS = "Há mais opções; mande o motor ou o ano para filtrar."
 
 
+def _year_note(output: Dict[str, Any]) -> Optional[str]:
+    year = output.get("ano_fora_do_catalogo")
+    return f"⚠️ O catálogo não tem essa aplicação em {year}; estas são de outros anos. Conferir." if year else None
+
+
 def format_application_answer(output: Dict[str, Any], core_question: bool = False) -> str:
     """Resposta para buscar_por_aplicacao."""
     items, message = _application_items(output, core_question)
@@ -500,6 +509,8 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
     else:
         header = "Temos:" if any(_has_stock(i) for i in items[:MAX_LINES]) else "Não temos no momento:"
     text = "\n".join([header, *lines])
+    if _year_note(output):
+        text += f"\n{_year_note(output)}"
     if output.get("fichas_omitidas") or len(items) > MAX_LINES:
         text += f"\n{MORE_OPTIONS}"
     if asks_engine:
@@ -536,7 +547,7 @@ def format_application_compact(output: Dict[str, Any], core_question: bool, loca
         else:
             lines.append("❌ Não temos")
         blocks.append("\n".join(lines))
-    tail = []
+    tail = [_year_note(output)] if _year_note(output) else []
     if output.get("fichas_omitidas") or len(items) > MAX_LINES:
         tail.append(MORE_OPTIONS)
     if _asks_engine(output, shown):
