@@ -20,6 +20,7 @@ import {
   TextInput,
   Textarea,
   Tooltip,
+  UnstyledButton,
 } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import {
@@ -36,6 +37,9 @@ import { ImageGalleryModal } from "./ImageGalleryModal";
 import { ProductCatalogTab } from "./ProductCatalogTab";
 import { ProductHistoryTable } from "./ProductHistoryTable";
 import { detectBrand, detectCondition } from "../../lib/brands";
+import { stockLevelColor } from "../../lib/semantic";
+import ProductStockHistoryChart from "./ProductStockHistoryChart";
+import ProductThumb from "./ProductThumb";
 
 import type {
   MovementCreate,
@@ -175,7 +179,28 @@ export function ProductDetailsDrawer({
         padding="lg"
         title={
           currentProduct ? (
-            <Stack gap={4}>
+            <Group gap="md" wrap="nowrap" align="flex-start">
+            <UnstyledButton
+              onClick={() => {
+                if (imageItems.length > 0) {
+                  setGallerySlide(0);
+                  setGalleryOpened(true);
+                } else {
+                  setPhotosModalOpened(true);
+                }
+              }}
+              aria-label={imageItems.length > 0 ? "Ver fotos" : "Adicionar foto"}
+              className="photo-thumb"
+            >
+              <ProductThumb
+                size={76}
+                alt={currentProduct.nome}
+                base64={
+                  (imageItems.find((item) => item.is_primary) ?? imageItems[0])?.image_base64 ?? null
+                }
+              />
+            </UnstyledButton>
+            <Stack gap={4} miw={0}>
               <Group gap={6} wrap="wrap" align="center">
                 {(() => {
                   const brand = detectBrand(currentProduct.nome);
@@ -201,6 +226,7 @@ export function ProductDetailsDrawer({
                 #{currentProduct.id}
               </Text>
             </Stack>
+            </Group>
           ) : (
             "Detalhes do produto"
           )
@@ -255,7 +281,12 @@ export function ProductDetailsDrawer({
                         fw={650}
                         lh={1.2}
                         className="num"
-                        c={qty > 0 ? "var(--success)" : "var(--text-subtle)"}
+                        // Zero numa filial com saldo em outra não é alarme: fica apagado.
+                        c={
+                          qty === 0 && currentProduct.total_stock > 0
+                            ? "dimmed"
+                            : `var(--mantine-color-${stockLevelColor(qty)}-light-color)`
+                        }
                       >
                         {qty}
                       </Text>
@@ -272,12 +303,13 @@ export function ProductDetailsDrawer({
                     fw={650}
                     lh={1.2}
                     className="num"
-                    c={hasAnyStock ? undefined : "var(--text-subtle)"}
+                    c={`var(--mantine-color-${stockLevelColor(currentProduct.total_stock)}-light-color)`}
                   >
                     {currentProduct.total_stock}
                   </Text>
                 </div>
               </SimpleGrid>
+              <ProductStockHistoryChart productId={currentProduct.id} />
             </Stack>
 
             {/* 2. Ações rápidas */}

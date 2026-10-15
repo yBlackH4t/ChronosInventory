@@ -90,3 +90,25 @@ class EntradasSaidasPoint(BaseModel):
 class EstoqueEvolucaoPoint(BaseModel):
     date: str
     total_stock: int
+
+
+class StockItemOverview(BaseModel):
+    produto_id: int
+    nome: str
+    estoque: int
+    ultima_saida: str | None = None
+    dias_sem_saida: int | None = None
+    saidas_periodo: int
+
+
+class MovementNatureTotal(BaseModel):
+    natureza: str
+    quantidade: int
+    movimentos: int
+
+
+class ProductStockHistoryPoint(BaseModel):
+    date: str
+    saldo: int
+    entradas: int
+    saidas: int

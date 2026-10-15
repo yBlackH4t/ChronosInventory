@@ -28,6 +28,7 @@ import {
 import { useLocations } from "../../hooks/useLocations";
 import {
   MOVEMENT_NATURES,
+  MOVEMENT_PAGE_SIZES,
   TABLE_VIEW_MODE_OPTIONS,
   type MovementFilters,
   type MovementTableViewMode,
@@ -315,7 +316,7 @@ export default function MovementsFiltersSection({
               />
               <Select
                 label="Por página"
-                data={["10", "20", "50"]}
+                data={MOVEMENT_PAGE_SIZES}
                 value={pageSize}
                 allowDeselect={false}
                 onChange={(value) => {

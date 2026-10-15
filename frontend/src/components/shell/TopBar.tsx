@@ -12,6 +12,7 @@ import {
 import { modals } from "@mantine/modals";
 import { spotlight } from "@mantine/spotlight";
 import {
+  IconHelp,
   IconMoonStars,
   IconQrcode,
   IconRefresh,
@@ -38,6 +39,18 @@ import {
 } from "../../app/navigation";
 import { SyncStatusBadge } from "./SyncStatusBadge";
 import chronosIcon from "../../assets/chronos-icon.svg";
+import ShortcutsModal from "../common/ShortcutsModal";
+
+function isTypingTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+}
 
 export default function TopBar({ health }: { health: HealthOut }) {
   const {
@@ -52,6 +65,19 @@ export default function TopBar({ health }: { health: HealthOut }) {
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [appVersion, setAppVersion] = useState(health.version);
   const [releaseNotesChecked, setReleaseNotesChecked] = useState(false);
+  const [shortcutsOpened, setShortcutsOpened] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "?" || event.ctrlKey || event.altKey || event.metaKey)
+        return;
+      if (isTypingTarget(event.target)) return;
+      event.preventDefault();
+      setShortcutsOpened(true);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -305,6 +331,17 @@ export default function TopBar({ health }: { health: HealthOut }) {
             </ActionIcon>
           </Tooltip>
 
+          <Tooltip label="Atalhos do teclado (?)">
+            <ActionIcon
+              size="lg"
+              color="gray"
+              aria-label="Atalhos do teclado"
+              onClick={() => setShortcutsOpened(true)}
+            >
+              <IconHelp size={18} stroke={1.5} />
+            </ActionIcon>
+          </Tooltip>
+
           <Tooltip label={isDark ? "Usar tema claro" : "Usar tema escuro"}>
             <ActionIcon
               size="lg"
@@ -411,6 +448,10 @@ export default function TopBar({ health }: { health: HealthOut }) {
           );
         })}
       </nav>
+      <ShortcutsModal
+        opened={shortcutsOpened}
+        onClose={() => setShortcutsOpened(false)}
+      />
     </div>
   );
 }

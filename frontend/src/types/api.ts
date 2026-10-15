@@ -750,6 +750,34 @@ export type ExternalTransferItem = {
   ultima_transferencia?: string | null;
 };
 
+export type StockItemOverview = {
+  produto_id: number;
+  nome: string;
+  estoque: number;
+  ultima_saida: string | null;
+  dias_sem_saida: number | null;
+  saidas_periodo: number;
+};
+
+export type MovementNatureTotal = {
+  natureza: string;
+  quantidade: number;
+  movimentos: number;
+};
+
+export type ProductStockHistoryPoint = {
+  date: string;
+  saldo: number;
+  entradas: number;
+  saidas: number;
+};
+
+export type ProductVisualItem = {
+  id: number;
+  thumb_base64: string | null;
+  saidas_semanas: number[];
+};
+
 export type ImportSummary = {
   imported: number;
   updated: number;

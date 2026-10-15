@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import PageHeader from "../components/ui/PageHeader";
 import { ADMIN_NAV, usePrefetchRoute } from "../app/navigation";
 import AssistantSettingsPanel from "../components/settings/AssistantSettingsPanel";
+import AppearanceSettingsPanel from "../components/settings/AppearanceSettingsPanel";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
@@ -19,6 +20,8 @@ export default function SettingsPage() {
         title="Configurações"
         subtitle="Filiais, perfis de estoque, dados e manutenção do sistema."
       />
+
+      <AppearanceSettingsPanel />
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg" verticalSpacing="lg">
         {groups.map((group) => (

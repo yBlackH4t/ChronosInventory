@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import logging
+from datetime import date
 from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -28,6 +29,7 @@ from backend.app.schemas.product import (
     ProductStatusFilter,
     ProductPut,
     ProductCatalogResponseOut,
+    ProductVisualItem,
 )
 from core.exceptions import ValidationException
 
@@ -167,6 +169,33 @@ def bulk_update_products_status(
         motivo_inativacao=payload.motivo_inativacao,
     )
     return ok(ProductStatusBulkOut(updated=updated))
+
+
+@router.get("/resumo-visual", response_model=SuccessResponse[list[ProductVisualItem]])
+def products_visual_summary(
+    ids: str = Query(..., description="IDs separados por virgula (ate 100)"),
+    image_service: ImageService = Depends(get_image_service),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[ProductVisualItem]]:
+    """Miniatura da foto e saidas das ultimas 13 semanas, para a lista de produtos e o assistente."""
+    try:
+        product_ids = list(dict.fromkeys(int(part) for part in ids.split(",") if part.strip()))
+    except ValueError as exc:
+        raise ValidationException("ids invalidos.") from exc
+    if len(product_ids) > 100:
+        raise ValidationException("No maximo 100 produtos por vez.")
+    weekly = movement_service.get_weekly_saidas(product_ids, date.today(), weeks=13)
+    items = []
+    for pid in product_ids:
+        thumb = image_service.get_thumbnail_bytes(pid)
+        items.append(
+            ProductVisualItem(
+                id=pid,
+                thumb_base64=base64.b64encode(thumb).decode("ascii") if thumb else None,
+                saidas_semanas=weekly.get(pid, [0] * 13),
+            )
+        )
+    return ok(items)
 
 
 @router.get("/{product_id}", response_model=SuccessResponse[ProductOut])

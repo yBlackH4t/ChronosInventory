@@ -168,6 +168,89 @@ class MovementAnalyticsService:
         items.sort(key=lambda item: (item["dias_cobertura"], -item["total_saida"]))
         return items[:limit]
 
+    def get_stock_items_overview(
+        self,
+        date_to: date,
+        days: int = 90,
+        scope: Optional[int | str] = None,
+    ) -> List[dict]:
+        """Produtos com saldo, com a ultima saida e quanto saiu nos ultimos `days` dias."""
+        since = (datetime.combine(date_to, time.min) - timedelta(days=days - 1)).strftime(DATE_FORMAT_DB)
+        rows = self.repo.get_stock_items_overview(since, location_id=self.normalize_location(scope))
+        items: List[dict] = []
+        for row in rows:
+            last = row.get("last_saida")
+            dias = None
+            if last:
+                try:
+                    dias = max((date_to - datetime.strptime(str(last)[:19], DATE_FORMAT_DB).date()).days, 0)
+                except ValueError:
+                    dias = None
+            items.append(
+                {
+                    "produto_id": int(row["produto_id"]),
+                    "nome": str(row["nome"]),
+                    "estoque": int(row.get("estoque") or 0),
+                    "ultima_saida": last,
+                    "dias_sem_saida": dias,
+                    "saidas_periodo": int(row.get("saidas_periodo") or 0),
+                }
+            )
+        return items
+
+    def get_movement_nature_totals(
+        self,
+        date_from: date,
+        date_to: date,
+        tipo: str,
+        scope: Optional[int | str] = None,
+    ) -> List[dict]:
+        df = datetime.combine(date_from, time.min).strftime(DATE_FORMAT_DB)
+        dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+        rows = self.repo.get_movement_nature_totals(df, dt, tipo=tipo.upper(), location_id=self.normalize_location(scope))
+        return [
+            {
+                "natureza": str(row.get("natureza") or "OPERACAO_NORMAL"),
+                "quantidade": int(row.get("quantidade") or 0),
+                "movimentos": int(row.get("movimentos") or 0),
+            }
+            for row in rows
+        ]
+
+    def get_weekly_saidas(self, product_ids: List[int], date_to: date, weeks: int = 13) -> dict[int, List[int]]:
+        """Saidas por semana (da mais antiga para a mais recente) de cada produto."""
+        until = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
+        since = (datetime.combine(date_to, time.max) - timedelta(days=weeks * 7)).strftime(DATE_FORMAT_DB)
+        series = {pid: [0] * weeks for pid in product_ids}
+        for row in self.repo.get_weekly_saidas(product_ids, since, until):
+            semana = int(row.get("semana") or 0)
+            pid = int(row["produto_id"])
+            if pid in series and 0 <= semana < weeks:
+                series[pid][weeks - 1 - semana] += int(row.get("quantidade") or 0)
+        return series
+
+    def get_product_stock_history(self, product_id: int, date_to: date, days: int = 180) -> List[dict]:
+        """Saldo total do produto dia a dia, so nos dias em que mudou, mais o comeco e hoje."""
+        start = date_to - timedelta(days=days - 1)
+        since = datetime.combine(start, time.min).strftime(DATE_FORMAT_DB)
+        current = self.repo.get_product_total_stock(product_id)
+        rows = self.repo.get_product_daily_deltas(product_id, since)
+        net = sum(int(r.get("entradas") or 0) - int(r.get("saidas") or 0) for r in rows)
+        running = current - net
+        points = [{"date": start.isoformat(), "saldo": max(running, 0), "entradas": 0, "saidas": 0}]
+        for row in rows:
+            entradas = int(row.get("entradas") or 0)
+            saidas = int(row.get("saidas") or 0)
+            running += entradas - saidas
+            dia = str(row["dia"])
+            if dia == points[0]["date"]:
+                points[0] = {"date": dia, "saldo": max(running, 0), "entradas": entradas, "saidas": saidas}
+            else:
+                points.append({"date": dia, "saldo": max(running, 0), "entradas": entradas, "saidas": saidas})
+        if points[-1]["date"] != date_to.isoformat():
+            points.append({"date": date_to.isoformat(), "saldo": max(running, 0), "entradas": 0, "saidas": 0})
+        return points
+
     def get_external_transfer_totals(
         self,
         date_from: date,

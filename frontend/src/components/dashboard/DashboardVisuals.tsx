@@ -5,7 +5,6 @@ import {
   ColorInput,
   Grid,
   Group,
-  Loader,
   Popover,
   SegmentedControl,
   Stack,
@@ -14,34 +13,31 @@ import {
   Tooltip as MantineTooltip,
 } from "@mantine/core";
 import dayjs from "dayjs";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { IconPalette } from "@tabler/icons-react";
 
 import EmptyState from "../ui/EmptyState";
 import Panel from "../ui/Panel";
 import type {
   ExternalTransferItem,
-  FlowPoint,
+  MovementNatureTotal,
   RecentStockoutItem,
   StockDistribution,
+  StockItemOverview,
   StockoutRiskItem,
-  StockEvolutionPoint,
   TopSaidaItem,
 } from "../../lib/api";
 import { useLocations } from "../../hooks/useLocations";
 import { useChartTheme, useLocationColor } from "../../lib/chartTheme";
-
-// Eixo Y com largura "auto" e sem margem negativa: antes 1.400 aparecia cortado como "400".
-const formatAxisNumber = (value: number) => value.toLocaleString("pt-BR");
+import type { BalancePoint, BrandVersionRow, DayFlow } from "../../lib/dashboardMath";
+import {
+  ActivityHeatmap,
+  BalanceChart,
+  BrandVersionPanel,
+  CHART_HEIGHT,
+  NaturePanel,
+  PanelSkeleton,
+  StockHealthPanel,
+} from "./DashboardInsights";
 
 type Scope = number | null;
 type PeriodMode = "week" | "month";
@@ -56,10 +52,22 @@ type DashboardVisualsProps = {
   distributionLoading: boolean;
   topSaidas: TopSaidaItem[];
   topSaidasLoading: boolean;
-  flow: FlowPoint[];
-  flowLoading: boolean;
-  evolution: StockEvolutionPoint[];
-  evolutionLoading: boolean;
+  balance: BalancePoint[];
+  balanceLoading: boolean;
+  natureItems: MovementNatureTotal[];
+  natureLoading: boolean;
+  natureTipo: "SAIDA" | "ENTRADA";
+  onNatureTipoChange: (tipo: "SAIDA" | "ENTRADA") => void;
+  stockItems: StockItemOverview[];
+  stockItemsLoading: boolean;
+  brandRows: BrandVersionRow[];
+  heatDays: DayFlow[];
+  heatLoading: boolean;
+  today: string;
+  /** Na semana, as telas vazias oferecem ver o mês inteiro. */
+  onShowMonth?: () => void;
+  onOpenProduct: (produtoId: number, nome: string) => void;
+  onBrandClick: (brand: string) => void;
   externalTransfers: ExternalTransferItem[];
   externalTransfersLoading: boolean;
   externalTransferType: ExternalTransferType;
@@ -78,20 +86,6 @@ const PERIOD_LABELS: Record<PeriodMode, string> = {
   month: "Mês",
 };
 
-const CHART_HEIGHT = 260;
-
-function numericValue(value: number | string | undefined | null): number {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function flowSeriesLabel(name: string | undefined): string {
-  const normalized = (name ?? "").trim().toLowerCase();
-  if (normalized === "entradas" || normalized === "entrada") return "Entradas";
-  if (normalized === "saidas" || normalized === "saida") return "Saídas";
-  return name ?? "Valor";
-}
-
 function coverageLabel(days: number): string {
   if (days < 1) return "zera hoje";
   if (days === 1) return "~1 dia";
@@ -99,11 +93,7 @@ function coverageLabel(days: number): string {
 }
 
 function PanelLoader() {
-  return (
-    <Group justify="center" h={CHART_HEIGHT}>
-      <Loader size="sm" />
-    </Group>
-  );
+  return <PanelSkeleton height={CHART_HEIGHT * 0.7} />;
 }
 
 function RankBar({ value, max, color }: { value: number; max: number; color: string }) {
@@ -123,10 +113,21 @@ export default function DashboardVisuals({
   distributionLoading,
   topSaidas,
   topSaidasLoading,
-  flow,
-  flowLoading,
-  evolution,
-  evolutionLoading,
+  balance,
+  balanceLoading,
+  natureItems,
+  natureLoading,
+  natureTipo,
+  onNatureTipoChange,
+  stockItems,
+  stockItemsLoading,
+  brandRows,
+  heatDays,
+  heatLoading,
+  today,
+  onShowMonth,
+  onOpenProduct,
+  onBrandClick,
   externalTransfers,
   externalTransfersLoading,
   externalTransferType,
@@ -167,11 +168,10 @@ export default function DashboardVisuals({
   const distributionItems = distribution?.items ?? [];
   const distributionTotal = distribution?.total ?? 0;
 
-  const axisProps = {
-    tick: chart.tick,
-    axisLine: false,
-    tickLine: false,
-  } as const;
+  const showMonthAction = onShowMonth
+    ? { label: "Ver o mês inteiro", onClick: onShowMonth }
+    : undefined;
+  const hasBalance = balance.some((p) => p.entradas > 0 || p.saidas > 0 || p.saldo !== null);
 
   const riskPanel = (
     <Panel
@@ -215,64 +215,19 @@ export default function DashboardVisuals({
   return (
     <Stack gap="md">
       <Grid gutter="md">
-        {/* Fluxo de entradas e saídas */}
+        {/* Movimento e saldo num gráfico só */}
         <Grid.Col span={{ base: 12, lg: 7 }}>
-          <Panel title="Entradas e saídas" subtitle={periodContext}>
-            {flowLoading ? (
+          <Panel title="Movimento e saldo" subtitle={periodContext}>
+            {balanceLoading ? (
               <PanelLoader />
-            ) : flow.length === 0 ? (
-              <EmptyState message="Sem movimentações no período" />
+            ) : !hasBalance ? (
+              <EmptyState
+                message="Sem movimentações no período"
+                actionLabel={showMonthAction?.label}
+                onAction={showMonthAction?.onClick}
+              />
             ) : (
-              <div style={{ width: "100%", height: CHART_HEIGHT }}>
-                <ResponsiveContainer>
-                  <AreaChart data={flow} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="fillEntradas" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={chart.inflow} stopOpacity={0.18} />
-                        <stop offset="100%" stopColor={chart.inflow} stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="fillSaidas" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={chart.outflow} stopOpacity={0.18} />
-                        <stop offset="100%" stopColor={chart.outflow} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={false} stroke={chart.grid} />
-                    <XAxis dataKey="period" {...axisProps} />
-                    <YAxis allowDecimals={false} width="auto" tickFormatter={formatAxisNumber} {...axisProps} />
-                    <Tooltip
-                      {...chart.tooltip}
-                      cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
-                      formatter={(value: number | string | undefined, name: string | undefined) => [
-                        numericValue(value),
-                        flowSeriesLabel(name),
-                      ]}
-                    />
-                    <Legend
-                      iconType="circle"
-                      iconSize={8}
-                      wrapperStyle={{ fontSize: 12, color: chart.tick.fill }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="entradas"
-                      name="Entradas"
-                      stroke={chart.inflow}
-                      fill="url(#fillEntradas)"
-                      strokeWidth={2}
-                      activeDot={{ r: 4 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="saidas"
-                      name="Saídas"
-                      stroke={chart.outflow}
-                      fill="url(#fillSaidas)"
-                      strokeWidth={2}
-                      activeDot={{ r: 4 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              <BalanceChart data={balance} />
             )}
           </Panel>
         </Grid.Col>
@@ -370,57 +325,39 @@ export default function DashboardVisuals({
           <Grid.Col span={{ base: 12, lg: 5 }}>{riskPanel}</Grid.Col>
         )}
 
-        {/* Evolução do estoque */}
-        <Grid.Col span={{ base: 12, lg: 7 }}>
-          <Panel title="Evolução do estoque" subtitle={periodContext}>
-            {evolutionLoading ? (
-              <PanelLoader />
-            ) : evolution.length === 0 ? (
-              <EmptyState message="Sem histórico no período" />
-            ) : (
-              <div style={{ width: "100%", height: CHART_HEIGHT }}>
-                <ResponsiveContainer>
-                  <AreaChart data={evolution} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="fillEvolution" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={chart.series[0]} stopOpacity={0.16} />
-                        <stop offset="100%" stopColor={chart.series[0]} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={false} stroke={chart.grid} />
-                    <XAxis dataKey="period" {...axisProps} />
-                    <YAxis allowDecimals={false} width="auto" tickFormatter={formatAxisNumber} {...axisProps} />
-                    <Tooltip
-                      {...chart.tooltip}
-                      cursor={{ stroke: chart.axis, strokeDasharray: "4 4" }}
-                      formatter={(value: number | string | undefined) => [
-                        numericValue(value),
-                        "Total em estoque",
-                      ]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="total_stock"
-                      name="Total em estoque"
-                      stroke={chart.series[0]}
-                      fill="url(#fillEvolution)"
-                      strokeWidth={2}
-                      activeDot={{ r: 4 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </Panel>
+        {/* Para onde foi o estoque */}
+        <Grid.Col span={{ base: 12, md: 6, lg: 4 }}>
+          <NaturePanel
+            items={natureItems}
+            loading={natureLoading}
+            tipo={natureTipo}
+            onTipoChange={onNatureTipoChange}
+            subtitle={periodContext}
+            emptyAction={showMonthAction}
+          />
+        </Grid.Col>
+
+        {/* O que tem na prateleira */}
+        <Grid.Col span={{ base: 12, md: 6, lg: 4 }}>
+          <BrandVersionPanel
+            rows={brandRows}
+            loading={stockItemsLoading}
+            subtitle={`Hoje · ${scopeLabel}`}
+            onBrandClick={onBrandClick}
+          />
         </Grid.Col>
 
         {/* Mais vendidos */}
-        <Grid.Col span={{ base: 12, lg: 5 }}>
+        <Grid.Col span={{ base: 12, lg: 4 }}>
           <Panel title="Mais saídas no período" subtitle={periodContext}>
             {topSaidasLoading ? (
               <PanelLoader />
             ) : rankedSaidas.length === 0 ? (
-              <EmptyState message="Sem saídas no período" />
+              <EmptyState
+                message="Sem saídas no período"
+                actionLabel={showMonthAction?.label}
+                onAction={showMonthAction?.onClick}
+              />
             ) : (
               <Stack gap="md" pt={4}>
                 {rankedSaidas.map((item, index) => (
@@ -431,7 +368,12 @@ export default function DashboardVisuals({
                           {index + 1}
                         </Text>
                         <MantineTooltip label={item.nome} openDelay={500}>
-                          <Text size="sm" truncate="end">
+                          <Text
+                            size="sm"
+                            truncate="end"
+                            className="link-text"
+                            onClick={() => onOpenProduct(item.produto_id, item.nome)}
+                          >
                             {item.nome}
                           </Text>
                         </MantineTooltip>
@@ -448,6 +390,19 @@ export default function DashboardVisuals({
               </Stack>
             )}
           </Panel>
+        </Grid.Col>
+
+        {/* Saúde do estoque e calendário */}
+        <Grid.Col span={{ base: 12, lg: 8 }}>
+          <StockHealthPanel
+            items={stockItems}
+            loading={stockItemsLoading}
+            subtitle={scopeLabel}
+            onOpenProduct={(item) => onOpenProduct(item.produto_id, item.nome)}
+          />
+        </Grid.Col>
+        <Grid.Col span={{ base: 12, lg: 4 }}>
+          <ActivityHeatmap days={heatDays} loading={heatLoading} end={today} subtitle={scopeLabel} />
         </Grid.Col>
 
         {multiLocation ? <Grid.Col span={12}>{riskPanel}</Grid.Col> : null}

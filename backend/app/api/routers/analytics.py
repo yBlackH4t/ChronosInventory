@@ -12,10 +12,13 @@ from backend.app.schemas.analytics import (
     ExternalTransferItem,
     EstoqueEvolucaoPoint,
     FlowPoint,
+    MovementNatureTotal,
+    ProductStockHistoryPoint,
     RecentStockoutItem,
     SaidasPoint,
     StockDistributionOut,
     StockEvolutionPoint,
+    StockItemOverview,
     StockSummaryOut,
     StockoutRiskItem,
     TopSaidaItem,
@@ -180,6 +183,48 @@ def products_stockout_risk(
     date_to = date_to or date.today()
     items = movement_service.get_stockout_risk(days, date_to, max_dias=max_dias, limit=limit, scope=location_id)
     return ok([StockoutRiskItem(**item) for item in items])
+
+
+@router.get("/stock/items", response_model=SuccessResponse[list[StockItemOverview]])
+def stock_items_overview(
+    days: int = Query(90, ge=1, le=365),
+    date_to: date | None = Query(None),
+    location_id: int | None = Query(None),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[StockItemOverview]]:
+    """Produtos com saldo, com a ultima saida (para a saude do estoque e a divisao por marca)."""
+    date_to = date_to or date.today()
+    items = movement_service.get_stock_items_overview(date_to, days=days, scope=location_id)
+    return ok([StockItemOverview(**item) for item in items])
+
+
+@router.get("/movements/by-nature", response_model=SuccessResponse[list[MovementNatureTotal]])
+def movements_by_nature(
+    date_from: date = Query(...),
+    date_to: date = Query(...),
+    tipo: str = Query("SAIDA"),
+    location_id: int | None = Query(None),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[MovementNatureTotal]]:
+    _validate_dates(date_from, date_to)
+    tipo = _validate_movement_type(tipo)
+    items = movement_service.get_movement_nature_totals(date_from, date_to, tipo, scope=location_id)
+    return ok([MovementNatureTotal(**item) for item in items])
+
+
+@router.get(
+    "/products/{product_id}/stock-history",
+    response_model=SuccessResponse[list[ProductStockHistoryPoint]],
+)
+def product_stock_history(
+    product_id: int,
+    days: int = Query(180, ge=7, le=730),
+    date_to: date | None = Query(None),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[ProductStockHistoryPoint]]:
+    date_to = date_to or date.today()
+    points = movement_service.get_product_stock_history(product_id, date_to, days=days)
+    return ok([ProductStockHistoryPoint(**point) for point in points])
 
 
 # -----------------------------------------------------------------------------

@@ -24,6 +24,8 @@ Erro:
 
 ## Produtos
 - `GET /produtos?query=&page=&page_size=&sort=`
+- `GET /produtos/resumo-visual?ids=1,2,3` (2.5.0, ate 100 ids)
+  - por produto: `thumb_base64` (miniatura JPEG da foto principal ou null) e `saidas_semanas` (13 semanas, da mais antiga para a atual)
 - `GET /produtos/{id}`
 - `POST /produtos`
 - `PUT /produtos/{id}`
@@ -96,6 +98,12 @@ Regras:
 - `GET /analytics/products/stockout-risk?days=30&max_dias=15&location_id=&limit=5`
   - itens com saldo que zeram em ate `max_dias` no ritmo de venda real (`SAIDA` normal) dos ultimos `days` dias
   - retorna `estoque_atual`, `total_saida` e `dias_cobertura`, do mais urgente para o menos
+- `GET /analytics/stock/items?days=90&date_to=YYYY-MM-DD&location_id=` (2.5.0)
+  - um item por produto com saldo: `estoque`, `ultima_saida`, `dias_sem_saida` e `saidas_periodo` (saida normal, sem ajuste/estorno); base da "Saude do estoque"
+- `GET /analytics/movements/by-nature?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&tipo=SAIDA|ENTRADA&location_id=` (2.5.0)
+  - quantidade e numero de movimentacoes por natureza no periodo
+- `GET /analytics/products/{id}/stock-history?days=180&date_to=YYYY-MM-DD` (2.5.0)
+  - saldo total do produto no inicio, em cada dia com mudanca e hoje (nunca negativo)
 
 ### Endpoints legados mantidos
 - `GET /analytics/top-saidas`

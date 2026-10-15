@@ -422,6 +422,21 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-15 — Claude Code — Novo visual (2.5.0)
+- Branch: `claude/project-thread-8wdsu2`. Pedido: "temos o melhor layout?"; o dono escolheu as 11
+  ideias do mockup.
+- Cores fixas por significado (`frontend/src/lib/semantic.ts`) e cor do app/modo compacto em
+  Configurações > Aparência (`lib/appearance.ts`, `data-accent`/`data-density` no `<html>`).
+- Dashboard: KPIs com sparkline e % contra os 30 dias anteriores, movimento + saldo, saídas por
+  natureza, estoque por marca × versão, saúde do estoque, calendário de 12 semanas
+  (`components/dashboard/DashboardInsights.tsx`, `lib/dashboardMath.ts`).
+- Produtos: miniatura, saldo colorido, vendas 90 dias; ficha com foto e gráfico de saldo de 6 meses.
+- Movimentações agrupadas por dia (`MovementsDayList.tsx`), tabela no botão "Tabela".
+- Assistente: cartão do produto e "Copiar resposta". Atalhos com "?" (`ShortcutsModal.tsx`).
+- Rotas novas: `/analytics/stock/items`, `/analytics/movements/by-nature`,
+  `/analytics/products/{id}/stock-history`, `/produtos/resumo-visual`. A evolução do estoque não
+  fica mais negativa (corte em 0).
+- Verificações: pytest ok, vitest ok, build ok, lint sem erros, `check_versions` ok.
 ### 2026-10-15 — Claude Code — Ícone novo (caracol em C)
 - Branch: `claude/project-thread-wunxnv`. Pedido: o ícone antigo (relógio com caixa) não tinha
   personalidade. Guilherme escolheu a opção A entre quatro: a carcaça do turbo em forma de C,

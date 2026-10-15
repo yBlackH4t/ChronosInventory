@@ -1,3 +1,5 @@
+import { VERSION_COLORS } from "./semantic";
+
 // Manufacturer identity used by product rows and catalog cross-references.
 // Red is intentionally absent: it is reserved for destructive actions.
 const BRAND_COLORS: Record<string, string> = {
@@ -49,20 +51,20 @@ export function detectCondition(nome: string): ProductCondition {
 
   // 1. MONTADA: qualquer turbina montada / remanufaturada internamente pela empresa
   if (upper.includes("MONTAD") || upper.includes("(MONTAD")) {
-    return { label: "MONTADA", color: "orange" };
+    return { label: "MONTADA", color: VERSION_COLORS.MONTADA };
   }
 
   // 2. HOLSET REMAN: sufixo RX ou termo REMAN explícito
   if (upper.includes("RX") || upper.includes("REMAN")) {
-    return { label: "REMAN", color: "grape" };
+    return { label: "REMAN", color: VERSION_COLORS.REMAN };
   }
 
   // 3. GARRETT (verificamos sufixos primeiro para nao colidir com bases de 6 digitos iniciadas por 9)
   if (/-\s*9\d{3}/.test(upper) || /\b\d{6}9\d{3}\b/.test(upper)) {
-    return { label: "REMAN", color: "grape" };
+    return { label: "REMAN", color: VERSION_COLORS.REMAN };
   }
   if (/-\s*[05]\d{3}/.test(upper)) {
-    return { label: "NOVA", color: "cyan" };
+    return { label: "NOVA", color: VERSION_COLORS.NOVA };
   }
 
   // 4. BORGWARNER / SCHWITZER REMAN:
@@ -75,9 +77,9 @@ export function detectCondition(nome: string): ProductCondition {
     /\b90000\d{6}\b/.test(upper) ||
     /\b9\d{5}\b/.test(upper)
   ) {
-    return { label: "REMAN", color: "grape" };
+    return { label: "REMAN", color: VERSION_COLORS.REMAN };
   }
 
   // 5. NOVA: turbo novo original de fabrica (70000..., 770429, 5327988..., 796155-5005, 4031195)
-  return { label: "NOVA", color: "cyan" };
+  return { label: "NOVA", color: VERSION_COLORS.NOVA };
 }

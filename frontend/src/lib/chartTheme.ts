@@ -1,7 +1,8 @@
 import { useCallback, type CSSProperties } from "react";
-import { useComputedColorScheme } from "@mantine/core";
+import { useComputedColorScheme, useMantineTheme } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import { useLocations } from "../hooks/useLocations";
+import { SEMANTIC_HEX, type SemanticHex } from "./semantic";
 
 // Categorical slots validated (dataviz validate_palette.js) against the app
 // surfaces: #ffffff (light) and #0f172a (dark). Assign in this order, never
@@ -16,6 +17,10 @@ export type ChartTheme = {
   /** Fixed roles so "Entradas"/"Saídas" keep their color on every chart. */
   inflow: string;
   outflow: string;
+  /** Cores com significado (entrada, saída, versão, nível de estoque). */
+  semantic: SemanticHex;
+  /** Cor principal do app (segue a escolha em Configurações > Aparência). */
+  accent: string;
   grid: string;
   axis: string;
   tick: { fontSize: number; fill: string };
@@ -31,11 +36,17 @@ export function useChartTheme(): ChartTheme {
   const scheme = useComputedColorScheme("light");
   const dark = scheme === "dark";
   const series = dark ? SERIES.dark : SERIES.light;
+  const semantic = dark ? SEMANTIC_HEX.dark : SEMANTIC_HEX.light;
+  const theme = useMantineTheme();
+  const primary = theme.colors[theme.primaryColor] ?? theme.colors.brand;
+  const accent = primary[dark ? 4 : 6];
 
   return {
     series,
-    inflow: series[0],
-    outflow: series[1],
+    inflow: semantic.inflow,
+    outflow: semantic.outflow,
+    semantic,
+    accent,
     grid: dark ? "rgba(148, 163, 184, 0.12)" : "#eef2f6",
     axis: dark ? "#64748b" : "#94a3b8",
     tick: { fontSize: 11, fill: dark ? "#94a3b8" : "#64748b" },

@@ -16,6 +16,7 @@ import {
   SegmentedControl,
 } from "@mantine/core";
 import { IconCalendar, IconPackageOff } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { DatePickerInput } from "@mantine/dates";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -24,10 +25,20 @@ import { loadTabState, saveTabState } from "../state/tabStateCache";
 import { useProfileScope } from "../state/profileScope";
 import { useLocations } from "../hooks/useLocations";
 import PageHeader from "../components/ui/PageHeader";
-import StatTile from "../components/ui/StatTile";
-import { useLocationColor } from "../lib/chartTheme";
+import StatTile, { type StatDelta } from "../components/ui/StatTile";
+import { useChartTheme, useLocationColor } from "../lib/chartTheme";
+import {
+  buildBalanceSeries,
+  fillDays,
+  groupByBrandVersion,
+  percentChange,
+  stockBackward,
+  sum,
+} from "../lib/dashboardMath";
 import type {
   FlowPoint,
+  MovementNatureTotal,
+  StockItemOverview,
   StockDistribution,
   StockSummary,
   StockEvolutionPoint,
@@ -69,6 +80,10 @@ type SummaryCard = {
   accent?: string;
   hint?: string;
   icon?: React.ReactNode;
+  trend?: number[];
+  trendColor?: string;
+  delta?: StatDelta | null;
+  footer?: React.ReactNode;
 };
 
 function getQueryErrorMessage(error: unknown): string | null {
@@ -82,6 +97,9 @@ export default function DashboardPage() {
   const { profileScopeKey } = useProfileScope();
   const { activeLocations: locations } = useLocations();
   const { colorFor } = useLocationColor();
+  const chart = useChartTheme();
+  const navigate = useNavigate();
+  const [natureTipo, setNatureTipo] = useState<"SAIDA" | "ENTRADA">("SAIDA");
   const lastErrorToastRef = useRef<string | null>(null);
   const persistedState = useMemo(
     () =>
@@ -242,6 +260,32 @@ export default function DashboardPage() {
       ),
   });
 
+  // Últimos 60 dias, dia a dia: cartões (30 dias vs 30 anteriores) e calendário (12 semanas).
+  const today = dayjs().format("YYYY-MM-DD");
+  const trendFrom = dayjs().subtract(83, "day").format("YYYY-MM-DD");
+  const trendQuery = useQuery<SuccessResponse<FlowPoint[]>>({
+    queryKey: ["analytics", profileScopeKey, "flow-trend", trendFrom, today, scope],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsFlow(
+        { date_from: trendFrom, date_to: today, scope, bucket: "day" },
+        { signal },
+      ),
+  });
+
+  const stockItemsQuery = useQuery<SuccessResponse<StockItemOverview[]>>({
+    queryKey: ["analytics", profileScopeKey, "stock-items", scope],
+    queryFn: ({ signal }) => api.getAnalyticsStockItems({ days: 90, scope }, { signal }),
+  });
+
+  const natureQuery = useQuery<SuccessResponse<MovementNatureTotal[]>>({
+    queryKey: ["analytics", profileScopeKey, "by-nature", dateFrom, dateTo, scope, natureTipo],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsMovementsByNature(
+        { date_from: dateFrom, date_to: dateTo, tipo: natureTipo, scope },
+        { signal },
+      ),
+  });
+
   const dashboardErrors = useMemo(
     () =>
       [
@@ -253,6 +297,9 @@ export default function DashboardPage() {
         recentStockoutsQuery.error,
         stockoutRiskQuery.error,
         externalTransfersQuery.error,
+        trendQuery.error,
+        stockItemsQuery.error,
+        natureQuery.error,
       ]
         .map(getQueryErrorMessage)
         .filter((item): item is string => Boolean(item)),
@@ -265,6 +312,9 @@ export default function DashboardPage() {
       recentStockoutsQuery.error,
       stockoutRiskQuery.error,
       externalTransfersQuery.error,
+      trendQuery.error,
+      stockItemsQuery.error,
+      natureQuery.error,
     ],
   );
 
@@ -285,11 +335,59 @@ export default function DashboardPage() {
   const summary = summaryQuery.data?.data;
   const topSaidas = topSaidasQuery.data?.data ?? [];
   const distribution = distributionQuery.data?.data;
-  const flow = flowQuery.data?.data ?? [];
-  const evolution = evolutionQuery.data?.data ?? [];
+  const flow = useMemo(() => flowQuery.data?.data ?? [], [flowQuery.data]);
+  const evolution = useMemo(() => evolutionQuery.data?.data ?? [], [evolutionQuery.data]);
   const recentStockouts = recentStockoutsQuery.data?.data ?? [];
   const stockoutRisk = stockoutRiskQuery.data?.data ?? [];
   const externalTransfers = externalTransfersQuery.data?.data ?? [];
+  const stockItems = useMemo(() => stockItemsQuery.data?.data ?? [], [stockItemsQuery.data]);
+  const natureItems = natureQuery.data?.data ?? [];
+
+  const trendDays = useMemo(
+    () => fillDays(trendQuery.data?.data ?? [], trendFrom, today),
+    [trendQuery.data, trendFrom, today],
+  );
+  const brandRows = useMemo(() => groupByBrandVersion(stockItems), [stockItems]);
+  const balance = useMemo(
+    () =>
+      buildBalanceSeries(
+        flow,
+        evolution,
+        periodMode,
+        dateFrom,
+        dateTo,
+        today,
+        summary?.total_geral ?? null,
+      ),
+    [flow, evolution, periodMode, dateFrom, dateTo, today, summary?.total_geral],
+  );
+
+  // Cartões com tendência: últimos 30 dias contra os 30 anteriores.
+  const kpis = useMemo(() => {
+    const last30 = trendDays.slice(-30);
+    const prev30 = trendDays.slice(-60, -30);
+    const cumulative = (values: number[]) => {
+      let acc = 0;
+      return values.map((value) => (acc += value));
+    };
+    const currentTotal =
+      scope !== null
+        ? (summary?.locations.find((l) => l.location_id === scope)?.total ?? 0)
+        : (summary?.total_geral ?? 0);
+    const stockLine = stockBackward(currentTotal, trendDays).slice(-30);
+    const saidas = sum(last30.map((d) => d.saidas));
+    const entradas = sum(last30.map((d) => d.entradas));
+    return {
+      stockLine,
+      stockDelta: percentChange(currentTotal, stockLine[0] ?? 0),
+      saidas,
+      saidasLine: cumulative(last30.map((d) => d.saidas)),
+      saidasDelta: percentChange(saidas, sum(prev30.map((d) => d.saidas))),
+      entradas,
+      entradasLine: cumulative(last30.map((d) => d.entradas)),
+      entradasDelta: percentChange(entradas, sum(prev30.map((d) => d.entradas))),
+    };
+  }, [trendDays, summary, scope]);
 
   const summaryCards = useMemo<SummaryCard[]>(() => {
     if (!summary || !summary.locations) return [];
@@ -300,6 +398,42 @@ export default function DashboardPage() {
       hint: "Produtos com saldo zero",
       icon: <IconPackageOff size={16} stroke={1.5} />,
     };
+    const withStock = stockItems.length;
+    const catalogTotal = withStock + (summary.zerados ?? 0);
+    const share = catalogTotal > 0 ? (withStock / catalogTotal) * 100 : 0;
+    const productsCard: SummaryCard = {
+      label: "Produtos com saldo",
+      value: withStock,
+      hint: `de ${catalogTotal.toLocaleString("pt-BR")} cadastrados · ${share.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% com peça na prateleira`,
+      footer: (
+        <div className="inline-bar" role="img" aria-label={`${share.toFixed(1)}% do cadastro com saldo`}>
+          <span style={{ width: `${Math.max(share, 1)}%`, background: chart.accent }} />
+        </div>
+      ),
+    };
+    const activityCards: SummaryCard[] = [
+      productsCard,
+      {
+        label: "Saídas em 30 dias",
+        value: kpis.saidas,
+        trend: kpis.saidasLine,
+        trendColor: chart.semantic.outflow,
+        delta:
+          kpis.saidasDelta === null
+            ? null
+            : { percent: kpis.saidasDelta, label: "vs 30 dias antes" },
+      },
+      {
+        label: "Entradas em 30 dias",
+        value: kpis.entradas,
+        trend: kpis.entradasLine,
+        trendColor: chart.semantic.inflow,
+        delta:
+          kpis.entradasDelta === null
+            ? null
+            : { percent: kpis.entradasDelta, label: "vs 30 dias antes" },
+      },
+    ];
 
     if (scope !== null) {
       const location = summary.locations.find((l) => l.location_id === scope);
@@ -309,7 +443,10 @@ export default function DashboardPage() {
           value: location ? location.total : summary.total_geral,
           accent: location ? colorFor(location.location_name) : undefined,
           hint: "Unidades disponíveis",
+          trend: kpis.stockLine,
+          trendColor: location ? colorFor(location.location_name) : chart.accent,
         },
+        ...activityCards,
         zeroCard,
       ];
     }
@@ -317,11 +454,13 @@ export default function DashboardPage() {
     if (!multiLocation) {
       return [
         {
-          label: "Em estoque",
+          label: "Unidades em estoque",
           value: summary.total_geral,
-          hint: "Unidades em estoque",
+          trend: kpis.stockLine,
+          trendColor: chart.accent,
+          delta: kpis.stockDelta === null ? null : { percent: kpis.stockDelta, label: "em 30 dias" },
         },
-        zeroCard,
+        ...activityCards,
       ];
     }
 
@@ -337,12 +476,16 @@ export default function DashboardPage() {
         label: "Total geral",
         value: summary.total_geral,
         hint: "Todas as filiais",
+        trend: kpis.stockLine,
+        trendColor: chart.accent,
+        delta: kpis.stockDelta === null ? null : { percent: kpis.stockDelta, label: "em 30 dias" },
       },
+      ...activityCards,
       zeroCard,
     );
 
     return cards;
-  }, [colorFor, multiLocation, scope, summary]);
+  }, [chart, colorFor, kpis, multiLocation, scope, stockItems.length, summary]);
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -439,17 +582,21 @@ export default function DashboardPage() {
       <div className="stat-grid">
         {summaryQuery.isLoading
           ? Array.from(
-              { length: scope === null && multiLocation ? locations.length + 2 : 2 },
+              { length: 4 },
               (_, index) => <StatTile key={index} label="Carregando" value="" loading />,
             )
           : summaryCards.map((card) => (
               <StatTile
                 key={card.label}
                 label={card.label}
-                value={card.value.toLocaleString("pt-BR")}
+                value={card.value}
                 hint={card.hint}
                 accent={card.accent}
                 icon={card.icon}
+                trend={card.trend}
+                trendColor={card.trendColor}
+                delta={card.delta}
+                footer={card.footer}
               />
             ))}
       </div>
@@ -475,10 +622,25 @@ export default function DashboardPage() {
           distributionLoading={distributionQuery.isLoading}
           topSaidas={topSaidas}
           topSaidasLoading={topSaidasQuery.isLoading}
-          flow={flow}
-          flowLoading={flowQuery.isLoading}
-          evolution={evolution}
-          evolutionLoading={evolutionQuery.isLoading}
+          balance={balance}
+          balanceLoading={flowQuery.isLoading || evolutionQuery.isLoading}
+          natureItems={natureItems}
+          natureLoading={natureQuery.isLoading}
+          natureTipo={natureTipo}
+          onNatureTipoChange={setNatureTipo}
+          stockItems={stockItems}
+          stockItemsLoading={stockItemsQuery.isLoading}
+          brandRows={brandRows}
+          heatDays={trendDays}
+          heatLoading={trendQuery.isLoading}
+          today={today}
+          onShowMonth={periodMode === "week" ? () => setPeriodMode("month") : undefined}
+          onOpenProduct={(produtoId, nome) =>
+            navigate(`/produtos?search=${encodeURIComponent(nome)}&openId=${produtoId}`)
+          }
+          onBrandClick={(brand) =>
+            navigate(`/produtos?search=${encodeURIComponent(brand === "Outras" ? "" : brand)}`)
+          }
           externalTransfers={externalTransfers}
           externalTransfersLoading={externalTransfersQuery.isLoading}
           externalTransferType={externalTransferType}

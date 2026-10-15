@@ -4,7 +4,7 @@ Centralizes fixed values used across the project.
 """
 
 # System version
-APP_VERSION = "2.4.6"
+APP_VERSION = "2.5.0"
 MIGRATION_VERSION = "2.1.0"
 
 # Update URLs

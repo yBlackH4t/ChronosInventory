@@ -1,6 +1,6 @@
 [package]
 name = "chronos_inventory_desktop"
-version = "2.4.6"
+version = "2.5.0"
 description = "Gestão de estoque local (FastAPI + React + Tauri)"
 authors = ["you"]
 edition = "2021"

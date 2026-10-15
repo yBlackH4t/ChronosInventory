@@ -5,6 +5,7 @@ import type {
   ProductPatch,
   ProductImage,
   ProductImageListOut,
+  ProductVisualItem,
   ProductImageUploadOut,
   ProductImagesUploadOut,
   ProductImageSetPrimaryOut,
@@ -150,6 +151,14 @@ export function createProductsApi({
     async getProductImage(id: number, options: RequestInit = {}) {
       return request<ProductImage>(
         `/produtos/${id}/imagem`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getProductsVisual(ids: number[], options: RequestInit = {}) {
+      return request<ProductVisualItem[]>(
+        `/produtos/resumo-visual?ids=${ids.join(",")}`,
         { method: "GET", ...options },
         baseUrl,
       );
