@@ -75,15 +75,19 @@ def chat(
     payload: ChatIn,
     request: Request,
     service: AssistantChatService = Depends(get_assistant_chat_service),
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
 ):
     if not payload.mensagem.strip():
         return fail(422, "validation_error", "Digite uma pergunta.", None, _request_id(request))
+    status = admin.status(_admin_token(request))
     # Sempre responde: se a IA falhar, a busca direta responde e `aviso` explica.
     result = service.chat(
         payload.mensagem,
         [item.model_dump() for item in payload.historico],
         canal=payload.canal,
         autor=payload.autor,
+        # "igual" depois de "nao sei": regra na hora para o admin da publicadora; senao, proposta.
+        pode_ensinar=bool(status["autenticado"] and status["maquina_publicadora"]),
     )
     return ok(ChatOut(**result))
 

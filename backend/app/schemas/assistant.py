@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +31,8 @@ class ChatOut(BaseModel):
     aviso: str | None = None
     # So em POST /assistente/chat/foto: o que foi lido na foto ("Foto da plaqueta: 466646-5041S").
     leitura_foto: str | None = None
+    # A IA nao soube se os dois codigos sao a mesma peca: o app mostra os botoes Igual/Similar/Diferente.
+    ensinar: dict[str, Any] | None = None
 
 
 class AssistantProviderOut(BaseModel):

@@ -25,6 +25,20 @@ Formato recomendado:
 
 
 
+
+## [2.5.2] - 2026-10-15
+
+### Added
+- **Ensinar respondendo:** quando a IA não sabe se dois códigos são a mesma peça, ela pergunta. No app aparecem os botões Igual, Similar e Diferente (ou é só responder com a palavra). O admin logado ensina na hora; um colega manda para o admin aprovar.
+- **Pesquisar na internet, só quando pedir:** no mesmo "não sei", o botão "Pesquisar na internet" (ou a palavra "pesquisar") traz o que a internet diz, com os links, marcado "conferir". Nunca vira regra sozinho: quem confirma é você. Usa o Gemini se a chave dele estiver salva; senão, a pesquisa do Groq.
+- **WhatsApp particular ("Mensagem para mim"):** /perguntar faz qualquer pergunta sem envolver o cliente; /igual, /similar, /diferente e /pesquisar respondem a ela; /pendentes mostra o número das propostas e /aprovar ou /recusar decidem.
+
+### Changed
+- TODO
+
+### Fixed
+- TODO
+
 ## [2.5.1] - 2026-10-15
 
 ### Changed
