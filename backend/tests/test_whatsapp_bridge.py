@@ -471,3 +471,37 @@ def test_old_messages_are_not_context_for_a_new_request(setup):
     _react(s, BOSS, "m2")
     # O pedido de horas atras (outro cliente, outro assunto) nao entra na pergunta nova.
     assert s.chat.calls[-1]["historico"] == []
+
+
+def test_ask_privately_teach_and_approve(setup, monkeypatch):
+    s = setup
+    s.chat.answer = "*4031196* e *5455609*: não sei dizer se são iguais. Responda /igual, /similar ou /diferente"
+    _msg(s, ME, "c1", ME, from_me=True, text="/perguntar 4031196 é a mesma que 5455609?")
+    assert s.chat.calls[-1]["canal"] == "particular" and s.chat.calls[-1]["historico"] == []
+    assert s.transport.to_self[-1].startswith("*4031196* e *5455609*")
+    assert s.transport.replies == []  # nada vai para cliente nenhum
+
+    # "/igual" responde a pergunta anterior: a conversa particular vai junto.
+    _msg(s, ME, "c2", ME, from_me=True, text="/igual troca direta", dt=30)
+    call = s.chat.calls[-1]
+    assert call["mensagem"] == "igual troca direta" and call["canal"] == "particular"
+    assert call["historico"][-1]["texto"].startswith("*4031196* e *5455609*")
+
+    # /aprovar na publicadora vira regra.
+    proposal_id = s.history.add_proposal("4031196", "5455609", "igual", None, autor="whatsapp")
+    monkeypatch.setattr(
+        "app.services.assistant_admin_service.AssistantAdminService.is_publisher", lambda self: True
+    )
+
+    class Teacher:
+        def approve(self, pid):
+            return f"aprovada {pid}"
+
+        def reject(self, pid):
+            return f"recusada {pid}"
+
+    s.bridge.teacher = Teacher()
+    _msg(s, ME, "c3", ME, from_me=True, text="/pendentes", dt=5)
+    assert f"#{proposal_id}: 4031196 *igual* 5455609" in s.transport.to_self[-1]
+    _msg(s, ME, "c4", ME, from_me=True, text=f"/aprovar {proposal_id}", dt=5)
+    assert s.transport.to_self[-1] == f"aprovada {proposal_id}"

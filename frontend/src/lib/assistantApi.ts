@@ -1,4 +1,5 @@
 import { baseUrl } from "./apiClient";
+import { getAdminToken } from "../state/assistantAdminSession";
 import type {
   AssistantChatRequest,
   AssistantChatResponse,
@@ -132,9 +133,11 @@ async function mockChat(req: AssistantChatRequest): Promise<AssistantChatRespons
 export async function sendAssistantMessage(req: AssistantChatRequest): Promise<AssistantChatResponse> {
   if (isMockEnabled()) return mockChat(req);
 
+  // Admin logado: "igual" depois de "não sei" vira regra na hora (senão, proposta para o admin).
+  const token = getAdminToken();
   const response = await fetch(`${baseUrl}/assistente/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { "X-Admin-Token": token } : {}) },
     body: JSON.stringify(req),
   });
   return parseResponse<AssistantChatResponse>(response);

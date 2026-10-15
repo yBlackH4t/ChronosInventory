@@ -188,3 +188,99 @@ def test_same_catalog_model_links_codes_from_different_fichas(tools, monkeypatch
     assert "(MP530w / HE500WG)" in text and text.endswith("Deixei para o especialista confirmar.")
     # Mesmo "MP530", mas outra turbina (HX52 x HX55W): nao liga.
     assert "não sei dizer" in tools.compare_codes("4031196", "4031343")["texto_pronto"]
+
+
+# ----------------------------------------------------------------------
+# Ensinar respondendo "igual / similar / diferente"
+# ----------------------------------------------------------------------
+
+
+class FakeTeacher:
+    def __init__(self):
+        self.calls = []
+
+    def teach(self, codigo_a, codigo_b, tipo, observacao, direto, autor):
+        self.calls.append((codigo_a, codigo_b, tipo, observacao, direto))
+        return "ok"
+
+
+def test_teach_by_answering_after_i_dont_know(tmp_path, tools):  # noqa: F811
+    from app.services.assistant_teach_service import TEACH_HINT, parse_teach_reply
+
+    teacher = FakeTeacher()
+    store = AssistantConfigStore(str(tmp_path / "cfg.json"))
+    store.update(provedor="nenhum")
+    chat = AssistantChatService(
+        tools=tools, config_store=store, history=AssistantHistoryService(str(tmp_path / "h.db")),
+        interpreter=None, teacher=teacher,
+    )
+    asked = chat.chat("4031196 é a mesma que 3785479?", [])
+    assert asked["resposta"].endswith(TEACH_HINT)
+    assert asked["ensinar"] == {"codigo_a": "4031196", "codigo_b": "3785479", "pesquisar": False}
+    history = [{"papel": "usuario", "texto": "4031196 é a mesma que 3785479?"},
+               {"papel": "assistente", "texto": asked["resposta"]}]
+    assert chat.chat("similar, muda o atuador", history, pode_ensinar=True)["resposta"] == "ok"
+    assert teacher.calls == [("4031196", "3785479", "similar", "muda o atuador", True)]
+
+    # Ao cliente no WhatsApp: nem convite para ensinar, nem "igual" vira regra.
+    to_customer = chat.chat("4031196 é a mesma que 3785479?", [], canal="whatsapp")
+    assert TEACH_HINT not in to_customer["resposta"]
+    chat.chat("igual", history, canal="whatsapp")
+    assert len(teacher.calls) == 1
+    assert parse_teach_reply("são iguais") == ("igual", None)
+    assert parse_teach_reply("tem a 4031196?") is None
+
+
+def test_teach_service_rule_or_proposal(client, tools):  # noqa: F811
+    from app.services.assistant_teach_service import AssistantTeachService
+
+    class Proposals:
+        def submit(self, data):
+            self.data = data
+            return {"id": 7}
+
+    class Sync:
+        def publish_in_background(self):
+            pass
+
+    proposals = Proposals()
+    teacher = AssistantTeachService(proposals=proposals, sync=Sync())
+    text = teacher.teach("4031196", "3785479", "igual", None, direto=True, autor="app")
+    assert text.startswith("✅ Aprendido: *4031196* igual *3785479*")
+    assert "são iguais" in tools.compare_codes("4031196", "3785479")["texto_pronto"]
+    text = teacher.teach("4031196", "4031343", "diferente", None, direto=False, autor="app")
+    assert text.startswith("📨 Mandei para o admin aprovar #7")
+    assert proposals.data["tipo"] == "diferente"
+
+
+def test_search_the_internet_on_request(tmp_path, tools):  # noqa: F811
+    from app.services.assistant_teach_service import SEARCH_HINT, TEACH_HINT
+    from app.services.assistant_web_search_service import AssistantWebSearchService
+
+    store = AssistantConfigStore(str(tmp_path / "cfg.json"))
+    store.update(provedor="gemini", api_key="chave-teste")
+    store.update(provedor="nenhum")
+    body = {"candidates": [{
+        "content": {"parts": [{"text": "Sim, a 5455609 substitui a 4031196 (troca direta)."}]},
+        "groundingMetadata": {"groundingChunks": [{"web": {"uri": "https://exemplo.com/a", "title": "exemplo.com"}}]},
+    }]}
+    posts = []
+
+    def post(url, headers=None, json=None, timeout=None):  # noqa: A002
+        posts.append((url, json))
+        return SimpleNamespace(status_code=200, json=lambda: body)
+
+    chat = AssistantChatService(
+        tools=tools, config_store=store, history=AssistantHistoryService(str(tmp_path / "h.db")), interpreter=None,
+        teacher=FakeTeacher(), web_search=AssistantWebSearchService(store, http_post=post),
+    )
+    asked = chat.chat("4031196 é a mesma que 3785479?", [])
+    assert asked["resposta"].endswith(f"{TEACH_HINT}\n{SEARCH_HINT}") and asked["ensinar"]["pesquisar"]
+    history = [{"papel": "usuario", "texto": "4031196 é a mesma que 3785479?"},
+               {"papel": "assistente", "texto": asked["resposta"]}]
+    found = chat.chat("pesquisar", history)["resposta"].splitlines()
+    assert found[0] == "*4031196* e *3785479*: 🔎 segundo a internet (Gemini), conferir:"
+    assert "• exemplo.com: https://exemplo.com/a" in found and found[-1] == TEACH_HINT
+    assert posts[0][1]["tools"] == [{"google_search": {}}]
+    # Nunca vira regra sozinha: so a resposta da pessoa ensina.
+    assert chat.teacher.calls == []

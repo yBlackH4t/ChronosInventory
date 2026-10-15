@@ -27,6 +27,8 @@ export interface AssistantChatResponse {
   modo: AssistantResponseMode;
   aviso: string | null;
   leitura_foto?: string | null;
+  /** A IA não soube se os dois códigos são a mesma peça: botões Igual / Similar / Diferente. */
+  ensinar?: { codigo_a: string; codigo_b: string; pesquisar?: boolean } | null;
 }
 
 export type AssistantProviderId = "groq" | "gemini" | "ollama" | "anthropic" | "nenhum";
