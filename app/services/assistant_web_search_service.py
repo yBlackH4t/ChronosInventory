@@ -53,9 +53,16 @@ class AssistantWebSearchService:
         question = f"o turbo de código {codigo_a} é o mesmo que o de código {codigo_b}?"
         config = self.config_store.load()
         gemini_key = AssistantConfigStore.key_for(config, "gemini")[0]
-        if gemini_key:
-            return self._gemini(gemini_key, question)
         groq_key = AssistantConfigStore.key_for(config, "groq")[0]
+        if gemini_key:
+            try:
+                return self._gemini(gemini_key, question)
+            except AssistantUnavailableError as exc:
+                # A chave gratis do Gemini nao tem cota para a pesquisa do Google (429 na 1a vez):
+                # a pesquisa segue pelo Groq, e a resposta diz que foi ele.
+                if not groq_key:
+                    raise
+                LOG.info("assistente: pesquisa do Gemini indisponivel (%s); usando o Groq", exc)
         if groq_key:
             return self._groq(groq_key, question)
         raise AssistantUnavailableError(
@@ -68,7 +75,9 @@ class AssistantWebSearchService:
             GEMINI_URL.format(model=GEMINI_MODEL), headers={"x-goog-api-key": key}, json=body, timeout=TIMEOUT
         )
         if response.status_code == 429:
-            raise AssistantUnavailableError("A pesquisa do Gemini chegou no limite de hoje. Tente amanhã.")
+            raise AssistantUnavailableError(
+                "O Gemini não liberou a pesquisa do Google (limite de hoje, ou a chave grátis não tem essa cota)."
+            )
         if response.status_code >= 400:
             raise AssistantUnavailableError(f"O Gemini não respondeu à pesquisa (erro {response.status_code}).")
         data = response.json()

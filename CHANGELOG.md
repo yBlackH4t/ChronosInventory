@@ -26,6 +26,12 @@ Formato recomendado:
 
 
 
+
+## [2.5.4] - 2026-10-15
+
+### Fixed
+- **Pesquisar na internet:** a chave grátis do Gemini não tem cota para a pesquisa do Google e respondia "limite de hoje" já na primeira vez. Agora, quando o Gemini não libera, a pesquisa segue pelo Groq e a resposta diz qual dos dois pesquisou.
+
 ## [2.5.2] - 2026-10-15
 
 ### Added

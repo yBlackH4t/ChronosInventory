@@ -284,3 +284,22 @@ def test_search_the_internet_on_request(tmp_path, tools):  # noqa: F811
     assert posts[0][1]["tools"] == [{"google_search": {}}]
     # Nunca vira regra sozinha: so a resposta da pessoa ensina.
     assert chat.teacher.calls == []
+
+
+def test_search_falls_back_to_groq_when_gemini_has_no_quota(tmp_path):
+    from app.services.assistant_web_search_service import AssistantWebSearchService
+
+    store = AssistantConfigStore(str(tmp_path / "cfg.json"))
+    store.update(provedor="gemini", api_key="chave-gemini")
+    store.update(provedor="groq", api_key="chave-groq")
+    groq_body = {"choices": [{"message": {"content": "São da mesma família【3†L1-L2】.", "executed_tools": [
+        {"search_results": {"results": [{"title": "Turbo", "url": "https://exemplo.com/t"}]}}]}}]}
+
+    def post(url, headers=None, json=None, timeout=None):  # noqa: A002
+        if "googleapis" in url:
+            return SimpleNamespace(status_code=429, json=lambda: {})
+        return SimpleNamespace(status_code=200, json=lambda: groq_body)
+
+    found = AssistantWebSearchService(store, http_post=post).compare("4031196", "3785479")
+    assert found["provedor"] == "Groq" and found["texto"] == "São da mesma família."
+    assert found["fontes"] == [{"titulo": "Turbo", "url": "https://exemplo.com/t"}]

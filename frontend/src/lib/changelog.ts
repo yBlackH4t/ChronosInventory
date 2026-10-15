@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.5.4",
+    "date": "2026-10-15",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Pesquisar na internet: a chave grátis do Gemini não tem cota para a pesquisa do Google e respondia \"limite de hoje\" já na primeira vez. Agora, quando o Gemini não libera, a pesquisa segue pelo Groq e a resposta diz qual dos dois pesquisou."
+    ]
+  },
+  {
     "version": "2.5.2",
     "date": "2026-10-15",
     "title": "Novas funcionalidades",
