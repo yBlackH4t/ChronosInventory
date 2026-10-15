@@ -31,9 +31,14 @@ def _admin(tmp_path, role="publisher"):
 
 def test_only_the_publisher_machine_can_be_admin(tmp_path):
     consumer = _admin(tmp_path, role="consumer")
-    with pytest.raises(AdminRequiredError, match="máquina publicadora"):
-        consumer.set_password(PASSWORD)
     assert consumer.status() == {"maquina_publicadora": False, "senha_definida": False, "autenticado": False}
+    # Outra maquina tem senha e login proprios (para o robo reserva do WhatsApp)...
+    consumer.set_password(PASSWORD)
+    token = consumer.login(PASSWORD)["token"]
+    consumer.require_local(token)
+    # ...mas ensinar e revisar continua so na publicadora.
+    with pytest.raises(AdminRequiredError, match="máquina publicadora"):
+        consumer.require(token)
 
 
 def test_password_login_and_sessions(tmp_path):
@@ -167,7 +172,10 @@ def test_admin_flow_through_the_api(client, tools):  # noqa: F811
     finally:
         client.app.dependency_overrides.clear()
 
-    # Sem o override, esta maquina de teste e "consumidora": nao pode ser admin.
-    consumer = client.post("/assistente/admin/login", json={"senha": PASSWORD})
-    assert consumer.status_code == 403
-    assert "máquina publicadora" in consumer.json()["error"]["message"]
+    # Sem o override, esta maquina de teste e "consumidora": entra (robo reserva do WhatsApp), mas nao ensina.
+    login = client.post("/assistente/admin/login", json={"senha": PASSWORD})
+    assert login.status_code == 200
+    auth = {"X-Admin-Token": login.json()["data"]["token"]}
+    denied = client.post("/assistente/conhecimento", json=rule, headers=auth)
+    assert denied.status_code == 403
+    assert "máquina publicadora" in denied.json()["error"]["message"]

@@ -196,3 +196,5 @@ class WhatsAppStatusOut(BaseModel):
     erro: str | None = None
     ativo: bool
     revisar: bool = True  # revisar antes de enviar (a resposta do 🤖 vira rascunho)
+    papel_robo: Literal["principal", "reserva"] = "principal"
+    principal_respondendo: bool | None = None  # so na reserva: o PC principal esta com o robo ligado?

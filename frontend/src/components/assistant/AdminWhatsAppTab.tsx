@@ -403,6 +403,17 @@ export default function AdminWhatsAppTab() {
         )}
       </Card>
 
+      {status?.papel_robo === "reserva" && (
+        <Alert color={status.principal_respondendo ? "blue" : "orange"} variant="light" p="xs">
+          <Text size="xs">
+            <strong>PC reserva.</strong>{" "}
+            {status.principal_respondendo
+              ? "O PC principal está com o robô ligado: este PC só observa e não responde."
+              : "O PC principal não está respondendo agora: este PC responde no lugar dele."}
+          </Text>
+        </Alert>
+      )}
+
       <WhatsAppDraftsCard review={status?.revisar ?? true} />
 
       {/* Bloco Resumo Diário */}

@@ -124,6 +124,16 @@ export type CatalogApplicationItem = {
   motor?: string | null;
   tipo?: string | null;
   complemento?: string | null;
+  /** "Não se aplica": o especialista marcou esta linha do catálogo como errada. */
+  oculta?: boolean;
+};
+
+export type HiddenApplicationIn = {
+  ficha: string;
+  montadora?: string | null;
+  veiculo: string;
+  motor?: string | null;
+  complemento?: string | null;
 };
 
 export type CatalogRelatedItem = {
