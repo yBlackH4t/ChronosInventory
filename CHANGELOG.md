@@ -27,6 +27,9 @@ Formato recomendado:
 ## [2.4.5] - 2026-10-15
 
 ### Added
+- **A IA entende a mensagem:** com a chave do Groq configurada, a IA lê toda pergunta (código, versão, veículo, motor, ano, "essa", "aquela") e o Chronos responde pelo estoque. Código que a IA inventar e não estiver na mensagem é ignorado; sem internet ou no limite gratuito, a busca segue como antes.
+- **Grafo de códigos:** "é igual?" e as sugestões do "Para revisar" seguem o caminho entre os códigos (o mesmo produto cita os dois, o que o especialista ensinou, o item da NF-e do fornecedor), e a resposta mostra o caminho para conferir.
+- **Formato curto no WhatsApp:** a consulta de estoque sai como "*Consulta Estoque*" com uma linha por versão e por filial (ex.: "📍Canoas: 01 - 4031195", "📍Canoas: 00 - 4031195 MONTADA"), sem a aplicação. No app, a resposta completa continua.
 - **Revisar antes de enviar (WhatsApp):** com o modo ligado (padrão), a resposta do 🤖 não vai direto para o cliente. Ela aparece em Assistente > Admin > WhatsApp para editar, enviar ou descartar, e também na "Mensagem para mim", onde /enviar e /descartar resolvem pelo celular.
 - **"Tem montada ou reman?":** o assistente responde cada versão pedida (nova, reman e montada), dizendo também quando não temos.
 

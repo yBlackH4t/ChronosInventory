@@ -1,0 +1,121 @@
+"""IA que entende a mensagem, grafo de codigos e formato curto do WhatsApp (2.4.5)."""
+
+import json
+from types import SimpleNamespace
+
+from app.services.assistant_chat_service import AssistantChatService
+from app.services.assistant_config_store import AssistantConfigStore
+from app.services.assistant_direct_service import AssistantDirectService
+from app.services.assistant_history_service import AssistantHistoryService
+from app.services.assistant_interpreter_service import AssistantInterpreter, question_from, supported_codes
+from app.services.code_graph import CodeGraph
+from test_assistant_tools import CANOAS, _create_product, tools  # noqa: F401  (fixture: catalogo + produtos)
+
+
+class FakePost:
+    def __init__(self, content):
+        self.content, self.calls = content, []
+
+    def __call__(self, url, headers=None, json=None, timeout=None):  # noqa: A002
+        self.calls.append(json)
+        body = {"choices": [{"message": {"content": self.content}}], "usage": {}}
+        return SimpleNamespace(status_code=200, json=lambda: body, headers={})
+
+
+# ----------------------------------------------------------------------
+# A IA entende, as regras conferem
+# ----------------------------------------------------------------------
+
+
+def test_understood_message_becomes_a_standard_question():
+    texts = ["Bom dia, olha aí 403-1195, montada a reman"]
+    assert question_from(
+        {"intencao": "estoque", "codigos": ["4031195"], "versoes": ["montada", "reman"]}, texts
+    ) == "temos 4031195 reman montada"
+    assert question_from({"intencao": "comparar", "codigos": ["4031195", "4031196"]}, ["4031195 ou 4031196?"]) == (
+        "4031195 é igual a 4031196?"
+    )
+    assert question_from({"intencao": "aplicacao", "veiculo": "volvo fh", "motor": "d13", "ano": "2015"}, ["..."]) == (
+        "turbina volvo fh d13 2015"
+    )
+    assert question_from({"intencao": "outro"}, texts) is None
+    # Codigo que nao esta no texto (a IA inventou ou "corrigiu") nao vale.
+    assert supported_codes(["4031196", "403-1195"], texts) == ["4031195"]
+
+
+def test_chat_uses_what_the_ai_understood(tmp_path, tools):  # noqa: F811
+    store =AssistantConfigStore(str(tmp_path / "cfg.json"))
+    store.update(provedor="groq", api_key="gsk_teste")
+    understood = {"intencao": "estoque", "codigos": ["4031196"], "versoes": [], "veiculo": None, "motor": None, "ano": None}
+    post = FakePost(json.dumps(understood))
+    history = AssistantHistoryService(str(tmp_path / "historico.db"))
+    chat = AssistantChatService(
+        tools=tools, config_store=store, history=history, interpreter=AssistantInterpreter(store, http_post=post)
+    )
+    # Frase que a busca direta sozinha nao entende ("aquela do Joao"): a IA tira o codigo.
+    result = chat.chat("vê pra mim aquela HX55W que o João falou, a 4031196, tem?", [])
+    assert result["resposta"].startswith("*4031196*: temos.")
+    assert post.calls[0]["response_format"] == {"type": "json_object"}
+    (conversation,) = history.list_conversations()
+    assert conversation["consultas"][0]["ferramenta"] == "entender"
+
+    # A IA inventou um codigo que nao esta na mensagem: ignora e segue a busca direta.
+    post.content = json.dumps({**understood, "codigos": ["9999999"]})
+    assert AssistantInterpreter(store, http_post=post).interpret("tem a 4031196?", []) is None
+
+
+# ----------------------------------------------------------------------
+# Grafo de codigos
+# ----------------------------------------------------------------------
+
+
+def test_code_graph_paths_and_blocks():
+    products = [
+        {"id": 1, "nome": "TURBO HOLSET HX55 - 4031195/4044201"},
+        {"id": 2, "nome": "TURBO HOLSET HX55 4044201 / 3785479"},
+        # Pedaco de codigo de kit em muitos produtos nao liga nada.
+        *({"id": 10 + i, "nome": f"CONJUNTO 1000-010-{i:03d} 100001"} for i in range(8)),
+    ]
+    rules = [
+        {"codigo_a_norm": "3785479", "codigo_b_norm": "5452302", "codigo_a": "3785479", "codigo_b": "5452302", "tipo": "IGUAL"},
+        {"codigo_a_norm": "4031195", "codigo_b_norm": "4031196", "codigo_a": "4031195", "codigo_b": "4031196", "tipo": "DIFERENTE"},
+    ]
+    graph = CodeGraph(products, rules, [{"codigo": "HX55-998877", "produto_id": 1}])
+    steps = graph.path("4031195", "5452302")
+    assert [reason for _, _, reason in steps] == [
+        "mesmo produto: TURBO HOLSET HX55 - 4031195/4044201",
+        "mesmo produto: TURBO HOLSET HX55 4044201 / 3785479",
+        "igual, ensinado pelo especialista",
+    ]
+    assert graph.path("4031195", "4031196") is None  # "diferente" bloqueia
+    assert graph.path("1000010001", "1000010002") is None  # codigo de kit nao liga
+    assert "HX55998877" in [code for code, _ in graph.neighbors("4031195", 1)]  # item da NF-e
+
+
+def test_compare_explains_a_longer_path(client, tools):  # noqa: F811
+    _create_product(client, "TURBO HX55 - 4031195/4044201", {CANOAS: 1})
+    _create_product(client, "TURBO HX55 4044201 / 3785479", {})
+    lines = tools.compare_codes("4031195", "3785479")["texto_pronto"].splitlines()
+    assert lines[0] == "*4031195* e *3785479*: provavelmente são iguais, pelo caminho:"
+    assert lines[1] == "• 4031195 → 4044201 (mesmo produto: TURBO HX55 - 4031195/4044201)"
+
+
+# ----------------------------------------------------------------------
+# Formato curto do chefe no WhatsApp
+# ----------------------------------------------------------------------
+
+
+def test_whatsapp_stock_answer_in_the_boss_format(client, tools):  # noqa: F811
+    _create_product(client, "TURBO HOLSET HX55 - 4031195", {CANOAS: 1})
+    _create_product(client, "TURBO HOLSET HX55 - 4031195RX (MONTADO)", {})
+    compact = AssistantDirectService(tools, compact=True).answer("tem a 4031195?")["resposta"]
+    assert compact.splitlines() == [
+        "*Consulta Estoque*",
+        "",
+        "📍Canoas: 01 - 4031195",
+        "📍Passo Fundo: 00 - 4031195",
+        "📍Canoas: 00 - 4031195 MONTADA",
+        "📍Passo Fundo: 00 - 4031195 MONTADA",
+    ]
+    # No app, a resposta completa continua.
+    assert AssistantDirectService(tools).answer("tem a 4031195?")["resposta"].startswith("*4031195*: temos.")

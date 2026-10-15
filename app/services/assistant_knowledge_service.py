@@ -23,6 +23,7 @@ from core.catalog.normalization import (
     extract_codes_from_name,
     is_searchable_code,
 )
+from app.services.code_graph import REASON_PRODUCT, CodeGraph, explain, load_graph
 from core.database.repositories.knowledge_repository import KnowledgeRepository
 from core.database.repositories.product_repository import ProductRepository
 from core.exceptions import ValidationException
@@ -256,12 +257,19 @@ class AssistantKnowledgeService:
         if relations["diferentes"] & family_b:
             return {"relacao": RELATION_DIFFERENT, "fonte": SOURCE_EXPERT}
 
-        for product in self._products_citing(a):
-            if codes_cited_in_name(product["nome"]) & family_b:
-                return {"relacao": RELATION_PROBABLY_SAME, "fonte": SOURCE_REGISTRY, "produto": product["nome"]}
+        # Grafo de codigos (produtos, regras "igual", itens de NF-e): o caminho de A ate B.
         # "Mesma ficha do catalogo" nao vale: uma ficha Master Power lista tudo o que ela substitui
         # (centenas de codigos), entao ela nao diz que duas pecas sao iguais.
+        steps = self.graph().path(a, b)
+        if steps:
+            found: Dict[str, Any] = {"relacao": RELATION_PROBABLY_SAME, "fonte": SOURCE_REGISTRY, "caminho": steps}
+            if len(steps) == 1 and steps[0][2].startswith(f"{REASON_PRODUCT}: "):
+                found["produto"] = steps[0][2][len(REASON_PRODUCT) + 2:]
+            return found
         return {"relacao": None, "fonte": None}
+
+    def graph(self) -> CodeGraph:
+        return load_graph(self.repository)
 
     def suggestions(
         self, code: str, limit: int = MAX_SUGGESTIONS, asked_with: Iterable[str] = ()
@@ -286,9 +294,14 @@ class AssistantKnowledgeService:
         candidates: List[Tuple[str, str, str]] = [
             (canonical_code(c), str(c), "perguntaram se é igual") for c in asked_with
         ]
-        for product in self._products_citing(code):
-            for cited in sorted(codes_cited_in_name(product["nome"], expand_family=False)):
-                candidates.append((cited, _as_written(product["nome"], cited), f"o cadastro junta os dois: {product['nome']}"))
+        # Grafo de codigos: as pecas a ate 2 passos (o mesmo produto cita as duas, regra "igual",
+        # item de NF-e), com o caminho como motivo.
+        for cited, steps in self.graph().neighbors(code, max_steps=2):
+            if len(steps) == 1 and steps[0][2].startswith(f"{REASON_PRODUCT}: "):
+                reason = f"o cadastro junta os dois: {steps[0][2][len(REASON_PRODUCT) + 2:]}"
+            else:
+                reason = f"pelo caminho {explain(steps)}"
+            candidates.append((canonical_code(cited), cited, reason))
 
         out: List[Dict[str, Any]] = []
         for candidate, written, reason in candidates:
@@ -308,16 +321,6 @@ class AssistantKnowledgeService:
                 }
             )
         return out
-
-    def _products_citing(self, code: str) -> List[Dict[str, Any]]:
-        """Nossos produtos ativos cujo nome cita o codigo (inteiro ou so o final, "53279907101/7210")."""
-        family = _family([code])
-        found: Dict[int, Dict[str, Any]] = {}
-        for term in sorted({code, code[-4:]}):
-            for product in self.products.get_all(search_term=term, status="ATIVO"):
-                if codes_cited_in_name(product["nome"]) & family:
-                    found[int(product["id"])] = product
-        return sorted(found.values(), key=lambda p: (-_stock(p), p["nome"]))
 
     def _product_with_code(self, code: str) -> Optional[Dict[str, Any]]:
         """O nosso produto daquele codigo (ou da versao nova/reman), o de mais estoque."""

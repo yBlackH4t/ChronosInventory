@@ -22,6 +22,7 @@ from app.services.assistant_answer_format import (
     format_application_answer,
     format_catalog_code_answer,
     format_code_answer,
+    format_code_compact,
     format_comparison_answer,
     format_movements_answer,
     short_applications,
@@ -374,6 +375,9 @@ class AssistantToolsService:
             if lookalikes:
                 result["parecidos"] = lookalikes
         result["texto_pronto"] = format_code_answer(label, result)
+        compact = format_code_compact(label, result, list(locations.values()))
+        if compact:
+            result["texto_compacto"] = compact  # formato do chefe no WhatsApp
         return result
 
     def _garrett_lookalikes(self, code: str, locations: Dict[int, str]) -> List[Dict[str, Any]]:

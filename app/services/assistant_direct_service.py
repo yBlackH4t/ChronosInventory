@@ -19,6 +19,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.assistant_answer_format import (  # noqa: F401  (HELP_TEXT reexportado para os testes)
+    COMPACT_HEADER,
     HELP_TEXT,
     format_application_answer,
     format_code_answer,
@@ -95,8 +96,10 @@ def _typed_code(message: str, code: str) -> str:
 
 
 class AssistantDirectService:
-    def __init__(self, tools: Optional[AssistantToolsService] = None) -> None:
+    def __init__(self, tools: Optional[AssistantToolsService] = None, compact: bool = False) -> None:
         self.tools = tools or AssistantToolsService()
+        # WhatsApp: estoque no formato curto do chefe ("*Consulta Estoque*", uma linha por versao e filial).
+        self.compact = compact
 
     def answer(self, mensagem: str, historico: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
         return self._answer(mensagem, historico)[0]
@@ -156,6 +159,7 @@ class AssistantDirectService:
             return make_result("\n\n".join(parts), [], tools_used, MODE_DIRECT), True
         if codes:
             parts = []
+            compact_used = False
             versions = sorted({VERSION_WORDS[w] for w in search_words(mensagem) if w in VERSION_WORDS})
             for code in codes:
                 typed = _typed_code(code_source, code)
@@ -165,8 +169,14 @@ class AssistantDirectService:
                 output = self.tools.run_tool("buscar_por_codigo", arguments)
                 tools_used.append("buscar_por_codigo")
                 collect_products(output, found)
-                parts.append(output.get("texto_pronto") or format_code_answer(typed, output))
+                if self.compact and output.get("texto_compacto"):
+                    parts.append(output["texto_compacto"])
+                    compact_used = True
+                else:
+                    parts.append(output.get("texto_pronto") or format_code_answer(typed, output))
             text = "\n\n".join(parts)
+            if compact_used:
+                text = f"{COMPACT_HEADER}\n\n{text}"
             understood = True
         else:
             output = None
