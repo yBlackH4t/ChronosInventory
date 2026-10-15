@@ -24,6 +24,16 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     ]
   },
   {
+    "version": "2.4.6",
+    "date": "2026-10-15",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: PC reserva do robô do WhatsApp: conecte o WhatsApp da empresa também no PC de um colega (Assistente > Admin, com uma senha daquele PC). Ele só responde ao 🤖, aos comandos e manda o resumo quando o PC principal (o que publica a base) estiver desligado ou com o robô parado, como nas férias. Com os dois ligados, só o principal responde.",
+      "Novo: \"Não se aplica\": na aba Catálogo do produto, marque a aplicação que o catálogo Master Power traz errada. A linha fica riscada, o assistente deixa de usá-la, e a marcação continua depois de atualizar o catálogo e vai para as outras máquinas.",
+      "Correcao: Pergunta com a norma (\"Volvo FH 520 Euro 3\") trazia também a turbina só Euro 5. Agora a norma filtra: sai a aplicação de outra norma e fica a que não diz a norma."
+    ]
+  },
+  {
     "version": "2.4.5",
     "date": "2026-10-15",
     "title": "Melhorias e correcoes",

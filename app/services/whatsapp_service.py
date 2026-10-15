@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 from typing import Any, Callable, Dict, Optional
 
 from app.services.assistant_config_store import AssistantConfigStore
@@ -31,6 +32,10 @@ STATE_ERROR = "erro"
 
 # Secao separada do "whatsapp" (que guarda so o "ativo" e e regravada inteira ao ligar/desligar).
 REVIEW_SECTION = "whatsapp_revisao"
+
+# PC reserva: pergunta ao principal se o robo dele esta ligado (e guarda a resposta um pouco).
+PRIMARY_CHECK_TIMEOUT_SECONDS = 3
+PRIMARY_CHECK_CACHE_SECONDS = 20
 
 # De quanto em quanto tempo confere se e hora do resumo diario.
 SUMMARY_CHECK_SECONDS = 60
@@ -52,6 +57,24 @@ def _default_bridge_factory(transport: Any) -> Any:
     from app.services.whatsapp_bridge_service import WhatsAppBridge
 
     return WhatsAppBridge(transport, review_enabled=review_before_sending)
+
+
+def _official_base_config() -> Dict[str, Any]:
+    from app.services.official_base_service import OfficialBaseService
+
+    return OfficialBaseService().config_store.load()
+
+
+def _fetch_primary_health(server: str) -> Dict[str, Any]:
+    """/health do servidor local do PC principal (aberto, sem senha; diz se o robo dele esta ligado)."""
+    import requests
+
+    from app.services.local_share_service import LocalShareService
+
+    url = f"{LocalShareService().normalize_server_url(server)}/health"
+    response = requests.get(url, timeout=PRIMARY_CHECK_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    return response.json()
 
 
 def _default_summary_factory() -> Any:
@@ -78,6 +101,8 @@ class WhatsAppService:
         config_store: Optional[AssistantConfigStore] = None,
         session_dir: Optional[str] = None,
         summary_factory: Optional[Callable[[], Any]] = None,
+        official_config_reader: Optional[Callable[[], Dict[str, Any]]] = None,
+        primary_health: Optional[Callable[[str], Dict[str, Any]]] = None,
     ) -> None:
         self.transport_factory = transport_factory
         self.bridge_factory = bridge_factory
@@ -91,6 +116,9 @@ class WhatsAppService:
         self._bridge: Any = None
         self._lock = threading.Lock()
         self._summary_stop: Optional[threading.Event] = None
+        self.official_config_reader = official_config_reader or _official_base_config
+        self.primary_health = primary_health or _fetch_primary_health
+        self._primary_cache: Optional[tuple] = None
 
     def session_path(self) -> str:
         return os.path.join(self.session_dir or FileUtils.get_app_directory(), SESSION_FILE)
@@ -112,6 +140,8 @@ class WhatsAppService:
                         on_state=self._on_state,
                     )
                     self._bridge = self.bridge_factory(transport)
+                    # PC reserva: so responde quando o principal (a publicadora) nao esta respondendo.
+                    self._bridge.should_answer = self.should_answer
                     self._transport = transport
                     transport.start()
                 except Exception as exc:
@@ -149,6 +179,8 @@ class WhatsAppService:
         transport = self._transport
         if transport is None or self.state != STATE_CONNECTED:
             return False
+        if not self.should_answer():
+            return False  # o PC principal manda o resumo
         try:
             summary = self.summary_factory()
             if not summary.due():
@@ -214,7 +246,53 @@ class WhatsAppService:
             "erro": self.error,
             "ativo": bool(self.config_store.load_section("whatsapp").get("ativo")),
             "revisar": review_before_sending(self.config_store),
+            **self._robot_role(),
         }
+
+    # ------------------------------------------------------------------
+    # PC principal e PC reserva do robo
+    # ------------------------------------------------------------------
+
+    def robot_active(self) -> bool:
+        """O robo deste PC esta conectado e ouvindo (o /health do servidor local conta para a reserva)."""
+        return self._bridge is not None and self.state == STATE_CONNECTED
+
+    def _primary_url(self) -> Optional[str]:
+        """Servidor local da publicadora, quando este PC nao e ela (Backup > Base oficial)."""
+        try:
+            config = self.official_config_reader()
+        except Exception:
+            return None
+        if config.get("role") == "publisher":
+            return None
+        return str(config.get("remote_server_url") or "").strip() or None
+
+    def _primary_answering(self, server: str) -> bool:
+        now = time.time()
+        cached = self._primary_cache
+        if cached and cached[0] == server and now - cached[1] < PRIMARY_CHECK_CACHE_SECONDS:
+            return cached[2]
+        try:
+            health = self.primary_health(server)
+            answering = bool(isinstance(health, dict) and health.get("whatsapp_robo"))
+        except Exception:
+            answering = False  # desligado ou sem rede: a reserva assume
+        self._primary_cache = (server, now, answering)
+        return answering
+
+    def should_answer(self) -> bool:
+        """
+        Este PC responde ao 🤖, aos comandos e manda o resumo? O principal (publicadora ou PC sem
+        fonte configurada) sempre. A reserva, so quando o principal nao esta com o robo ligado.
+        """
+        server = self._primary_url()
+        return True if server is None else not self._primary_answering(server)
+
+    def _robot_role(self) -> Dict[str, Any]:
+        server = self._primary_url()
+        if server is None:
+            return {"papel_robo": "principal", "principal_respondendo": None}
+        return {"papel_robo": "reserva", "principal_respondendo": self._primary_answering(server)}
 
     # ------------------------------------------------------------------
     # Revisar antes de enviar

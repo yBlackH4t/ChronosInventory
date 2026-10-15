@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional
 
+from core.catalog.hidden_applications import filter_rows
 from core.database.repositories.base_repository import BaseRepository
 
 
@@ -20,30 +21,43 @@ def _placeholders(values: List[Any]) -> str:
 class AssistantRepository(BaseRepository):
     """Consultas de catalogo, vinculos e locais no formato que o assistente precisa."""
 
+    def _hidden_application_keys(self) -> set:
+        """Aplicacoes que o especialista marcou como "não se aplica" (core/catalog/hidden_applications.py)."""
+        try:
+            rows = self._execute_query("SELECT chave FROM aplicacoes_ocultas")
+        except Exception:
+            return set()
+        return {row["chave"] for row in rows}
+
     def list_applications(self) -> List[Dict[str, Any]]:
-        """Todas as aplicacoes de fichas ativas (alguns milhares de linhas curtas)."""
-        return self._execute_query(
+        """Todas as aplicacoes de fichas ativas (alguns milhares de linhas curtas), sem as escondidas."""
+        rows = self._execute_query(
             """
-            SELECT a.catalogo_produto_id, a.montadora, a.veiculo, a.motor, a.tipo, a.complemento
+            SELECT a.catalogo_produto_id, a.montadora, a.veiculo, a.motor, a.tipo, a.complemento,
+                   cp.codigo_norm AS ficha_norm
             FROM catalogo_aplicacoes a
             JOIN catalogo_produtos cp ON cp.id = a.catalogo_produto_id
             WHERE cp.ativo = 1
             ORDER BY a.id
             """
         )
+        return filter_rows(rows, self._hidden_application_keys())
 
     def get_applications(self, catalog_ids: List[int]) -> List[Dict[str, Any]]:
         if not catalog_ids:
             return []
-        return self._execute_query(
+        rows = self._execute_query(
             f"""
-            SELECT catalogo_produto_id, montadora, veiculo, motor, tipo, complemento
-            FROM catalogo_aplicacoes
-            WHERE catalogo_produto_id IN ({_placeholders(catalog_ids)})
-            ORDER BY id
+            SELECT a.catalogo_produto_id, a.montadora, a.veiculo, a.motor, a.tipo, a.complemento,
+                   cp.codigo_norm AS ficha_norm
+            FROM catalogo_aplicacoes a
+            JOIN catalogo_produtos cp ON cp.id = a.catalogo_produto_id
+            WHERE a.catalogo_produto_id IN ({_placeholders(catalog_ids)})
+            ORDER BY a.id
             """,
             tuple(catalog_ids),
         )
+        return filter_rows(rows, self._hidden_application_keys())
 
     def get_catalog_products(self, catalog_ids: List[int]) -> List[Dict[str, Any]]:
         if not catalog_ids:

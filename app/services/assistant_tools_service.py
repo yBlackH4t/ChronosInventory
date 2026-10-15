@@ -178,6 +178,31 @@ def _year_range(text: str) -> Optional[Tuple[Optional[int], Optional[int]]]:
     return low, high
 
 
+_EURO_IN_TEXT = re.compile(r"EURO\s*([1-6](?:\s*[,/e]\s*[1-6])*)")
+
+
+def _euro_norms(terms: List[str]) -> Tuple[set, List[str]]:
+    """Tira "EURO" + numero dos termos da pergunta e devolve as normas pedidas ({3})."""
+    norms, rest, skip = set(), [], False
+    for i, term in enumerate(terms):
+        if skip:
+            skip = False
+            continue
+        if term == "EURO" and i + 1 < len(terms) and terms[i + 1] in {"1", "2", "3", "4", "5", "6"}:
+            norms.add(int(terms[i + 1]))
+            skip = True
+            continue
+        rest.append(term)
+    return norms, rest
+
+
+def _euro_fits(app: Dict[str, Any], wanted: set) -> bool:
+    """A aplicacao vale para a norma pedida? Sem norma escrita no catalogo: pode ser (fica)."""
+    text = " ".join(str(app.get(k) or "") for k in ("veiculo", "motor", "complemento")).upper()
+    found = {int(d) for group in _EURO_IN_TEXT.findall(text) for d in re.findall(r"[1-6]", group)}
+    return not found or bool(found & wanted)
+
+
 def _year_fits(app: Dict[str, Any], year: int) -> bool:
     """A aplicacao vale para esse ano? Sem ano no catalogo: pode ser (fica na lista)."""
     span = _year_range(" ".join(str(app.get(k) or "") for k in ("veiculo", "motor", "complemento")))
@@ -542,6 +567,9 @@ class AssistantToolsService:
 
     def search_by_application(self, texto: str) -> Dict[str, Any]:
         terms = [w for w in search_words(texto) if w not in _STOPWORDS]
+        # "Euro 3" e filtro, nao palavra obrigatoria: tira a aplicacao so de outra norma (Euro 5) e
+        # mantem a que nao diz a norma ("MD13 (A partir 2017)").
+        euro, terms = _euro_norms(terms)
         if not terms:
             raise ValidationException(
                 "Informe a montadora, o modelo do veiculo ou o motor (ex.: 'scania 440', 'volvo fh 460', 'om 366')."
@@ -572,6 +600,8 @@ class AssistantToolsService:
         alternatives = [set(synonyms.get(term, (term,))) for term in required]
 
         candidates = [(app, words) for app, words in indexed if alternatives and all(o & words for o in alternatives)]
+        if euro:
+            candidates = [(app, words) for app, words in candidates if _euro_fits(app, euro)]
         for term in optional:
             # Ano: vale o que o catalogo diz ("A partir 2017", "Até final de 2018", "2019 – 2023");
             # aplicacao sem ano continua na lista.

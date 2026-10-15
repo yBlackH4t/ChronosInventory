@@ -140,6 +140,8 @@ class WhatsAppBridge:
         self.history = history
         self.clock = clock
         self.review_enabled = review_enabled or (lambda: False)
+        # PC reserva: so responde quando o principal nao esta respondendo (WhatsAppService decide).
+        self.should_answer: Callable[[], bool] = lambda: True
         self._chats: Dict[str, Deque[WaMessage]] = {}
         self._drafts: Dict[int, Draft] = {}
         self._draft_seq = 0
@@ -156,13 +158,14 @@ class WhatsAppBridge:
     def handle(self, message: WaMessage) -> None:
         if message.reaction_to is not None:
             if message.from_me and message.reaction == TRIGGER_REACTION:
-                self._run(lambda: self.answer(message.chat, message.reaction_to))
+                self._run(lambda: self.answer(message.chat, message.reaction_to) if self.should_answer() else None)
             return
         if not self._remember(message):
             return  # repetida
         text = (message.text or "").strip()
         if message.from_me and text.startswith("/") and self.transport.is_self_chat(message.chat):
-            self._run(lambda: self.command(message))
+            # Com dois PCs conectados, so um executa o comando (senao "/ensinar" vira duas propostas).
+            self._run(lambda: self.command(message) if self.should_answer() else None)
 
     # ------------------------------------------------------------------
     # Resposta (reacao 🤖)

@@ -13,7 +13,6 @@ import { modals } from "@mantine/modals";
 import { spotlight } from "@mantine/spotlight";
 import {
   IconHelp,
-  IconHourglassHigh,
   IconMoonStars,
   IconQrcode,
   IconRefresh,
@@ -39,6 +38,7 @@ import {
   usePrefetchRoute,
 } from "../../app/navigation";
 import { SyncStatusBadge } from "./SyncStatusBadge";
+import chronosIcon from "../../assets/chronos-icon.svg";
 import ShortcutsModal from "../common/ShortcutsModal";
 
 function isTypingTarget(target: EventTarget | null) {
@@ -275,9 +275,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
     <div className="topbar-inner">
       <div className="topbar-row">
         <Link to="/dashboard" className="topbar-brand">
-          <span className="topbar-brand-mark">
-            <IconHourglassHigh size={16} stroke={2} />
-          </span>
+          <img src={chronosIcon} width={28} height={28} alt="" />
           <span className="topbar-brand-name">Chronos</span>
         </Link>
 

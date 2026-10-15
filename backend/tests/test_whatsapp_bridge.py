@@ -341,9 +341,57 @@ def _service(tmp_path):
     return service, created
 
 
+def test_backup_pc_answers_only_when_the_main_pc_is_not_answering(tmp_path, setup):
+    health = {"whatsapp_robo": True}
+    calls = []
+
+    def primary_health(server):
+        calls.append(server)
+        if health is None:
+            raise ConnectionError("desligado")
+        return health
+
+    service = WhatsAppService(
+        config_store=AssistantConfigStore(str(tmp_path / "cfg.json")),
+        session_dir=str(tmp_path),
+        official_config_reader=lambda: {"role": "consumer", "remote_server_url": "http://192.168.0.10:8765"},
+        primary_health=primary_health,
+    )
+    assert service.should_answer() is False  # o principal esta com o robo ligado
+    assert service.status()["papel_robo"] == "reserva" and service.status()["principal_respondendo"] is True
+
+    # PC principal desligado (ferias): a reserva assume, inclusive comandos e resumo.
+    health = None
+    service._primary_cache = None
+    assert service.should_answer() is True
+
+    # Na ponte: com o principal respondendo, a reserva nao responde o 🤖 nem executa comandos.
+    s = setup
+    s.bridge.should_answer = lambda: False
+    _msg(s, BOSS, "m1", BOSS, text="tem a 4031196?")
+    _react(s, BOSS, "m1")
+    _msg(s, ME, "c1", ME, from_me=True, text="/ensinar 4031196 igual 4031195", dt=5)
+    assert s.transport.replies == [] and s.chat.calls == [] and s.history.list_proposals() == []
+    # O principal saiu do ar: o proximo 🤖 a reserva responde.
+    s.bridge.should_answer = lambda: True
+    _react(s, BOSS, "m1")
+    assert s.transport.replies and s.transport.replies[-1][0] == "m1"
+
+    # A publicadora e sempre o principal.
+    principal = WhatsAppService(
+        config_store=AssistantConfigStore(str(tmp_path / "cfg2.json")),
+        official_config_reader=lambda: {"role": "publisher", "remote_server_url": "http://x"},
+        primary_health=primary_health,
+    )
+    assert principal.should_answer() is True and principal.status()["papel_robo"] == "principal"
+
+
 def test_whatsapp_service_lifecycle(tmp_path):
     service, created = _service(tmp_path)
-    assert service.status() == {"estado": "parado", "qr": None, "numero": None, "erro": None, "ativo": False, "revisar": True}
+    assert service.status() == {
+        "estado": "parado", "qr": None, "numero": None, "erro": None, "ativo": False, "revisar": True,
+        "papel_robo": "principal", "principal_respondendo": None,
+    }
 
     service.start()
     transport = created[0]

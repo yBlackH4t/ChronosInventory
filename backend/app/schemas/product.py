@@ -132,6 +132,7 @@ class CatalogApplicationItem(BaseModel):
     motor: Optional[str] = None
     tipo: Optional[str] = None
     complemento: Optional[str] = None
+    oculta: bool = False  # "Não se aplica": o especialista marcou como errada
 
 
 class CatalogRelatedItem(BaseModel):

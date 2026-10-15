@@ -37,12 +37,16 @@ Campos:
 - "intencao": "estoque" (tem? quantas tem? qual o preço/estoque da peça), "comparar" (duas peças são iguais/a mesma/servem uma no lugar da outra), "movimentacao" (quando saiu/vendeu/chegou/foi transferida, quantas saíram), "codigo_master_power" (qual o código Master Power/da ficha), "aplicacao" (turbina para um veículo/motor/máquina, sem código de peça) ou "outro" (saudação, assunto fora do estoque).
 - "codigos": lista dos códigos de peça citados, copiados do texto como estão (pode tirar espaços, pontos e hífens de um código falado em pedaços, ex.: "403-1195" -> "4031195"). NUNCA invente nem corrija um código: se o número parece errado, copie como está. Se a mensagem diz "essa", "aquela", "dela" sem código, use o código da mensagem anterior.
 - "versoes": as versões pedidas entre "nova", "reman" (remanufaturada, recondicionada, RX) e "montada" (montado). Lista vazia se não pediu versão.
-- "veiculo", "motor", "ano": para "aplicacao" (ex.: veiculo "volvo fh", motor "d13", ano "2015"). Use a conversa anterior quando a mensagem só responde o motor ou o ano. null se não houver.
+- "veiculo", "motor", "ano": para "aplicacao" (ex.: veiculo "volvo fh 520", motor "d13", ano "2015"). Use a conversa anterior quando a mensagem só responde o motor ou o ano. null se não houver.
+- "norma": a norma de emissão pedida, ex.: "euro 3", "euro 5". null se não houver. Nunca deixe de fora: muda a turbina.
 
 Exemplos:
 "Bom dia, olha aí 403-1195, montada a reman" -> {"intencao":"estoque","codigos":["4031195"],"versoes":["montada","reman"],"veiculo":null,"motor":null,"ano":null}
 "a 53279887101 é a mesma da 53279887210?" -> {"intencao":"comparar","codigos":["53279887101","53279887210"],"versoes":[],"veiculo":null,"motor":null,"ano":null}
-"tem turbina do fh 2015 d13?" -> {"intencao":"aplicacao","codigos":[],"versoes":[],"veiculo":"fh","motor":"d13","ano":"2015"}"""
+"tem turbina do fh 2015 d13?" -> {"intencao":"aplicacao","codigos":[],"versoes":[],"veiculo":"fh","motor":"d13","ano":"2015","norma":null}
+"Volvo fh 520 euro 3" -> {"intencao":"aplicacao","codigos":[],"versoes":[],"veiculo":"volvo fh 520","motor":null,"ano":null,"norma":"euro 3"}"""
+
+_EURO = re.compile(r"\beuro\s*([1-6])\b", re.IGNORECASE)
 
 
 def _clean(value: Any) -> Optional[str]:
@@ -87,8 +91,12 @@ def question_from(understood: Dict[str, Any], texts: List[str]) -> Optional[str]
     if codes:
         return " ".join(["temos", *codes, *versions])
     if intent == "aplicacao":
-        parts = [_clean(understood.get(k)) for k in ("veiculo", "motor", "ano")]
+        parts = [_clean(understood.get(k)) for k in ("veiculo", "motor", "ano", "norma")]
         parts = [p for p in parts if p]
+        # A norma ("euro 3") muda a turbina: se a IA esqueceu, a regra poe de volta a da mensagem.
+        norms = {f"euro {n}" for n in _EURO.findall(texts[0] if texts else "")}
+        joined = " ".join(parts).lower()
+        parts += sorted(n for n in norms if n.replace(" ", "") not in joined.replace(" ", ""))
         return " ".join(["turbina", *parts]) if parts else None
     return None
 

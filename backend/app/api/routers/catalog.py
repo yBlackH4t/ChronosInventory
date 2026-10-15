@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from app.services.own_ficha_service import OwnFichaReadOnlyError, OwnFichaService
+from app.services.own_ficha_service import READ_ONLY_REASON, OwnFichaReadOnlyError, OwnFichaService
 from backend.app.api.responses import fail, ok
 from core.catalog.bundle import catalog_status, import_catalog_file
 from core.database.connection import DatabaseConnection
@@ -109,6 +109,47 @@ def delete_own_ficha(
     except OwnFichaReadOnlyError as exc:
         return fail(403, "somente_leitura", str(exc), None, _request_id(request))
     return ok({"removido": True})
+
+
+class HiddenApplicationIn(BaseModel):
+    ficha: str
+    montadora: Optional[str] = None
+    veiculo: str
+    motor: Optional[str] = None
+    complemento: Optional[str] = None
+
+
+@router.post("/aplicacoes-ocultas")
+def hide_application(
+    payload: HiddenApplicationIn, request: Request, service: OwnFichaService = Depends(get_own_ficha_service)
+) -> Any:
+    """"Não se aplica": esconde uma aplicacao errada do catalogo (vale tambem depois de atualizar)."""
+    return _toggle_application(payload, request, service, hide=True)
+
+
+@router.post("/aplicacoes-ocultas/desfazer")
+def unhide_application(
+    payload: HiddenApplicationIn, request: Request, service: OwnFichaService = Depends(get_own_ficha_service)
+) -> Any:
+    return _toggle_application(payload, request, service, hide=False)
+
+
+def _toggle_application(payload: HiddenApplicationIn, request: Request, service: OwnFichaService, hide: bool) -> Any:
+    from core.catalog import hidden_applications
+
+    if not service.can_edit()["pode_editar"]:
+        return fail(403, "somente_leitura", READ_ONLY_REASON, None, _request_id(request))
+    conn = DatabaseConnection().get_connection()
+    try:
+        if hide:
+            hidden_applications.hide(conn, payload.model_dump())
+        else:
+            hidden_applications.unhide(conn, payload.model_dump())
+        conn.commit()
+    finally:
+        conn.close()
+    service.after_change()  # publica para as outras maquinas
+    return ok({"oculta": hide})
 
 
 def _save(service: OwnFichaService, data: Dict[str, Any], ficha_id: Optional[int], request: Request, status: int) -> Any:

@@ -437,6 +437,16 @@ npm run lint
   `/analytics/products/{id}/stock-history`, `/produtos/resumo-visual`. A evolução do estoque não
   fica mais negativa (corte em 0).
 - Verificações: pytest ok, vitest ok, build ok, lint sem erros, `check_versions` ok.
+### 2026-10-15 — Claude Code — Ícone novo (caracol em C)
+- Branch: `claude/project-thread-wunxnv`. Pedido: o ícone antigo (relógio com caixa) não tinha
+  personalidade. Guilherme escolheu a opção A entre quatro: a carcaça do turbo em forma de C,
+  rotor âmbar, fundo índigo.
+- `frontend/src-tauri/icons/icon.ico` (16 a 256 px; 16, 20 e 24 px usam o desenho simplificado)
+  e `icon.png` (512 px, já citado no `tauri.conf.json` mas faltava no git). Fontes em
+  `frontend/src-tauri/icons/source/`.
+- O topo do app usa o ícone no lugar da ampulheta (`src/assets/chronos-icon.svg`) e a aba do
+  navegador usa `public/favicon.svg` no lugar do `vite.svg`. Sem mudança de versão: vai junto
+  da próxima.
 
 ### 2026-10-15 — Claude Code — Ignorar item da NF-e que não é estoque (2.4.4)
 - Branch: `claude/project-thread-dcq6wk`. Pedido: a NF 14564 (remessa para conserto) tinha o item

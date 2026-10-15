@@ -363,7 +363,9 @@ def reject_proposal(
 
 
 # ----------------------------------------------------------------------
-# WhatsApp (modo copiloto). So admin: o QR code conecta o WhatsApp da empresa.
+# WhatsApp (modo copiloto). So o admin desta maquina (senha local): o QR code conecta o WhatsApp
+# da empresa. Vale tambem numa maquina que nao publica a base: e o PC reserva do robo, que so
+# responde quando o principal (a publicadora) nao esta respondendo.
 # ----------------------------------------------------------------------
 
 
@@ -380,7 +382,7 @@ def update_daily_summary(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     summary: AssistantDailySummaryService = Depends(get_assistant_daily_summary_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     settings = summary.update_settings(ativo=payload.ativo, hora=payload.hora)
     return ok(DailySummaryOut(texto=summary.build_text(), **settings))
 
@@ -391,7 +393,7 @@ def whatsapp_status(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     return ok(WhatsAppStatusOut(**whatsapp.status()))
 
 
@@ -411,7 +413,7 @@ def whatsapp_set_review(
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
     """Liga/desliga "revisar antes de enviar"."""
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     return ok(WhatsAppStatusOut(**whatsapp.set_review(payload.revisar)))
 
 
@@ -421,7 +423,7 @@ def whatsapp_drafts(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     return ok(whatsapp.list_drafts())
 
 
@@ -433,7 +435,7 @@ def whatsapp_send_draft(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     if not whatsapp.send_draft(draft_id, payload.texto):
         return fail(404, "not_found", "Esse rascunho não existe mais (já foi enviado, descartado ou o WhatsApp reiniciou).", None, _request_id(request))
     return ok({"enviado": True})
@@ -446,7 +448,7 @@ def whatsapp_discard_draft(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     if not whatsapp.discard_draft(draft_id):
         return fail(404, "not_found", "Esse rascunho não existe mais.", None, _request_id(request))
     return ok({"descartado": True})
@@ -458,7 +460,7 @@ def whatsapp_start(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     return ok(WhatsAppStatusOut(**whatsapp.start()))
 
 
@@ -468,7 +470,7 @@ def whatsapp_stop(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     return ok(WhatsAppStatusOut(**whatsapp.stop()))
 
 
@@ -478,5 +480,5 @@ def whatsapp_logout(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
-    admin.require(_admin_token(request))
+    admin.require_local(_admin_token(request))
     return ok(WhatsAppStatusOut(**whatsapp.logout()))
