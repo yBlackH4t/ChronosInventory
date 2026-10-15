@@ -26,6 +26,15 @@ WRONG_TOKEN_MESSAGE = (
 )
 
 
+def _whatsapp_robot_active() -> bool:
+    try:
+        from app.services.whatsapp_service import WhatsAppService
+
+        return WhatsAppService.instance().robot_active()
+    except Exception:
+        return False
+
+
 class LocalShareService:
     _share_root_name = "local_share"
     _official_dirname = "official"
@@ -401,6 +410,8 @@ class LocalShareService:
                             "official_available": Path(service.get_official_paths()["latest_manifest"]).is_file(),
                             "compare_available": Path(service.get_compare_paths()["latest_manifest"]).is_file(),
                             "knowledge_available": Path(service.get_knowledge_path()).is_file(),
+                            # O PC reserva do robo do WhatsApp so responde quando este diz False.
+                            "whatsapp_robo": _whatsapp_robot_active(),
                         },
                     )
                     return

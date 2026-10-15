@@ -63,15 +63,14 @@ class AssistantAdminService:
         return self.role_reader() == "publisher"
 
     def status(self, token: Optional[str] = None) -> Dict[str, Any]:
-        publisher = self.is_publisher()
         return {
-            "maquina_publicadora": publisher,
+            "maquina_publicadora": self.is_publisher(),
             "senha_definida": bool(self.config_store.load_admin().get("hash")),
-            "autenticado": publisher and self._valid_token(token),
+            # Login vale em qualquer maquina (a senha e de cada uma); ensinar continua so na publicadora.
+            "autenticado": self._valid_token(token),
         }
 
     def set_password(self, nova: str, atual: Optional[str] = None) -> None:
-        self._require_publisher()
         if len(nova or "") < MIN_PASSWORD_LENGTH:
             raise ValidationException(f"A senha precisa ter pelo menos {MIN_PASSWORD_LENGTH} caracteres.")
         admin = self.config_store.load_admin()
@@ -85,7 +84,6 @@ class AssistantAdminService:
         _SESSIONS.clear()  # trocou a senha: todas as sessoes caem
 
     def login(self, senha: str) -> Dict[str, Any]:
-        self._require_publisher()
         admin = self.config_store.load_admin()
         if not admin.get("hash"):
             raise ValidationException("Defina a senha de admin primeiro.")
@@ -104,6 +102,10 @@ class AssistantAdminService:
     def require(self, token: Optional[str]) -> None:
         """Levanta AdminRequiredError se nao for o admin logado na maquina publicadora."""
         self._require_publisher()
+        self.require_local(token)
+
+    def require_local(self, token: Optional[str]) -> None:
+        """Admin logado nesta maquina, publicadora ou nao (WhatsApp e resumo: o PC reserva do robo)."""
         if not self._valid_token(token):
             raise AdminRequiredError("Entre como admin para fazer isso.")
 

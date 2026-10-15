@@ -108,6 +108,9 @@ export interface WhatsAppStatus {
   erro: string | null;
   ativo: boolean;
   revisar?: boolean;
+  /** "reserva": este PC só responde quando o principal (publicadora) não está respondendo. */
+  papel_robo?: "principal" | "reserva";
+  principal_respondendo?: boolean | null;
 }
 
 /** Resposta do 🤖 esperando o admin (modo "revisar antes de enviar"). */

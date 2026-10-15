@@ -256,34 +256,7 @@ export default function AssistantAdminPanel() {
     );
   }
 
-  // Caso 1: Máquina NÃO é publicadora
-  if (!status?.maquina_publicadora) {
-    return (
-      <Stack gap="md">
-        <Alert
-          icon={<IconInfoCircle size={18} />}
-          title="Máquina não publicadora"
-          color="orange"
-          variant="light"
-        >
-          Para ensinar o assistente, esta máquina precisa ser a publicadora da
-          base oficial (Backup &gt; Base oficial &gt; Papel desta máquina: Publica a base).
-          Nesta máquina, a base de conhecimento fica disponível apenas para consulta.
-        </Alert>
-
-        <Card withBorder p="md" radius="md">
-          <Title order={4} mb="md">
-            Base de Conhecimento (Modo Leitura)
-          </Title>
-          <AdminKnowledgeTab readOnly={true} />
-        </Card>
-      </Stack>
-    );
-  }
-
-  // Caso 2: Senha ainda não definida
-  if (!status.senha_definida) {
-    return (
+  const createPasswordCard = (
       <Card withBorder p="lg" radius="md" maw={480} mx="auto" shadow="sm">
         <Stack gap="md">
           <Group gap="xs">
@@ -327,12 +300,9 @@ export default function AssistantAdminPanel() {
           </form>
         </Stack>
       </Card>
-    );
-  }
+  );
 
-  // Caso 3: Senha definida, mas NÃO autenticado
-  if (!session.token) {
-    return (
+  const loginCard = (
       <Card withBorder p="lg" radius="md" maw={440} mx="auto" shadow="sm">
         <Stack gap="md">
           <Group gap="xs">
@@ -381,7 +351,53 @@ export default function AssistantAdminPanel() {
           </form>
         </Stack>
       </Card>
+  );
+
+  // Caso 1: Máquina NÃO é publicadora
+  if (!status?.maquina_publicadora) {
+    return (
+      <Stack gap="md">
+        <Alert
+          icon={<IconInfoCircle size={18} />}
+          title="Máquina não publicadora"
+          color="orange"
+          variant="light"
+        >
+          Para ensinar o assistente, esta máquina precisa ser a publicadora da
+          base oficial (Backup &gt; Base oficial &gt; Papel desta máquina: Publica a base).
+          Nesta máquina, a base de conhecimento fica disponível apenas para consulta.
+        </Alert>
+
+        {/* PC reserva do robô: conecta o WhatsApp aqui também; só responde com o principal desligado. */}
+        <Card withBorder p="md" radius="md">
+          <Title order={4} mb={4}>
+            Robô do WhatsApp (PC reserva)
+          </Title>
+          <Text size="sm" c="dimmed" mb="md">
+            Conecte o WhatsApp da empresa também neste PC. Ele só responde quando o PC principal (o que
+            publica a base) estiver desligado, por exemplo nas férias. A senha abaixo é deste PC.
+          </Text>
+          {!status?.senha_definida ? createPasswordCard : !session.token ? loginCard : <AdminWhatsAppTab />}
+        </Card>
+
+        <Card withBorder p="md" radius="md">
+          <Title order={4} mb="md">
+            Base de Conhecimento (Modo Leitura)
+          </Title>
+          <AdminKnowledgeTab readOnly={true} />
+        </Card>
+      </Stack>
     );
+  }
+
+  // Caso 2: Senha ainda não definida
+  if (!status.senha_definida) {
+    return createPasswordCard;
+  }
+
+  // Caso 3: Senha definida, mas NÃO autenticado
+  if (!session.token) {
+    return loginCard;
   }
 
   // Caso 4: Autenticado como Administrador!

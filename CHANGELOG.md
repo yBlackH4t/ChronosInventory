@@ -24,6 +24,12 @@ Formato recomendado:
 
 
 
+
+## [2.4.6] - 2026-10-15
+
+### Added
+- **PC reserva do robô do WhatsApp:** conecte o WhatsApp da empresa também no PC de um colega (Assistente > Admin, com uma senha daquele PC). Ele só responde ao 🤖, aos comandos e manda o resumo quando o PC principal (o que publica a base) estiver desligado ou com o robô parado, como nas férias. Com os dois ligados, só o principal responde.
+
 ## [2.4.5] - 2026-10-15
 
 ### Added

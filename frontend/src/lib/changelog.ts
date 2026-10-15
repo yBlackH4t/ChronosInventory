@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.6",
+    "date": "2026-10-15",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: PC reserva do robô do WhatsApp: conecte o WhatsApp da empresa também no PC de um colega (Assistente > Admin, com uma senha daquele PC). Ele só responde ao 🤖, aos comandos e manda o resumo quando o PC principal (o que publica a base) estiver desligado ou com o robô parado, como nas férias. Com os dois ligados, só o principal responde."
+    ]
+  },
+  {
     "version": "2.4.5",
     "date": "2026-10-15",
     "title": "Melhorias e correcoes",
