@@ -24,6 +24,11 @@ Formato recomendado:
 
 
 
+## [2.4.4] - 2026-10-15
+
+### Added
+- **Ignorar item da nota:** na conferência da NF-e, marque "Ignorar" no item que não é estoque (ex.: CASCO, usado só para transportar a mercadoria). A nota é lançada sem ele, e o Chronos lembra: na próxima nota com o mesmo código, o item já vem marcado.
+
 ## [2.4.3] - 2026-10-14
 
 ### Changed

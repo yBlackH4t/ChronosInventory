@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.4",
+    "date": "2026-10-15",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: Ignorar item da nota: na conferência da NF-e, marque \"Ignorar\" no item que não é estoque (ex.: CASCO, usado só para transportar a mercadoria). A nota é lançada sem ele, e o Chronos lembra: na próxima nota com o mesmo código, o item já vem marcado."
+    ]
+  },
+  {
     "version": "2.4.3",
     "date": "2026-10-14",
     "title": "Correcao e estabilidade",

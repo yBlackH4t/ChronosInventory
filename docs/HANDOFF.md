@@ -422,6 +422,13 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-15 — Claude Code — Ignorar item da NF-e que não é estoque (2.4.4)
+- Branch: `claude/project-thread-dcq6wk`. Pedido: a NF 14564 (remessa para conserto) tinha o item
+  CASCO (cód. 294), só embalagem de transporte, e a baixa não fechava.
+- Cada item da conferência tem "Ignorar (não é estoque)": não movimenta e fica lembrado por
+  CNPJ do emitente + código (`nfe_itens_ignorados`); escolher produto para ele desfaz.
+- Versão 2.4.4 e CHANGELOG.
+
 ### 2026-10-14 — Claude Code — Natureza e observação na baixa por NF-e (2.4.3)
 - Branch: `claude/project-thread-dcq6wk`. Pedido: a NF da matriz (e de outras filiais) é
   transferência externa, não entrada de fábrica; a conferência da nota precisa deixar escolher a

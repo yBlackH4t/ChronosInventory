@@ -3,6 +3,7 @@ import {
   Alert,
   Badge,
   Button,
+  Checkbox,
   Collapse,
   Group,
   Modal,
@@ -28,6 +29,7 @@ type RowState = {
   produtoId: string | null;
   quantidade: number;
   options: NfeProduto[];
+  ignorar: boolean;
 };
 
 type NfeMovementModalProps = {
@@ -101,6 +103,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
           produtoId: item.produto_sugerido ? String(item.produto_sugerido.id) : null,
           quantidade: item.quantidade ?? 1,
           options: item.candidatos,
+          ignorar: item.ignorar ?? false,
         };
       }
       setRows(next);
@@ -172,7 +175,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   };
 
   const stockOf = (row: RowState | undefined): number | null => {
-    if (!row?.produtoId || !locationId) return null;
+    if (!row?.produtoId || row.ignorar || !locationId) return null;
     const product = row.options.find((o) => String(o.id) === row.produtoId);
     return product ? product.estoque[locationId] ?? 0 : null;
   };
@@ -183,7 +186,8 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     if (nota.cancelada) list.push("Esta nota foi cancelada.");
     if (!nota.autorizada) list.push("O XML não tem a autorização da SEFAZ.");
     if (nota.ja_baixada) list.push(`Esta nota já foi baixada em ${formatEmissao(nota.ja_baixada.data)}.`);
-    const semProduto = nota.itens.filter((i) => !rows[i.item]?.produtoId).length;
+    const semProduto = nota.itens.filter((i) => !rows[i.item]?.produtoId && !rows[i.item]?.ignorar).length;
+    if (nota.itens.every((i) => rows[i.item]?.ignorar)) list.push("Todos os itens estão marcados para ignorar.");
     if (semProduto) list.push(`Escolha o produto de ${semProduto === 1 ? "1 item" : `${semProduto} itens`}.`);
     if (tipo === "SAIDA") {
       const semSaldo = nota.itens.filter((i) => {
@@ -207,11 +211,11 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       const res = await api.baixarNfe(nota.chave, {
         tipo,
         location_id: Number(locationId),
-        itens: nota.itens.map((i) => ({
-          item: i.item,
-          produto_id: Number(rows[i.item].produtoId),
-          quantidade: rows[i.item].quantidade,
-        })),
+        itens: nota.itens.map((i) =>
+          rows[i.item].ignorar
+            ? { item: i.item, quantidade: 1, ignorar: true }
+            : { item: i.item, produto_id: Number(rows[i.item].produtoId), quantidade: rows[i.item].quantidade },
+        ),
         natureza,
         local_externo: natureza === "TRANSFERENCIA_EXTERNA" ? localExterno.trim() : undefined,
         motivo_ajuste: natureza === "AJUSTE" && motivoAjuste ? motivoAjuste : undefined,
@@ -367,7 +371,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                   const after =
                     stock === null ? null : stock + (tipo === "SAIDA" ? -1 : 1) * (row?.quantidade ?? 0);
                   return (
-                    <Table.Tr key={item.item}>
+                    <Table.Tr key={item.item} style={row?.ignorar ? { opacity: 0.55 } : undefined}>
                       <Table.Td>
                         <Text size="sm">{item.descricao}</Text>
                         <Text size="xs" c="dimmed">
@@ -384,9 +388,17 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                           value={row?.produtoId ?? null}
                           onChange={(v) => updateRow(item.item, { produtoId: v })}
                           onSearchChange={(q) => searchProducts(item.item, q)}
-                          error={!row?.produtoId}
+                          error={!row?.produtoId && !row?.ignorar}
+                          disabled={row?.ignorar}
                         />
-                        {badge && row?.produtoId === (item.produto_sugerido ? String(item.produto_sugerido.id) : null) && (
+                        <Checkbox
+                          size="xs"
+                          mt={6}
+                          label="Ignorar (não é estoque, ex.: casco)"
+                          checked={row?.ignorar ?? false}
+                          onChange={(e) => updateRow(item.item, { ignorar: e.currentTarget.checked })}
+                        />
+                        {badge && !row?.ignorar && row?.produtoId === (item.produto_sugerido ? String(item.produto_sugerido.id) : null) && (
                           <Badge size="xs" variant="light" color={badge.color} mt={4}>
                             {badge.label}
                           </Badge>
@@ -397,6 +409,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                           size="xs"
                           min={1}
                           value={row?.quantidade ?? 1}
+                          disabled={row?.ignorar}
                           onChange={(v) => updateRow(item.item, { quantidade: Math.max(1, Number(v) || 1) })}
                         />
                       </Table.Td>

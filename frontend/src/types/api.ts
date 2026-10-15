@@ -947,6 +947,7 @@ export type NfeItemPreview = {
   produto_sugerido: NfeProduto | null;
   confianca: "aprendido" | "codigo" | "duvida" | "nenhum";
   candidatos: NfeProduto[];
+  ignorar: boolean;
 };
 
 export type NfePreview = {
@@ -977,7 +978,7 @@ export type NfeMovimentoSugerido = {
 export type NfeBaixaIn = {
   tipo: "SAIDA" | "ENTRADA";
   location_id: number;
-  itens: { item: number; produto_id: number; quantidade: number }[];
+  itens: { item: number; produto_id?: number; quantidade: number; ignorar?: boolean }[];
   natureza?: NfeNatureza;
   local_externo?: string;
   motivo_ajuste?: string;

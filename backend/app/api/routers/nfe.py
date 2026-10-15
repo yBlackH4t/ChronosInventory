@@ -35,8 +35,9 @@ class NfeCertificadoIn(BaseModel):
 class NfeBaixaItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
     item: int = Field(ge=1)
-    produto_id: int = Field(ge=1)
-    quantidade: int = Field(ge=1)
+    produto_id: Optional[int] = Field(default=None, ge=1)
+    quantidade: int = Field(default=1, ge=1)
+    ignorar: bool = False  # item que nao e estoque (ex.: casco): nao movimenta
 
 
 class NfeBaixaIn(BaseModel):
