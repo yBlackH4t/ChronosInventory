@@ -50,6 +50,11 @@ class BackupSchedulerService:
         return self._service.run_due_scheduled_backup(datetime.now())
 
     def _loop(self) -> None:
+        # Limpeza ao abrir: copias de seguranca/migracao antigas e segunda pasta dos backups.
+        try:
+            LOG.info("Limpeza dos backups: %s", self._service.housekeeping())
+        except Exception as exc:
+            LOG.exception("Erro na limpeza dos backups: %s", exc)
         while not self._stop_event.wait(self.interval_seconds):
             try:
                 result = self._service.run_due_scheduled_backup(datetime.now())

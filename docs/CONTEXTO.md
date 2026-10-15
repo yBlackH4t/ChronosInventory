@@ -19,7 +19,7 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
-- **Versão em uso na empresa:** 2.4.5 (tag `v2.4.5` na `main`, 2026-10-15). Em PR: 2.4.6 (PC reserva do WhatsApp) e 2.5.0 (novo visual: cores, dashboard, fotos na lista, movimentações por dia).
+- **Versão em uso na empresa:** 2.5.1 (2026-10-15). Em PR: 2.5.2 (assistente que pergunta e aprende, passo 1) e 2.5.3 (disco e backups: cópias antigas limitadas, backup em atraso ao abrir, segunda pasta em outro disco, um log só).
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.
