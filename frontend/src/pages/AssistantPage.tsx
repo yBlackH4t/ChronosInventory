@@ -53,7 +53,14 @@ type ChatMessage = AssistantMessage & {
   aviso?: string | null;
   fotoUrl?: string | null;
   leitura_foto?: string | null;
+  ensinar?: { codigo_a: string; codigo_b: string; pesquisar?: boolean } | null;
 };
+
+const TEACH_OPTIONS = [
+  { word: "igual", label: "Igual" },
+  { word: "similar", label: "Similar" },
+  { word: "diferente", label: "Diferente" },
+];
 
 const SETTINGS_PATH = "/configuracoes#assistant-settings";
 
@@ -129,6 +136,7 @@ export default function AssistantPage() {
           modo: data.modo,
           aviso: data.aviso,
           leitura_foto: data.leitura_foto,
+          ensinar: data.ensinar,
         },
       ]);
       setErrorMsg(null);
@@ -169,6 +177,14 @@ export default function AssistantPage() {
     setErrorMsg(null);
 
     mutation.mutate({ msg: trimmed, photo: currentPhoto });
+  };
+
+  // "Igual / Similar / Diferente" depois de um "não sei": ensina como se a pessoa tivesse digitado.
+  const handleTeach = (word: string) => {
+    if (mutation.isPending) return;
+    setMessages((prev) => [...prev, { papel: "usuario", texto: word }]);
+    setErrorMsg(null);
+    mutation.mutate({ msg: word, photo: null });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -328,6 +344,32 @@ export default function AssistantPage() {
                             </Text>
                           ) : null}
                         </Paper>
+                        {!isUser && msg.ensinar && idx === messages.length - 1 && (
+                          <Group gap={6} mt={6}>
+                            {TEACH_OPTIONS.map((option) => (
+                              <Button
+                                key={option.word}
+                                size="compact-xs"
+                                variant="light"
+                                disabled={mutation.isPending}
+                                onClick={() => handleTeach(option.word)}
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                            {msg.ensinar.pesquisar && (
+                              <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                leftSection={<IconSearch size={12} />}
+                                disabled={mutation.isPending}
+                                onClick={() => handleTeach("pesquisar")}
+                              >
+                                Pesquisar na internet
+                              </Button>
+                            )}
+                          </Group>
+                        )}
                         {!isUser && msg.aviso && (
                           <Stack gap={6} mt={6}>
                             <Group gap={6}>

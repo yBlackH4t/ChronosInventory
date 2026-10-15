@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.assistant_common import (
     MODE_AI,
+    MODE_DIRECT,
     AssistantUnavailableError,
     cited_products,
     history_messages,
@@ -34,6 +35,16 @@ from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_interpreter_service import AssistantInterpreter
+from app.services.assistant_teach_service import (
+    TEACH_HINT,
+    AssistantTeachService,
+    pair_in_answer,
+    parse_teach_reply,
+    pending_pair,
+    wants_search,
+    with_teach_hint,
+)
+from app.services.assistant_web_search_service import AssistantWebSearchService, format_web_answer
 from app.services.assistant_tools_service import COMPACT_LIMITS, AssistantToolsService
 
 LOG = logging.getLogger(__name__)
@@ -101,7 +112,11 @@ class AssistantChatService:
         sleep: Optional[Callable[[float], None]] = None,
         history: Optional[AssistantHistoryService] = None,
         interpreter: Any = _DEFAULT,
+        teacher: Optional[AssistantTeachService] = None,
+        web_search: Optional[AssistantWebSearchService] = None,
     ) -> None:
+        self.teacher = teacher or AssistantTeachService()
+        self.web_search = web_search
         self.tools = tools or AssistantToolsService()
         self.history = history or AssistantHistoryService()
         self.config_store = config_store or AssistantConfigStore()
@@ -160,11 +175,50 @@ class AssistantChatService:
         historico: Optional[List[Dict[str, str]]] = None,
         canal: str = "app",
         autor: Optional[str] = None,
+        pode_ensinar: bool = False,
     ) -> Dict[str, Any]:
+        """
+        `canal`: "app", "whatsapp" (resposta ao cliente) ou "particular" (o dono pergunta na
+        "Mensagem para mim"). `pode_ensinar`: quem pergunta e o admin, e "igual" vira regra na hora.
+        """
         historico = historico or []
         calls: List[Dict[str, Any]] = []
         tools = _RecordingTools(self.tools, calls)
-        result = self._answer(mensagem, historico, tools, canal)
+        private = canal != "whatsapp"  # nunca pede para o cliente ensinar
+        reply = parse_teach_reply(mensagem) if private else None
+        search = private and not reply and wants_search(mensagem)
+        pair = pending_pair(historico) if (reply or search) else None
+        if search and pair:
+            # "pesquisar" depois de um "nao sei": a internet, marcada "conferir"; quem ensina e a pessoa.
+            calls.append({"ferramenta": "pesquisar_internet", "codigos": list(pair)})
+            try:
+                found = self._web().compare(pair[0], pair[1])
+                text = f"{format_web_answer(pair[0], pair[1], found)}\n{TEACH_HINT}"
+            except AssistantUnavailableError as exc:
+                text = f"*{pair[0]}* e *{pair[1]}*: não consegui pesquisar. {exc}\n{TEACH_HINT}"
+            except Exception:
+                LOG.exception("assistente: falha na pesquisa na internet")
+                text = f"*{pair[0]}* e *{pair[1]}*: a pesquisa falhou agora.\n{TEACH_HINT}"
+            result = make_result(text, [], ["pesquisar_internet"], MODE_AI)
+        elif reply and pair:
+            calls.append({"ferramenta": "ensinar", "codigos": list(pair), "tipo": reply[0]})
+            try:
+                text = self.teacher.teach(pair[0], pair[1], reply[0], reply[1], pode_ensinar, autor or canal)
+            except Exception as exc:  # codigo invalido, publicadora fora do ar...
+                LOG.warning("assistente: nao consegui ensinar %s: %s", pair, exc)
+                text = f"Não consegui guardar agora: {exc}"
+            result = make_result(text, [], ["ensinar"], MODE_DIRECT)
+        else:
+            result = self._answer(mensagem, historico, tools, canal)
+        if private:
+            result["resposta"] = with_teach_hint(result["resposta"], can_search=self._web().available())
+            if canal == "particular":  # na "Mensagem para mim", so o que comeca com / e comando
+                result["resposta"] = (
+                    result["resposta"]
+                    .replace("*igual*, *similar* ou *diferente*", "/igual, /similar ou /diferente")
+                    .replace("*pesquisar*", "/pesquisar")
+                )
+            result["ensinar"] = pair_in_answer(result["resposta"])
         try:
             self.history.record(
                 canal=canal, autor=autor, pergunta=mensagem, historico=historico, result=result, consultas=calls
@@ -172,6 +226,11 @@ class AssistantChatService:
         except Exception:  # o historico nunca pode impedir a resposta
             LOG.exception("assistente: falha ao gravar o historico")
         return result
+
+    def _web(self) -> AssistantWebSearchService:
+        if self.web_search is None:
+            self.web_search = AssistantWebSearchService(self.config_store)
+        return self.web_search
 
     def _answer(self, mensagem: str, historico: List[Dict[str, str]], tools: Any, canal: str = "app") -> Dict[str, Any]:
         config = self.config_store.load()

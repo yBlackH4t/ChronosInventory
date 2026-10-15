@@ -212,16 +212,16 @@ export default function AdminHistoryTab() {
                   <Group gap="xs">
                     <Badge
                       variant="light"
-                      color={conv.canal === "whatsapp" ? "teal" : "blue"}
+                      color={conv.canal === "app" ? "blue" : "teal"}
                       leftSection={
-                        conv.canal === "whatsapp" ? (
+                        conv.canal !== "app" ? (
                           <IconBrandWhatsapp size={12} />
                         ) : (
                           <IconDeviceDesktop size={12} />
                         )
                       }
                     >
-                      {conv.canal === "whatsapp" ? "WhatsApp" : "App"}
+                      {conv.canal === "particular" ? "WhatsApp (particular)" : conv.canal === "whatsapp" ? "WhatsApp" : "App"}
                     </Badge>
 
                     {conv.autor && (

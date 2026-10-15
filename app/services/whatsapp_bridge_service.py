@@ -54,6 +54,10 @@ HELP_TEXT = (
     "*Assistente do Chronos*\n"
     "• Reaja com 🤖 numa mensagem do cliente: eu respondo na conversa.\n"
     "• Foto da plaqueta: reaja com 🤖 na foto; eu leio o código e respondo.\n"
+    "• /perguntar <pergunta>: pergunte aqui, sem envolver o cliente\n"
+    "  ex.: /perguntar 4031196 é a mesma que 5455609?\n"
+    "  Se eu não souber, responda /igual, /similar ou /diferente [observação]\n"
+    "• /aprovar <nº> ou /recusar <nº>: uma proposta (veja em /pendentes)\n"
     "• /ensinar <código> <igual|similar|diferente> <código> [observação]\n"
     "  ex.: /ensinar 53279887101 similar 53279887210 muda o atuador\n"
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
@@ -148,6 +152,9 @@ class WhatsAppBridge:
         self._chats: Dict[str, Deque[WaMessage]] = {}
         self._drafts: Dict[int, Draft] = {}
         self._draft_seq = 0
+        # /perguntar: a conversa particular com a IA (pergunta e resposta), para o "/igual" saber do que fala.
+        self._private: List[Tuple[float, Dict[str, str]]] = []
+        self.teacher: Any = None
         self._lock = threading.Lock()
         if run_async is None:
             executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="whatsapp-assistente")
@@ -288,6 +295,12 @@ class WhatsAppBridge:
                 reply = self._draft_command(name, parts[1:])
             elif name in ("/ensinar", "/ensina"):
                 reply = self._teach(parts[1:])
+            elif name in ("/perguntar", "/pergunta", "/p"):
+                reply = self._ask(" ".join(parts[1:]))
+            elif name in ("/igual", "/similar", "/diferente", "/pesquisar"):
+                reply = self._ask(" ".join([name[1:], *parts[1:]]))
+            elif name in ("/aprovar", "/recusar"):
+                reply = self._decide(name, parts[1:])
             elif name in ("/pendentes", "/revisar"):
                 reply = self._pending()
             elif name == "/resumo":
@@ -339,10 +352,42 @@ class WhatsAppBridge:
             "Só vale depois que o admin aprovar no app (Assistente > Admin > Para revisar)."
         )
 
+    def _ask(self, question: str) -> str:
+        if not question.strip():
+            return "Use assim: /perguntar 4031196 é a mesma que 5455609?"
+        now = self.clock()
+        self._private = [(t, m) for t, m in self._private if now - t <= CONTEXT_WINDOW_SECONDS][-8:]
+        historico = [m for _, m in self._private]
+        result = self.chat_service.chat(question, historico, canal="particular", autor="whatsapp")
+        self._private += [
+            (now, {"papel": "usuario", "texto": question}),
+            (now, {"papel": "assistente", "texto": result["resposta"]}),
+        ]
+        return result["resposta"]
+
+    def _decide(self, name: str, args: List[str]) -> str:
+        if not args or not args[0].lstrip("#").isdigit():
+            return f"Use assim: {name} 3 (o número aparece em /pendentes)"
+        from app.services.assistant_admin_service import AssistantAdminService
+
+        if not AssistantAdminService().is_publisher():
+            return "Aprovar e recusar só no PC principal (o que publica a base)."
+        if self.teacher is None:
+            from app.services.assistant_teach_service import AssistantTeachService
+
+            self.teacher = AssistantTeachService(history=self.history)
+        proposal_id = int(args[0].lstrip("#"))
+        return self.teacher.approve(proposal_id) if name == "/aprovar" else self.teacher.reject(proposal_id)
+
     def _pending(self) -> str:
         proposals = self.history.list_proposals("pendente")
         review = self.history.review_items(limit=5)
         lines = [f"Propostas esperando o admin: {len(proposals)}"]
+        for item in proposals[:5]:
+            note = f" ({item['observacao']})" if item.get("observacao") else ""
+            lines.append(f"• #{item['id']}: {item['codigo_a']} *{item['tipo']}* {item['codigo_b']}{note}")
+        if proposals:
+            lines.append("Para decidir: /aprovar <nº> ou /recusar <nº>")
         if review:
             lines.append("Códigos sem estoque para revisar:")
             lines += [f"• {item['codigo']} (perguntado {item['vezes']}x)" for item in review]
