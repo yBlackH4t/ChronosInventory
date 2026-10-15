@@ -388,6 +388,15 @@ export type BackupAutoConfigOut = {
   last_backup_name?: string | null;
 };
 
+export type BackupSecondFolderOut = {
+  pasta?: string | null;
+  destino?: string | null;
+  ativo: boolean;
+  ultima_copia?: string | null;
+  ultimo_erro?: string | null;
+  arquivos: number;
+};
+
 export type BackupAutoConfigIn = {
   enabled: boolean;
   hour: number;

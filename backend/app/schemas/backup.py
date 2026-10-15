@@ -222,3 +222,16 @@ class OfficialBaseApplyOut(BaseModel):
     restart_required: bool
     fotos_mantidas: int = 0
     produtos_com_fotos_mantidas: int = 0
+
+
+class BackupSecondFolderOut(BaseModel):
+    pasta: str | None = None
+    destino: str | None = None
+    ativo: bool = False
+    ultima_copia: str | None = None
+    ultimo_erro: str | None = None
+    arquivos: int = 0
+
+
+class BackupSecondFolderIn(BaseModel):
+    pasta: str | None = Field(default=None, max_length=500)

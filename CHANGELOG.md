@@ -25,12 +25,21 @@ Formato recomendado:
 
 
 
-
-
 ## [2.5.4] - 2026-10-15
 
 ### Fixed
 - **Pesquisar na internet:** a chave grátis do Gemini não tem cota para a pesquisa do Google e respondia "limite de hoje" já na primeira vez. Agora, quando o Gemini não libera, a pesquisa segue pelo Groq e a resposta diz qual dos dois pesquisou.
+
+## [2.5.3] - 2026-10-15
+
+### Added
+- **Cópia dos backups em outro disco:** em Backup > Backups locais dá para escolher uma pasta em outro disco (ex.: D:), pendrive ou rede. Cada backup também é copiado para lá, numa subpasta com o nome do computador, e os antigos saem de lá junto com os daqui. Se o disco do Chronos falhar, os backups continuam lá.
+
+### Changed
+- **Backup automático que ficou para trás:** se o app estava fechado no horário (18h), o backup sai na próxima vez que o Chronos abrir, em vez de esperar o próximo horário.
+- **Menos cópias antigas do banco:** das cópias feitas antes de atualizar, restaurar, aplicar a base oficial ou recuperar fotos, ficam só as 3 últimas de cada tipo; das cópias de migração (`.bak` ao lado do banco), as 3 últimas. Backups com outro nome (ex.: os feitos à mão) não são apagados.
+- **Um log só:** o log do app fica na pasta do Chronos, junto com o do backend, e não passa de 1 MB. Os logs antigos em outras pastas são apagados.
+
 
 ## [2.5.2] - 2026-10-15
 

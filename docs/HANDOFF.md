@@ -422,6 +422,18 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-15 — Claude Code — Disco e backups (2.5.3)
+- Branch: `claude/project-thread-2j0v1i`. Verificação no PC da empresa: 23 pastas `_MEI*` no TEMP
+  (1,1 GB, do backend onefile até a 2.3.x; não são apagadas pelo app porque outros programas
+  PyInstaller usam o mesmo nome), 12 backups pre-update e 13 `.bak` de migração nunca apagados,
+  backup automático só em 28/09 e 05/10 (só rodava com o app aberto às 18h), banco e backups só no SSD.
+- Cópias de segurança (`backup_pre_*`) e `.bak` de migração: ficam as 3 últimas (ao criar e ao abrir
+  o app, em `BackupService.housekeeping`). Backup automático em atraso sai ao abrir (`_last_scheduled_time`).
+  Segunda pasta: `app/services/backup_second_copy.py`, `GET/PUT /backup/segunda-pasta`, config em
+  `backup_segunda_pasta.json` (por máquina, fora do banco). Log do Tauri em `<app>/logs/tauri.log`,
+  1 MB + `.1`; apaga os antigos em `%LOCALAPPDATA%\ChronosInventory` e TEMP.
+- Versão 2.5.3 e CHANGELOG.
+
 ### 2026-10-15 — Claude Code — NF-e recém-emitida dizia "sem autorização" (2.5.1)
 - Branch: `claude/project-thread-dcq6wk`. NF 14566, emitida na hora: a conferência dizia "O XML não
   tem a autorização da SEFAZ". `find_nfe_by_chave` ficava com o primeiro XML da chave, mesmo sem o

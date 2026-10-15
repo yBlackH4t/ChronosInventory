@@ -826,24 +826,131 @@ def test_backup_weekly_schedule_runs_only_on_configured_weekday(client):
 
     service = BackupService()
 
-    tuesday = datetime(2026, 2, 17, 18, 5, 0)
+    # Segunda 16/02 18h passou sem backup (app fechado): sai na terca, ao abrir.
+    tuesday = datetime(2026, 2, 17, 9, 5, 0)
     result_tuesday = service.run_due_scheduled_backup(tuesday)
-    assert result_tuesday["executed"] is False
-    assert result_tuesday["reason"] == "wrong_weekday"
+    assert result_tuesday["executed"] is True
 
-    monday_before = datetime(2026, 2, 16, 17, 59, 0)
+    wednesday = datetime(2026, 2, 18, 18, 5, 0)
+    result_wednesday = service.run_due_scheduled_backup(wednesday)
+    assert result_wednesday["executed"] is False
+    assert result_wednesday["reason"] == "not_due"
+
+    monday_before = datetime(2026, 2, 23, 17, 59, 0)
     result_before = service.run_due_scheduled_backup(monday_before)
     assert result_before["executed"] is False
-    assert result_before["reason"] == "before_schedule"
+    assert result_before["reason"] == "not_due"
 
-    monday_due = datetime(2026, 2, 16, 18, 0, 0)
+    monday_due = datetime(2026, 2, 23, 18, 0, 0)
     result_due = service.run_due_scheduled_backup(monday_due)
     assert result_due["executed"] is True
 
-    monday_repeat = datetime(2026, 2, 16, 18, 10, 0)
+    monday_repeat = datetime(2026, 2, 23, 18, 10, 0)
     result_repeat = service.run_due_scheduled_backup(monday_repeat)
     assert result_repeat["executed"] is False
     assert result_repeat["reason"] == "already_ran_today"
+
+
+def test_backup_daily_schedule_catches_up_when_app_was_closed(client):
+    updated = client.put(
+        "/backup/auto-config",
+        json={"enabled": True, "hour": 18, "minute": 0, "retention_days": 7, "schedule_mode": "DAILY", "weekday": 0},
+    )
+    assert updated.status_code == 200
+
+    from app.services.backup_service import BackupService
+
+    service = BackupService()
+    assert service.run_due_scheduled_backup(datetime(2026, 3, 2, 18, 30))["executed"] is True
+    # Dia 3 de manha: o das 18h do dia 2 ja saiu, espera as 18h.
+    assert service.run_due_scheduled_backup(datetime(2026, 3, 3, 8, 0))["reason"] == "not_due"
+    # App fechado no dia 3 as 18h: no dia 4 de manha faz o backup que faltou.
+    assert service.run_due_scheduled_backup(datetime(2026, 3, 4, 8, 0))["executed"] is True
+    assert service.run_due_scheduled_backup(datetime(2026, 3, 4, 18, 30))["reason"] == "already_ran_today"
+
+
+def test_safety_copies_keep_only_latest_three(client):
+    from app.services.backup_service import SAFETY_COPIES_KEPT, BackupService
+
+    service = BackupService()
+    for name in os.listdir(service.backups_dir):
+        os.remove(os.path.join(service.backups_dir, name))
+    for day in range(1, 6):
+        path = os.path.join(service.backups_dir, f"backup_pre_update_202601{day:02d}_100000.db")
+        with open(path, "wb") as fh:
+            fh.write(b"x")
+        os.utime(path, (1_700_000_000 + day * 86400,) * 2)
+    manual = os.path.join(service.backups_dir, "antes_v2.5.0_2026-10-15_1115.db")
+    with open(manual, "wb") as fh:
+        fh.write(b"x")
+
+    service.create_pre_update_backup()
+
+    names = sorted(os.listdir(service.backups_dir))
+    pre_update = [n for n in names if n.startswith("backup_pre_update_")]
+    assert len(pre_update) == SAFETY_COPIES_KEPT
+    assert "backup_pre_update_20260101_100000.db" not in names
+    assert "antes_v2.5.0_2026-10-15_1115.db" in names  # backups com outro nome nao sao apagados
+
+
+def test_migration_copies_keep_only_latest_three(tmp_path):
+    from core.database.migration_manager import cleanup_migration_copies
+
+    db = tmp_path / "estoque.db"
+    db.write_bytes(b"x")
+    for index, version in enumerate(["1.6.4", "2.0.4", "2.3.0", "2.4.3", "2.4.5"]):
+        copy = tmp_path / f"estoque.db.pre_migration_v{version}.bak"
+        copy.write_bytes(b"x")
+        os.utime(copy, (1_700_000_000 + index * 86400,) * 2)
+    (tmp_path / "outro.bak").write_bytes(b"x")
+
+    assert cleanup_migration_copies(str(db)) == 2
+    left = sorted(p.name for p in tmp_path.iterdir())
+    assert left == [
+        "estoque.db",
+        "estoque.db.pre_migration_v2.3.0.bak",
+        "estoque.db.pre_migration_v2.4.3.bak",
+        "estoque.db.pre_migration_v2.4.5.bak",
+        "outro.bak",
+    ]
+
+
+def test_backup_second_folder_mirrors_backups(client, tmp_path):
+    second = tmp_path / "segundo_disco"
+    second.mkdir()
+
+    status = client.get("/backup/segunda-pasta").json()["data"]
+    assert status["ativo"] is False
+
+    bad = client.put("/backup/segunda-pasta", json={"pasta": str(tmp_path / "nao_existe")})
+    assert bad.status_code == 400
+
+    created = client.post("/backup/criar")
+    assert created.status_code == 200
+    name = os.path.basename(created.json()["data"]["path"])
+
+    saved = client.put("/backup/segunda-pasta", json={"pasta": str(second)})
+    assert saved.status_code == 200
+    data = saved.json()["data"]
+    assert data["ativo"] is True and data["ultimo_erro"] is None
+    destination = data["destino"]
+    assert os.path.dirname(destination) == str(second)
+    assert os.path.isfile(os.path.join(destination, name))
+
+    # Arquivo de outra origem na mesma pasta nunca e apagado; backup apagado aqui sai de la.
+    foreign = os.path.join(destination, "planilha.db")
+    with open(foreign, "wb") as fh:
+        fh.write(b"x")
+    from app.services.backup_service import BackupService
+
+    service = BackupService()
+    os.remove(os.path.join(service.backups_dir, name))
+    service.second_copy.sync()
+    assert not os.path.exists(os.path.join(destination, name))
+    assert os.path.exists(foreign)
+
+    off = client.put("/backup/segunda-pasta", json={"pasta": ""})
+    assert off.json()["data"]["ativo"] is False
 
 
 def test_backup_restore_roundtrip(client):

@@ -3,7 +3,7 @@
 use std::{
     collections::HashMap,
     error::Error,
-    fs::{create_dir_all, OpenOptions},
+    fs::{self, create_dir_all, OpenOptions},
     io::Write,
     net::{SocketAddr, TcpListener, TcpStream},
     path::PathBuf,
@@ -26,10 +26,19 @@ const SIDECAR_ENV_PORT: &str = "8000";
 const SIDECAR_ENV_APP_PROD: &str = "prod";
 const SIDECAR_ENV_APP_DEV: &str = "dev";
 
+const LOG_MAX_BYTES: u64 = 1_000_000;
+
+// Um log so, na pasta do app (a mesma do banco e do backend.log), com tamanho limitado:
+// passou de 1 MB, vira tauri.log.1 (o anterior e descartado).
 fn log_path() -> PathBuf {
-    if let Ok(base) = std::env::var("LOCALAPPDATA") {
+    if let Ok(base) = std::env::var("APPDATA") {
+        let folder = if cfg!(debug_assertions) {
+            "Chronos InventoryDev"
+        } else {
+            "Chronos Inventory"
+        };
         return PathBuf::from(base)
-            .join("ChronosInventory")
+            .join(folder)
             .join("logs")
             .join("tauri.log");
     }
@@ -37,18 +46,33 @@ fn log_path() -> PathBuf {
 }
 
 fn log_line(message: &str) {
-    let paths = [
-        log_path(),
-        std::env::temp_dir().join("chronos_inventory_tauri.log"),
-    ];
+    let path = log_path();
+    if let Some(parent) = path.parent() {
+        let _ = create_dir_all(parent);
+    }
+    if fs::metadata(&path)
+        .map(|m| m.len() > LOG_MAX_BYTES)
+        .unwrap_or(false)
+    {
+        let _ = fs::rename(&path, path.with_extension("log.1"));
+    }
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
+        let _ = writeln!(file, "{:?} {}", SystemTime::now(), message);
+    }
+}
 
-    for path in paths {
-        if let Some(parent) = path.parent() {
-            let _ = create_dir_all(parent);
-        }
-        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
-            let _ = writeln!(file, "{:?} {}", SystemTime::now(), message);
-        }
+// Ate a 2.5.2 o log ia para dois lugares fora da pasta do app e crescia sem limite.
+fn remove_legacy_logs() {
+    if let Ok(base) = std::env::var("LOCALAPPDATA") {
+        let folder = PathBuf::from(base).join("ChronosInventory");
+        let logs = folder.join("logs");
+        let _ = fs::remove_file(logs.join("tauri.log"));
+        // remove_dir so apaga pasta vazia: nada alem do log antigo e tocado.
+        let _ = fs::remove_dir(&logs);
+        let _ = fs::remove_dir(&folder);
+    }
+    if log_path() != std::env::temp_dir().join("chronos_inventory_tauri.log") {
+        let _ = fs::remove_file(std::env::temp_dir().join("chronos_inventory_tauri.log"));
     }
 }
 
@@ -318,6 +342,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![restart_app, kill_backend])
         .manage(BackendState(Mutex::new(None)))
         .setup(|app| {
+            remove_legacy_logs();
             log_line("App setup iniciado");
             log_startup_paths(app);
             ensure_backend_slot_available();

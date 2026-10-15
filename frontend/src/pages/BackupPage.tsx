@@ -12,6 +12,7 @@ import { IconDatabasePlus } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
 import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
+import { SecondFolderSection } from "../components/backup/SecondFolderSection";
 import { useBackupAutoConfig } from "../hooks/useBackupAutoConfig";
 import { useBackupOfficialBasePanel } from "../hooks/useBackupOfficialBasePanel";
 import { downloadBlob } from "../lib/download";
@@ -303,7 +304,8 @@ export default function BackupPage() {
         </Text>
       ),
       labels: { confirm: "Recuperar fotos", cancel: "Cancelar" },
-      onConfirm: () => recoverPhotosMutation.mutate(effectiveSelectedBackupName),
+      onConfirm: () =>
+        recoverPhotosMutation.mutate(effectiveSelectedBackupName),
     });
   };
 
@@ -371,9 +373,7 @@ export default function BackupPage() {
               officialBasePanel.setOfficialRemoteServerUrlInput
             }
             serverTokenInput={officialBasePanel.officialServerTokenInput}
-            onServerTokenChange={
-              officialBasePanel.setOfficialServerTokenInput
-            }
+            onServerTokenChange={officialBasePanel.setOfficialServerTokenInput}
             onSaveServerToken={officialBasePanel.saveServerPassword}
             onRemoveServerToken={officialBasePanel.removeServerPassword}
             onSaveConfig={officialBasePanel.saveOfficialBaseConfig}
@@ -405,51 +405,54 @@ export default function BackupPage() {
           />
         </Tabs.Panel>
         <Tabs.Panel value="locais" pt="md">
-          <LocalBackupsSection
-            autoConfigLoading={autoConfigLoading}
-            autoEnabled={autoEnabled}
-            onAutoEnabledChange={setAutoEnabledInput}
-            autoScheduleMode={autoScheduleMode}
-            onAutoScheduleModeChange={setAutoScheduleModeInput}
-            autoWeekday={autoWeekday}
-            onAutoWeekdayChange={setAutoWeekdayInput}
-            autoHour={autoHour}
-            onAutoHourChange={setAutoHourInput}
-            autoMinute={autoMinute}
-            onAutoMinuteChange={setAutoMinuteInput}
-            autoRetention={autoRetention}
-            onAutoRetentionChange={setAutoRetentionInput}
-            scheduleOptions={scheduleOptions}
-            weekdayOptions={weekdayOptions}
-            onSaveAutoConfig={saveAutoConfig}
-            saveAutoConfigLoading={saveAutoConfigLoading}
-            autoConfig={autoConfig}
-            backupsLoading={backupsQuery.isLoading}
-            backupOptions={backupOptions}
-            selectedBackupName={effectiveSelectedBackupName}
-            onSelectedBackupChange={(value) => {
-              setSelectedBackupName(value);
-              setSelectedValidation(null);
-            }}
-            onValidateSelected={() => {
-              if (effectiveSelectedBackupName) {
-                validateSelectedMutation.mutate(effectiveSelectedBackupName);
+          <Stack gap="md">
+            <LocalBackupsSection
+              autoConfigLoading={autoConfigLoading}
+              autoEnabled={autoEnabled}
+              onAutoEnabledChange={setAutoEnabledInput}
+              autoScheduleMode={autoScheduleMode}
+              onAutoScheduleModeChange={setAutoScheduleModeInput}
+              autoWeekday={autoWeekday}
+              onAutoWeekdayChange={setAutoWeekdayInput}
+              autoHour={autoHour}
+              onAutoHourChange={setAutoHourInput}
+              autoMinute={autoMinute}
+              onAutoMinuteChange={setAutoMinuteInput}
+              autoRetention={autoRetention}
+              onAutoRetentionChange={setAutoRetentionInput}
+              scheduleOptions={scheduleOptions}
+              weekdayOptions={weekdayOptions}
+              onSaveAutoConfig={saveAutoConfig}
+              saveAutoConfigLoading={saveAutoConfigLoading}
+              autoConfig={autoConfig}
+              backupsLoading={backupsQuery.isLoading}
+              backupOptions={backupOptions}
+              selectedBackupName={effectiveSelectedBackupName}
+              onSelectedBackupChange={(value) => {
+                setSelectedBackupName(value);
+                setSelectedValidation(null);
+              }}
+              onValidateSelected={() => {
+                if (effectiveSelectedBackupName) {
+                  validateSelectedMutation.mutate(effectiveSelectedBackupName);
+                }
+              }}
+              validateSelectedLoading={validateSelectedMutation.isPending}
+              onTestRestore={() =>
+                restoreTestMutation.mutate(effectiveSelectedBackupName)
               }
-            }}
-            validateSelectedLoading={validateSelectedMutation.isPending}
-            onTestRestore={() =>
-              restoreTestMutation.mutate(effectiveSelectedBackupName)
-            }
-            restoreTestLoading={restoreTestMutation.isPending}
-            onRestore={confirmRestore}
-            restoreLoading={restoreMutation.isPending}
-            onRecoverPhotos={confirmRecoverPhotos}
-            recoverPhotosLoading={recoverPhotosMutation.isPending}
-            selectedBackup={selectedBackup}
-            formatBytes={bytesToHuman}
-            selectedValidation={selectedValidation}
-            backups={backups}
-          />
+              restoreTestLoading={restoreTestMutation.isPending}
+              onRestore={confirmRestore}
+              restoreLoading={restoreMutation.isPending}
+              onRecoverPhotos={confirmRecoverPhotos}
+              recoverPhotosLoading={recoverPhotosMutation.isPending}
+              selectedBackup={selectedBackup}
+              formatBytes={bytesToHuman}
+              selectedValidation={selectedValidation}
+              backups={backups}
+            />
+            <SecondFolderSection />
+          </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="catalogo" pt="md">
           <CatalogUpdateSection />
