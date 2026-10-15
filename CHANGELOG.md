@@ -24,6 +24,18 @@ Formato recomendado:
 
 
 
+
+## [2.5.1] - 2026-10-15
+
+### Changed
+- **WhatsApp:** a resposta por veículo ("Volvo FH 520 Euro 3") vem no mesmo formato curto da consulta de estoque: o motor e o modelo da turbina em negrito e, embaixo, o código nosso com a quantidade em cada filial. No app, a resposta completa continua.
+
+### Changed
+- TODO
+
+### Fixed
+- TODO
+
 ## [2.5.0] - 2026-10-15
 
 ### Added

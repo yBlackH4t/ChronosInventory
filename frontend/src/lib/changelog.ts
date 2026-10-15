@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.5.1",
+    "date": "2026-10-15",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: WhatsApp: a resposta por veículo (\"Volvo FH 520 Euro 3\") vem no mesmo formato curto da consulta de estoque: o motor e o modelo da turbina em negrito e, embaixo, o código nosso com a quantidade em cada filial. No app, a resposta completa continua."
+    ]
+  },
+  {
     "version": "2.5.0",
     "date": "2026-10-15",
     "title": "Melhorias e correcoes",

@@ -22,6 +22,7 @@ from app.services.assistant_answer_format import (
     format_application_answer,
     format_catalog_code_answer,
     format_code_answer,
+    format_application_compact,
     format_code_compact,
     format_comparison_answer,
     format_movements_answer,
@@ -661,6 +662,11 @@ class AssistantToolsService:
         if not catalog_items:
             result["dica"] = "Nada encontrado com todas as palavras. Tente com menos palavras ou so o motor."
         result["texto_pronto"] = format_application_answer(result, wants_core(texto))
+        compact = format_application_compact(
+            result, wants_core(texto), list(self.repository.get_location_labels().values())
+        )
+        if compact:
+            result["texto_compacto"] = compact  # formato do chefe no WhatsApp
         return result
 
     def product_details(self, produto_id: int) -> Dict[str, Any]:

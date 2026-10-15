@@ -149,3 +149,17 @@ def test_whatsapp_stock_answer_in_the_boss_format(client, tools):  # noqa: F811
     ]
     # No app, a resposta completa continua.
     assert AssistantDirectService(tools).answer("tem a 4031195?")["resposta"].startswith("*4031195*: temos.")
+
+
+def test_whatsapp_vehicle_answer_in_the_boss_format(client, tools):  # noqa: F811
+    lines = AssistantDirectService(tools, compact=True).answer("scania 440 euro 3")["resposta"].splitlines()
+    assert lines == [
+        "*Consulta Estoque*",
+        "",
+        "*DT12-06/18 Euro 3* · HX52 / HE500GF",
+        "📍Canoas: 00 - 4031343",
+        "📍Passo Fundo: 00 - 4031343",
+    ]
+    assert not any(line.startswith(("•", "✅", "Depende")) for line in lines)
+    # No app, a resposta completa continua.
+    assert not AssistantDirectService(tools).answer("scania 440 euro 3")["resposta"].startswith("*Consulta")
