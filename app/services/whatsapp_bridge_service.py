@@ -39,6 +39,9 @@ ERROR_REACTION = "⚠️"
 # Mensagens seguidas da mesma pessoa ate 3 min antes/depois da marcada viram uma pergunta so.
 GROUP_WINDOW_SECONDS = 180
 CONTEXT_MESSAGES = 10
+# So a conversa recente vale como contexto: o audio de um pedido de horas atras (outro cliente,
+# outro assunto) nao pode virar parte da pergunta nova.
+CONTEXT_WINDOW_SECONDS = 20 * 60
 BUFFER_SIZE = 60
 BUFFER_MAX_AGE_SECONDS = 6 * 3600
 TEACH_TYPES = ("igual", "similar", "diferente")
@@ -414,7 +417,12 @@ class WhatsAppBridge:
             and messages[end + 1].timestamp - target.timestamp <= GROUP_WINDOW_SECONDS
         ):
             end += 1
-        earlier = [m for m in messages[max(0, start - CONTEXT_MESSAGES) : start] if not (m.text or "").startswith("/")]
+        earlier = [
+            m
+            for m in messages[max(0, start - CONTEXT_MESSAGES) : start]
+            if not (m.text or "").startswith("/")
+            and messages[start].timestamp - m.timestamp <= CONTEXT_WINDOW_SECONDS
+        ]
         return target, messages[start : end + 1], earlier
 
     def _text_of(self, message: WaMessage, transcribe: bool, problems: List[str]) -> Optional[str]:

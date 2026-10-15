@@ -78,7 +78,9 @@ def question_from(understood: Dict[str, Any], texts: List[str]) -> Optional[str]
     if intent not in INTENTS or intent == "outro":
         return None
     raw_codes = understood.get("codigos") or []
-    codes = supported_codes([str(c) for c in raw_codes if c] if isinstance(raw_codes, list) else [], texts)
+    # Pergunta por veiculo so usa codigo escrito nela: o da conversa anterior era outro pedido.
+    code_texts = texts[:1] if intent == "aplicacao" else texts
+    codes = supported_codes([str(c) for c in raw_codes if c] if isinstance(raw_codes, list) else [], code_texts)
     raw_versions = understood.get("versoes") or []
     versions = [v for v in VERSIONS if isinstance(raw_versions, list) and v in [str(x).lower() for x in raw_versions]]
 

@@ -194,7 +194,10 @@ class AssistantDirectService:
                 text = HELP_TEXT
             else:
                 collect_products(output, found)
-                text = output.get("texto_pronto") or format_application_answer(output, wants_core(mensagem))
+                if self.compact and output.get("texto_compacto"):
+                    text = f"{COMPACT_HEADER}\n\n{output['texto_compacto']}"
+                else:
+                    text = output.get("texto_pronto") or format_application_answer(output, wants_core(mensagem))
 
         return make_result(text, cited_products(text, found), tools_used, MODE_DIRECT), understood
 

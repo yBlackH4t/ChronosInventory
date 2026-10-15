@@ -10,6 +10,17 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.5.1",
+    "date": "2026-10-15",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Mudanca: WhatsApp: a resposta por veículo (\"Volvo FH 520 Euro 3\") vem no mesmo formato curto da consulta de estoque: o motor e o modelo da turbina em negrito e, embaixo, o código nosso com a quantidade em cada filial. No app, a resposta completa continua.",
+      "Mudanca: Assistente: \"a 4031196 é a mesma que a 5455609?\" agora responde \"provavelmente servem\" quando os dois códigos estão em fichas diferentes do catálogo, mas do mesmo modelo Master Power e da mesma turbina (MP530w / HE500WG), em vez de \"não sei\". Continua pedindo para o especialista confirmar.",
+      "Correcao: Busca por veículo: uma palavra que não está no catálogo junto com as outras (\"Scania Super R460\") não zera mais a busca: a busca tira essa palavra e segue. Ano fora do catálogo (\"2023\" num veículo que o catálogo só tem até 2015) ganha o aviso \"Conferir\".",
+      "Correcao: WhatsApp: a pergunta nova não usa mais mensagens de horas atrás da conversa (o código do áudio de outro pedido aparecia na resposta)."
+    ]
+  },
+  {
     "version": "2.5.0",
     "date": "2026-10-15",
     "title": "Melhorias e correcoes",

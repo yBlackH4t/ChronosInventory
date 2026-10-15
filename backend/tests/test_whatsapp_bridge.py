@@ -462,3 +462,12 @@ def test_proposals_and_whatsapp_endpoints(client, tmp_path, monkeypatch):
     finally:
         client.app.dependency_overrides.clear()
         assistant_admin_service._SESSIONS.clear()
+
+
+def test_old_messages_are_not_context_for_a_new_request(setup):
+    s = setup
+    _msg(s, BOSS, "m1", BOSS, text="876271515151517")
+    _msg(s, BOSS, "m2", BOSS, text="turbina do scania super 2023 R460", dt=3 * 60 * 60)
+    _react(s, BOSS, "m2")
+    # O pedido de horas atras (outro cliente, outro assunto) nao entra na pergunta nova.
+    assert s.chat.calls[-1]["historico"] == []

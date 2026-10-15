@@ -22,6 +22,7 @@ from app.services.assistant_answer_format import (
     format_application_answer,
     format_catalog_code_answer,
     format_code_answer,
+    format_application_compact,
     format_code_compact,
     format_comparison_answer,
     format_movements_answer,
@@ -490,8 +491,36 @@ class AssistantToolsService:
                 model = _turbo_models(rows[0].get("modelo")) or rows[0].get("codigo")
                 uses = short_applications(item)
                 catalog.append(f"• {label}: {model}" + (f" — {uses}" if uses else ""))
+            family = self._same_catalog_model(codes[0], codes[1])
+            if family and relation["fonte"] != "cadastro":
+                result["mesmo_modelo_catalogo"] = family
+                relation = {**relation, "relacao": "mesmo_modelo", "modelo": family}
         result["texto_pronto"] = format_comparison_answer(labels[0], labels[1], relation, catalog)
         return result
+
+    def _same_catalog_model(self, code_a: str, code_b: str) -> Optional[str]:
+        """
+        Fichas diferentes do catalogo, mas do mesmo modelo Master Power e da mesma turbina
+        (4031196 na 805314 e 5455609 na 808191, as duas "MP530w (HE500WG)"): provavelmente servem.
+        Devolve "MP530w / HE500WG", ou None. "MP530" e "MP530w" sao modelos diferentes.
+        """
+        def models(code: str) -> List[Tuple[str, set]]:
+            found = []
+            for row in self.catalog.search_catalog(code, limit=10):
+                text = str(row.get("modelo") or "")
+                master = text.partition("(")[0].strip().upper()
+                turbos = set(re.findall(r"[A-Z]+\d+[A-Z0-9]*", (_turbo_models(text) or "").upper()))
+                if master and turbos:
+                    found.append((master, turbos))
+            return found
+
+        for master_a, turbos_a in models(code_a):
+            for master_b, turbos_b in models(code_b):
+                shared = sorted(turbos_a & turbos_b)
+                if master_a == master_b and shared:
+                    # "MP530W" -> "MP530w", como o catalogo escreve
+                    return f"{master_a[:2]}{master_a[2:].lower()} / {' / '.join(shared)}"
+        return None
 
     def _our_products_for_code(self, code: str) -> List[Dict[str, Any]]:
         """Nossos produtos (ativos e inativos) com o codigo ou a versao nova/reman dele."""
@@ -599,7 +628,29 @@ class AssistantToolsService:
         optional = [t for t in known if t not in required]
         alternatives = [set(synonyms.get(term, (term,))) for term in required]
 
-        candidates = [(app, words) for app, words in indexed if alternatives and all(o & words for o in alternatives)]
+        def matching(alts: List[set]) -> List[Tuple[Dict[str, Any], set]]:
+            return [(app, words) for app, words in indexed if alts and all(o & words for o in alts)]
+
+        year_outside: Optional[str] = None
+        candidates = matching(alternatives)
+        # Nenhuma aplicacao tem todas as palavras ("scania SUPER r460": "super" nao esta no
+        # catalogo junto com R 460): tira a palavra (so letras) que impede, uma por vez, ficando
+        # com a busca mais especifica. Numero nunca sai ("scania 999" nao vira "qualquer Scania"), nem a
+        # montadora, nem a letra da linha ("R" 440 nao vira G 440).
+        brands = set() if candidates else {w for a, _ in indexed for w in search_words(str(a.get("montadora") or ""))}
+        while not candidates:
+            options = []
+            for index, term in enumerate(required):
+                if term.isalpha() and len(term) > 2 and term not in brands and len(required) > 1:
+                    rest = alternatives[:index] + alternatives[index + 1 :]
+                    found = matching(rest)
+                    if found:
+                        options.append((len(found), index, found))
+            if not options:
+                break
+            _, index, candidates = min(options, key=lambda o: o[0])
+            ignored.append(required.pop(index))
+            alternatives.pop(index)
         if euro:
             candidates = [(app, words) for app, words in candidates if _euro_fits(app, euro)]
         for term in optional:
@@ -614,6 +665,8 @@ class AssistantToolsService:
                 candidates = by_word
             else:
                 ignored.append(term)
+                if _is_year(term) and candidates and not by_year:
+                    year_outside = term  # "2023" e o catalogo so tem ate 2015: avisa na resposta
 
         matched: "OrderedDict[int, List[Dict[str, Any]]]" = OrderedDict()
         for app, _ in candidates:
@@ -640,6 +693,8 @@ class AssistantToolsService:
         result: Dict[str, Any] = {"termos_usados": [t for t in terms if t not in ignored]}
         if ignored:
             result["termos_ignorados"] = ignored
+        if year_outside:
+            result["ano_fora_do_catalogo"] = year_outside
             result["obs_termos_ignorados"] = "Palavras que nao aparecem nas aplicacoes do catalogo; a busca seguiu sem elas."
         result["total_fichas"] = len(catalog_items)
         # Aviso explicito no resultado: modelos menores seguem melhor isso do que o prompt.
@@ -661,6 +716,11 @@ class AssistantToolsService:
         if not catalog_items:
             result["dica"] = "Nada encontrado com todas as palavras. Tente com menos palavras ou so o motor."
         result["texto_pronto"] = format_application_answer(result, wants_core(texto))
+        compact = format_application_compact(
+            result, wants_core(texto), list(self.repository.get_location_labels().values())
+        )
+        if compact:
+            result["texto_compacto"] = compact  # formato do chefe no WhatsApp
         return result
 
     def product_details(self, produto_id: int) -> Dict[str, Any]:

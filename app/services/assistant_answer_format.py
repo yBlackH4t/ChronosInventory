@@ -202,7 +202,11 @@ def _main_code(name: str) -> Optional[str]:
     from core.catalog.normalization import extract_codes_from_name
 
     codes = extract_codes_from_name(name, expand_family=False)
-    return display_code(codes[0]) if codes else None
+    if not codes:
+        return None
+    # O numero da peca, nao o modelo: "GTC4594SBN - 852915-5007S" -> 852915-5007S.
+    best = max(codes, key=lambda c: sum(ch.isdigit() for ch in c))
+    return display_code(best, garrett=len(re.sub(r"\D", "", best)) == 10)
 
 
 def format_code_compact(code_label: str, output: Dict[str, Any], locations: List[str]) -> Optional[str]:
@@ -407,6 +411,12 @@ def format_comparison_answer(
         lines.append(f"Ressalva: {note}" if note else "Confira antes de trocar.")
     elif kind == "diferente":
         lines = [f"{pair}: não, são diferentes; uma não serve no lugar da outra (segundo o especialista)."]
+    elif kind == "mesmo_modelo":
+        confirmed = False
+        lines = [
+            f"{pair}: provavelmente servem uma no lugar da outra. São fichas diferentes do catálogo, "
+            f"mas do mesmo modelo ({relation.get('modelo')})."
+        ]
     elif source == "cadastro" and relation.get("produto"):
         confirmed = False
         lines = [f"{pair}: provavelmente são iguais. O cadastro junta os dois em *{relation.get('produto')}*."]
@@ -435,35 +445,58 @@ def _engine_given(output: Dict[str, Any], items: List[Dict[str, Any]]) -> bool:
     return bool(common and common & set(output.get("termos_usados") or []))
 
 
-def format_application_answer(output: Dict[str, Any], core_question: bool = False) -> str:
-    """Resposta para buscar_por_aplicacao."""
+def _application_items(output: Dict[str, Any], core_question: bool) -> "tuple[List[Dict[str, Any]], Optional[str]]":
+    """As fichas que a resposta por veiculo mostra, ou o texto para quando nao ha nenhuma."""
     if "erro" in output:
-        return HELP_TEXT
+        return [], HELP_TEXT
     all_items = output.get("fichas_catalogo") or []
     if not all_items:
-        return HELP_TEXT
+        return [], HELP_TEXT
     served = [i for i in all_items if i.get("atendemos_marca")]
     if not served:
-        return "Para essa aplicação o catálogo só tem turbinas de marcas com que não trabalhamos."
-
-    def has_stock(item: Dict[str, Any]) -> bool:
-        return any(p["estoque_total"] > 0 for p in item.get("nossos_produtos") or [])
-
+        return [], "Para essa aplicação o catálogo só tem turbinas de marcas com que não trabalhamos."
     turbos = [i for i in served if i.get("tipo") != CATEGORY_CORE]
     cores = [i for i in served if i.get("tipo") == CATEGORY_CORE]
     if core_question:
-        items = cores or turbos
-    elif turbos:
+        return cores or turbos, None
+    if turbos:
         # Conjunto central so aparece numa pergunta de turbina quando temos em estoque.
-        items = turbos + [i for i in cores if has_stock(i)]
-    else:
-        items = cores
+        return turbos + [i for i in cores if _has_stock(i)], None
+    return cores, None
 
-    lines = []
+
+def _has_stock(item: Dict[str, Any]) -> bool:
+    return any(p["estoque_total"] > 0 for p in item.get("nossos_produtos") or [])
+
+
+def _asks_engine(output: Dict[str, Any], items: List[Dict[str, Any]]) -> bool:
+    """Ha opcoes de motores diferentes e a pergunta nao disse qual: pergunta o motor ou o ano."""
     engines = set()
-    for item in items[:MAX_LINES]:
+    for item in items:
         first_app = (item.get("aplicacoes") or [{}])[0]
         engines.add(first_app.get("motor") or first_app.get("veiculo"))
+    # Motor ja informado ("scania 440" + "dc13") e ainda ha opcoes: lista sem perguntar de novo.
+    return len(engines) > 1 and not _engine_given(output, items)
+
+
+ENGINE_QUESTION = "Qual é o motor ou o ano do veículo?"  # a resposta curta ("d13", "2015") junta com esta pergunta
+MORE_OPTIONS = "Há mais opções; mande o motor ou o ano para filtrar."
+
+
+def _year_note(output: Dict[str, Any]) -> Optional[str]:
+    year = output.get("ano_fora_do_catalogo")
+    return f"⚠️ O catálogo não tem essa aplicação em {year}; estas são de outros anos. Conferir." if year else None
+
+
+def format_application_answer(output: Dict[str, Any], core_question: bool = False) -> str:
+    """Resposta para buscar_por_aplicacao."""
+    items, message = _application_items(output, core_question)
+    if message:
+        return message
+
+    lines = []
+    for item in items[:MAX_LINES]:
+        first_app = (item.get("aplicacoes") or [{}])[0]
         ours = item.get("nossos_produtos") or []
         in_stock = [p for p in ours if p["estoque_total"] > 0]
         if in_stock:
@@ -476,17 +509,53 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
         lines.append(f"• {_application_label(first_app)} → {_kind(item)} {item.get('modelo') or ''}".rstrip())
         lines.append(f"   {status}")
 
-    any_stock = any(has_stock(i) for i in items[:MAX_LINES])
-    # Motor ja informado ("scania 440" + "dc13") e ainda ha opcoes: lista sem perguntar de novo.
-    if len(engines) > 1 and not _engine_given(output, items[:MAX_LINES]):
+    asks_engine = _asks_engine(output, items[:MAX_LINES])
+    if asks_engine:
         header = "Depende do motor:"
-        footer = "Qual é o motor ou o ano do veículo?"  # a resposta curta ("d13", "2015") junta com esta pergunta
     else:
-        header = "Temos:" if any_stock else "Não temos no momento:"
-        footer = None
+        header = "Temos:" if any(_has_stock(i) for i in items[:MAX_LINES]) else "Não temos no momento:"
     text = "\n".join([header, *lines])
+    if _year_note(output):
+        text += f"\n{_year_note(output)}"
     if output.get("fichas_omitidas") or len(items) > MAX_LINES:
-        text += "\nHá mais opções; mande o motor ou o ano para filtrar."
-    if footer:
-        text += f"\n{footer}"
+        text += f"\n{MORE_OPTIONS}"
+    if asks_engine:
+        text += f"\n{ENGINE_QUESTION}"
     return text
+
+
+def format_application_compact(output: Dict[str, Any], core_question: bool, locations: List[str]) -> Optional[str]:
+    """
+    Busca por veiculo no formato do chefe no WhatsApp: um bloco por opcao, com o motor, o modelo
+    e o codigo nosso por filial.
+        *MD13 Euro 3 450 - 490HP* · HX55
+        📍Canoas: 05 - 4031195
+        📍Passo Fundo: 00 - 4031195
+    None quando nao ha opcao para mostrar (a mensagem normal explica).
+    """
+    items, message = _application_items(output, core_question)
+    if message:
+        return None
+    shown = items[:MAX_LINES]
+    blocks = []
+    for item in shown:
+        first_app = (item.get("aplicacoes") or [{}])[0]
+        models = " / ".join(str(item.get("modelo") or "").split(" / ")[:2])  # "GTA42S / GTC4294BNS"
+        kind = "conjunto central " if item.get("tipo") == CATEGORY_CORE else ""
+        lines = [f"*{_application_label(first_app)}* · {kind}{models}".rstrip(" ·")]
+        ours = sorted(item.get("nossos_produtos") or [], key=lambda p: -p["estoque_total"])
+        if ours:
+            product = ours[0]
+            code = _main_code(product["nome"]) or product["nome"]
+            stock = product.get("estoque_por_local") or {}
+            for place in locations or list(stock) or ["Estoque"]:
+                lines.append(f"📍{place}: {int(stock.get(place, 0)):02d} - {code}")
+        else:
+            lines.append("❌ Não temos")
+        blocks.append("\n".join(lines))
+    tail = [_year_note(output)] if _year_note(output) else []
+    if output.get("fichas_omitidas") or len(items) > MAX_LINES:
+        tail.append(MORE_OPTIONS)
+    if _asks_engine(output, shown):
+        tail.append(ENGINE_QUESTION)
+    return "\n\n".join(blocks + (["\n".join(tail)] if tail else []))

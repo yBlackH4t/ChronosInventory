@@ -149,3 +149,42 @@ def test_whatsapp_stock_answer_in_the_boss_format(client, tools):  # noqa: F811
     ]
     # No app, a resposta completa continua.
     assert AssistantDirectService(tools).answer("tem a 4031195?")["resposta"].startswith("*4031195*: temos.")
+
+
+def test_whatsapp_vehicle_answer_in_the_boss_format(client, tools):  # noqa: F811
+    lines = AssistantDirectService(tools, compact=True).answer("scania 440 euro 3")["resposta"].splitlines()
+    assert lines == [
+        "*Consulta Estoque*",
+        "",
+        "*DT12-06/18 Euro 3* · HX52 / HE500GF",
+        "📍Canoas: 00 - 4031343",
+        "📍Passo Fundo: 00 - 4031343",
+    ]
+    assert not any(line.startswith(("•", "✅", "Depende")) for line in lines)
+    # No app, a resposta completa continua.
+    assert not AssistantDirectService(tools).answer("scania 440 euro 3")["resposta"].startswith("*Consulta")
+
+
+def test_vehicle_question_ignores_the_previous_code_and_unknown_words(tools):  # noqa: F811
+    # Pergunta por veiculo: o codigo da conversa anterior era outro pedido.
+    assert question_from(
+        {"intencao": "aplicacao", "codigos": ["876271515151517"], "veiculo": "scania r460"},
+        ["turbina do scania super R460", "876271515151517"],
+    ) == "turbina scania r460"
+    # "super" nao esta no catalogo junto com o R 440: sai, e a busca acha o R 440.
+    found = tools.search_by_application("scania super r440")
+    assert "SUPER" in found["termos_ignorados"] and found["total_fichas"]
+
+
+def test_same_catalog_model_links_codes_from_different_fichas(tools, monkeypatch):  # noqa: F811
+    fichas = {
+        "4031196": [{"id": 901, "modelo": "MP530 (HX55W / HE500WG)"}, {"id": 902, "modelo": "MP530w (HX55W HE500WG)"}],
+        "5455609": [{"id": 903, "modelo": "MP530w (HE500WG)"}],
+        "4031343": [{"id": 904, "modelo": "MP530 (HX52 / HE500GF)"}],
+    }
+    monkeypatch.setattr(tools.catalog, "search_catalog", lambda code, limit=50: fichas.get(code, []))
+    text = tools.compare_codes("4031196", "5455609")["texto_pronto"]
+    assert text.startswith("*4031196* e *5455609*: provavelmente servem uma no lugar da outra.")
+    assert "(MP530w / HE500WG)" in text and text.endswith("Deixei para o especialista confirmar.")
+    # Mesmo "MP530", mas outra turbina (HX52 x HX55W): nao liga.
+    assert "não sei dizer" in tools.compare_codes("4031196", "4031343")["texto_pronto"]
