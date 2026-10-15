@@ -422,6 +422,16 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-15 — Claude Code — Release mais rápido (cache)
+- Branch: `claude/project-thread-1tkomm`. Pedido: "o release build and publish demora uns 15 min".
+- Medido na 2.4.5 (14 min 24 s): compilar o Rust do zero 6 min 13 s, testes 2 min, PyInstaller
+  1,5 min, pip 1 min, WiX 1 min.
+- `release.yml` lê o cache do Rust (`Swatinem/rust-cache`, chave `tauri-release`) e do pip.
+  Tags não enxergam cache de outras tags, então quem grava é o job `warm-release-cache` do
+  `ci.yml` a cada push na main (`tauri build --no-bundle` com backend falso; não gera
+  instalador). Nos PRs o mesmo job só confere que o Rust compila. O instalador não muda.
+- Conferir no log do próximo release se "Compiling tauri v2" sumiu.
+
 ### 2026-10-15 — Claude Code — Novo visual (2.5.0)
 - Branch: `claude/project-thread-8wdsu2`. Pedido: "temos o melhor layout?"; o dono escolheu as 11
   ideias do mockup.
