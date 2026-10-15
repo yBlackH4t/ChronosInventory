@@ -24,6 +24,16 @@ Formato recomendado:
 
 
 
+
+## [2.4.4] - 2026-10-15
+
+### Added
+- **Revisar antes de enviar (WhatsApp):** com o modo ligado (padrão), a resposta do 🤖 não vai direto para o cliente. Ela aparece em Assistente > Admin > WhatsApp para editar, enviar ou descartar, e também na "Mensagem para mim", onde /enviar e /descartar resolvem pelo celular.
+- **"Tem montada ou reman?":** o assistente responde cada versão pedida (nova, reman e montada), dizendo também quando não temos.
+
+### Fixed
+- Código falado e transcrito errado (ex.: "876271515151517" no lugar de 876271-5017): o assistente sugere as turbinas Garrett com o mesmo começo, em vez de só dizer que não achou.
+
 ## [2.4.3] - 2026-10-14
 
 ### Changed

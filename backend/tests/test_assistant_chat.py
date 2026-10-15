@@ -376,7 +376,7 @@ def test_direct_search_by_code(tools):  # noqa: F811
     assert [p["nome"] for p in found["produtos"]][0] == "TURBINA HOLSET HX55W 4031196"
 
     reman = direct.answer("tem a 53279907116?")["resposta"]
-    assert "*TURBO K27 - 53279887116* — 3 em Passo Fundo (versão nova/reman do mesmo código)" in reman
+    assert "*TURBO K27 - 53279887116* — 3 em Passo Fundo (versão nova do mesmo código)" in reman
 
     no_stock = direct.answer("4031343")["resposta"]
     assert no_stock.startswith("*4031343*: não temos em estoque no momento.")

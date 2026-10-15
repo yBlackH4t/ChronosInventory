@@ -29,6 +29,13 @@ from app.services.assistant_tools_service import AssistantToolsService
 from core.catalog.normalization import canonical_code, extract_codes_from_name, search_words
 
 MAX_CODES_PER_MESSAGE = 3
+# "403-1195, montada ou reman": a resposta diz de cada versao, mesmo que seja "nao temos".
+VERSION_WORDS = {
+    "REMAN": "reman", "REMANUFATURADA": "reman", "REMANUFATURADO": "reman", "RECONDICIONADA": "reman",
+    "RECONDICIONADO": "reman", "RECOND": "reman", "RX": "reman",
+    "MONTADA": "montada", "MONTADO": "montada", "MONTADAS": "montada", "MONTADOS": "montada",
+    "NOVA": "nova", "NOVO": "nova", "NOVAS": "nova", "NOVOS": "nova",
+}
 # Respostas seguidas a "Qual é o motor (ou o ano)?" que juntam com a pergunta original.
 MAX_FOLLOW_UPS = 3
 APPLICATION_ANSWER_STARTS = ("Depende do motor:", "Temos:", "Não temos no momento:")
@@ -149,9 +156,13 @@ class AssistantDirectService:
             return make_result("\n\n".join(parts), [], tools_used, MODE_DIRECT), True
         if codes:
             parts = []
+            versions = sorted({VERSION_WORDS[w] for w in search_words(mensagem) if w in VERSION_WORDS})
             for code in codes:
                 typed = _typed_code(code_source, code)
-                output = self.tools.run_tool("buscar_por_codigo", {"codigo": typed})
+                arguments: Dict[str, Any] = {"codigo": typed}
+                if versions:
+                    arguments["versoes"] = versions  # "tem montada ou reman?"
+                output = self.tools.run_tool("buscar_por_codigo", arguments)
                 tools_used.append("buscar_por_codigo")
                 collect_products(output, found)
                 parts.append(output.get("texto_pronto") or format_code_answer(typed, output))

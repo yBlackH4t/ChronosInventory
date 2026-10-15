@@ -338,6 +338,33 @@ def test_new_product_is_linked_to_the_catalog_right_away(client, tools):
     assert [link["codigo"] for link in links] == ["805470"]
 
 
+def test_new_reman_and_assembled_versions(client, tools):
+    # O chefe: "403-1195, montada ou reman, se tem alguma coisa". Nova com estoque, reman zerada, sem montada.
+    _create_product(client, "TURBO HOLSET HX55 - 4031195/4044201", {CANOAS: 5})
+    _create_product(client, "TURBO HOLSET HX55 - 4031195RX", {})
+    answer = AssistantDirectService(tools).answer("dá uma olhada, 403-1195, montada ou reman, se tem")
+    assert answer["resposta"].splitlines()[:4] == [
+        "*4031195*: temos.",
+        "• *TURBO HOLSET HX55 - 4031195/4044201* — 5 em Canoas (nova)",
+        "Reman: não temos em estoque (cadastrada, zerada).",
+        "Montada: não temos.",
+    ]
+    # Sem perguntar pela versao, a resposta fica como sempre.
+    assert "Reman:" not in AssistantDirectService(tools).answer("temos 4031195?")["resposta"]
+
+
+def test_garbled_spoken_garrett_code_suggests_the_same_start(client, tools):
+    # O audio juntou "876271-5017" com outros numeros.
+    _create_product(client, "TURBO GARRETT 876271-5017S", {CANOAS: 2})
+    lines = tools.search_by_code("876271515151517")["texto_pronto"].splitlines()
+    assert lines == [
+        "*876271515151517*: não encontrei esse número. Será uma destas (mesmo começo Garrett)?",
+        "• *876271-5017* — *TURBO GARRETT 876271-5017S* — 2 em Canoas",
+    ]
+    # Numero do tamanho de um Garrett que nao existe: nao chuta.
+    assert "Será" not in tools.search_by_code("8762719999")["texto_pronto"]
+
+
 def test_movements_of_a_code(client, tools):
     sale = {"tipo": "SAIDA", "produto_id": tools.ids["k27"], "quantidade": 1, "origem_location_id": PF}
     assert client.post("/movimentacoes", json=sale).status_code == 201
