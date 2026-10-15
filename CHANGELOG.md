@@ -24,8 +24,7 @@ Formato recomendado:
 
 
 
-
-## [2.4.4] - 2026-10-15
+## [2.4.5] - 2026-10-15
 
 ### Added
 - **Revisar antes de enviar (WhatsApp):** com o modo ligado (padrão), a resposta do 🤖 não vai direto para o cliente. Ela aparece em Assistente > Admin > WhatsApp para editar, enviar ou descartar, e também na "Mensagem para mim", onde /enviar e /descartar resolvem pelo celular.
@@ -33,6 +32,11 @@ Formato recomendado:
 
 ### Fixed
 - Código falado e transcrito errado (ex.: "876271515151517" no lugar de 876271-5017): o assistente sugere as turbinas Garrett com o mesmo começo, em vez de só dizer que não achou.
+
+## [2.4.4] - 2026-10-15
+
+### Added
+- **Ignorar item da nota:** na conferência da NF-e, marque "Ignorar" no item que não é estoque (ex.: CASCO, usado só para transportar a mercadoria). A nota é lançada sem ele, e o Chronos lembra: na próxima nota com o mesmo código, o item já vem marcado.
 
 ## [2.4.3] - 2026-10-14
 

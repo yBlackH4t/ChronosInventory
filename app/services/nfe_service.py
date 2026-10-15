@@ -60,6 +60,15 @@ _SCHEMA = (
         PRIMARY KEY (emitente_cnpj, codigo)
     )
     """,
+    # Itens que nao sao estoque (ex.: CASCO, embalagem de transporte): a nota passa sem eles.
+    """
+    CREATE TABLE IF NOT EXISTS nfe_itens_ignorados (
+        emitente_cnpj TEXT NOT NULL,
+        codigo TEXT NOT NULL,
+        atualizado_em DATETIME NOT NULL,
+        PRIMARY KEY (emitente_cnpj, codigo)
+    )
+    """,
 )
 
 
@@ -405,6 +414,10 @@ class NfeService:
 
     def _suggest(self, conn, documento: NfeDocumento, item) -> Dict[str, Any]:
         learned_id: Optional[int] = None
+        ignorar = bool(item.codigo) and conn.execute(
+            "SELECT 1 FROM nfe_itens_ignorados WHERE emitente_cnpj = ? AND codigo = ?",
+            (documento.emitente_cnpj, item.codigo),
+        ).fetchone() is not None
         if item.codigo:
             row = conn.execute(
                 "SELECT produto_id FROM nfe_item_vinculos WHERE emitente_cnpj = ? AND codigo = ?",
@@ -462,6 +475,7 @@ class NfeService:
             "produto_sugerido": sugerido,
             "confianca": confianca,
             "candidatos": candidatos,
+            "ignorar": ignorar,
         }
 
     # ------------------------------------------------------------------
@@ -501,12 +515,14 @@ class NfeService:
             if n in chosen:
                 raise ValidationException(f"Item {n} repetido.")
             chosen[n] = entry
-        missing = [n for n in by_item if n not in chosen]
+        missing = [n for n in by_item if n not in chosen or (not chosen[n].get("ignorar") and not chosen[n].get("produto_id"))]
         if missing:
             raise ValidationException(
-                "Escolha o produto de todos os itens da nota (faltam: "
+                "Escolha o produto de todos os itens da nota ou marque 'Ignorar' (faltam: "
                 + ", ".join(str(n) for n in missing) + ")."
             )
+        if all(entry.get("ignorar") for entry in chosen.values()):
+            raise ValidationException("Todos os itens estao marcados para ignorar: nada para lancar.")
 
         documento_mov = f"NF {documento.numero}"
         observacao = (observacao or "").strip()[:200] or _suggested_movement(documento, tipo, None)["observacao"]
@@ -522,6 +538,18 @@ class NfeService:
             records: List[MovementRecord] = []
             for n in sorted(chosen):
                 entry = chosen[n]
+                codigo = by_item[n].codigo
+                if entry.get("ignorar"):
+                    if codigo and documento.emitente_cnpj:
+                        conn.execute(
+                            """
+                            INSERT INTO nfe_itens_ignorados (emitente_cnpj, codigo, atualizado_em)
+                            VALUES (?, ?, ?)
+                            ON CONFLICT(emitente_cnpj, codigo) DO UPDATE SET atualizado_em = excluded.atualizado_em
+                            """,
+                            (documento.emitente_cnpj, codigo, now),
+                        )
+                    continue
                 record = self.movements._create_movement_internal(
                     conn,
                     tipo,
@@ -538,8 +566,11 @@ class NfeService:
                     None,
                 )
                 records.append(record)
-                codigo = by_item[n].codigo
                 if codigo and documento.emitente_cnpj:
+                    conn.execute(
+                        "DELETE FROM nfe_itens_ignorados WHERE emitente_cnpj = ? AND codigo = ?",
+                        (documento.emitente_cnpj, codigo),
+                    )
                     conn.execute(
                         """
                         INSERT INTO nfe_item_vinculos (emitente_cnpj, codigo, produto_id, atualizado_em)

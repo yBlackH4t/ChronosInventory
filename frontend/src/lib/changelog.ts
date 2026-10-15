@@ -10,13 +10,21 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
-    "version": "2.4.4",
+    "version": "2.4.5",
     "date": "2026-10-15",
     "title": "Melhorias e correcoes",
     "highlights": [
       "Novo: Revisar antes de enviar (WhatsApp): com o modo ligado (padrão), a resposta do 🤖 não vai direto para o cliente. Ela aparece em Assistente > Admin > WhatsApp para editar, enviar ou descartar, e também na \"Mensagem para mim\", onde /enviar e /descartar resolvem pelo celular.",
       "Novo: \"Tem montada ou reman?\": o assistente responde cada versão pedida (nova, reman e montada), dizendo também quando não temos.",
       "Correcao: Código falado e transcrito errado (ex.: \"876271515151517\" no lugar de 876271-5017): o assistente sugere as turbinas Garrett com o mesmo começo, em vez de só dizer que não achou."
+    ]
+  },
+  {
+    "version": "2.4.4",
+    "date": "2026-10-15",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: Ignorar item da nota: na conferência da NF-e, marque \"Ignorar\" no item que não é estoque (ex.: CASCO, usado só para transportar a mercadoria). A nota é lançada sem ele, e o Chronos lembra: na próxima nota com o mesmo código, o item já vem marcado."
     ]
   },
   {
