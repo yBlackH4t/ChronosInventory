@@ -14,6 +14,31 @@ from core.database.repositories.base_repository import BaseRepository
 
 
 class KnowledgeRepository(BaseRepository):
+    # ------------------------------------------------------------------
+    # Grafo de codigos (app/services/code_graph.py)
+    # ------------------------------------------------------------------
+
+    def active_product_names(self) -> List[Dict[str, Any]]:
+        return self._execute_query("SELECT id, nome FROM produtos WHERE ativo = 1 ORDER BY id")
+
+    def nfe_item_links(self) -> List[Dict[str, Any]]:
+        """Codigo do item na nota do fornecedor -> nosso produto (aprendido na Baixa por NF-e)."""
+        try:
+            return self._execute_query("SELECT codigo, produto_id FROM nfe_item_vinculos")
+        except Exception:  # tabela ainda nao existe (nenhuma nota conferida nesta maquina)
+            return []
+
+    def graph_signature(self) -> str:
+        """Muda quando produtos, regras ou vinculos de NF-e mudam (para nao remontar o grafo a toa)."""
+        products = self._execute_query(
+            "SELECT COUNT(*) AS n, COALESCE(MAX(id), 0) AS m, COALESCE(SUM(LENGTH(nome)), 0) AS s FROM produtos WHERE ativo = 1"
+        )[0]
+        rules = self._execute_query(
+            "SELECT COUNT(*) AS n, COALESCE(MAX(atualizado_em), '') AS m FROM conhecimento_equivalencias"
+        )[0]
+        nfe = len(self.nfe_item_links())
+        return f"{products['n']}:{products['m']}:{products['s']}|{rules['n']}:{rules['m']}|{nfe}"
+
     def all_rules(self) -> List[Dict[str, Any]]:
         """Todas as regras (poucas centenas): a busca carrega tudo e monta os grupos em memoria."""
         return self._execute_query(

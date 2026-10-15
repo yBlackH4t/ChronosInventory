@@ -195,3 +195,4 @@ class WhatsAppStatusOut(BaseModel):
     numero: str | None = None
     erro: str | None = None
     ativo: bool
+    revisar: bool = True  # revisar antes de enviar (a resposta do 🤖 vira rascunho)

@@ -15,6 +15,7 @@ import type {
   ReviewItem,
   WhatsAppState,
   WhatsAppStatus,
+  WhatsAppDraft,
   DailySummary,
   DailySummaryUpdate,
 } from "../types/assistantAdmin";
@@ -491,3 +492,21 @@ export async function updateDailySummary(body: DailySummaryUpdate): Promise<Dail
   return adminRequest<DailySummary>("/resumo", { method: "PUT", body });
 }
 
+
+// Revisar antes de enviar: a resposta do robo vira rascunho ate o admin mandar.
+export async function setWhatsAppReview(revisar: boolean): Promise<WhatsAppStatus> {
+  return adminRequest<WhatsAppStatus>("/whatsapp/revisao", { method: "PUT", body: { revisar } });
+}
+
+export async function listWhatsAppDrafts(): Promise<WhatsAppDraft[]> {
+  if (isMockEnabled()) return [];
+  return adminRequest<WhatsAppDraft[]>("/whatsapp/rascunhos");
+}
+
+export async function sendWhatsAppDraft(id: number, texto: string): Promise<{ enviado: boolean }> {
+  return adminRequest<{ enviado: boolean }>(`/whatsapp/rascunhos/${id}/enviar`, { method: "POST", body: { texto } });
+}
+
+export async function discardWhatsAppDraft(id: number): Promise<{ descartado: boolean }> {
+  return adminRequest<{ descartado: boolean }>(`/whatsapp/rascunhos/${id}`, { method: "DELETE" });
+}

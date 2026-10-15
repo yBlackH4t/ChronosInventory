@@ -124,6 +124,37 @@ def _react(s, chat, target_id, emoji="🤖", from_me=True):
     )
 
 
+def test_review_before_sending_turns_the_answer_into_a_draft(setup):
+    s = setup
+    s.bridge.review_enabled = lambda: True
+    _msg(s, BOSS, "m1", BOSS, text="tem a 4031196?")
+    _react(s, BOSS, "m1")
+
+    # Nada vai para o cliente: o rascunho aparece no app e na "Mensagem para mim".
+    assert s.transport.replies == []
+    assert s.transport.reactions == [("m1", "📝")]
+    (draft,) = s.bridge.list_drafts()
+    assert draft["pergunta"] == "tem a 4031196?" and draft["texto"].startswith("Sim.")
+    assert "/enviar 1" in s.transport.to_self[-1]
+
+    # O admin edita e manda (pelo app); o 📝 sai.
+    assert s.bridge.send_draft(draft["id"], "Temos 2 em Canoas.") is True
+    assert s.transport.replies == [("m1", "Temos 2 em Canoas.")]
+    assert s.transport.reactions[-1] == ("m1", "")
+    assert s.bridge.send_draft(draft["id"]) is False  # ja foi
+
+    # Pelo celular: "/enviar" com um rascunho so manda ele; "/descartar 3" descarta.
+    _msg(s, BOSS, "m2", BOSS, text="e a 4031195?", dt=10)
+    _react(s, BOSS, "m2")
+    _msg(s, ME, "c1", ME, from_me=True, text="/enviar", dt=5)
+    assert s.transport.replies[-1] == ("m2", "Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas")
+    _msg(s, BOSS, "m3", BOSS, text="e a 3785479?", dt=10)
+    _react(s, BOSS, "m3")
+    _msg(s, ME, "c2", ME, from_me=True, text="/descartar 3", dt=5)
+    assert s.bridge.list_drafts() == [] and len(s.transport.replies) == 2
+    assert s.transport.to_self[-1] == "🗑️ Rascunho #3 descartado."
+
+
 def test_reaction_answers_the_pasted_code_plus_audio(setup):
     s = setup
     _msg(s, BOSS, "m1", ME, from_me=True, text="Bom dia chefe")
@@ -312,7 +343,7 @@ def _service(tmp_path):
 
 def test_whatsapp_service_lifecycle(tmp_path):
     service, created = _service(tmp_path)
-    assert service.status() == {"estado": "parado", "qr": None, "numero": None, "erro": None, "ativo": False}
+    assert service.status() == {"estado": "parado", "qr": None, "numero": None, "erro": None, "ativo": False, "revisar": True}
 
     service.start()
     transport = created[0]

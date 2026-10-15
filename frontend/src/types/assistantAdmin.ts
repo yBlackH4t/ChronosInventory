@@ -107,6 +107,16 @@ export interface WhatsAppStatus {
   numero: string | null;
   erro: string | null;
   ativo: boolean;
+  revisar?: boolean;
+}
+
+/** Resposta do 🤖 esperando o admin (modo "revisar antes de enviar"). */
+export interface WhatsAppDraft {
+  id: number;
+  cliente: string;
+  pergunta: string;
+  texto: string;
+  criado_em: number;
 }
 
 export interface KnowledgeSyncStatus {

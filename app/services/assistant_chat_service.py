@@ -33,9 +33,12 @@ from app.services.assistant_common import (
 from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
 from app.services.assistant_history_service import AssistantHistoryService
+from app.services.assistant_interpreter_service import AssistantInterpreter
 from app.services.assistant_tools_service import COMPACT_LIMITS, AssistantToolsService
 
 LOG = logging.getLogger(__name__)
+
+_DEFAULT = object()
 
 # Esforco de raciocinio aceito pelo Groq (gpt-oss): low, medium, high.
 _OPENAI_EFFORT = {"low": "low", "medium": "medium", "high": "high", "xhigh": "high", "max": "high"}
@@ -97,6 +100,7 @@ class AssistantChatService:
         http_post: Optional[Callable[..., Any]] = None,
         sleep: Optional[Callable[[float], None]] = None,
         history: Optional[AssistantHistoryService] = None,
+        interpreter: Any = _DEFAULT,
     ) -> None:
         self.tools = tools or AssistantToolsService()
         self.history = history or AssistantHistoryService()
@@ -104,6 +108,14 @@ class AssistantChatService:
         self.client_factory = client_factory  # Claude (testes injetam um cliente falso)
         self.http_post = http_post  # Groq/Gemini/Ollama (testes injetam um POST falso)
         self.sleep = sleep
+        if interpreter is _DEFAULT:
+            # A IA entende toda mensagem antes da busca direta. Testes que injetam um POST falso
+            # para o provedor nao ligam esta etapa sem pedir (ela gastaria as respostas falsas).
+            interpreter = (
+                None if (http_post is not None or client_factory is not None)
+                else AssistantInterpreter(self.config_store)
+            )
+        self.interpreter = interpreter
 
     # ------------------------------------------------------------------
     # Configuracao
@@ -152,7 +164,7 @@ class AssistantChatService:
         historico = historico or []
         calls: List[Dict[str, Any]] = []
         tools = _RecordingTools(self.tools, calls)
-        result = self._answer(mensagem, historico, tools)
+        result = self._answer(mensagem, historico, tools, canal)
         try:
             self.history.record(
                 canal=canal, autor=autor, pergunta=mensagem, historico=historico, result=result, consultas=calls
@@ -161,18 +173,32 @@ class AssistantChatService:
             LOG.exception("assistente: falha ao gravar o historico")
         return result
 
-    def _answer(self, mensagem: str, historico: List[Dict[str, str]], tools: Any) -> Dict[str, Any]:
+    def _answer(self, mensagem: str, historico: List[Dict[str, str]], tools: Any, canal: str = "app") -> Dict[str, Any]:
         config = self.config_store.load()
         provider = config["provedor"]
-        direct = AssistantDirectService(tools)
+        # WhatsApp: estoque no formato curto do chefe; no app, a resposta completa.
+        direct = AssistantDirectService(tools, compact=canal == "whatsapp")
         if PROVIDERS[provider]["tipo"] == "nenhum":
             result = direct.answer(mensagem, historico)
             result["resposta"] = with_price_note(mensagem, result["resposta"])
             return result
 
-        # Busca direta primeiro: acerta as perguntas do dia a dia (codigo, veiculo/motor,
-        # "temos essa daí?", resposta a uma pergunta) sem gastar o limite gratuito. Na avaliacao
-        # com o Groq real, o modelo gratuito errava a busca ou estragava o texto; a busca direta, nao.
+        # A IA entende a mensagem ("montada a reman", "da Garte", "aquela do 540") e a transforma
+        # numa pergunta padrao; quem responde continua sendo a busca direta, pelo banco.
+        understood = self.interpreter.interpret(mensagem, historico) if self.interpreter else None
+        if understood:
+            if hasattr(tools, "calls"):
+                tools.calls.append(
+                    {"ferramenta": "entender", "pergunta": understood["pergunta"], "entendido": understood["entendido"]}
+                )
+            quick = direct.try_answer(understood["pergunta"], historico)
+            if quick is not None:
+                quick["resposta"] = with_price_note(mensagem, quick["resposta"])
+                return quick
+
+        # Busca direta: acerta as perguntas do dia a dia (codigo, veiculo/motor, "temos essa daí?",
+        # resposta a uma pergunta) sem a IA. Na avaliacao com o Groq real, o modelo gratuito errava
+        # a busca ou estragava o texto; a busca direta, nao.
         quick = direct.try_answer(mensagem, historico)
         if quick is not None:
             quick["resposta"] = with_price_note(mensagem, quick["resposta"])

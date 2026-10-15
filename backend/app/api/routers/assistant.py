@@ -395,6 +395,63 @@ def whatsapp_status(
     return ok(WhatsAppStatusOut(**whatsapp.status()))
 
 
+class WhatsAppReviewIn(BaseModel):
+    revisar: bool
+
+
+class WhatsAppDraftSendIn(BaseModel):
+    texto: Optional[str] = None
+
+
+@router.put("/whatsapp/revisao", response_model=SuccessResponse[WhatsAppStatusOut])
+def whatsapp_set_review(
+    payload: WhatsAppReviewIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    """Liga/desliga "revisar antes de enviar"."""
+    admin.require(_admin_token(request))
+    return ok(WhatsAppStatusOut(**whatsapp.set_review(payload.revisar)))
+
+
+@router.get("/whatsapp/rascunhos")
+def whatsapp_drafts(
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    return ok(whatsapp.list_drafts())
+
+
+@router.post("/whatsapp/rascunhos/{draft_id}/enviar")
+def whatsapp_send_draft(
+    draft_id: int,
+    payload: WhatsAppDraftSendIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    if not whatsapp.send_draft(draft_id, payload.texto):
+        return fail(404, "not_found", "Esse rascunho não existe mais (já foi enviado, descartado ou o WhatsApp reiniciou).", None, _request_id(request))
+    return ok({"enviado": True})
+
+
+@router.delete("/whatsapp/rascunhos/{draft_id}")
+def whatsapp_discard_draft(
+    draft_id: int,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    admin.require(_admin_token(request))
+    if not whatsapp.discard_draft(draft_id):
+        return fail(404, "not_found", "Esse rascunho não existe mais.", None, _request_id(request))
+    return ok({"descartado": True})
+
+
 @router.post("/whatsapp/iniciar", response_model=SuccessResponse[WhatsAppStatusOut])
 def whatsapp_start(
     request: Request,

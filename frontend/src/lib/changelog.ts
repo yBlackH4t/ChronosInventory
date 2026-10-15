@@ -10,6 +10,19 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.4.5",
+    "date": "2026-10-15",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: A IA entende a mensagem: com a chave do Groq configurada, a IA lê toda pergunta (código, versão, veículo, motor, ano, \"essa\", \"aquela\") e o Chronos responde pelo estoque. Código que a IA inventar e não estiver na mensagem é ignorado; sem internet ou no limite gratuito, a busca segue como antes.",
+      "Novo: Grafo de códigos: \"é igual?\" e as sugestões do \"Para revisar\" seguem o caminho entre os códigos (o mesmo produto cita os dois, o que o especialista ensinou, o item da NF-e do fornecedor), e a resposta mostra o caminho para conferir.",
+      "Novo: Formato curto no WhatsApp: a consulta de estoque sai como \"Consulta Estoque\" com uma linha por versão e por filial (ex.: \"📍Canoas: 01 - 4031195\", \"📍Canoas: 00 - 4031195 MONTADA\"), sem a aplicação. No app, a resposta completa continua.",
+      "Novo: Revisar antes de enviar (WhatsApp): com o modo ligado (padrão), a resposta do 🤖 não vai direto para o cliente. Ela aparece em Assistente > Admin > WhatsApp para editar, enviar ou descartar, e também na \"Mensagem para mim\", onde /enviar e /descartar resolvem pelo celular.",
+      "Novo: \"Tem montada ou reman?\": o assistente responde cada versão pedida (nova, reman e montada), dizendo também quando não temos.",
+      "Correcao: Código falado e transcrito errado (ex.: \"876271515151517\" no lugar de 876271-5017): o assistente sugere as turbinas Garrett com o mesmo começo, em vez de só dizer que não achou."
+    ]
+  },
+  {
     "version": "2.4.4",
     "date": "2026-10-15",
     "title": "Novas funcionalidades",

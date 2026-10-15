@@ -112,6 +112,43 @@ def run_openai_compatible(
     return NO_ANSWER_TEXT, found, tools_used
 
 
+def complete_json(
+    *,
+    provider_name: str,
+    base_url: str,
+    api_key: str,
+    model: str,
+    system: str,
+    user: str,
+    extra_params: Optional[Dict[str, Any]] = None,
+    http_post: Optional[HttpPost] = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Dict[str, Any]:
+    """Uma chamada sem ferramentas que devolve um objeto JSON (usada para entender a mensagem)."""
+    post = http_post or requests.post
+    url = f"{base_url.rstrip('/')}/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    payload = {
+        "model": model,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+        **(extra_params or {}),
+    }
+    data = _post_with_retry(post, url, headers, payload, provider_name, model, sleep)
+    _log_usage(provider_name, model, data, ["entender"])
+    try:
+        content = data["choices"][0]["message"].get("content") or ""
+        parsed = json.loads(content)
+    except (KeyError, IndexError, TypeError, ValueError) as exc:
+        raise AssistantUnavailableError(f"O {provider_name} não devolveu JSON.") from exc
+    if not isinstance(parsed, dict):
+        raise AssistantUnavailableError(f"O {provider_name} não devolveu um objeto JSON.")
+    return parsed
+
+
 def _post_with_retry(
     post: HttpPost,
     url: str,

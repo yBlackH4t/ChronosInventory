@@ -22,6 +22,7 @@ from app.services.assistant_answer_format import (
     format_application_answer,
     format_catalog_code_answer,
     format_code_answer,
+    format_code_compact,
     format_comparison_answer,
     format_movements_answer,
     short_applications,
@@ -125,6 +126,36 @@ def _is_year(term: str) -> bool:
     return len(term) == 4 and term.isdigit() and 1980 <= int(term) <= 2039
 
 
+# Versao da turbina (o chefe pergunta "tem montada ou reman?").
+VERSION_ORDER = ("nova", "reman", "montada")
+_RX_IN_NAME = re.compile(r"\d{5,}\s*RX\b")
+GARRETT_CODE_LENGTH = 10
+GARRETT_BASE_LENGTH = 6
+MAX_LOOKALIKES = 3
+
+
+def _is_reman_code(code: str) -> bool:
+    """Numero de reman da fabrica: BorgWarner 5327-990-xxxx / 90000..., Garrett 796155-9xxx."""
+    if len(code) == 11 and code.isdigit():
+        return code[4:7] in ("990", "991") or code.startswith("90000")
+    if len(code) == 10 and code.isdigit():
+        return code[6] == "9"
+    return False
+
+
+def product_condition(name: str, code: str) -> str:
+    """'nova', 'reman' (Holset RX, BorgWarner 990, Garrett 9xxx) ou 'montada' (MONTADO no nome)."""
+    upper = (name or "").upper()
+    if "MONTAD" in upper:
+        return "montada"
+    if _RX_IN_NAME.search(upper) or "REMAN" in upper:
+        return "reman"
+    family = set(expand_family_codes([code]))
+    if any(c in family and _is_reman_code(c) for c in extract_codes_from_name(name, expand_family=False)):
+        return "reman"
+    return "nova"
+
+
 _YEAR_IN_TEXT = re.compile(r"(?<!\d)(19[89]\d|20[0-3]\d)(?!\d)")
 
 
@@ -206,7 +237,10 @@ class AssistantToolsService:
     # Ferramentas
     # ------------------------------------------------------------------
 
-    def search_by_code(self, codigo: str, complete: bool = True) -> Dict[str, Any]:
+    def search_by_code(
+        self, codigo: str, complete: bool = True, versions: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """`versions`: o que a pessoa perguntou ("tem reman? montada?"); a resposta diz de cada uma."""
         typed = " ".join(str(codigo or "").split()).upper()
         # O modelo as vezes manda o codigo junto com texto ("HE200WG 3785294"): separa os codigos.
         codes_in_text = extract_codes_from_name(typed, expand_family=False)
@@ -229,7 +263,11 @@ class AssistantToolsService:
             # O especialista disse que nao serve: esconde o "equivalente pelo catalogo".
             if match == MATCH_CATALOG and blocked & set(extract_codes_from_name(p["nome"])):
                 continue
-            by_id[int(p["id"])] = {**self._product_summary(p, locations), "correspondencia": match}
+            by_id[int(p["id"])] = {
+                **self._product_summary(p, locations),
+                "correspondencia": match,
+                "condicao": product_condition(p["nome"], code),
+            }
 
         # Codigos que o especialista ensinou como iguais ou similares.
         for relation, match in ((knowledge["iguais"], MATCH_EXPERT_SAME), (knowledge["similares"], MATCH_EXPERT_SIMILAR)):
@@ -244,6 +282,7 @@ class AssistantToolsService:
                         **self._product_summary(p, locations),
                         "correspondencia": match,
                         "codigo_relacionado": item["codigo"],
+                        "condicao": product_condition(p["nome"], item["codigo_norm"]),
                     }
                     if item.get("obs"):
                         entry["obs_especialista"] = item["obs"]
@@ -308,7 +347,7 @@ class AssistantToolsService:
                 if len(known) == 1:
                     chosen, alternatives = known[0], [c for c in full_codes if c != known[0]]
             if chosen:
-                resolved = self.search_by_code(chosen, complete=False)
+                resolved = self.search_by_code(chosen, complete=False, versions=versions)
                 resolved["codigo_digitado"] = typed
                 note = f"(Entendi *{label}* como *{chosen}*"
                 if alternatives:
@@ -327,8 +366,40 @@ class AssistantToolsService:
                 )
                 return result
 
+        if versions:
+            result["versoes_pedidas"] = [v for v in VERSION_ORDER if v in versions]
+        if not products and not catalog_items and not taught:
+            # Codigo falado e transcrito errado ("876271515151517" para a Garrett 876271-5017):
+            # as turbinas Garrett nossas com o mesmo comeco.
+            lookalikes = self._garrett_lookalikes(code, locations)
+            if lookalikes:
+                result["parecidos"] = lookalikes
         result["texto_pronto"] = format_code_answer(label, result)
+        compact = format_code_compact(label, result, list(locations.values()))
+        if compact:
+            result["texto_compacto"] = compact  # formato do chefe no WhatsApp
         return result
+
+    def _garrett_lookalikes(self, code: str, locations: Dict[int, str]) -> List[Dict[str, Any]]:
+        """
+        Nossas turbinas Garrett (base de 6 digitos + 4) com o mesmo comeco de um numero que nao
+        existe e e comprido demais para ser Garrett. A base Garrett e o modelo da turbina, entao o
+        mesmo comeco e um bom palpite; para os outros fabricantes nao e (todo K27 comeca igual).
+        """
+        if not code.isdigit() or len(code) <= GARRETT_CODE_LENGTH:
+            return []
+        rows = self.knowledge.repository.product_codes_with_prefix(code[:GARRETT_BASE_LENGTH], GARRETT_CODE_LENGTH)
+        by_product: Dict[int, str] = {}
+        for row in rows:
+            by_product.setdefault(int(row["produto_id"]), row["numero_norm"])
+        out = []
+        for product in self.products.get_by_ids(list(by_product)):
+            if not product.get("ativo", 1):
+                continue
+            summary = self._product_summary(product, locations)
+            out.append({**summary, "codigo_parecido": display_code(by_product[int(product["id"])], garrett=True)})
+        out.sort(key=lambda p: (-p["estoque_total"], p["nome"]))
+        return out[:MAX_LOOKALIKES]
 
     @staticmethod
     def _is_garrett(code: str, products: List[Dict[str, Any]], catalog_items: List[Dict[str, Any]]) -> bool:
@@ -590,7 +661,7 @@ class AssistantToolsService:
     def run_tool(self, name: str, arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Executa uma ferramenta pelo nome. Erros voltam como {'erro': ...} para o modelo ler."""
         handlers: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
-            "buscar_por_codigo": lambda a: self.search_by_code(str(a["codigo"])),
+            "buscar_por_codigo": lambda a: self.search_by_code(str(a["codigo"]), versions=a.get("versoes")),
             "buscar_por_aplicacao": lambda a: self.search_by_application(str(a["texto"])),
             "detalhe_produto": lambda a: self.product_details(int(a["produto_id"])),
             "comparar_codigos": lambda a: self.compare_codes(str(a["codigo_a"]), str(a["codigo_b"])),

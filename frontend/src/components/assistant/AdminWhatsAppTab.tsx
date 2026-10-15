@@ -42,6 +42,7 @@ import {
 } from "../../lib/assistantAdminApi";
 import { formatWhatsAppText } from "../../lib/assistantFormat";
 import type { WhatsAppState, WhatsAppStatus } from "../../types/assistantAdmin";
+import WhatsAppDraftsCard from "./WhatsAppDraftsCard";
 
 export default function AdminWhatsAppTab() {
   const queryClient = useQueryClient();
@@ -402,6 +403,8 @@ export default function AdminWhatsAppTab() {
         )}
       </Card>
 
+      <WhatsAppDraftsCard review={status?.revisar ?? true} />
+
       {/* Bloco Resumo Diário */}
       <Card withBorder p="md" radius="md" shadow="xs">
         <Group justify="space-between" align="center" mb="sm" wrap="wrap">
@@ -503,6 +506,9 @@ export default function AdminWhatsAppTab() {
             </Text>
             <Text size="xs" c="dimmed">
               <strong>/resumo</strong> — manda o resumo do dia na hora
+            </Text>
+            <Text size="xs" c="dimmed">
+              <strong>/enviar</strong> e <strong>/descartar</strong> — o rascunho da resposta (com "Revisar antes de enviar" ligado)
             </Text>
           </Box>
         </Stack>

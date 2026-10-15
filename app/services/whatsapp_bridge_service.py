@@ -42,6 +42,10 @@ CONTEXT_MESSAGES = 10
 BUFFER_SIZE = 60
 BUFFER_MAX_AGE_SECONDS = 6 * 3600
 TEACH_TYPES = ("igual", "similar", "diferente")
+# Revisar antes de enviar: a resposta vira rascunho (📝 na mensagem) ate o admin mandar.
+DRAFT_REACTION = "📝"
+DRAFT_MAX_AGE_SECONDS = 6 * 3600
+MAX_DRAFTS = 30
 
 HELP_TEXT = (
     "*Assistente do Chronos*\n"
@@ -51,6 +55,7 @@ HELP_TEXT = (
     "  ex.: /ensinar 53279887101 similar 53279887210 muda o atuador\n"
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
     "• /pendentes: o que está esperando revisão do admin\n"
+    "• /enviar <nº> ou /descartar <nº>: o rascunho da resposta (modo revisar antes de enviar)\n"
     "• /resumo: o que zerou, o que mais saiu e o que pediram e não temos"
 )
 
@@ -70,6 +75,18 @@ class WaMessage:
     bot: bool = False  # mensagem enviada pela propria ponte
     raw: Any = None  # evento original da biblioteca (para citar, reagir, baixar)
     transcript: Optional[str] = None
+
+
+@dataclass
+class Draft:
+    """Resposta preparada que espera o admin (modo "revisar antes de enviar")."""
+
+    id: int
+    chat: str
+    target: WaMessage
+    question: str
+    answer: str
+    created_at: float
 
 
 class WhatsAppTransport(Protocol):
@@ -97,6 +114,7 @@ class WhatsAppBridge:
         run_async: Optional[Callable[[Callable[[], None]], Any]] = None,
         vision: Any = None,
         summary: Any = None,
+        review_enabled: Optional[Callable[[], bool]] = None,
     ) -> None:
         self.summary = summary  # resumo diario (/resumo); criado so quando usado
         if chat_service is None:
@@ -121,7 +139,10 @@ class WhatsAppBridge:
         self.transcriber = transcriber
         self.history = history
         self.clock = clock
+        self.review_enabled = review_enabled or (lambda: False)
         self._chats: Dict[str, Deque[WaMessage]] = {}
+        self._drafts: Dict[int, Draft] = {}
+        self._draft_seq = 0
         self._lock = threading.Lock()
         if run_async is None:
             executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="whatsapp-assistente")
@@ -174,6 +195,10 @@ class WhatsAppBridge:
             result = self.chat_service.chat(
                 "\n".join(parts), historico, canal="whatsapp", autor=None if target.from_me else target.sender
             )
+            if self.review_enabled():
+                # Revisar antes de enviar: vira rascunho; o admin manda (ou edita) pelo app ou /enviar.
+                self._make_draft(chat, target, "\n".join(parts), result["resposta"])
+                return
             sent_id = self.transport.reply(target, result["resposta"])
             self._remember_bot(chat, sent_id, result["resposta"])
             self.transport.react(target, "")
@@ -185,6 +210,67 @@ class WhatsAppBridge:
                 LOG.exception("whatsapp: falha ao marcar o erro")
 
     # ------------------------------------------------------------------
+    # Rascunhos (revisar antes de enviar)
+    # ------------------------------------------------------------------
+
+    def _make_draft(self, chat: str, target: WaMessage, question: str, answer: str) -> Draft:
+        with self._lock:
+            self._expire_drafts()
+            self._draft_seq += 1
+            draft = Draft(self._draft_seq, chat, target, question, answer, self.clock())
+            self._drafts[draft.id] = draft
+        self.transport.react(target, DRAFT_REACTION)
+        self._note_to_self(
+            f"📝 *Rascunho #{draft.id}* (ainda não foi para o cliente)\n"
+            f"Pergunta: {question[:300]}\n\n{answer}\n\n"
+            f"Para mandar: /enviar {draft.id}  •  Para descartar: /descartar {draft.id}\n"
+            "Para editar: Chronos > Assistente > Admin > WhatsApp."
+        )
+        return draft
+
+    def _expire_drafts(self) -> None:
+        now = self.clock()
+        for draft_id in [d.id for d in self._drafts.values() if now - d.created_at > DRAFT_MAX_AGE_SECONDS]:
+            self._drafts.pop(draft_id, None)
+        while len(self._drafts) > MAX_DRAFTS:
+            self._drafts.pop(min(self._drafts), None)
+
+    def list_drafts(self) -> List[Dict[str, Any]]:
+        with self._lock:
+            self._expire_drafts()
+            drafts = sorted(self._drafts.values(), key=lambda d: d.id)
+        return [
+            {
+                "id": d.id,
+                "cliente": d.target.sender,
+                "pergunta": d.question,
+                "texto": d.answer,
+                "criado_em": d.created_at,
+            }
+            for d in drafts
+        ]
+
+    def send_draft(self, draft_id: int, text: Optional[str] = None) -> bool:
+        """Manda o rascunho (ou o texto editado) para o cliente, citando a mensagem. False se nao existe."""
+        with self._lock:
+            draft = self._drafts.pop(int(draft_id), None)
+        if draft is None:
+            return False
+        final = (text or "").strip() or draft.answer
+        sent_id = self.transport.reply(draft.target, final)
+        self._remember_bot(draft.chat, sent_id, final)
+        self.transport.react(draft.target, "")
+        return True
+
+    def discard_draft(self, draft_id: int) -> bool:
+        with self._lock:
+            draft = self._drafts.pop(int(draft_id), None)
+        if draft is None:
+            return False
+        self.transport.react(draft.target, "")
+        return True
+
+    # ------------------------------------------------------------------
     # Comandos (so na conversa "Mensagem para mim")
     # ------------------------------------------------------------------
 
@@ -192,7 +278,9 @@ class WhatsAppBridge:
         parts = (message.text or "").strip().split()
         name = parts[0].lower() if parts else ""
         try:
-            if name in ("/ensinar", "/ensina"):
+            if name in ("/enviar", "/descartar"):
+                reply = self._draft_command(name, parts[1:])
+            elif name in ("/ensinar", "/ensina"):
                 reply = self._teach(parts[1:])
             elif name in ("/pendentes", "/revisar"):
                 reply = self._pending()
@@ -211,6 +299,20 @@ class WhatsAppBridge:
 
             self.summary = AssistantDailySummaryService(history=self.history)
         return self.summary
+
+    def _draft_command(self, name: str, args: List[str]) -> str:
+        drafts = self.list_drafts()
+        if args and args[0].lstrip("#").isdigit():
+            draft_id = int(args[0].lstrip("#"))
+        elif len(drafts) == 1:
+            draft_id = drafts[0]["id"]  # so um esperando: "/enviar" basta
+        elif not drafts:
+            return "Nenhum rascunho esperando."
+        else:
+            return f"Qual rascunho? {', '.join('#' + str(d['id']) for d in drafts)} (ex.: {name} {drafts[-1]['id']})"
+        if name == "/enviar":
+            return f"✅ Rascunho #{draft_id} enviado." if self.send_draft(draft_id) else f"Rascunho #{draft_id} não existe mais."
+        return f"🗑️ Rascunho #{draft_id} descartado." if self.discard_draft(draft_id) else f"Rascunho #{draft_id} não existe mais."
 
     def _teach(self, args: List[str]) -> str:
         if len(args) < 3 or args[1].lower() not in TEACH_TYPES:

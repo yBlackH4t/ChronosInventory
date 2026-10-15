@@ -71,7 +71,8 @@ def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[
     if match == MATCH_CATALOG and not catalog_note:
         return None
     if match == MATCH_FAMILY:
-        return "versão nova/reman do mesmo código"
+        condition = product.get("condicao")
+        return f"versão {condition} do mesmo código" if condition else "versão nova/reman do mesmo código"
     if match == MATCH_EXPERT_SAME:
         return f"igual, segundo o especialista: {note}" if note else "igual, segundo o especialista"
     if match == MATCH_EXPERT_SIMILAR:
@@ -81,8 +82,12 @@ def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[
     return None
 
 
-def product_line(product: Dict[str, Any], catalog_note: bool = True) -> str:
+def product_line(product: Dict[str, Any], catalog_note: bool = True, show_new: bool = False) -> str:
+    """`show_new`: perguntaram pelas versoes, entao a nova tambem diz que e nova."""
     notes = [n for n in (_match_note(product, catalog_note),) if n]
+    shown = ("nova", "reman", "montada") if show_new else ("reman", "montada")
+    if product.get("correspondencia") == MATCH_EXACT and product.get("condicao") in shown:
+        notes.insert(0, str(product["condicao"]))  # sem perguntar, a nova fica sem nota, como sempre
     if product.get("categoria") == CATEGORY_CORE:
         notes.append("conjunto central")
     suffix = f" ({'; '.join(notes)})" if notes else ""
@@ -160,6 +165,76 @@ def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
     return f"É código {' e '.join(_brand_label(b) for b in brands)}; {place} {where} {fichas}."
 
 
+_VERSION_LABELS = {"nova": "Nova", "reman": "Reman", "montada": "Montada"}
+
+
+def _version_lines(products: List[Dict[str, Any]], wanted: List[str]) -> List[str]:
+    """
+    "Tem montada ou reman?": uma linha por versao pedida, dizendo se temos, mesmo que seja "nao".
+    So o proprio codigo e a versao nova/reman dele contam (nao os equivalentes).
+    """
+    own = [p for p in products if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
+    lines = []
+    for version in wanted:
+        of_version = [p for p in own if p.get("condicao") == version]
+        in_stock = [p for p in of_version if p["estoque_total"] > 0]
+        label = _VERSION_LABELS.get(version, version.capitalize())
+        if in_stock:
+            listed = "; ".join(f"*{p['nome']}* — {stock_text(p)}" for p in in_stock[:3])
+            lines.append(f"{label}: temos — {listed}")
+        elif of_version:
+            lines.append(f"{label}: não temos em estoque (cadastrada, zerada).")
+        else:
+            lines.append(f"{label}: não temos.")
+    return lines
+
+
+COMPACT_HEADER = "*Consulta Estoque*"
+_COMPACT_SUFFIX = {"nova": "", "reman": " REMAN", "montada": " MONTADA"}
+_COMPACT_NOTE = {
+    MATCH_EXPERT_SAME: "igual",
+    MATCH_EXPERT_SIMILAR: "similar",
+    MATCH_CATALOG: "equivalente",
+}
+
+
+def _main_code(name: str) -> Optional[str]:
+    from core.catalog.normalization import extract_codes_from_name
+
+    codes = extract_codes_from_name(name, expand_family=False)
+    return display_code(codes[0]) if codes else None
+
+
+def format_code_compact(code_label: str, output: Dict[str, Any], locations: List[str]) -> Optional[str]:
+    """
+    Formato do chefe no WhatsApp: uma linha por versao e por filial, sem aplicacao.
+        📍Canoas: 01 - 4031195
+        📍Canoas: 00 - 4031195 MONTADA
+    Mostra a nova, as versoes que temos cadastradas e as que a pessoa pediu (mesmo zeradas).
+    None quando nao ha produto nosso do codigo (a resposta normal explica melhor).
+    """
+    products = output.get("produtos") or []
+    own = [p for p in products if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
+    others = [p for p in products if p.get("correspondencia") in _COMPACT_NOTE and p["estoque_total"] > 0]
+    if not own and not others:
+        return None
+    places = locations or sorted({loc for p in products for loc in (p.get("estoque_por_local") or {})}) or ["Estoque"]
+    wanted = set(output.get("versoes_pedidas") or [])
+    lines: List[str] = []
+    for version in ("nova", "reman", "montada"):
+        of_version = [p for p in own if (p.get("condicao") or "nova") == version]
+        if not of_version and version not in wanted and not (version == "nova" and not own):
+            continue
+        for place in places:
+            qty = sum(int((p.get("estoque_por_local") or {}).get(place, 0)) for p in of_version)
+            lines.append(f"📍{place}: {qty:02d} - {code_label}{_COMPACT_SUFFIX[version]}")
+    for product in others[:3]:
+        code = _main_code(product["nome"]) or product["nome"]
+        for place, qty in (product.get("estoque_por_local") or {}).items():
+            lines.append(f"📍{place}: {int(qty):02d} - {code} ({_COMPACT_NOTE[product['correspondencia']]})")
+    return "\n".join(lines)
+
+
 def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     """Resposta para buscar_por_codigo. `code_label` e o codigo como a pessoa escreveu."""
     if "erro" in output:
@@ -177,8 +252,9 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     own_stock = [p for p in with_stock if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
     own = any(p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY) for p in products)
     identified = None if own else _identification(output.get("fichas_catalogo") or [])
+    asked_versions = bool(output.get("versoes_pedidas"))
     if own_stock:
-        lines = [f"{label}: temos."] + [product_line(p) for p in with_stock[:MAX_LINES]]
+        lines = [f"{label}: temos."] + [product_line(p, show_new=asked_versions) for p in with_stock[:MAX_LINES]]
     elif identified:
         # Codigo de outro fabricante (OEM, Mahle, Master Power...): o cliente pediu por ele, e as nossas
         # turbinas daquela ficha sao a mesma peca na marca que vendemos. Entao "temos", sem "conferir".
@@ -197,8 +273,18 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
         lines = [f"{label}: não temos em estoque no momento."]
     elif items or taught:
         lines = [f"{label}: não temos esse código no estoque."]
+    elif output.get("parecidos"):
+        # Numero que nao existe (audio transcrito errado): as Garrett com o mesmo comeco.
+        lookalikes = output["parecidos"]
+        lines = [f"{label}: não encontrei esse número. Será uma destas (mesmo começo Garrett)?"]
+        lines += [
+            f"• *{p['codigo_parecido']}* — *{p['nome']}* — {stock_text(p)}" for p in lookalikes
+        ]
+        return "\n".join(lines)
     else:
         return f"{label}: não encontrei no estoque nem no catálogo. Confira o número."
+
+    lines += _version_lines(products, output.get("versoes_pedidas") or [])
 
     # O que o especialista ensinou e nao temos cadastrado: avisa mesmo assim.
     shown = {p.get("codigo_relacionado") for p in products}
@@ -321,9 +407,14 @@ def format_comparison_answer(
         lines.append(f"Ressalva: {note}" if note else "Confira antes de trocar.")
     elif kind == "diferente":
         lines = [f"{pair}: não, são diferentes; uma não serve no lugar da outra (segundo o especialista)."]
-    elif source == "cadastro":
+    elif source == "cadastro" and relation.get("produto"):
         confirmed = False
         lines = [f"{pair}: provavelmente são iguais. O cadastro junta os dois em *{relation.get('produto')}*."]
+    elif source == "cadastro":
+        # Mais de um passo no grafo de codigos: mostra o caminho, para o especialista conferir.
+        confirmed = False
+        lines = [f"{pair}: provavelmente são iguais, pelo caminho:"]
+        lines += [f"• {a} → {b} ({reason})" for a, b, reason in relation.get("caminho") or []]
     else:
         confirmed = False
         lines = [f"{pair}: não sei dizer se são iguais. O especialista ainda não ensinou essa."]
