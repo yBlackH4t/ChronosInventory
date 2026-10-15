@@ -20,6 +20,28 @@ from core.database.migration_v2_3_0_catalog import migrate_to_v2_3_0
 from core.exceptions import MigrationException
 from core.utils.validators import Validators
 
+# Copia do banco feita antes de cada migracao, ao lado do estoque.db. Ficam so as mais novas.
+MIGRATION_COPIES_KEPT = 3
+
+
+def cleanup_migration_copies(db_path: str, keep: int = MIGRATION_COPIES_KEPT) -> int:
+    folder = os.path.dirname(os.path.abspath(db_path))
+    prefix = os.path.basename(db_path) + ".pre_migration_v"
+    copies = [
+        os.path.join(folder, name)
+        for name in os.listdir(folder)
+        if name.startswith(prefix) and name.endswith(".bak")
+    ]
+    copies.sort(key=os.path.getmtime, reverse=True)
+    deleted = 0
+    for path in copies[keep:]:
+        try:
+            os.remove(path)
+            deleted += 1
+        except OSError:
+            continue
+    return deleted
+
 
 MigrationHandler = Callable[[sqlite3.Connection], None]
 
@@ -60,6 +82,10 @@ class MigrationManager:
 
             self._set_db_version(conn, APP_VERSION)
             conn.commit()
+            try:
+                cleanup_migration_copies(self.db_connection.get_database_path())
+            except OSError:
+                pass
             return True, APP_VERSION
         except Exception as exc:
             try:

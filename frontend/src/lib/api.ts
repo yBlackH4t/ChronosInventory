@@ -5,6 +5,7 @@ import { createProductsApi } from "./productsApi";
 
 import { ApiError } from "../types/api";
 import type {
+  BackupSecondFolderOut,
   NfePreview,
   NfeBaixaIn,
   NfeBaixaOut,
@@ -410,6 +411,22 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
           method: "DELETE",
           ...options,
         },
+        baseUrl,
+      );
+    },
+
+    async backupSecondFolder(options: RequestInit = {}) {
+      return request<BackupSecondFolderOut>(
+        `/backup/segunda-pasta`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async backupUpdateSecondFolder(pasta: string, options: RequestInit = {}) {
+      return request<BackupSecondFolderOut>(
+        `/backup/segunda-pasta`,
+        { method: "PUT", body: JSON.stringify({ pasta }), ...options },
         baseUrl,
       );
     },

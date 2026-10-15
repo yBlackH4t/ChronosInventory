@@ -9,13 +9,14 @@ from __future__ import annotations
 import os
 import sqlite3
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
 from app.services.backup_diagnostics_service import BackupDiagnosticsService
+from app.services.backup_second_copy import BackupSecondCopy
 from app.services.product_photo_recovery import copy_missing_product_photos
 from core.constants import DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
@@ -23,6 +24,16 @@ from core.database.repositories.product_repository import ProductRepository
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 from core.utils.validators import Validators
+
+# Copias de seguranca feitas antes de uma operacao (atualizar, restaurar, aplicar base oficial,
+# recuperar fotos). Cada uma e o banco inteiro com as fotos; ficam so as ultimas de cada tipo.
+SAFETY_COPY_PREFIXES = (
+    "backup_pre_update",
+    "backup_pre_restore",
+    "backup_pre_base_oficial",
+    "backup_pre_recuperar_fotos",
+)
+SAFETY_COPIES_KEPT = 3
 
 
 class BackupService:
@@ -35,6 +46,7 @@ class BackupService:
         self.product_repo = ProductRepository()
         self.db_connection = DatabaseConnection()
         self.backups_dir = FileUtils.get_backups_directory()
+        self.second_copy = BackupSecondCopy(self.backups_dir)
         self.diagnostics = BackupDiagnosticsService(
             db_connection=self.db_connection,
             list_backups_metadata=self.list_backups_metadata,
@@ -74,9 +86,43 @@ class BackupService:
             backup_name = f"{prefix}_{timestamp}.db"
             backup_path = os.path.join(self.backups_dir, backup_name)
             self._create_sqlite_snapshot(self.db_connection.get_database_path(), backup_path)
-            return True, backup_path
         except Exception as exc:
             raise FileOperationException(f"Erro ao criar backup automatico: {exc}") from exc
+        if prefix in SAFETY_COPY_PREFIXES:
+            self.cleanup_safety_copies(prefix)
+        self.second_copy.sync()
+        return True, backup_path
+
+    def cleanup_safety_copies(self, prefix: Optional[str] = None) -> int:
+        """Deixa so as SAFETY_COPIES_KEPT copias mais novas de cada tipo (ou so do tipo `prefix`)."""
+        prefixes = (prefix,) if prefix else SAFETY_COPY_PREFIXES
+        deleted = 0
+        items = self.list_backups_metadata()  # mais novo primeiro
+        for current in prefixes:
+            same_kind = [item for item in items if str(item.get("name", "")).startswith(f"{current}_")]
+            for item in same_kind[SAFETY_COPIES_KEPT:]:
+                try:
+                    FileUtils.delete_file(str(item["path"]))
+                    deleted += 1
+                except Exception:
+                    continue
+        return deleted
+
+    def housekeeping(self) -> Dict[str, object]:
+        """Limpeza ao abrir o app: copias de seguranca antigas, copias de migracao e segunda pasta."""
+        from core.database.migration_manager import cleanup_migration_copies
+
+        result: Dict[str, object] = {}
+        try:
+            result["copias_seguranca_removidas"] = self.cleanup_safety_copies()
+        except Exception as exc:
+            result["copias_seguranca_erro"] = str(exc)
+        try:
+            result["copias_migracao_removidas"] = cleanup_migration_copies(self.db_connection.get_database_path())
+        except Exception as exc:
+            result["copias_migracao_erro"] = str(exc)
+        result["segunda_pasta"] = self.second_copy.sync()
+        return result
 
     def create_pre_update_backup(self) -> str:
         """
@@ -313,6 +359,11 @@ class BackupService:
         return self.get_auto_backup_config()
 
     def run_due_scheduled_backup(self, now: Optional[datetime] = None) -> Dict[str, object]:
+        """
+        Faz o backup automatico se o ultimo horario marcado ja passou sem backup.
+        Se o app estava fechado no horario (ex.: 18h), o backup sai na proxima vez que ele
+        estiver aberto, em vez de esperar o proximo horario.
+        """
         now_dt = now or datetime.now()
         cfg = self.get_auto_backup_config()
         enabled = bool(cfg.get("enabled"))
@@ -330,27 +381,24 @@ class BackupService:
             self._default_weekday,
         )
 
-        if schedule_mode == "WEEKLY" and now_dt.weekday() != scheduled_weekday:
-            return {
-                "executed": False,
-                "reason": "wrong_weekday",
-                "config": cfg,
-            }
-
-        scheduled_minutes = scheduled_hour * 60 + scheduled_minute
-        current_minutes = now_dt.hour * 60 + now_dt.minute
-        if current_minutes < scheduled_minutes:
-            return {"executed": False, "reason": "before_schedule", "config": cfg}
-
         run_date = now_dt.strftime("%Y-%m-%d")
-        if str(cfg.get("last_run_date") or "") == run_date:
+        last_run_date = str(cfg.get("last_run_date") or "")
+        if last_run_date == run_date:
             return {"executed": False, "reason": "already_ran_today", "config": cfg}
+
+        last_due = self._last_scheduled_time(
+            now_dt, scheduled_hour, scheduled_minute, schedule_mode, scheduled_weekday
+        )
+        if last_run_date and last_run_date >= last_due.strftime("%Y-%m-%d"):
+            return {"executed": False, "reason": "not_due", "config": cfg}
 
         try:
             ok, path = self.create_automatic_backup(prefix="backup_auto")
             if not ok:
                 raise FileOperationException("Falha ao gerar backup automatico.")
             deleted = self.cleanup_auto_backups_by_retention(int(cfg.get("retention_days") or self._default_retention_days))
+            if deleted:
+                self.second_copy.sync()
             self._set_system_value("backup_auto_last_run_date", run_date)
             self._set_system_value("backup_auto_last_result", "ok")
             self._set_system_value("backup_auto_last_backup", os.path.basename(path))
@@ -369,6 +417,18 @@ class BackupService:
                 "error": str(exc),
                 "config": self.get_auto_backup_config(),
             }
+
+    @staticmethod
+    def _last_scheduled_time(
+        now_dt: datetime, hour: int, minute: int, schedule_mode: str, weekday: int
+    ) -> datetime:
+        """Ultimo horario marcado que ja chegou (hoje, ontem ou no ultimo dia da semana escolhido)."""
+        candidate = now_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate > now_dt:
+            candidate -= timedelta(days=1)
+        if schedule_mode == "WEEKLY":
+            candidate -= timedelta(days=(candidate.weekday() - weekday) % 7)
+        return candidate
 
     def cleanup_auto_backups_by_retention(self, retention_days: int) -> int:
         if retention_days <= 0:

@@ -11,6 +11,8 @@ from app.services.backup_service import BackupService
 from backend.app.api.deps import get_backup_service
 from backend.app.api.responses import ok
 from backend.app.schemas.backup import (
+    BackupSecondFolderIn,
+    BackupSecondFolderOut,
     BackupAutoConfigIn,
     BackupAutoConfigOut,
     OfficialBaseDeleteIn,
@@ -172,6 +174,22 @@ def get_auto_backup_config(
             last_backup_name=str(cfg["last_backup_name"]) if cfg.get("last_backup_name") else None,
         )
     )
+
+
+@router.get("/segunda-pasta", response_model=SuccessResponse[BackupSecondFolderOut])
+def get_backup_second_folder(
+    backup_service: BackupService = Depends(get_backup_service),
+) -> SuccessResponse[BackupSecondFolderOut]:
+    return ok(BackupSecondFolderOut(**backup_service.second_copy.status()))
+
+
+@router.put("/segunda-pasta", response_model=SuccessResponse[BackupSecondFolderOut])
+def update_backup_second_folder(
+    payload: BackupSecondFolderIn,
+    backup_service: BackupService = Depends(get_backup_service),
+) -> SuccessResponse[BackupSecondFolderOut]:
+    """Pasta em outro disco/pendrive/rede que recebe uma copia de cada backup ('' desliga)."""
+    return ok(BackupSecondFolderOut(**backup_service.second_copy.configure(payload.pasta)))
 
 
 @router.put("/auto-config", response_model=SuccessResponse[BackupAutoConfigOut])
