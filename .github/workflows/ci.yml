@@ -17,6 +17,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       - name: Check version consistency
         run: python scripts/check_versions.py
@@ -60,4 +64,47 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+        working-directory: frontend
+
+  # Compila o app Tauri (sem instalador, sem publicar nada). Na main grava as
+  # dependencias Rust no cache que o Release (tag) le, para nao recompilar tudo
+  # do zero. Nos PRs so confere que o Rust compila, usando o cache da main.
+  warm-release-cache:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Rust stable
+        run: rustup update stable && rustup default stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri -> target
+          shared-key: tauri-release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      # O tauri exige o backend empacotado; para o cache basta um arquivo vazio.
+      - name: Placeholder do backend
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/bin/estoque_backend_lib | Out-Null
+          New-Item -ItemType File -Force -Path src-tauri/bin/estoque_backend-x86_64-pc-windows-msvc.exe | Out-Null
+          New-Item -ItemType File -Force -Path src-tauri/bin/estoque_backend.exe | Out-Null
+          New-Item -ItemType File -Force -Path src-tauri/bin/estoque_backend_lib/.keep | Out-Null
+        working-directory: frontend
+
+      - name: Compile Tauri (sem instalador)
+        run: npx tauri build --no-bundle
         working-directory: frontend

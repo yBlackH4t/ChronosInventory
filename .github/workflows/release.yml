@@ -34,6 +34,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       - name: Check version consistency
         run: python scripts/check_versions.py
@@ -50,6 +54,16 @@ jobs:
 
       - name: Setup Rust stable
         run: rustup update stable && rustup default stable
+
+      # Reaproveita as dependencias Rust ja compiladas (tauri, plugins...).
+      # Tags nao enxergam caches de outras tags, entao quem grava o cache e o
+      # job "warm-release-cache" do CI, a cada push na main. Aqui so le.
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: frontend/src-tauri -> target
+          shared-key: tauri-release
+          save-if: false
 
       - name: Install backend dependencies
         run: |
