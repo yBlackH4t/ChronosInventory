@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 
 import type { MovementCreate, MovementOut } from "./api";
+import { MOVEMENT_COLORS } from "./semantic";
 
 export const MOVEMENT_TYPES = [
   { value: "ENTRADA", label: "Entrada" },
@@ -95,9 +96,11 @@ export const DEFAULT_MOVEMENT_FILTERS: MovementFilters = {
   date_to: null,
 };
 
+export const MOVEMENT_PAGE_SIZES = ["10", "25", "50", "100"];
+
 export const DEFAULT_MOVEMENTS_TAB_STATE: MovementsTabState = {
   page: 1,
-  pageSize: "10",
+  pageSize: "25",
   sort: "-data",
   productSearch: "",
   documentoSearch: "",
@@ -155,9 +158,7 @@ export function deserializeFilters(
 
 export function movementColor(tipo: MovementOut["tipo"]) {
   // Red stays reserved for destructive actions; a sale is routine.
-  if (tipo === "ENTRADA") return "teal";
-  if (tipo === "SAIDA") return "orange";
-  return "indigo";
+  return MOVEMENT_COLORS[tipo] ?? "gray";
 }
 
 export function signedQuantity(tipo: MovementOut["tipo"], quantidade: number) {
@@ -273,4 +274,26 @@ export function resolveMovementTableLayout(
     productMaxWidth: 380,
     observationMaxWidth: 440,
   };
+}
+
+/** "Hoje", "Ontem" ou "13 de outubro" (com o ano se não for o atual). */
+export function dayHeading(date: string, today = dayjs()): string {
+  const day = dayjs(date);
+  const weekday = day.format("dddd");
+  if (day.isSame(today, "day")) return `Hoje · ${day.format("D [de] MMMM")}`;
+  if (day.isSame(today.subtract(1, "day"), "day")) return `Ontem · ${day.format("D [de] MMMM")}`;
+  const sameYear = day.isSame(today, "year");
+  return `${weekday} · ${day.format(sameYear ? "D [de] MMMM" : "D [de] MMMM [de] YYYY")}`;
+}
+
+/** Agrupa por dia mantendo a ordem em que as linhas chegaram. */
+export function groupByDay(rows: MovementOut[]): { day: string; rows: MovementOut[] }[] {
+  const groups: { day: string; rows: MovementOut[] }[] = [];
+  for (const row of rows) {
+    const day = dayjs(row.data).format("YYYY-MM-DD");
+    const last = groups[groups.length - 1];
+    if (last && last.day === day) last.rows.push(row);
+    else groups.push({ day, rows: [row] });
+  }
+  return groups;
 }

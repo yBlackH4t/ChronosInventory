@@ -162,3 +162,9 @@ class ProductCatalogResponseOut(BaseModel):
     product_id: int
     product_nome: str
     vinculos: list[ProductCatalogLinkOut]
+
+
+class ProductVisualItem(BaseModel):
+    id: int
+    thumb_base64: str | None = None
+    saidas_semanas: list[int]

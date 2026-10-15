@@ -9,6 +9,7 @@ import { api } from "../lib/apiClient";
 import {
   DEFAULT_MOVEMENT_FILTERS,
   DEFAULT_MOVEMENTS_TAB_STATE,
+  MOVEMENT_PAGE_SIZES,
   MOVEMENTS_TAB_ID,
   deserializeFilters,
   serializeFilters,
@@ -37,7 +38,11 @@ export function useMovementsPageState() {
   );
 
   const [page, setPage] = useState(persistedState.page);
-  const [pageSize, setPageSize] = useState(persistedState.pageSize);
+  const [pageSize, setPageSize] = useState(
+    MOVEMENT_PAGE_SIZES.includes(persistedState.pageSize)
+      ? persistedState.pageSize
+      : DEFAULT_MOVEMENTS_TAB_STATE.pageSize,
+  );
   const [sort, setSort] = useState<string>(persistedState.sort);
   const [productSearch, setProductSearch] = useState(
     persistedState.productSearch,

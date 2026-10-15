@@ -66,8 +66,9 @@ import {
 
 const PAGE_SIZES = [
   { value: "10", label: "10" },
-  { value: "20", label: "20" },
+  { value: "25", label: "25" },
   { value: "50", label: "50" },
+  { value: "100", label: "100" },
 ];
 
 const SORT_OPTIONS = [
@@ -97,7 +98,7 @@ type ProductsTabState = {
 const DEFAULT_PRODUCTS_TAB_STATE: ProductsTabState = {
   query: "",
   page: 1,
-  pageSize: "10",
+  pageSize: "25",
   sort: "nome",
   selectedId: null,
   drawerOpened: false,
@@ -119,7 +120,11 @@ export default function ProductsPage() {
   const [query, setQuery] = useState(persistedState.query);
   const [debounced] = useDebouncedValue(query, 350);
   const [page, setPage] = useState(persistedState.page);
-  const [pageSize, setPageSize] = useState(persistedState.pageSize);
+  const [pageSize, setPageSize] = useState(
+    PAGE_SIZES.some((option) => option.value === persistedState.pageSize)
+      ? persistedState.pageSize
+      : DEFAULT_PRODUCTS_TAB_STATE.pageSize,
+  );
   const [sort, setSort] = useState(persistedState.sort);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
   const [stockFilter, setStockFilter] = useState<"TODOS" | "COM_ESTOQUE">(
@@ -473,7 +478,9 @@ export default function ProductsPage() {
 
   const [historyPage, setHistoryPage] = useState(persistedState.historyPage);
   const [historyPageSize, setHistoryPageSize] = useState(
-    persistedState.historyPageSize,
+    PAGE_SIZES.some((option) => option.value === persistedState.historyPageSize)
+      ? persistedState.historyPageSize
+      : DEFAULT_PRODUCTS_TAB_STATE.historyPageSize,
   );
 
   useEffect(() => {

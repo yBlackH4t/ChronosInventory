@@ -133,6 +133,33 @@ class ImageService:
     def set_primary_photo(self, product_id: int, image_id: int) -> bool:
         return self.product_repo.set_primary_product_image(product_id, image_id)
 
+    # Miniaturas da lista de produtos: geradas da foto principal e guardadas na memoria
+    # (a chave inclui o id da imagem, entao trocar a foto gera outra miniatura).
+    _THUMB_CACHE: Dict[tuple, Optional[bytes]] = {}
+    _THUMB_CACHE_MAX = 2000
+
+    def get_thumbnail_bytes(self, product_id: int, size: int = 96) -> Optional[bytes]:
+        primary = self.product_repo.get_primary_product_image(product_id)
+        if not primary or not primary.get("image_data"):
+            return None
+        key = (product_id, int(primary.get("id") or 0), len(primary["image_data"]), size)
+        cache = ImageService._THUMB_CACHE
+        if key in cache:
+            return cache[key]
+        try:
+            with Image.open(BytesIO(primary["image_data"])) as img:
+                img = img.convert("RGB")
+                img.thumbnail((size, size))
+                out = BytesIO()
+                img.save(out, format="JPEG", quality=78)
+                thumb = out.getvalue()
+        except Exception:
+            thumb = None
+        if len(cache) >= ImageService._THUMB_CACHE_MAX:
+            cache.clear()
+        cache[key] = thumb
+        return thumb
+
     def has_photo(self, product_id: int) -> bool:
         return self.get_photo_bytes(product_id) is not None
 

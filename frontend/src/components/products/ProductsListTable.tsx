@@ -2,7 +2,7 @@ import {
   ActionIcon,
   Badge,
   Group,
-  Loader,
+  Skeleton,
   Pagination,
   Stack,
   Table,
@@ -21,7 +21,12 @@ import { useRef } from "react";
 
 import type { InventoryLocation, Product } from "../../lib/api";
 import { detectBrand, detectCondition } from "../../lib/brands";
+import { useRowHeight } from "../../lib/appearance";
+import { useProductsVisual } from "../../hooks/useProductsVisual";
 import EmptyState from "../ui/EmptyState";
+import StockPill from "../ui/StockPill";
+import ProductThumb from "./ProductThumb";
+import SalesMiniBars from "./SalesMiniBars";
 
 type ProductsListTableProps = {
   rows: Product[];
@@ -46,7 +51,6 @@ type ProductsListTableProps = {
   locations?: InventoryLocation[];
 };
 
-const ROW_HEIGHT = 56;
 
 function linkSummary(product: Product): string | null {
   if (product.produto_vinculado_id) {
@@ -85,6 +89,9 @@ export function ProductsListTable({
   locations = [],
 }: ProductsListTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const ROW_HEIGHT = useRowHeight(60);
+  const compact = ROW_HEIGHT < 60;
+  const visual = useProductsVisual(rows.map((row) => row.id));
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -95,9 +102,18 @@ export function ProductsListTable({
 
   if (loading) {
     return (
-      <Group justify="center" mt="xl">
-        <Loader size="sm" />
-      </Group>
+      <Stack gap={6} mt="xs" aria-label="Carregando produtos">
+        {Array.from({ length: 8 }, (_, index) => (
+          <Group key={index} gap="sm" wrap="nowrap">
+            <Skeleton h={38} w={38} radius="md" />
+            <Stack gap={6} style={{ flex: 1 }}>
+              <Skeleton h={12} w={`${55 - (index % 3) * 10}%`} radius="sm" />
+              <Skeleton h={10} w="18%" radius="sm" />
+            </Stack>
+            <Skeleton h={22} w={44} radius="sm" />
+          </Group>
+        ))}
+      </Stack>
     );
   }
 
@@ -112,7 +128,7 @@ export function ProductsListTable({
     );
   }
 
-  const columnCount = 3 + locations.length;
+  const columnCount = 4 + locations.length;
   const virtualItems = rowVirtualizer.getVirtualItems();
   const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
   const paddingBottom =
@@ -135,6 +151,7 @@ export function ProductsListTable({
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Produto</Table.Th>
+              <Table.Th w={124}>Vendas 90 dias</Table.Th>
               {locations.map((loc) => (
                 <Table.Th key={loc.id} w={110} ta="right">
                   {loc.label || loc.name}
@@ -175,7 +192,11 @@ export function ProductsListTable({
                   style={{ cursor: "pointer", height: ROW_HEIGHT }}
                 >
                   <Table.Td>
-                    <Stack gap={2}>
+                    <Group gap={10} wrap="nowrap">
+                    {!compact && (
+                      <ProductThumb base64={visual.get(product.id)?.thumb_base64} alt={product.nome} />
+                    )}
+                    <Stack gap={2} miw={0} style={{ flex: 1 }}>
                       <Group gap={8} wrap="nowrap">
                         {brand && (
                           <Badge
@@ -209,6 +230,11 @@ export function ProductsListTable({
                         {links && <> · {links}</>}
                       </Text>
                     </Stack>
+                    </Group>
+                  </Table.Td>
+
+                  <Table.Td>
+                    <SalesMiniBars weeks={visual.get(product.id)?.saidas_semanas} />
                   </Table.Td>
 
                   {locations.map((loc) => {
@@ -216,9 +242,7 @@ export function ProductsListTable({
                     return (
                       <Table.Td key={loc.id} ta="right">
                         {qty > 0 ? (
-                          <Text size="sm" fw={600} c="var(--success)" className="num">
-                            {qty}
-                          </Text>
+                          <StockPill value={qty} />
                         ) : (
                           <Text size="sm" c="var(--text-subtle)">
                             —
@@ -229,14 +253,7 @@ export function ProductsListTable({
                   })}
 
                   <Table.Td ta="right">
-                    <Text
-                      size="sm"
-                      fw={inStock ? 700 : 500}
-                      c={inStock ? undefined : "var(--text-subtle)"}
-                      className="num"
-                    >
-                      {product.total_stock}
-                    </Text>
+                    <StockPill value={product.total_stock} />
                   </Table.Td>
 
                   <Table.Td>

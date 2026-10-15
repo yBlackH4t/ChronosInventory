@@ -10,6 +10,20 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.5.0",
+    "date": "2026-10-15",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Cores e aparência: cada coisa tem sempre a mesma cor (entrada verde, saída laranja, transferência azul, ajuste cinza; nova azul, reman âmbar, montada roxo). Em Configurações > Aparência dá para escolher a cor do app (Índigo, Azul-petróleo ou Grafite), o tema e o modo compacto.",
+      "Novo: Dashboard novo: cartões com mini gráfico e comparação com os 30 dias anteriores; gráfico único de movimento e saldo; para onde foram as saídas (por natureza); estoque por marca e versão (clique abre Produtos filtrado); saúde do estoque (girando, lento, parado) com os parados que mais ocupam; calendário das últimas 12 semanas.",
+      "Novo: Produtos: foto pequena na lista, saldo colorido e as vendas dos últimos 90 dias em barrinhas. A ficha abre com a foto, o saldo colorido e o gráfico do saldo nos últimos 6 meses.",
+      "Novo: Movimentações por dia: a lista vem agrupada por dia (Hoje, Ontem...), com faixa colorida e etiquetas; a tabela continua no botão \"Tabela\".",
+      "Novo: Assistente: a resposta mostra o produto em cartão (foto, TEMOS, marca, versão, estoque por filial, \"Abrir produto\") e tem o botão \"Copiar resposta\".",
+      "Novo: Acabamentos: 25, 50 ou 100 por página; números que correm quando mudam; telas vazias com um botão do que fazer; tecla \"?\" (ou o botão \"?\" no topo) mostra os atalhos do teclado.",
+      "Correcao: \"Evolução do estoque\" não mostra mais saldo negativo."
+    ]
+  },
+  {
     "version": "2.4.5",
     "date": "2026-10-15",
     "title": "Melhorias e correcoes",

@@ -8,7 +8,7 @@ import "@fontsource-variable/inter";
 import "../styles/global.css";
 import "dayjs/locale/pt-br";
 
-import type { ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { MantineProvider, localStorageColorSchemeManager } from "@mantine/core";
 import { DatesProvider } from "@mantine/dates";
 import { ModalsProvider } from "@mantine/modals";
@@ -20,6 +20,7 @@ import { get, set, del } from "idb-keyval";
 import dayjs from "dayjs";
 import { appTheme, cssVariablesResolver } from "../theme/theme";
 import { ProfileScopeProvider } from "../state/profileScope";
+import { ACCENT_PRIMARY, useAppAccent, useAppDensity } from "../lib/appearance";
 
 dayjs.locale("pt-br");
 
@@ -48,6 +49,19 @@ const colorSchemeManager = localStorageColorSchemeManager({
 });
 
 export function AppProviders({ children }: { children: ReactNode }) {
+  const [accent] = useAppAccent();
+  const [density] = useAppDensity();
+  const theme = useMemo(
+    () => ({ ...appTheme, primaryColor: ACCENT_PRIMARY[accent] ?? "brand", autoContrast: true }),
+    [accent],
+  );
+
+  // O CSS global (barra do topo, foco, seleção) lê a mesma escolha pelo atributo.
+  useEffect(() => {
+    document.documentElement.dataset.accent = accent;
+    document.documentElement.dataset.density = density;
+  }, [accent, density]);
+
   return (
     <PersistQueryClientProvider 
       client={queryClient} 
@@ -66,7 +80,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     >
       <ProfileScopeProvider>
         <MantineProvider
-          theme={appTheme}
+          theme={theme}
           cssVariablesResolver={cssVariablesResolver}
           colorSchemeManager={colorSchemeManager}
           defaultColorScheme="light"

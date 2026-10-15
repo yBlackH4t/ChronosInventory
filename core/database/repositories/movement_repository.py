@@ -637,11 +637,14 @@ class MovementRepository(BaseRepository):
                 (date_from, date_to),
             )
 
+        # Saldo reconstruido de tras para frente. Se o historico nao fecha com o saldo
+        # (estoque importado ou ajustado sem movimentacao), a conta pode dar negativo:
+        # estoque negativo nao existe, entao o grafico para no zero.
         running = total_at_start
         result: List[Dict[str, Any]] = []
         for row in deltas:
             running += int(row.get("delta") or 0)
-            result.append({"periodo": row["periodo"], "total_stock": running})
+            result.append({"periodo": row["periodo"], "total_stock": max(running, 0)})
 
         return result
 
@@ -899,6 +902,122 @@ class MovementRepository(BaseRepository):
             """,
             (date_to, cutoff),
         )
+
+    # Saida que conta como "a peca girou": venda, transferencia externa, devolucao ao fornecedor.
+    # Ajuste e estorno nao contam.
+    _SAIDA_GIRO_FILTER = "m.tipo = 'SAIDA' AND m.natureza NOT IN ('AJUSTE', 'ESTORNO')"
+
+    def get_stock_items_overview(
+        self,
+        since: str,
+        location_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Produtos com saldo: saldo, ultima saida e quanto saiu desde `since`."""
+        stock_filter = "AND pi.local_id = ?" if location_id is not None else ""
+        mov_filter = "AND m.origem_local_id = ?" if location_id is not None else ""
+        loc: List[Any] = [location_id] if location_id is not None else []
+        # Ordem dos "?": ultima saida, saidas no periodo, saldo.
+        params: List[Any] = [*loc, since, *loc, *loc]
+        query = f"""
+            SELECT p.id as produto_id,
+                   p.nome as nome,
+                   s.estoque as estoque,
+                   (
+                       SELECT MAX(m.data_hora)
+                       FROM movimentacoes m
+                       WHERE m.produto_id = p.id AND {self._SAIDA_GIRO_FILTER} {mov_filter}
+                   ) as last_saida,
+                   (
+                       SELECT COALESCE(SUM(m.quantidade), 0)
+                       FROM movimentacoes m
+                       WHERE m.produto_id = p.id AND {self._SAIDA_GIRO_FILTER}
+                         AND m.data_hora >= ? {mov_filter}
+                   ) as saidas_periodo
+            FROM produtos p
+            JOIN (
+                SELECT pi.produto_id as produto_id, SUM(pi.quantidade) as estoque
+                FROM produto_estoque pi
+                JOIN locais l ON l.id = pi.local_id
+                WHERE l.ativo = 1 {stock_filter}
+                GROUP BY pi.produto_id
+            ) s ON s.produto_id = p.id AND s.estoque > 0
+            WHERE p.ativo = 1
+            ORDER BY s.estoque DESC, p.nome ASC
+        """
+        return self._execute_query(query, tuple(params))
+
+    def get_movement_nature_totals(
+        self,
+        date_from: str,
+        date_to: str,
+        tipo: str,
+        location_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        query = """
+            SELECT m.natureza as natureza,
+                   SUM(m.quantidade) as quantidade,
+                   COUNT(*) as movimentos
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE m.tipo = ?
+              AND p.ativo = 1
+              AND m.data_hora >= ?
+              AND m.data_hora <= ?
+        """
+        params: List[Any] = [tipo, date_from, date_to]
+        if location_id is not None:
+            query += " AND m.destino_local_id = ?" if tipo == "ENTRADA" else " AND m.origem_local_id = ?"
+            params.append(location_id)
+        query += " GROUP BY m.natureza HAVING quantidade > 0 ORDER BY quantidade DESC"
+        return self._execute_query(query, tuple(params))
+
+    def get_weekly_saidas(
+        self,
+        product_ids: List[int],
+        since: str,
+        until: str,
+    ) -> List[Dict[str, Any]]:
+        """Saidas por produto e semana; semana 0 = os 7 dias que terminam em `until`."""
+        if not product_ids:
+            return []
+        placeholders = ",".join("?" for _ in product_ids)
+        return self._execute_query(
+            f"""
+            SELECT m.produto_id as produto_id,
+                   CAST((julianday(?) - julianday(m.data_hora)) / 7 AS INTEGER) as semana,
+                   SUM(m.quantidade) as quantidade
+            FROM movimentacoes m
+            WHERE {self._SAIDA_GIRO_FILTER}
+              AND m.produto_id IN ({placeholders})
+              AND m.data_hora >= ?
+              AND m.data_hora <= ?
+            GROUP BY m.produto_id, semana
+            """,
+            (until, *product_ids, since, until),
+        )
+
+    def get_product_daily_deltas(self, product_id: int, since: str) -> List[Dict[str, Any]]:
+        """Entradas e saidas por dia de um produto (transferencia nao muda o total)."""
+        return self._execute_query(
+            """
+            SELECT date(m.data_hora) as dia,
+                   SUM(CASE WHEN m.tipo = 'ENTRADA' THEN m.quantidade ELSE 0 END) as entradas,
+                   SUM(CASE WHEN m.tipo = 'SAIDA' THEN m.quantidade ELSE 0 END) as saidas
+            FROM movimentacoes m
+            WHERE m.produto_id = ?
+              AND m.data_hora >= ?
+            GROUP BY date(m.data_hora)
+            ORDER BY dia ASC
+            """,
+            (product_id, since),
+        )
+
+    def get_product_total_stock(self, product_id: int) -> int:
+        row = self._execute_query(
+            "SELECT COALESCE(SUM(quantidade), 0) as total FROM produto_estoque WHERE produto_id = ?",
+            (product_id,),
+        )
+        return int(row[0]["total"] or 0) if row else 0
 
     # Compat endpoints antigos
     def get_entradas_saidas_por_dia(self, date_from: str, date_to: str) -> List[Dict[str, Any]]:

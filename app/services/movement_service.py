@@ -413,6 +413,18 @@ class MovementService:
     ) -> List[dict]:
         return self.analytics.get_external_transfer_totals(date_from, date_to, tipo, scope, limit)
 
+    def get_stock_items_overview(self, date_to: date, days: int = 90, scope: str = "AMBOS") -> List[dict]:
+        return self.analytics.get_stock_items_overview(date_to, days, scope)
+
+    def get_movement_nature_totals(self, date_from: date, date_to: date, tipo: str, scope: str = "AMBOS") -> List[dict]:
+        return self.analytics.get_movement_nature_totals(date_from, date_to, tipo, scope)
+
+    def get_weekly_saidas(self, product_ids: List[int], date_to: date, weeks: int = 13) -> dict:
+        return self.analytics.get_weekly_saidas(product_ids, date_to, weeks)
+
+    def get_product_stock_history(self, product_id: int, date_to: date, days: int = 180) -> List[dict]:
+        return self.analytics.get_product_stock_history(product_id, date_to, days)
+
     def list_real_sales(self, date_from: date, date_to: date, scope: str = "AMBOS") -> List[dict]:
         return self.analytics.list_real_sales(date_from, date_to, scope)
 

@@ -9,7 +9,6 @@ import {
   ActionIcon,
   Button,
   ScrollArea,
-  Card,
   Badge,
   Alert,
   Loader,
@@ -31,7 +30,12 @@ import {
   IconShieldLock,
   IconCamera,
   IconX,
+  IconCheck,
+  IconCopy,
 } from "@tabler/icons-react";
+import { useClipboard } from "@mantine/hooks";
+import AssistantProductCard from "../components/assistant/AssistantProductCard";
+import { useProductsVisual } from "../hooks/useProductsVisual";
 import { useNavigate } from "react-router-dom";
 import {
   sendAssistantMessage,
@@ -53,36 +57,29 @@ type ChatMessage = AssistantMessage & {
 
 const SETTINGS_PATH = "/configuracoes#assistant-settings";
 
-function ProductCard({ product }: { product: AssistantProduct }) {
-  const navigate = useNavigate();
-
-  const handleOpenProduct = () => {
-    navigate(
-      `/produtos?search=${encodeURIComponent(product.nome)}&openId=${product.id}`,
-    );
-  };
-
+function AssistantProducts({ products }: { products: AssistantProduct[] }) {
+  const visual = useProductsVisual(products.map((p) => p.id));
   return (
-    <Card shadow="sm" p="sm" radius="md" withBorder mt="xs" onClick={handleOpenProduct} style={{ cursor: "pointer" }}>
-      <Group justify="space-between" mb="xs">
-        <Text fw={500} size="sm" lineClamp={1} flex={1}>
-          {product.nome}
-        </Text>
-        <Badge color="blue" variant="light">
-          Estoque: {product.estoque_total}
-        </Badge>
-      </Group>
+    <Box mt="xs">
+      {products.map((prod) => (
+        <AssistantProductCard key={prod.id} product={prod} visual={visual.get(prod.id)} />
+      ))}
+    </Box>
+  );
+}
 
-      {Object.entries(product.estoque_por_local).length > 0 && (
-        <Group gap="xs">
-          {Object.entries(product.estoque_por_local).map(([local, qtde]) => (
-            <Badge key={local} color="gray" variant="outline" size="xs">
-              {local}: {qtde}
-            </Badge>
-          ))}
-        </Group>
-      )}
-    </Card>
+function CopyAnswerButton({ text }: { text: string }) {
+  const clipboard = useClipboard({ timeout: 1600 });
+  return (
+    <Button
+      size="compact-xs"
+      variant="subtle"
+      color={clipboard.copied ? "success" : "gray"}
+      leftSection={clipboard.copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
+      onClick={() => clipboard.copy(text)}
+    >
+      {clipboard.copied ? "Copiado" : "Copiar resposta"}
+    </Button>
   );
 }
 
@@ -365,12 +362,13 @@ export default function AssistantPage() {
                             </Alert>
                           </Stack>
                         )}
+                        {!isUser && msg.texto ? (
+                          <Group gap={4} mt={4}>
+                            <CopyAnswerButton text={msg.texto} />
+                          </Group>
+                        ) : null}
                         {!isUser && msg.produtos && msg.produtos.length > 0 && (
-                          <Box mt="xs">
-                            {msg.produtos.map((prod) => (
-                              <ProductCard key={prod.id} product={prod} />
-                            ))}
-                          </Box>
+                          <AssistantProducts products={msg.produtos} />
                         )}
                       </Box>
                     );

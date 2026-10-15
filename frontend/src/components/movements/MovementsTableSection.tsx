@@ -3,11 +3,13 @@ import {
   Group,
   Loader,
   Pagination,
+  SegmentedControl,
   Stack,
   Table,
   Text,
   Tooltip,
 } from "@mantine/core";
+import { useLocalStorage } from "@mantine/hooks";
 import { IconArrowBackUp, IconArrowRight, IconHistory } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -24,6 +26,8 @@ import EmptyState from "../ui/EmptyState";
 import { useLocations } from "../../hooks/useLocations";
 import EstornoModal from "./EstornoModal";
 import MovementTypeTag from "./MovementTypeTag";
+import MovementsDayList from "./MovementsDayList";
+import { useRowHeight } from "../../lib/appearance";
 
 type Props = {
   loading: boolean;
@@ -41,7 +45,7 @@ type Props = {
   openHistory: (productId: number) => void;
 };
 
-const ROW_HEIGHT = 56;
+type MovementsView = "DIA" | "TABELA";
 
 export default function MovementsTableSection({
   loading,
@@ -60,6 +64,11 @@ export default function MovementsTableSection({
   const { locations } = useLocations();
   const parentRef = useRef<HTMLDivElement>(null);
   const [estornoMovement, setEstornoMovement] = useState<MovementOut | null>(null);
+  const ROW_HEIGHT = useRowHeight(56);
+  const [view, setView] = useLocalStorage<MovementsView>({
+    key: "chronos.movements.view",
+    defaultValue: "DIA",
+  });
 
   const rowVirtualizer = useVirtualizer({
     count: rows.length,
@@ -80,6 +89,18 @@ export default function MovementsTableSection({
 
   return (
     <Stack gap="sm">
+      <Group justify="flex-end">
+        <SegmentedControl
+          size="xs"
+          value={view}
+          onChange={(value) => setView(value as MovementsView)}
+          data={[
+            { value: "DIA", label: "Por dia" },
+            { value: "TABELA", label: "Tabela" },
+          ]}
+          aria-label="Como mostrar as movimentações"
+        />
+      </Group>
       {loading ? (
         <Group justify="center" mt="xl">
           <Loader size="sm" />
@@ -91,6 +112,22 @@ export default function MovementsTableSection({
           actionLabel="Tentar novamente"
           onAction={onRetry}
         />
+      ) : view === "DIA" ? (
+        rows.length === 0 ? (
+          <EmptyState
+            message="Nenhuma movimentação encontrada"
+            description={activeViewCount > 0 ? "Ajuste ou limpe os filtros aplicados." : undefined}
+            actionLabel={activeViewCount > 0 ? "Limpar filtros" : undefined}
+            onAction={activeViewCount > 0 ? clearFilters : undefined}
+          />
+        ) : (
+          <MovementsDayList
+            rows={rows}
+            locationName={locationName}
+            openHistory={openHistory}
+            onEstorno={setEstornoMovement}
+          />
+        )
       ) : (
         <div
           ref={parentRef}

@@ -5,11 +5,14 @@ import type {
   EstoqueEvolucaoPoint,
   ExternalTransferItem,
   FlowPoint,
+  MovementNatureTotal,
+  ProductStockHistoryPoint,
   RecentStockoutItem,
   StockoutRiskItem,
   SaidasPoint,
   StockDistribution,
   StockEvolutionPoint,
+  StockItemOverview,
   StockSummary,
   SuccessResponse,
   TopSaidaItem,
@@ -267,6 +270,53 @@ export function createAnalyticsApi({
       });
       return request<ExternalTransferItem[]>(
         `/analytics/movements/external-transfers${query}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getAnalyticsStockItems(
+      params: { days?: number; scope?: AnalyticsScope } = {},
+      options: RequestInit = {},
+    ) {
+      const query = buildQuery({ days: params.days, location_id: params.scope ?? null });
+      return request<StockItemOverview[]>(
+        `/analytics/stock/items${query}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getAnalyticsMovementsByNature(
+      params: {
+        date_from: string;
+        date_to: string;
+        tipo?: "ENTRADA" | "SAIDA";
+        scope?: AnalyticsScope;
+      },
+      options: RequestInit = {},
+    ) {
+      const query = buildQuery({
+        date_from: params.date_from,
+        date_to: params.date_to,
+        tipo: params.tipo ?? "SAIDA",
+        location_id: params.scope ?? null,
+      });
+      return request<MovementNatureTotal[]>(
+        `/analytics/movements/by-nature${query}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getProductStockHistory(
+      productId: number,
+      params: { days?: number } = {},
+      options: RequestInit = {},
+    ) {
+      const query = buildQuery({ days: params.days });
+      return request<ProductStockHistoryPoint[]>(
+        `/analytics/products/${productId}/stock-history${query}`,
         { method: "GET", ...options },
         baseUrl,
       );
