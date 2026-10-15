@@ -491,8 +491,36 @@ class AssistantToolsService:
                 model = _turbo_models(rows[0].get("modelo")) or rows[0].get("codigo")
                 uses = short_applications(item)
                 catalog.append(f"• {label}: {model}" + (f" — {uses}" if uses else ""))
+            family = self._same_catalog_model(codes[0], codes[1])
+            if family and relation["fonte"] != "cadastro":
+                result["mesmo_modelo_catalogo"] = family
+                relation = {**relation, "relacao": "mesmo_modelo", "modelo": family}
         result["texto_pronto"] = format_comparison_answer(labels[0], labels[1], relation, catalog)
         return result
+
+    def _same_catalog_model(self, code_a: str, code_b: str) -> Optional[str]:
+        """
+        Fichas diferentes do catalogo, mas do mesmo modelo Master Power e da mesma turbina
+        (4031196 na 805314 e 5455609 na 808191, as duas "MP530w (HE500WG)"): provavelmente servem.
+        Devolve "MP530w / HE500WG", ou None. "MP530" e "MP530w" sao modelos diferentes.
+        """
+        def models(code: str) -> List[Tuple[str, set]]:
+            found = []
+            for row in self.catalog.search_catalog(code, limit=10):
+                text = str(row.get("modelo") or "")
+                master = text.partition("(")[0].strip().upper()
+                turbos = set(re.findall(r"[A-Z]+\d+[A-Z0-9]*", (_turbo_models(text) or "").upper()))
+                if master and turbos:
+                    found.append((master, turbos))
+            return found
+
+        for master_a, turbos_a in models(code_a):
+            for master_b, turbos_b in models(code_b):
+                shared = sorted(turbos_a & turbos_b)
+                if master_a == master_b and shared:
+                    # "MP530W" -> "MP530w", como o catalogo escreve
+                    return f"{master_a[:2]}{master_a[2:].lower()} / {' / '.join(shared)}"
+        return None
 
     def _our_products_for_code(self, code: str) -> List[Dict[str, Any]]:
         """Nossos produtos (ativos e inativos) com o codigo ou a versao nova/reman dele."""

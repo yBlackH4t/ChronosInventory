@@ -411,6 +411,12 @@ def format_comparison_answer(
         lines.append(f"Ressalva: {note}" if note else "Confira antes de trocar.")
     elif kind == "diferente":
         lines = [f"{pair}: não, são diferentes; uma não serve no lugar da outra (segundo o especialista)."]
+    elif kind == "mesmo_modelo":
+        confirmed = False
+        lines = [
+            f"{pair}: provavelmente servem uma no lugar da outra. São fichas diferentes do catálogo, "
+            f"mas do mesmo modelo ({relation.get('modelo')})."
+        ]
     elif source == "cadastro" and relation.get("produto"):
         confirmed = False
         lines = [f"{pair}: provavelmente são iguais. O cadastro junta os dois em *{relation.get('produto')}*."]
