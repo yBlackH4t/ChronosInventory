@@ -64,6 +64,36 @@ def test_chat_uses_what_the_ai_understood(tmp_path, tools):  # noqa: F811
     assert AssistantInterpreter(store, http_post=post).interpret("tem a 4031196?", []) is None
 
 
+def test_euro_norm_is_a_filter_and_never_dropped(client, tools):  # noqa: F811
+    # A IA esqueceu a norma: a regra poe de volta a da mensagem.
+    assert question_from({"intencao": "aplicacao", "veiculo": "volvo fh 520"}, ["Volvo fh 520 euro 3"]) == (
+        "turbina volvo fh 520 euro 3"
+    )
+    # "Euro 3" tira a aplicacao so Euro 5 (era o FH 520 trazendo a 4031196).
+    euro3 = tools.search_by_application("scania 440 euro 3")
+    assert [i["ficha"] for i in euro3["fichas_catalogo"]] == ["805470"]
+    euro5 = tools.search_by_application("scania 440 euro 5")
+    assert [i["ficha"] for i in euro5["fichas_catalogo"]] == ["805310"]
+
+
+def test_application_marked_as_not_applicable(client, tools):  # noqa: F811
+    wrong = {"ficha": "805310", "montadora": "Scania", "veiculo": "Scania R 440", "motor": "DC13 SCR Euro 5",
+             "complemento": "A partir de 2012"}
+    before = [i["ficha"] for i in tools.search_by_application("scania r 440 dc13")["fichas_catalogo"]]
+    assert "805310" in before
+    assert client.post("/catalogo/aplicacoes-ocultas", json=wrong).status_code == 200
+    after = [i["ficha"] for i in tools.search_by_application("scania r 440 dc13")["fichas_catalogo"]]
+    assert "805310" not in after  # sobrou so o Scania G 440, que nao foi marcado
+    assert "805310" in [i["ficha"] for i in tools.search_by_application("scania g 440 dc13")["fichas_catalogo"]]
+    # A aba Catalogo do produto mostra a linha riscada.
+    links = client.get(f"/produtos/{tools.ids['gta42']}/catalogo").json()["data"]["vinculos"]
+    marked = {(a["veiculo"], a["oculta"]) for link in links for a in link["aplicacoes"]}
+    assert ("Scania R 440", True) in marked and ("Scania G 440", False) in marked
+    # Desfazer volta a valer.
+    assert client.post("/catalogo/aplicacoes-ocultas/desfazer", json=wrong).status_code == 200
+    assert "805310" in [i["ficha"] for i in tools.search_by_application("scania r 440 dc13")["fichas_catalogo"]]
+
+
 # ----------------------------------------------------------------------
 # Grafo de codigos
 # ----------------------------------------------------------------------

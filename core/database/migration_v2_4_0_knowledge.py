@@ -53,6 +53,21 @@ KNOWLEDGE_SCHEMA_SQL = (
         atualizado_em DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """,
+    # "Não se aplica" (2.4.6): aplicacao do catalogo que o especialista marcou como errada. Fica
+    # pelo conteudo (ficha + veiculo + motor + complemento), nao pelo id: vale depois de atualizar
+    # o catalogo. Ver core/catalog/hidden_applications.py.
+    """
+    CREATE TABLE IF NOT EXISTS aplicacoes_ocultas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chave TEXT NOT NULL UNIQUE,
+        ficha TEXT NOT NULL,
+        montadora TEXT,
+        veiculo TEXT NOT NULL,
+        motor TEXT,
+        complemento TEXT,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
 )
 
 

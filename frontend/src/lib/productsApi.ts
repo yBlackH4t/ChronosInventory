@@ -19,6 +19,7 @@ import type {
   OwnFichaList,
   CatalogStatus,
   CatalogImportOut,
+  HiddenApplicationIn,
 } from "../types/api";
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -264,6 +265,15 @@ export function createProductsApi({
       return request<{ removido: boolean }>(
         `/catalogo/fichas-proprias/${id}`,
         { method: "DELETE", ...options },
+        baseUrl,
+      );
+    },
+
+    /** "Não se aplica" (hide = true) ou "Desfazer" numa aplicação do catálogo. */
+    async setApplicationHidden(payload: HiddenApplicationIn, hide: boolean, options: RequestInit = {}) {
+      return request<{ oculta: boolean }>(
+        hide ? `/catalogo/aplicacoes-ocultas` : `/catalogo/aplicacoes-ocultas/desfazer`,
+        { method: "POST", body: JSON.stringify(payload), ...options },
         baseUrl,
       );
     },

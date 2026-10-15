@@ -214,6 +214,15 @@ class CatalogRepository(BaseRepository):
             """,
             (cp_id,),
         )
+        # "Não se aplica": a tela mostra riscada (com "Desfazer"); a busca do assistente nem ve.
+        from core.catalog.hidden_applications import is_hidden
+
+        try:
+            hidden = {r["chave"] for r in self._execute_query("SELECT chave FROM aplicacoes_ocultas")}
+        except Exception:
+            hidden = set()
+        for app in item["aplicacoes"]:
+            app["oculta"] = is_hidden(hidden, item.get("codigo"), app)
         item["relacionados"] = self._execute_query(
             """
             SELECT r.tipo, cp.id, cp.codigo, cp.descricao, cp.grupo

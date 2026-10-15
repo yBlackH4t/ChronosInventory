@@ -23,12 +23,13 @@ import {
   IconTags,
   IconTruck,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { notifyError, notifySuccess } from "../../lib/notify";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/apiClient";
 import { brandColor } from "../../lib/brands";
 import { useProfileScope } from "../../state/profileScope";
-import type { ProductCatalogLink } from "../../types/api";
+import type { HiddenApplicationIn, ProductCatalogLink } from "../../types/api";
 import { OwnFichaPanel } from "./OwnFichaPanel";
 
 type ProductCatalogTabProps = {
@@ -185,6 +186,28 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
     queryKey: ["produto-catalogo", profileScopeKey, productId],
     queryFn: ({ signal }) => api.getProductCatalog(productId, { signal }),
     staleTime: 5 * 60_000,
+  });
+
+  // "Não se aplica": mesma permissão da ficha própria (máquina que publica a base).
+  const queryClient = useQueryClient();
+  const editQuery = useQuery({
+    queryKey: ["fichas-proprias"],
+    queryFn: ({ signal }) => api.listOwnFichas(undefined, { signal }),
+    staleTime: 60_000,
+  });
+  const canEditCatalog = editQuery.data?.data.pode_editar ?? false;
+  const toggleApplication = useMutation({
+    mutationFn: ({ hide, payload }: { hide: boolean; payload: HiddenApplicationIn }) =>
+      api.setApplicationHidden(payload, hide),
+    onSuccess: (_, { hide }) => {
+      notifySuccess(
+        hide
+          ? "Aplicação marcada como \"não se aplica\". O assistente não usa mais esta linha."
+          : "Aplicação voltou a valer.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["produto-catalogo"] });
+    },
+    onError: (error) => notifyError(error, "Não foi possível marcar a aplicação."),
   });
 
   if (catalogQuery.isLoading) {
@@ -355,11 +378,16 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
                       <Table.Th>Veículo / modelo</Table.Th>
                       <Table.Th>Motor</Table.Th>
                       <Table.Th>Tipo</Table.Th>
+                      <Table.Th />
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
                     {currentLink.aplicacoes.map((app, idx) => (
-                      <Table.Tr key={idx}>
+                      <Table.Tr
+                        key={idx}
+                        style={app.oculta ? { textDecoration: "line-through", opacity: 0.55 } : undefined}
+                        title={app.oculta ? "Marcada como \"não se aplica\": o assistente não usa esta linha." : undefined}
+                      >
                         <Table.Td fw={600}>{app.montadora || "Diversos"}</Table.Td>
                         <Table.Td>{app.veiculo}</Table.Td>
                         <Table.Td>
@@ -380,6 +408,30 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
                             <Text size="sm" c="var(--text-subtle)">
                               —
                             </Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td style={{ textDecoration: "none" }}>
+                          {canEditCatalog && (
+                            <Button
+                              size="compact-xs"
+                              variant="subtle"
+                              color={app.oculta ? "gray" : "red"}
+                              loading={toggleApplication.isPending}
+                              onClick={() =>
+                                toggleApplication.mutate({
+                                  hide: !app.oculta,
+                                  payload: {
+                                    ficha: currentLink.codigo,
+                                    montadora: app.montadora,
+                                    veiculo: app.veiculo,
+                                    motor: app.motor,
+                                    complemento: app.complemento,
+                                  },
+                                })
+                              }
+                            >
+                              {app.oculta ? "Desfazer" : "Não se aplica"}
+                            </Button>
                           )}
                         </Table.Td>
                       </Table.Tr>

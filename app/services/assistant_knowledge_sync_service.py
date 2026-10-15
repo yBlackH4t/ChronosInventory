@@ -27,7 +27,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from app.services.assistant_knowledge_service import MAX_NOTE_LENGTH, VALID_TYPES
-from core.catalog import own_fichas
+from core.catalog import hidden_applications, own_fichas
 from core.catalog.normalization import canonical_code, is_searchable_code
 from core.constants import APP_VERSION
 from core.database.repositories.knowledge_repository import KnowledgeRepository
@@ -215,9 +215,15 @@ class AssistantKnowledgeSyncService:
         digest = rules_hash(rules)
         fichas = self._export_fichas()
         fichas_digest = own_fichas.fichas_hash(fichas)
+        hidden = self._export_hidden()
+        hidden_digest = hidden_applications.items_hash(hidden)
         previous = self._state()
         # Mesmas regras e fichas de antes (ex.: backend reaberto): mantem a data da versao.
-        same = previous.get("sha256") == digest and previous.get("fichas_sha256") == fichas_digest
+        same = (
+            previous.get("sha256") == digest
+            and previous.get("fichas_sha256") == fichas_digest
+            and previous.get("ocultas_sha256") == hidden_digest
+        )
         published_at = previous.get("publicado_em") if same else None
         payload = {
             "formato": FORMAT_VERSION,
@@ -231,6 +237,9 @@ class AssistantKnowledgeSyncService:
             # Fichas proprias (2.4.1). Quem e da 2.4.0 ignora estas chaves.
             "fichas": fichas,
             "fichas_sha256": fichas_digest,
+            # "Não se aplica" (2.4.6). Quem e mais antigo ignora.
+            "aplicacoes_ocultas": hidden,
+            "ocultas_sha256": hidden_digest,
         }
 
         reached, errors = [], []
@@ -255,6 +264,7 @@ class AssistantKnowledgeSyncService:
                 "fonte": " e ".join(reached) or None,
                 "sha256": digest,
                 "fichas_sha256": fichas_digest,
+                "ocultas_sha256": hidden_digest,
                 "total_fichas": len(fichas),
                 "publicado_em": payload["publicado_em"],
                 "maquina": payload["maquina"],
@@ -298,6 +308,7 @@ class AssistantKnowledgeSyncService:
         try:
             rules, digest = self._validated(payload)
             fichas = self._validated_fichas(payload)
+            hidden = self._validated_hidden(payload)
         except ValidationException as exc:
             self._save_state({**state, "erro": str(exc)})
             return
@@ -310,6 +321,9 @@ class AssistantKnowledgeSyncService:
             state["atualizado_em"] = state["verificado_em"]
         if fichas is not None:
             state["total_fichas"] = len(fichas)
+        if hidden is not None and hidden_applications.items_hash(self._export_hidden()) != hidden_applications.items_hash(hidden):
+            self._replace_hidden(hidden)
+            state["atualizado_em"] = state["verificado_em"]
         self._save_state(
             {
                 **state,
@@ -400,6 +414,41 @@ class AssistantKnowledgeSyncService:
         if str(payload.get("fichas_sha256") or "") != received:
             raise ValidationException("O arquivo do conhecimento veio incompleto ou alterado; nada foi alterado.")
         return [own_fichas.normalize_ficha(item) for item in raw]
+
+    @staticmethod
+    def _validated_hidden(payload: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+        """"Não se aplica" publicados (None = publicadora mais antiga, sem esta parte)."""
+        raw = payload.get("aplicacoes_ocultas")
+        if raw is None:
+            return None
+        if not isinstance(raw, list):
+            raise ValidationException("As aplicações escondidas publicadas estão num formato inválido; nada foi alterado.")
+        items = [hidden_applications.normalize(item) for item in raw]
+        if str(payload.get("ocultas_sha256") or "") != hidden_applications.items_hash(items):
+            raise ValidationException("O arquivo do conhecimento veio incompleto ou alterado; nada foi alterado.")
+        return items
+
+    def _export_hidden(self) -> List[Dict[str, Any]]:
+        from core.database.connection import DatabaseConnection
+
+        conn = DatabaseConnection().get_connection()
+        try:
+            return hidden_applications.export(conn)
+        finally:
+            conn.close()
+
+    def _replace_hidden(self, items: List[Dict[str, Any]]) -> None:
+        from core.database.connection import DatabaseConnection
+
+        conn = DatabaseConnection().get_connection()
+        try:
+            hidden_applications.replace_all(conn, items)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def _export_fichas(self) -> List[Dict[str, Any]]:
         from core.database.connection import DatabaseConnection
