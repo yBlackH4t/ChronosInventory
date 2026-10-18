@@ -279,7 +279,6 @@ class DatabaseConnection:
             # ── Indexes ──────────────────────────────────────────────
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_ativo_nome ON produtos(ativo, nome);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto ON movimentacoes(produto_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_data ON movimentacoes(data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto_data ON movimentacoes(produto_id, data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_data ON movimentacoes(tipo, data_hora);")
@@ -288,16 +287,22 @@ class DatabaseConnection:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_natureza_data ON movimentacoes(natureza, data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_origem_local ON movimentacoes(origem_local_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_destino_local ON movimentacoes(destino_local_id);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_images_primary ON product_images(product_id, is_primary);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_sessions_status ON inventory_sessions(status, created_at);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_session ON inventory_counts(session_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_divergencia ON inventory_counts(session_id, divergencia);")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_produto ON produto_estoque(produto_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_local ON produto_estoque(local_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_quantidade ON produto_estoque(quantidade);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_nome ON locais(nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_ativo ON locais(ativo);")
+            # Indices redundantes: a coluna ja e o comeco de outro indice (ou da chave primaria),
+            # que o SQLite usa do mesmo jeito. So ocupavam espaco e deixavam a escrita mais lenta.
+            for redundant in (
+                "idx_mov_produto",  # = idx_mov_produto_data (produto_id, data_hora)
+                "idx_product_images_product",  # = idx_product_images_primary (product_id, is_primary)
+                "idx_inventory_counts_session",  # = idx_inventory_counts_divergencia (session_id, divergencia)
+                "idx_produto_estoque_produto",  # = PRIMARY KEY (produto_id, local_id)
+            ):
+                cursor.execute(f"DROP INDEX IF EXISTS {redundant};")
 
             # ── v2.3.0 Catalogo de referencias ───────────────────────
             ensure_catalog_schema(conn)
