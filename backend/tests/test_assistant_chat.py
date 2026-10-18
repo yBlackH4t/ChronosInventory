@@ -546,3 +546,25 @@ def test_chat_endpoint(client, tools):  # noqa: F811
     assert data["ferramentas_usadas"] == ["buscar_por_aplicacao"]
     assert [p["nome"] for p in data["produtos"]] == ["TURBO GTA42S - 779839-0025"]
     assert len(fake.calls[0]["json"]["messages"]) == 4  # system + historico (2) + pergunta
+
+
+def test_api_keys_are_stored_protected_and_plain_files_are_migrated(store):
+    store.update(provedor="groq", api_key=GROQ_KEY)
+    raw = open(store.config_path, encoding="utf-8").read()
+    assert GROQ_KEY not in raw  # nunca em texto puro no arquivo
+    assert store.load()["chaves"]["groq"] == GROQ_KEY  # quem usa recebe em claro
+    assert AssistantConfigStore.key_for(store.load(), "groq") == (GROQ_KEY, "configuracoes")
+
+    # Arquivo de versao antiga: chave em texto puro e outra secao (admin) que nao pode sumir.
+    with open(store.config_path, "w", encoding="utf-8") as f:
+        json.dump({"provedor": "anthropic", "chaves": {"anthropic": CLAUDE_KEY}, "admin": {"hash": "x"}}, f)
+    assert store.load()["chaves"] == {"anthropic": CLAUDE_KEY}
+    migrated = json.loads(open(store.config_path, encoding="utf-8").read())
+    assert CLAUDE_KEY not in json.dumps(migrated)
+    assert migrated["admin"] == {"hash": "x"}
+    assert store.load()["chaves"] == {"anthropic": CLAUDE_KEY}
+
+    # Salvar uma secao nao desprotege as chaves.
+    store.save_section("whatsapp", {"ligado": False})
+    assert CLAUDE_KEY not in open(store.config_path, encoding="utf-8").read()
+    assert store.load()["chaves"] == {"anthropic": CLAUDE_KEY}
