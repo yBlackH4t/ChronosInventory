@@ -422,6 +422,16 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-18 — Claude Code — Correções de telas (acessibilidade, cores, textos, dependências)
+- Branch: `claude/frontend-correcoes-a11y-copy` (sobre a `main` 65d638d, versão 2.5.4 sem mudar).
+- Contraste (texto ≥ 4,5:1 nos dois temas; âmbar/verde escuros no claro via `cssVariablesResolver`),
+  badges 11/12px, linhas clicáveis pelo teclado (`lib/clickableRow.ts`), cores só do tema
+  (`danger/info/success/warning`; laranja só "Saída"), acentos e termos técnicos nos textos
+  (`OUTDATED_APP_MESSAGE` e `ASSISTANT_UNREACHABLE_MESSAGE` em `lib/notify.ts`), Node 22 no CI,
+  dependências na última minor, reqwest 0.12.
+- Verificações: build ok / lint ok (5 avisos antigos) / vitest 31 ok / cargo check ok.
+- Ficou de fora: D3/D5/D7, tela do PIN do WhatsApp, `@tauri-apps/*` (andam junto com os crates).
+
 ### 2026-10-15 — Claude Code — Disco e backups (2.5.3)
 - Branch: `claude/project-thread-2j0v1i`. Verificação no PC da empresa: 23 pastas `_MEI*` no TEMP
   (1,1 GB, do backend onefile até a 2.3.x; não são apagadas pelo app porque outros programas
