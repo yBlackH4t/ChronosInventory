@@ -38,7 +38,7 @@ export default function SuggestProposalButton() {
         title: "Sugestão enviada",
         message:
           result.destino === "publicadora"
-            ? "Chegou na máquina que publica a base. O admin aprova em Assistente > Admin > Para revisar."
+            ? "Chegou no computador principal. O admin aprova em Assistente > Admin > Para revisar."
             : "Ficou nesta máquina, em Assistente > Admin > Para revisar, esperando o admin aprovar.",
         color: "success",
       });

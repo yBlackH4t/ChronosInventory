@@ -17,15 +17,15 @@ export function useInventoryModals({
 }: UseInventoryModalsProps) {
   const confirmCloseSession = (session: InventorySessionOut) => {
     modals.openConfirmModal({
-      title: "Fechar sessao de inventario",
+      title: "Fechar sessão de inventário",
       children: (
         <Text size="sm">
-          A sessao <strong>#{session.id}</strong> sera fechada e ficara somente
-          para consulta. Depois disso, nao sera mais possivel editar contagens
+          A sessão <strong>#{session.id}</strong> será fechada e ficará somente
+          para consulta. Depois disso, não será mais possível editar contagens
           nem aplicar ajustes.
         </Text>
       ),
-      labels: { confirm: "Fechar sessao", cancel: "Cancelar" },
+      labels: { confirm: "Fechar sessão", cancel: "Cancelar" },
       confirmProps: { color: "warning" },
       onConfirm: () => closeSessionMutation.mutate(session.id),
     });
@@ -33,15 +33,15 @@ export function useInventoryModals({
 
   const confirmDeleteSession = (session: InventorySessionOut) => {
     modals.openConfirmModal({
-      title: "Excluir sessao de inventario",
+      title: "Excluir sessão de inventário",
       children: (
         <Text size="sm">
-          A sessao <strong>#{session.id}</strong> sera removida com todas as
-          contagens vinculadas. Essa acao so e permitida para sessoes sem
+          A sessão <strong>#{session.id}</strong> será removida com todas as
+          contagens vinculadas. Essa ação só é permitida para sessões sem
           ajustes aplicados.
         </Text>
       ),
-      labels: { confirm: "Excluir sessao", cancel: "Cancelar" },
+      labels: { confirm: "Excluir sessão", cancel: "Cancelar" },
       confirmProps: { color: "danger" },
       onConfirm: () => deleteSessionMutation.mutate(session.id),
     });
@@ -49,11 +49,11 @@ export function useInventoryModals({
 
   const confirmApply = (sessionId: number) => {
     modals.openConfirmModal({
-      title: "Aplicar ajustes do inventario",
+      title: "Aplicar ajustes do inventário",
       children: (
         <Text size="sm">
-          Esta operacao vai gerar movimentacoes de AJUSTE para todas as
-          divergencias da sessao.
+          Esta operação vai gerar movimentações de AJUSTE para todas as
+          divergências da sessão.
         </Text>
       ),
       labels: { confirm: "Aplicar ajustes", cancel: "Cancelar" },
@@ -64,15 +64,15 @@ export function useInventoryModals({
 
   const confirmInitializeCollectorMode = () => {
     modals.openConfirmModal({
-      title: "Iniciar inventario por bip",
+      title: "Iniciar inventário por bip",
       children: (
         <Text size="sm">
-          Essa acao zera o fisico de todos os itens da sessao para 0 e prepara o
-          inventario por leitura. Itens nao bipados ficarao como divergencia
+          Essa ação zera o físico de todos os itens da sessão para 0 e prepara o
+          inventário por leitura. Itens não bipados ficarão como divergência
           negativa.
         </Text>
       ),
-      labels: { confirm: "Iniciar e zerar fisico", cancel: "Cancelar" },
+      labels: { confirm: "Iniciar e zerar físico", cancel: "Cancelar" },
       confirmProps: { color: "warning" },
       onConfirm: onInitializeCollector,
     });

@@ -302,7 +302,7 @@ export default function MovementsFiltersSection({
             </Text>
             <SimpleGrid cols={2} spacing="sm">
               <Select
-                label="Layout"
+                label="Exibição"
                 data={TABLE_VIEW_MODE_OPTIONS}
                 value={tablePreferences.viewMode}
                 allowDeselect={false}

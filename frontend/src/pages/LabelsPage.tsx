@@ -283,7 +283,7 @@ export default function LabelsPage() {
         if (failed.length > 0) {
           notifyError(
             new Error(
-              `Nao foi possivel carregar ${failed.length} item(ns) selecionado(s).`,
+              `Não foi possível carregar ${failed.length} item(ns) selecionado(s).`,
             ),
           );
         }
@@ -291,7 +291,7 @@ export default function LabelsPage() {
 
       const items = Array.from(byId.values());
       if (items.length === 0) {
-        notifyError(new Error("Nenhum item valido para impressao."));
+        notifyError(new Error("Nenhum item válido para impressão."));
         return;
       }
 
@@ -299,7 +299,7 @@ export default function LabelsPage() {
       if (batch.expanded.length === 0) {
         notifyError(
           new Error(
-            "Nenhuma etiqueta para imprimir. Verifique o modo de copias.",
+            "Nenhuma etiqueta para imprimir. Verifique o modo de cópias.",
           ),
         );
         return;
@@ -307,12 +307,12 @@ export default function LabelsPage() {
       if (batch.limited) {
         notifyError(
           new Error(
-            `Limite de ${MAX_LABELS_PER_PRINT} etiquetas por impressao atingido.`,
+            `Limite de ${MAX_LABELS_PER_PRINT} etiquetas por impressão atingido.`,
           ),
         );
       } else if (batch.skipped > 0 || batch.capped > 0) {
         notifySuccess(
-          `Impressao preparada: ${batch.expanded.length} etiqueta(s). Ignorados: ${batch.skipped}. Ajustados no limite: ${batch.capped}.`,
+          `Impressão preparada: ${batch.expanded.length} etiqueta(s). Ignorados: ${batch.skipped}. Ajustados no limite: ${batch.capped}.`,
         );
       }
       printLabels(batch.expanded);
@@ -325,7 +325,7 @@ export default function LabelsPage() {
     const batch = buildPrintBatch([product]);
     if (batch.expanded.length === 0) {
       notifyError(
-        new Error("Este item nao gerou etiquetas no modo atual de copias."),
+        new Error("Este item não gerou etiquetas no modo atual de cópias."),
       );
       return;
     }

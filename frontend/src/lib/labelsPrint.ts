@@ -31,7 +31,7 @@ export const SHIPPING_LABEL_FIELD_TOKEN_OPTIONS: {
   { value: "cidade", label: "Cidade" },
   { value: "estado", label: "Estado" },
   { value: "transportadora", label: "Transportadora" },
-  { value: "numeroNota", label: "Numero da nota" },
+  { value: "numeroNota", label: "Número da nota" },
   { value: "pesoKg", label: "Peso (Kg)" },
   { value: "volumeInfo", label: "Volume (1/N)" },
 ];
@@ -510,7 +510,7 @@ export function buildShippingLabelsDesignerPrintHtml(
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>Etiquetas de Expedicao - Designer Visual</title>
+    <title>Etiquetas de Expedição - Designer Visual</title>
     <style>
       :root { color-scheme: only light; }
       * { box-sizing: border-box; }

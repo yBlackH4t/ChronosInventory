@@ -27,7 +27,7 @@ export function printHtml(html: string, onError?: (message: string) => void): vo
     const frameWindow = frame.contentWindow;
     if (!frameWindow) {
       remove();
-      onError?.("Nao foi possivel abrir a impressao.");
+      onError?.("Não foi possível abrir a impressão.");
       return;
     }
     frameWindow.addEventListener("afterprint", () => window.setTimeout(remove, 500));
@@ -38,7 +38,7 @@ export function printHtml(html: string, onError?: (message: string) => void): vo
 
   frame.onerror = () => {
     remove();
-    onError?.("Falha ao preparar a impressao.");
+    onError?.("Falha ao preparar a impressão.");
   };
 
   frame.srcdoc = html;

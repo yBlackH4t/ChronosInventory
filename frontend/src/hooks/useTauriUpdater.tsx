@@ -46,13 +46,13 @@ export function useTauriUpdater() {
             notifications.update({
               id: notificationId,
               title: "Atualizando...",
-              message: "Baixando e instalando a nova versao.",
+              message: "Baixando e instalando a nova versão.",
               loading: true,
               autoClose: false,
             });
             await update.download();
             // Fecha o backend antes de instalar: senao ele fica rodando com a versao antiga e
-            // segura a porta 8000 ("Atualizacao incompleta" na 2.4.0).
+            // segura a porta 8000 ("Atualização incompleta" na 2.4.0).
             try {
               const { invoke } = await import("@tauri-apps/api/core");
               await invoke("kill_backend");
@@ -74,11 +74,11 @@ export function useTauriUpdater() {
             });
             if (backupCreated) {
               modals.openConfirmModal({
-                title: "Restaurar dados pre-update?",
+                title: "Voltar aos dados de antes da atualização?",
                 children: (
                   <Text size="sm">
-                    A instalacao falhou. Deseja restaurar automaticamente o
-                    backup pre-update?
+                    A instalação falhou. Deseja restaurar automaticamente o
+                    cópia de segurança feita antes de atualizar?
                   </Text>
                 ),
                 labels: { confirm: "Restaurar", cancel: "Depois" },
@@ -88,7 +88,7 @@ export function useTauriUpdater() {
                     await api.backupRestorePreUpdate();
                     notifications.show({
                       title: "Dados restaurados",
-                      message: "Backup pre-update restaurado com sucesso.",
+                      message: "Dados de antes da atualização restaurados.",
                       color: "success",
                     });
                   } catch (restoreError) {
@@ -109,7 +109,7 @@ export function useTauriUpdater() {
         };
 
         const id = notifications.show({
-          title: "Nova versao disponivel",
+          title: "Nova versão disponível",
           message: (
             <Group gap="xs" wrap="wrap">
               <Text size="sm">
@@ -120,11 +120,11 @@ export function useTauriUpdater() {
                 variant="default"
                 onClick={async () => {
                   modals.openConfirmModal({
-                    title: `Nova versao ${version}`,
+                    title: `Nova versão ${version}`,
                     children: (
                       <Stack gap="xs">
                         <Text size="sm">
-                          Deseja instalar esta atualizacao agora?
+                          Deseja instalar esta atualização agora?
                         </Text>
                         <Text
                           size="xs"

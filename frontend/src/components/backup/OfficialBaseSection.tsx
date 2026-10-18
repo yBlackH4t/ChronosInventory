@@ -193,7 +193,7 @@ export function OfficialBaseSection({
               Servidor {serverIsRunning ? "ativo" : "parado"}
             </StatusDot>
             <StatusDot tone={isPublisher ? "info" : "neutral"}>
-              {isPublisher ? "Publica a base" : "Consome a base"}
+              {isPublisher ? "Computador principal" : "Outro computador"}
             </StatusDot>
             <StatusDot tone={status?.remote_server_url ? "info" : "neutral"}>
               {status?.remote_server_url ? "Servidor remoto configurado" : "Sem servidor remoto"}
@@ -380,8 +380,8 @@ export function OfficialBaseSection({
                   <Select
                     label="Papel desta máquina"
                     data={[
-                      { value: "consumer", label: "Consome a base" },
-                      { value: "publisher", label: "Publica a base" },
+                      { value: "consumer", label: "Outro computador" },
+                      { value: "publisher", label: "Computador principal" },
                     ]}
                     value={roleInput}
                     onChange={(value) =>

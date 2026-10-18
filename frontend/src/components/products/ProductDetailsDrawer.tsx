@@ -497,7 +497,7 @@ export function ProductDetailsDrawer({
 
                   {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
                     <TextInput
-                      label="Local Externo"
+                      label="Local externo"
                       placeholder="Ex: Matriz, Maringá"
                       required
                       {...movementForm.getInputProps("local_externo")}
@@ -506,7 +506,7 @@ export function ProductDetailsDrawer({
 
                   {movementForm.values.natureza === "AJUSTE" && (
                     <Select
-                      label="Motivo do Ajuste"
+                      label="Motivo do ajuste"
                       data={adjustmentReasonOptions}
                       required
                       {...movementForm.getInputProps("motivo_ajuste")}

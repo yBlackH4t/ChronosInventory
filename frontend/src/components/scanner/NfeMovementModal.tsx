@@ -243,7 +243,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   const locationOptions = activeLocations.map((loc) => ({ value: String(loc.id), label: loc.label || loc.name }));
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Baixa por nota fiscal (NF-e)" size="xl">
+    <Modal opened={opened} onClose={onClose} title="Lançar nota fiscal (NF-e)" size="xl">
       <Stack gap="md">
         <Group align="flex-end" gap="xs" wrap="nowrap">
           <TextInput

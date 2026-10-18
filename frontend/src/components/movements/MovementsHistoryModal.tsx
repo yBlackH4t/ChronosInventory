@@ -36,7 +36,7 @@ export default function MovementsHistoryModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Historico do produto"
+      title="Histórico do produto"
       size="lg"
     >
       {!historyProductId ? (
@@ -47,7 +47,7 @@ export default function MovementsHistoryModal({
         </Group>
       ) : errorMessage ? (
         <EmptyState
-          message={`Falha ao carregar historico: ${errorMessage}`}
+          message={`Falha ao carregar histórico: ${errorMessage}`}
           actionLabel="Tentar novamente"
           onAction={onRetry}
         />

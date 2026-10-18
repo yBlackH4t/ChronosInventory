@@ -250,7 +250,7 @@ export default function ProductsPage() {
   >({
     mutationFn: (id: number) => api.deleteProduct(id),
     onSuccess: () => {
-      notifySuccess("Produto removido");
+      notifySuccess("Produto excluído");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });
@@ -270,7 +270,7 @@ export default function ProductsPage() {
               </Text>
             </Stack>
           ),
-          labels: { confirm: "Inativar produto", cancel: "Fechar" },
+          labels: { confirm: "Inativar produto", cancel: "Cancelar" },
           confirmProps: { color: "warning" },
           onConfirm: () => inactivateMutation.mutate(productId),
         });
@@ -291,7 +291,7 @@ export default function ProductsPage() {
       observacao_movimento: "",
     },
     validate: {
-      nome: (value) => (value.trim().length === 0 ? "Nome obrigatorio" : null),
+      nome: (value) => (value.trim().length === 0 ? "Nome obrigatório" : null),
     },
   });
 
@@ -301,7 +301,7 @@ export default function ProductsPage() {
       observacao: "",
     },
     validate: {
-      nome: (value) => (value.trim().length === 0 ? "Nome obrigatorio" : null),
+      nome: (value) => (value.trim().length === 0 ? "Nome obrigatório" : null),
     },
   });
 
@@ -335,7 +335,7 @@ export default function ProductsPage() {
     if (total <= 0) {
       notifyError(
         new Error(
-          "Estoque inicial nao pode ser 0. Use entrada/devolucao para registrar depois.",
+          "Estoque inicial não pode ser 0. Use entrada/devolução para registrar depois.",
         ),
       );
       return;
@@ -454,7 +454,7 @@ export default function ProductsPage() {
   >({
     mutationFn: ({ id, observacao }) => api.patchProduct(id, { observacao }),
     onSuccess: () => {
-      notifySuccess("Observacao atualizada");
+      notifySuccess("Observação atualizada");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });
@@ -694,10 +694,10 @@ export default function ProductsPage() {
     }
 
     modals.openConfirmModal({
-      title: "Descartar alteracoes?",
+      title: "Descartar alterações?",
       children: (
         <Text size="sm">
-          Existem alteracoes nao salvas. Deseja fechar e descartar o formulario?
+          Existem alterações não salvas. Deseja fechar e descartar o formulário?
         </Text>
       ),
       labels: { confirm: "Descartar", cancel: "Continuar editando" },

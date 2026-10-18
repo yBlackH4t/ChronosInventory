@@ -34,6 +34,7 @@ import {
 import { formatWhatsAppText } from "../../lib/assistantFormat";
 import { downloadBlob } from "../../lib/download";
 import type { Conversation } from "../../types/assistantAdmin";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 const PAGE_SIZE = 20;
 
@@ -176,7 +177,7 @@ export default function AdminHistoryTab() {
           color="danger"
         >
           <Group justify="space-between">
-            <Text size="sm">{error instanceof Error ? error.message : "Erro desconhecido"}</Text>
+            <Text size="sm">{error instanceof Error ? error.message : ASSISTANT_UNREACHABLE_MESSAGE}</Text>
             <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
               Tentar novamente
             </Button>

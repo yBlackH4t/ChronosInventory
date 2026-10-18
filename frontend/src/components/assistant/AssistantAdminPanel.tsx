@@ -44,6 +44,7 @@ import AdminReviewTab from "./AdminReviewTab";
 import AdminKnowledgeTab from "./AdminKnowledgeTab";
 import AdminHistoryTab from "./AdminHistoryTab";
 import AdminWhatsAppTab from "./AdminWhatsAppTab";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 export default function AssistantAdminPanel() {
   const queryClient = useQueryClient();
@@ -246,7 +247,7 @@ export default function AssistantAdminPanel() {
           <Text size="sm">
             {statusError instanceof Error
               ? statusError.message
-              : "Erro ao se comunicar com o backend."}
+              : ASSISTANT_UNREACHABLE_MESSAGE}
           </Text>
           <Button size="xs" variant="outline" color="danger" onClick={() => refetchStatus()}>
             Tentar novamente
@@ -293,7 +294,7 @@ export default function AssistantAdminPanel() {
                 mt="xs"
                 loading={criarSenhaMutation.isPending}
               >
-                Criar Senha e Continuar
+                Criar senha e continuar
               </Button>
             </Stack>
           </form>
@@ -357,12 +358,12 @@ export default function AssistantAdminPanel() {
       <Stack gap="md">
         <Alert
           icon={<IconInfoCircle size={18} />}
-          title="Máquina não publicadora"
+          title="Este não é o computador principal"
           color="warning"
           variant="light"
         >
-          Para ensinar o assistente, esta máquina precisa ser a publicadora da
-          base oficial (Backup &gt; Base oficial &gt; Papel desta máquina: Publica a base).
+          Para ensinar o assistente, use o computador principal (Backup &gt; Base
+          oficial &gt; Papel desta máquina: Computador principal).
           Nesta máquina, a base de conhecimento fica disponível apenas para consulta.
         </Alert>
 
@@ -372,8 +373,8 @@ export default function AssistantAdminPanel() {
             Robô do WhatsApp (PC reserva)
           </Title>
           <Text size="sm" c="dimmed" mb="md">
-            Conecte o WhatsApp da empresa também neste PC. Ele só responde quando o PC principal (o que
-            publica a base) estiver desligado, por exemplo nas férias. A senha abaixo é deste PC.
+            Conecte o WhatsApp da empresa também neste PC. Ele só responde quando o computador principal
+            estiver desligado, por exemplo nas férias. A senha abaixo é deste PC.
           </Text>
           {!status?.senha_definida ? createPasswordCard : !session.token ? loginCard : <AdminWhatsAppTab />}
         </Card>
@@ -411,7 +412,7 @@ export default function AssistantAdminPanel() {
               Admin Autenticado
             </Badge>
             <Badge color="info" variant="outline">
-              Máquina Publicadora
+              Computador principal
             </Badge>
           </Group>
 

@@ -100,17 +100,17 @@ export function ApiGate({
     return (
       <Center h="100vh">
         <Stack gap="md" align="center" maw={520}>
-          <Title order={2}>Atualizacao incompleta detectada</Title>
+          <Title order={2}>Atualização incompleta detectada</Title>
           <Text c="dimmed" ta="center">
-            O backend local esta desatualizado para esta versao do app.
+            O serviço local do Chronos está desatualizado para esta versão do app.
           </Text>
           <Text c="dimmed" ta="center">
-            App: v{incompatible.appVersion} | Backend: v
+            App: v{incompatible.appVersion} | Serviço local: v
             {incompatible.backendVersion}
           </Text>
           <Text c="dimmed" ta="center">
-            Normalmente e o servico da versao anterior que ficou aberto.
-            Reiniciar o Chronos fecha esse servico e abre o da versao nova.
+            Normalmente é o serviço da versão anterior que ficou aberto.
+            Reiniciar o Chronos fecha esse serviço e abre o da versão nova.
           </Text>
           {/* restart_app fecha qualquer estoque_backend.exe que ainda segure a porta 8000. */}
           <Button onClick={() => void restartApplication()}>
@@ -125,10 +125,10 @@ export function ApiGate({
     return (
       <Center h="100vh">
         <Stack gap="md" align="center" maw={420}>
-          <Title order={2}>Servico local indisponivel</Title>
+          <Title order={2}>Serviço local indisponível</Title>
           <Text c="dimmed" ta="center">
-            Verifique se o backend esta rodando em 127.0.0.1:8000 e tente
-            novamente.
+            Feche e abra o Chronos. Se continuar, avise o responsável
+            (o serviço local usa a porta 8000).
           </Text>
           <Button onClick={() => window.location.reload()}>
             Tentar novamente
@@ -142,11 +142,11 @@ export function ApiGate({
     <Center h="100vh">
       <Stack gap="xs" align="center">
         <Loader size="lg" />
-        <Text>Iniciando servico local...</Text>
+        <Text>Iniciando serviço local...</Text>
         {slowStart && (
           <Text size="sm" c="dimmed" ta="center" maw={360}>
-            Na primeira abertura depois de uma atualizacao isso pode levar ate
-            um minuto. Nao feche o programa.
+            Na primeira abertura depois de uma atualização isso pode levar até
+            um minuto. Não feche o programa.
           </Text>
         )}
       </Stack>

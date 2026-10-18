@@ -99,8 +99,8 @@ export default function AssistantSettingsPanel() {
 
   if (isError || !config) {
     return (
-      <Alert icon={<IconAlertCircle size={16} />} title="Erro" color="danger">
-        Falha ao carregar as configurações do assistente.
+      <Alert icon={<IconAlertCircle size={16} />} title="Configurações do assistente indisponíveis" color="danger">
+        Não foi possível carregar as configurações. Feche e abra o Chronos; se continuar, avise o responsável.
       </Alert>
     );
   }

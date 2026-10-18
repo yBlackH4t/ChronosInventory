@@ -319,7 +319,7 @@ function QuickMovementForm({
           {tipo !== "ENTRADA" && (
             <Grid.Col span={tipo === "TRANSFERENCIA" ? 6 : 12}>
               <Select
-                label="Local de Origem (saída)"
+                label="Local de origem (saída)"
                 placeholder="Selecione o local"
                 data={locationSelectData}
                 value={origemId}
@@ -333,7 +333,7 @@ function QuickMovementForm({
           {tipo !== "SAIDA" && (
             <Grid.Col span={tipo === "TRANSFERENCIA" ? 6 : 12}>
               <Select
-                label="Local de Destino (entrada)"
+                label="Local de destino (entrada)"
                 placeholder="Selecione o local"
                 data={locationSelectData}
                 value={destinoId}
@@ -383,7 +383,7 @@ function QuickMovementForm({
         {/* Campos condicionais para AJUSTE e TRANSFERENCIA_EXTERNA */}
         {natureza === "AJUSTE" && (
           <Select
-            label="Motivo do Ajuste"
+            label="Motivo do ajuste"
             description="Obrigatório para natureza Ajuste"
             data={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
             value={motivoAjuste}
@@ -399,7 +399,7 @@ function QuickMovementForm({
 
         {natureza === "TRANSFERENCIA_EXTERNA" && (
           <TextInput
-            label="Local Externo"
+            label="Local externo"
             description="Obrigatório para transferência externa"
             placeholder="Ex: Oficina parceira, filial terceirizada..."
             value={localExterno}
@@ -478,7 +478,7 @@ export function QuickMovementModal({
         <Group gap="xs">
           <IconArrowsExchange size={20} color="var(--accent)" />
           <Text fw={700} size="md">
-            Movimentação Rápida
+            Movimentar
           </Text>
           <Badge size="sm" variant="light" color="gray">
             #{product.id}

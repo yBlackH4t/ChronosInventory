@@ -40,6 +40,7 @@ import type {
   KnowledgeRelation,
   Proposal,
 } from "../../types/assistantAdmin";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 export default function AdminReviewTab() {
   const queryClient = useQueryClient();
@@ -163,8 +164,8 @@ export default function AdminReviewTab() {
     },
     onError: (err: Error) => {
       notifications.show({
-        title: "Erro",
-        message: err.message || "Não foi possível concluir o código.",
+        title: "Não foi possível concluir o código",
+        message: err.message || "Tente de novo. Se continuar, feche e abra o Chronos.",
         color: "danger",
       });
     },
@@ -258,7 +259,7 @@ export default function AdminReviewTab() {
         color="danger"
       >
         <Group justify="space-between">
-          <Text size="sm">{error instanceof Error ? error.message : "Erro desconhecido"}</Text>
+          <Text size="sm">{error instanceof Error ? error.message : ASSISTANT_UNREACHABLE_MESSAGE}</Text>
           <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
             Tentar novamente
           </Button>

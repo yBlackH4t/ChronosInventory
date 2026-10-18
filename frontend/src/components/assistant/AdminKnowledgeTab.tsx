@@ -39,6 +39,7 @@ import type {
   KnowledgeRelation,
   KnowledgeSyncStatus,
 } from "../../types/assistantAdmin";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 interface AdminKnowledgeTabProps {
   readOnly?: boolean;
@@ -294,7 +295,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
           color="danger"
         >
           <Group justify="space-between">
-            <Text size="sm">{error instanceof Error ? error.message : "Erro desconhecido"}</Text>
+            <Text size="sm">{error instanceof Error ? error.message : ASSISTANT_UNREACHABLE_MESSAGE}</Text>
             <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
               Tentar novamente
             </Button>

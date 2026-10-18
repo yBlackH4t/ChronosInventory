@@ -3,7 +3,7 @@ type ManifestLike = {
   notes?: string | null;
 };
 
-export const DEFAULT_RELEASE_NOTES = "Sem release notes para esta versao.";
+export const DEFAULT_RELEASE_NOTES = "Sem notas de atualização para esta versão.";
 
 export function getReleaseNotesFromManifest(
   manifest?: ManifestLike | null,

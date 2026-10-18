@@ -83,7 +83,7 @@ export default function StockCompareResults({
       <Card>
         <EmptyState
           message="Nenhuma comparação carregada"
-          description="Publique um snapshot nesta máquina e compare com outro computador, ou compare dois arquivos manualmente."
+          description="Publique uma cópia do estoque nesta máquina e compare com outro computador, ou compare dois arquivos manualmente."
         />
       </Card>
     );

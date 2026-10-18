@@ -402,7 +402,7 @@ export default function NfeLabelDesignerPanel() {
     setLayout(DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT);
     setSelectedId(null);
     setImportedLayoutName("");
-    notifySuccess("Layout visual restaurado para o padrao.");
+    notifySuccess("Layout visual restaurado para o padrão.");
   };
 
   const importLayout = async (file: File | null) => {
@@ -523,7 +523,7 @@ export default function NfeLabelDesignerPanel() {
   const runPrint = () => {
     if (!nfeData || nfePrintItems.length === 0) {
       notifyError(
-        new Error("Carregue um XML valido antes de gerar etiquetas."),
+        new Error("Carregue um XML válido antes de gerar etiquetas."),
       );
       return;
     }
@@ -532,7 +532,7 @@ export default function NfeLabelDesignerPanel() {
       if (nfeData.volumes > MAX_NFE_LABELS_PER_PRINT) {
         notifyError(
           new Error(
-            `XML com ${nfeData.volumes} volumes. Limitado a ${MAX_NFE_LABELS_PER_PRINT} etiquetas por impressao.`,
+            `XML com ${nfeData.volumes} volumes. Limitado a ${MAX_NFE_LABELS_PER_PRINT} etiquetas por impressão.`,
           ),
         );
       }

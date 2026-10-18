@@ -61,7 +61,7 @@ export default function LocationsPage() {
     if (activeLocations.length >= 5) {
       notifyError(
         new Error("Limite de locais"),
-        "Voce ja atingiu o limite maximo de 5 locais ativos.",
+        "Você já atingiu o limite máximo de 5 locais ativos.",
       );
       return;
     }

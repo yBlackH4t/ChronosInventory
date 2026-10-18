@@ -100,7 +100,7 @@ export default function WhatsAppDraftsCard({ review }: { review: boolean }) {
   const reviewMutation = useMutation({
     mutationFn: setWhatsAppReview,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assistant-admin-whatsapp"] }),
-    onError: (err: Error) => notifications.show({ title: "Erro", message: err.message, color: "danger" }),
+    onError: (err: Error) => notifications.show({ title: "Não foi possível mudar a revisão das respostas", message: err.message || "Tente de novo em instantes.", color: "danger" }),
   });
   const drafts = draftsQuery.data ?? [];
 

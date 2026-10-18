@@ -175,7 +175,7 @@ export default function ProductLinkModal({
               }}
             />
             <Text c="dimmed" size="xs" mt="xs">
-              Exemplo: Linke esta produto ao item pai correspondente.
+              Exemplo: vincule este produto ao item pai correspondente.
             </Text>
           </Box>
         )}

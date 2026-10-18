@@ -33,22 +33,22 @@ export function useProductMovement({
       defaultLocationId,
     ),
     validate: {
-      quantidade: (value) => (value <= 0 ? "Quantidade invalida" : null),
+      quantidade: (value) => (value <= 0 ? "Quantidade inválida" : null),
       origem_location_id: (value, values) =>
-        values.tipo !== "ENTRADA" && !value ? "Origem obrigatoria" : null,
+        values.tipo !== "ENTRADA" && !value ? "Origem obrigatória" : null,
       destino_location_id: (value, values) =>
-        values.tipo !== "SAIDA" && !value ? "Destino obrigatorio" : null,
+        values.tipo !== "SAIDA" && !value ? "Destino obrigatório" : null,
       natureza: (value, values) => {
-        if (!value) return "Natureza obrigatoria";
+        if (!value) return "Natureza obrigatória";
         if (value === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
-          return "Devolucao so pode ser ENTRADA";
+          return "Devolução só pode ser uma entrada";
         }
         if (
           value === "TRANSFERENCIA_EXTERNA" &&
           values.tipo !== "ENTRADA" &&
           values.tipo !== "SAIDA"
         ) {
-          return "Transferencia externa so pode ser ENTRADA ou SAIDA";
+          return "Transferência externa só pode ser entrada ou saída";
         }
         return null;
       },
@@ -58,10 +58,10 @@ export function useProductMovement({
           : null,
       movimento_ref_id: (value, values) => {
         if (values.natureza === "DEVOLUCAO" && (!value || value < 1)) {
-          return "Informe o movimento de referencia";
+          return "Informe a movimentação de referência";
         }
         if (value !== undefined && value !== null && value < 1) {
-          return "Movimento de referencia invalido";
+          return "Movimentação de referência inválida";
         }
         return null;
       },
@@ -73,7 +73,7 @@ export function useProductMovement({
       },
       observacao: (value, values) =>
         values.natureza === "AJUSTE" && !(value || "").trim()
-          ? "Observacao obrigatoria para ajuste"
+          ? "Observação obrigatória para ajuste"
           : null,
     },
   });
@@ -85,7 +85,7 @@ export function useProductMovement({
   >({
     mutationFn: (payload) => api.createMovement(payload),
     onSuccess: () => {
-      notifySuccess("Movimentacao registrada");
+      notifySuccess("Movimentação registrada");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });

@@ -69,7 +69,7 @@ export function SyncStatusBadge() {
     hasGlow = false;
   } else if (hasError) {
     dotColor = "var(--mantine-color-warning-6)";
-    label = "Sync pendente";
+    label = "Sincronização pendente";
     hasGlow = false;
   } else if (!data.verificado_em) {
     dotColor = "var(--mantine-color-gray-5)";
@@ -79,7 +79,7 @@ export function SyncStatusBadge() {
     dotColor = isPublisher
       ? "var(--mantine-color-info-6)"
       : "var(--mantine-color-success-6)";
-    label = isPublisher ? "Publicadora" : "Sincronizado";
+    label = isPublisher ? "Computador principal" : "Sincronizado";
     hasGlow = true;
   }
 
@@ -142,7 +142,7 @@ export function SyncStatusBadge() {
             <Group gap={6}>
               <IconNetwork size={16} color="var(--accent)" />
               <Text fw={700} size="xs" tt="uppercase" c="dimmed">
-                Conhecimento do Assistente
+                Conhecimento do assistente
               </Text>
             </Group>
             {data && (
@@ -160,8 +160,8 @@ export function SyncStatusBadge() {
                 {!isConfigured
                   ? "Não configurado"
                   : isPublisher
-                  ? "Publica a base"
-                  : "Cliente"}
+                  ? "Computador principal"
+                  : "Outro computador"}
               </Badge>
             )}
           </Group>

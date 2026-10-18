@@ -10,9 +10,9 @@ export const ADJUSTMENT_REASON_OPTIONS: {
 }[] = [
   { value: "AVARIA", label: "Avaria" },
   { value: "PERDA", label: "Perda" },
-  { value: "CORRECAO_INVENTARIO", label: "Correcao inventario" },
+  { value: "CORRECAO_INVENTARIO", label: "Correção de inventário" },
   { value: "ERRO_OPERACIONAL", label: "Erro operacional" },
-  { value: "TRANSFERENCIA", label: "Transferencia" },
+  { value: "TRANSFERENCIA", label: "Transferência" },
 ];
 
 export type SessionItemEdit = {
@@ -67,12 +67,12 @@ export const INVENTORY_STATUS_FILTER_OPTIONS: {
   label: string;
 }[] = [
   { value: "DIVERGENT", label: "Divergentes" },
-  { value: "NOT_COUNTED", label: "Nao contados" },
+  { value: "NOT_COUNTED", label: "Não contados" },
   { value: "MISSING", label: "Faltando" },
   { value: "SURPLUS", label: "Sobrando" },
   { value: "PENDING", label: "Pendentes" },
   { value: "MATCHED", label: "OK" },
-  { value: "APPLIED", label: "Ja aplicados" },
+  { value: "APPLIED", label: "Já aplicados" },
   { value: "ALL", label: "Todos" },
 ];
 

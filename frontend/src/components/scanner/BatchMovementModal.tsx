@@ -133,11 +133,11 @@ export default function BatchMovementModal({
 
     if (tipo === "TRANSFERENCIA") {
       if (!origemLocationId || !destinoLocationId) {
-        notifyError(new Error("Selecione os locais de Origem e Destino."));
+        notifyError(new Error("Selecione os locais de origem e destino."));
         return;
       }
       if (origemLocationId === destinoLocationId) {
-        notifyError(new Error("Origem e Destino não podem ser iguais."));
+        notifyError(new Error("Origem e destino não podem ser iguais."));
         return;
       }
       resolvedOrigem = Number(origemLocationId);
@@ -226,7 +226,7 @@ export default function BatchMovementModal({
         {tipo === "TRANSFERENCIA" ? (
           <Group grow>
             <Select
-              label="Local de Origem"
+              label="Local de origem"
               data={locationOptions}
               value={origemLocationId}
               onChange={setOrigemLocationId}
@@ -234,7 +234,7 @@ export default function BatchMovementModal({
               allowDeselect={false}
             />
             <Select
-              label="Local de Destino"
+              label="Local de destino"
               data={locationOptions}
               value={destinoLocationId}
               onChange={setDestinoLocationId}
@@ -326,7 +326,7 @@ export default function BatchMovementModal({
             Cancelar
           </Button>
           <Button onClick={handleConfirm} loading={loading} disabled={items.length === 0}>
-            Confirmar Lote
+            Confirmar movimentação em lote
           </Button>
         </Group>
       </Stack>

@@ -269,7 +269,7 @@ export default function AssistantPage() {
           {errorMsg && (
             <Alert
               icon={<IconAlertCircle size={16} />}
-              title="Erro"
+              title="O assistente não respondeu"
               color="danger"
               mb="sm"
               withCloseButton
