@@ -100,8 +100,12 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
    juntar e criar a tag. **Atenção ao atualizar:** a publicadora sem senha deixa de ligar o servidor
    até o dono definir uma senha (a mesma nas outras máquinas); `/aprovar` pelo WhatsApp só funciona
    depois de criar o PIN.
-0. **Visual novo "Vidro suave"** (escolhido em 2026-10-18; plano e amostras no Projeto): começa na
-   2.6.0, depois da 2.5.5.
+0. **Visual novo "Vidro suave"** (escolhido em 2026-10-18; plano e amostras no Projeto): 2.6.0,
+   depois da 2.5.5. ✅ Passo "base nova" na branch `claude/vidro-suave-base` (a partir da
+   `claude/project-thread-vw3djm`): tema petróleo, fonte Sora, vidro em todas as telas, fundo com
+   manchas, animações com níveis Completo/Suave/Nenhum em Configurações > Aparência e Mantine 9.
+   Próximo: redesenho tela a tela. Testar num PC fraco da empresa se o vidro pesa (se pesar,
+   "Nenhum").
 0. **2.5.0, novo visual** (branch `claude/project-thread-8wdsu2`, PR para a `main`): as 11 ideias
    do mockup que o dono aprovou. Falta o dono revisar, juntar e criar a tag. Conferir na cópia do
    banco real se a "Evolução do estoque" ficou sem saldo negativo.
