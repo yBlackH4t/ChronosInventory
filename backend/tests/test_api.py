@@ -1198,6 +1198,7 @@ def test_official_base_local_server_publish_and_apply(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "publisher",
             "machine_label": "PC-SERVIDOR",
             "publisher_name": "Usuario Teste",
@@ -1257,6 +1258,7 @@ def test_official_base_local_server_status_reflects_start_and_stop(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "publisher",
             "machine_label": "PC-SERVER-STATUS",
             "server_port": port,
@@ -1295,6 +1297,7 @@ def test_compare_local_server_snapshot_flow(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "consumer",
             "machine_label": "PC-COMPARE",
             "server_port": port,
@@ -1340,6 +1343,7 @@ def test_compare_remote_server_inspection_exposes_port_and_latest_snapshot(clien
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "consumer",
             "machine_label": "PC-COMPARE-REMOTE",
             "server_port": port,
@@ -1375,6 +1379,7 @@ def test_compare_local_server_snapshot_history_retention_and_delete(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "consumer",
             "machine_label": "PC-COMPARE-HIST",
             "server_port": port,

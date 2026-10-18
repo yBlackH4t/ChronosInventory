@@ -215,9 +215,51 @@ def _lan_api_enabled() -> bool:
     return os.getenv("CHRONOS_ALLOW_LAN_API", "").strip().lower() in {"1", "true", "yes"}
 
 
+LOCAL_HOST_NAMES = {"127.0.0.1", "localhost", "tauri.localhost", "[::1]", "::1"}
+UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _host_name(host_header: str) -> str:
+    value = (host_header or "").strip().lower()
+    if value.startswith("["):
+        end = value.find("]")
+        return value[: end + 1] if end != -1 else value
+    return value.rsplit(":", 1)[0] if ":" in value else value
+
+
+def _is_ip_literal(name: str) -> bool:
+    try:
+        ipaddress.ip_address(name.strip("[]"))
+    except ValueError:
+        return False
+    return True
+
+
+def _host_header_allowed(host_header: str) -> bool:
+    """Bloqueia DNS rebinding: um site externo que aponte o proprio dominio para 127.0.0.1
+    chega aqui com o Host desse dominio. So aceitamos os nomes locais (qualquer porta)."""
+    name = _host_name(host_header)
+    if name in LOCAL_HOST_NAMES:
+        return True
+    if name == "testserver" and os.getenv("APP_ENV", "").lower() == "test":
+        return True
+    # Com a API liberada para a rede, o acesso vem pelo IP da maquina (rebinding exige nome).
+    return _lan_api_enabled() and _is_ip_literal(name)
+
+
 @app.middleware("http")
 async def local_only_middleware(request: Request, call_next):
     client_host = request.client.host if request.client else None
+    path = request.url.path
+    if not path.startswith(LAN_ALLOWED_PREFIXES):
+        if not _host_header_allowed(request.headers.get("host", "")):
+            LOG.warning("Blocked request with foreign Host header path=%s", path)
+            return fail(403, "forbidden", "Acesso permitido apenas neste computador.", None, "")
+        origin = request.headers.get("origin")
+        if origin and request.method.upper() in UNSAFE_METHODS and origin not in cors_origins:
+            # CSRF: formulario multipart de outro site nao dispara preflight do CORS.
+            LOG.warning("Blocked cross-site request origin=%s path=%s", origin, path)
+            return fail(403, "forbidden", "Origem nao permitida.", None, "")
     if (
         not _is_local_client(client_host)
         and not request.url.path.startswith(LAN_ALLOWED_PREFIXES)

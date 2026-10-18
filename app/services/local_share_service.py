@@ -2,8 +2,13 @@ from __future__ import annotations
 
 import hmac
 import json
+import logging
+import os
+import shutil
 import socket
 import threading
+import time
+from collections import deque
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -16,10 +21,29 @@ from core.constants import APP_VERSION
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 
+LOG = logging.getLogger(__name__)
+
 # Senha do servidor local (Backup > Base oficial), a mesma em todas as maquinas da empresa.
-# Sem senha configurada o servidor continua aberto na rede, como antes.
+# O servidor so liga com senha (sem ela, qualquer aparelho do Wi-Fi baixaria o banco inteiro).
 TOKEN_HEADER = "X-Chronos-Senha"
 MAX_PROPOSAL_BYTES = 4096  # "Sugerir ao admin" (POST /proposals): uma regra curta
+MISSING_TOKEN_MESSAGE = "Defina uma senha para publicar a base."
+BLOCKED_MESSAGE = (
+    "A maquina publicadora recusou esta maquina por alguns minutos depois de varias senhas erradas. "
+    "Confira a senha do servidor (Backup > Base oficial) e tente de novo em 5 minutos."
+)
+# Bloqueio por IP: 5 senhas erradas em 5 minutos -> 5 minutos recusado.
+MAX_AUTH_FAILURES = 5
+AUTH_FAILURE_WINDOW_SECONDS = 300
+AUTH_BLOCK_SECONDS = 300
+# Sugestoes de outras maquinas: no maximo 20 por IP por hora.
+MAX_PROPOSALS_PER_HOUR = 20
+PROPOSAL_WINDOW_SECONDS = 3600
+# Limites do download da base remota e do servidor.
+MAX_SNAPSHOT_BYTES = 500 * 1024 * 1024
+SNAPSHOT_TIMEOUT = (10, 60)  # conectar, esperar cada pedaco
+SNAPSHOT_TOTAL_SECONDS = 30 * 60
+SERVER_SOCKET_TIMEOUT_SECONDS = 30
 WRONG_TOKEN_MESSAGE = (
     "O servidor da outra maquina pede senha, e a desta maquina nao confere. Use a mesma senha do "
     "servidor em todas as maquinas (Backup > Base oficial)."
@@ -58,18 +82,20 @@ class LocalShareService:
         "publisher_name": "",
         "port": _default_port,
     }
+    # Senhas erradas e sugestoes por IP (memoria do processo; zera ao reiniciar o app).
+    _guard_lock = threading.Lock()
+    _auth_failures: dict[str, deque] = {}
+    _blocked_until: dict[str, float] = {}
+    _proposals_by_ip: dict[str, deque] = {}
 
     def configured_token(self) -> str:
         """
         Senha do servidor desta maquina, lida do arquivo a cada uso: trocar a senha vale na hora,
-        para o servidor e para as buscas em outras maquinas.
+        para o servidor e para as buscas em outras maquinas. Fica protegida no arquivo (DPAPI).
         """
-        try:
-            with open(FileUtils.get_official_base_config_path(), "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (OSError, ValueError):
-            return ""
-        return str(data.get("server_token") or "").strip() if isinstance(data, dict) else ""
+        from app.services.official_base_config_store import read_server_token
+
+        return read_server_token(FileUtils.get_official_base_config_path())
 
     def _auth_headers(self) -> dict[str, str]:
         token = self.configured_token()
@@ -77,7 +103,54 @@ class LocalShareService:
 
     @staticmethod
     def _token_matches(expected: str, received: Optional[str]) -> bool:
-        return not expected or hmac.compare_digest(expected.encode("utf-8"), str(received or "").encode("utf-8"))
+        # Sem senha configurada, nada passa: o servidor nao fica aberto para a rede.
+        if not expected:
+            return False
+        return hmac.compare_digest(expected.encode("utf-8"), str(received or "").encode("utf-8"))
+
+    @classmethod
+    def reset_guards(cls) -> None:
+        with cls._guard_lock:
+            cls._auth_failures.clear()
+            cls._blocked_until.clear()
+            cls._proposals_by_ip.clear()
+
+    @classmethod
+    def _is_blocked(cls, ip: str, now: Optional[float] = None) -> bool:
+        now = time.monotonic() if now is None else now
+        with cls._guard_lock:
+            until = cls._blocked_until.get(ip)
+            if until is None:
+                return False
+            if now >= until:
+                cls._blocked_until.pop(ip, None)
+                return False
+            return True
+
+    @classmethod
+    def _register_auth_failure(cls, ip: str, now: Optional[float] = None) -> None:
+        now = time.monotonic() if now is None else now
+        with cls._guard_lock:
+            failures = cls._auth_failures.setdefault(ip, deque())
+            failures.append(now)
+            while failures and now - failures[0] > AUTH_FAILURE_WINDOW_SECONDS:
+                failures.popleft()
+            if len(failures) >= MAX_AUTH_FAILURES:
+                cls._blocked_until[ip] = now + AUTH_BLOCK_SECONDS
+                failures.clear()
+                LOG.warning("servidor local: IP %s bloqueado por senhas erradas", ip)
+
+    @classmethod
+    def _allow_proposal(cls, ip: str, now: Optional[float] = None) -> bool:
+        now = time.monotonic() if now is None else now
+        with cls._guard_lock:
+            sent = cls._proposals_by_ip.setdefault(ip, deque())
+            while sent and now - sent[0] > PROPOSAL_WINDOW_SECONDS:
+                sent.popleft()
+            if len(sent) >= MAX_PROPOSALS_PER_HOUR:
+                return False
+            sent.append(now)
+            return True
 
     def get_storage_root(self) -> str:
         root = Path(FileUtils.get_app_root_directory()) / self._share_root_name
@@ -118,8 +191,7 @@ class LocalShareService:
             response = requests.get(url, timeout=10, headers=self._auth_headers())
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel conectar a maquina publicadora: {exc}") from exc
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
-            raise ValidationException(WRONG_TOKEN_MESSAGE)
+        self._raise_for_auth(response)
         if response.status_code == HTTPStatus.NOT_FOUND:
             raise ValidationException("A maquina publicadora ainda nao publicou o conhecimento do assistente.")
         if response.status_code != HTTPStatus.OK:
@@ -157,6 +229,8 @@ class LocalShareService:
     def start_server(self, machine_label: str, publisher_name: str, port: int) -> dict[str, Any]:
         cls = type(self)
         normalized_port = self.normalize_port(port)
+        if not self.configured_token():
+            raise ValidationException(MISSING_TOKEN_MESSAGE)
         context = {
             "machine_label": str(machine_label or "").strip() or "maquina-local",
             "publisher_name": str(publisher_name or "").strip(),
@@ -179,7 +253,7 @@ class LocalShareService:
 
             handler = self._build_handler(context)
             try:
-                httpd = ThreadingHTTPServer(("0.0.0.0", normalized_port), handler)
+                httpd = _GuardedHTTPServer(("0.0.0.0", normalized_port), handler)
             except OSError as exc:
                 raise FileOperationException(
                     f"Nao foi possivel iniciar o servidor local na porta {normalized_port}: {exc}"
@@ -219,7 +293,11 @@ class LocalShareService:
         if not enabled:
             self.stop_server()
             return
-        self.start_server(machine_label=machine_label, publisher_name=publisher_name, port=port)
+        try:
+            self.start_server(machine_label=machine_label, publisher_name=publisher_name, port=port)
+        except ValidationException as exc:
+            # Ex.: servidor ligado numa versao antiga, sem senha. O app abre; o servidor fica desligado.
+            LOG.warning("servidor local nao iniciado: %s", exc)
 
     def is_running(self) -> bool:
         cls = type(self)
@@ -308,6 +386,7 @@ class LocalShareService:
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel conectar ao servidor remoto: {exc}") from exc
 
+        self._raise_for_auth(response)
         if response.status_code != HTTPStatus.OK:
             raise ValidationException(
                 f"Servidor remoto respondeu {response.status_code} ao consultar status."
@@ -320,7 +399,8 @@ class LocalShareService:
 
         if not isinstance(payload, dict):
             raise ValidationException("Resposta invalida do servidor remoto.")
-        if payload.get("senha_ok") is False:
+        # senha_ok False: publicadora de versao antiga. Senha exigida e nenhuma aqui: tambem nao entra.
+        if payload.get("senha_ok") is False or (payload.get("senha_exigida") and not self.configured_token()):
             raise ValidationException(WRONG_TOKEN_MESSAGE)
         payload["server_url"] = self.normalize_server_url(server_url)
         return payload
@@ -333,8 +413,7 @@ class LocalShareService:
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel consultar o manifesto remoto: {exc}") from exc
 
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
-            raise ValidationException(WRONG_TOKEN_MESSAGE)
+        self._raise_for_auth(response)
         if response.status_code == HTTPStatus.NOT_FOUND:
             raise ValidationException("O servidor remoto ainda nao publicou essa base.")
         if response.status_code != HTTPStatus.OK:
@@ -355,29 +434,64 @@ class LocalShareService:
         normalized_kind = self._normalize_kind(kind)
         url = f"{self.normalize_server_url(server_url)}/{normalized_kind}/download"
         try:
-            response = requests.get(url, timeout=60, stream=True, headers=self._auth_headers())
+            response = requests.get(url, timeout=SNAPSHOT_TIMEOUT, stream=True, headers=self._auth_headers())
         except requests.RequestException as exc:
             raise ValidationException(f"Nao foi possivel baixar a base remota: {exc}") from exc
 
-        if response.status_code == HTTPStatus.UNAUTHORIZED:
-            raise ValidationException(WRONG_TOKEN_MESSAGE)
-        if response.status_code == HTTPStatus.NOT_FOUND:
-            raise ValidationException("O servidor remoto ainda nao publicou essa base.")
-        if response.status_code != HTTPStatus.OK:
-            raise ValidationException(
-                f"Servidor remoto respondeu {response.status_code} ao baixar a base."
+        with response:
+            self._raise_for_auth(response)
+            if response.status_code == HTTPStatus.NOT_FOUND:
+                raise ValidationException("O servidor remoto ainda nao publicou essa base.")
+            if response.status_code != HTTPStatus.OK:
+                raise ValidationException(
+                    f"Servidor remoto respondeu {response.status_code} ao baixar a base."
+                )
+            too_big = ValidationException(
+                f"A base remota passa de {MAX_SNAPSHOT_BYTES // (1024 * 1024)} MB; o download foi cancelado."
             )
+            try:
+                declared = int(response.headers.get("Content-Length") or 0)
+            except ValueError:
+                declared = 0
+            if declared > MAX_SNAPSHOT_BYTES:
+                raise too_big
 
-        Path(target_path).parent.mkdir(parents=True, exist_ok=True)
-        try:
-            with open(target_path, "wb") as file_obj:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
+            Path(target_path).parent.mkdir(parents=True, exist_ok=True)
+            deadline = time.monotonic() + SNAPSHOT_TOTAL_SECONDS
+            written = 0
+            try:
+                with open(target_path, "wb") as file_obj:
+                    for chunk in response.iter_content(chunk_size=1024 * 1024):
+                        if not chunk:
+                            continue
+                        written += len(chunk)
+                        if written > MAX_SNAPSHOT_BYTES:
+                            raise too_big
+                        if time.monotonic() > deadline:
+                            raise ValidationException("O download da base remota demorou demais e foi cancelado.")
                         file_obj.write(chunk)
-        except Exception as exc:
-            raise FileOperationException(f"Nao foi possivel salvar a base remota: {exc}") from exc
+            except ValidationException:
+                self._remove_partial(target_path)
+                raise
+            except Exception as exc:
+                self._remove_partial(target_path)
+                raise FileOperationException(f"Nao foi possivel salvar a base remota: {exc}") from exc
 
         return target_path
+
+    @staticmethod
+    def _remove_partial(path: str) -> None:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _raise_for_auth(response: Any) -> None:
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
+            raise ValidationException(WRONG_TOKEN_MESSAGE)
+        if response.status_code == HTTPStatus.TOO_MANY_REQUESTS:
+            raise ValidationException(BLOCKED_MESSAGE)
 
     def _normalize_kind(self, kind: str) -> str:
         value = str(kind or "").strip().lower()
@@ -389,35 +503,57 @@ class LocalShareService:
         service = self
 
         class Handler(BaseHTTPRequestHandler):
+            # Conexao parada (cliente lento ou mal-intencionado) nao prende uma thread para sempre.
+            timeout = SERVER_SOCKET_TIMEOUT_SECONDS
+
+            def _check_auth(self, *, optional: bool = False) -> Optional[bool]:
+                """
+                True: senha certa. None: sem senha e `optional` (so no /health). False: ja respondeu
+                401 (senha errada ou ausente) ou 429 (IP bloqueado por senhas erradas).
+                """
+                ip = str(self.client_address[0])
+                if service._is_blocked(ip):
+                    service._send_json(self, {"erro": "bloqueado"}, HTTPStatus.TOO_MANY_REQUESTS)
+                    return False
+                received = self.headers.get(TOKEN_HEADER)
+                if received is None and optional:
+                    return None
+                if service._token_matches(service.configured_token(), received):
+                    return True
+                if received is not None:
+                    service._register_auth_failure(ip)
+                service._send_json(self, {"erro": "senha_invalida"}, HTTPStatus.UNAUTHORIZED)
+                return False
+
             def do_GET(self) -> None:  # noqa: N802
                 parsed = urlparse(self.path)
                 path = parsed.path.rstrip("/") or "/"
-                expected = service.configured_token()
-                authorized = service._token_matches(expected, self.headers.get(TOKEN_HEADER))
 
                 if path == "/health":
-                    # Aberto (serve para testar a conexao), mas sem nada do estoque.
-                    service._send_json(
-                        self,
-                        {
-                            "status": "ok",
-                            "app_version": APP_VERSION,
-                            "machine_label": context["machine_label"],
-                            "publisher_name": context["publisher_name"],
-                            "server_port": context["port"],
-                            "senha_exigida": bool(expected),
-                            "senha_ok": authorized,
-                            "official_available": Path(service.get_official_paths()["latest_manifest"]).is_file(),
-                            "compare_available": Path(service.get_compare_paths()["latest_manifest"]).is_file(),
-                            "knowledge_available": Path(service.get_knowledge_path()).is_file(),
-                            # O PC reserva do robo do WhatsApp so responde quando este diz False.
-                            "whatsapp_robo": _whatsapp_robot_active(),
-                        },
-                    )
+                    # Aberto (serve para testar a conexao), mas sem nada do estoque. Quem nao mandou
+                    # senha nao fica sabendo se acertaria; senha errada recebe 401 (e conta no bloqueio).
+                    auth = self._check_auth(optional=True)
+                    if auth is False:
+                        return
+                    payload = {
+                        "status": "ok",
+                        "app_version": APP_VERSION,
+                        "machine_label": context["machine_label"],
+                        "publisher_name": context["publisher_name"],
+                        "server_port": context["port"],
+                        "senha_exigida": True,
+                        "official_available": Path(service.get_official_paths()["latest_manifest"]).is_file(),
+                        "compare_available": Path(service.get_compare_paths()["latest_manifest"]).is_file(),
+                        "knowledge_available": Path(service.get_knowledge_path()).is_file(),
+                        # O PC reserva do robo do WhatsApp so responde quando este diz False.
+                        "whatsapp_robo": _whatsapp_robot_active(),
+                    }
+                    if auth is True:
+                        payload["senha_ok"] = True
+                    service._send_json(self, payload)
                     return
 
-                if not authorized:
-                    service._send_json(self, {"erro": "senha_invalida"}, HTTPStatus.UNAUTHORIZED)
+                if not self._check_auth():
                     return
 
                 if path == "/knowledge":
@@ -455,8 +591,7 @@ class LocalShareService:
                 if path != "/proposals":
                     self.send_error(HTTPStatus.NOT_FOUND, "Rota nao encontrada")
                     return
-                if not service._token_matches(service.configured_token(), self.headers.get(TOKEN_HEADER)):
-                    service._send_json(self, {"erro": "senha_invalida"}, HTTPStatus.UNAUTHORIZED)
+                if not self._check_auth():
                     return
                 try:
                     length = int(self.headers.get("Content-Length") or 0)
@@ -465,12 +600,23 @@ class LocalShareService:
                 if length <= 0 or length > MAX_PROPOSAL_BYTES:
                     service._send_json(self, {"erro": "Sugestão vazia ou grande demais."}, HTTPStatus.BAD_REQUEST)
                     return
+                ip = str(self.client_address[0])
+                if not service._allow_proposal(ip):
+                    service._send_json(
+                        self,
+                        {"erro": "Sugestões demais desta máquina na última hora. Tente mais tarde."},
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                    )
+                    return
                 try:
                     data = json.loads(self.rfile.read(length).decode("utf-8"))
+                    if not isinstance(data, dict):
+                        raise ValueError("Sugestão inválida.")
                     from app.services.assistant_proposal_service import AssistantProposalService
 
-                    remote = f"outra máquina ({self.client_address[0]})"
-                    proposal_id = AssistantProposalService().receive(data, default_author=remote)
+                    # O autor enviado pela rede nao e confiavel: vale o IP de quem mandou.
+                    data = {**data, "autor": None}
+                    proposal_id = AssistantProposalService().receive(data, default_author=f"PC {ip}")
                 except (ValueError, ValidationException) as exc:
                     service._send_json(self, {"erro": str(exc)}, HTTPStatus.BAD_REQUEST)
                     return
@@ -514,10 +660,18 @@ class LocalShareService:
             handler.send_error(HTTPStatus.NOT_FOUND, "Arquivo nao encontrado")
             return
 
-        data = file_path.read_bytes()
-        handler.send_response(HTTPStatus.OK)
-        handler.send_header("Content-Type", content_type)
-        handler.send_header("Content-Length", str(len(data)))
-        handler.send_header("Content-Disposition", f'attachment; filename="{file_path.name}"')
-        handler.end_headers()
-        handler.wfile.write(data)
+        with open(file_path, "rb") as source:
+            size = os.fstat(source.fileno()).st_size
+            handler.send_response(HTTPStatus.OK)
+            handler.send_header("Content-Type", content_type)
+            handler.send_header("Content-Length", str(size))
+            handler.send_header("Content-Disposition", f'attachment; filename="{file_path.name}"')
+            handler.end_headers()
+            shutil.copyfileobj(source, handler.wfile, length=1024 * 1024)
+
+
+class _GuardedHTTPServer(ThreadingHTTPServer):
+    """Servidor da base oficial: threads daemon e sem esperar conexoes presas ao desligar."""
+
+    daemon_threads = True
+    block_on_close = False
