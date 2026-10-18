@@ -840,6 +840,16 @@ body {
   border-radius: 9px;
 }
 
+/* Sora é mais larga que a Inter: ícone + texto ficam na mesma linha (antes quebrava,
+   por exemplo, em "Transferência" na movimentação rápida). */
+.mantine-SegmentedControl-label {
+  padding-inline: 8px;
+}
+
+.mantine-SegmentedControl-label .mantine-Group-root {
+  flex-wrap: nowrap;
+}
+
 .mantine-SegmentedControl-label[data-active],
 .mantine-SegmentedControl-label[data-active]:hover {
   color: var(--accent-text);
