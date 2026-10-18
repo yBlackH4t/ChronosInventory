@@ -85,9 +85,9 @@ export function BalanceChart({ data }: { data: BalancePoint[] }) {
           <Tooltip
             {...chart.tooltip}
             cursor={{ fill: chart.cursorFill }}
-            formatter={(value: number | string | undefined, name: string | undefined) => [
+            formatter={(value, name) => [
               Number(value ?? 0).toLocaleString("pt-BR"),
-              name ?? "",
+              String(name ?? ""),
             ]}
           />
           <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: chart.tick.fill }} />
