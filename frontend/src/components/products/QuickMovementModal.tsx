@@ -315,7 +315,7 @@ function QuickMovementForm({
         </Stack>
 
         {/* Campos de Localidade */}
-        <Grid gutter="sm">
+        <Grid gap="sm">
           {tipo !== "ENTRADA" && (
             <Grid.Col span={tipo === "TRANSFERENCIA" ? 6 : 12}>
               <Select
@@ -346,7 +346,7 @@ function QuickMovementForm({
         </Grid>
 
         {/* Quantidade e Natureza */}
-        <Grid gutter="sm">
+        <Grid gap="sm">
           <Grid.Col span={6}>
             <NumberInput
               label="Quantidade"
@@ -409,7 +409,7 @@ function QuickMovementForm({
         )}
 
         {/* Documento e Observação */}
-        <Grid gutter="sm">
+        <Grid gap="sm">
           <Grid.Col span={6}>
             <TextInput
               label="Documento / NF (opcional)"

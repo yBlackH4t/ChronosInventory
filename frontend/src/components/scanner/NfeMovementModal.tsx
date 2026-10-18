@@ -266,7 +266,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
           </Button>
         </Group>
 
-        <Collapse in={showFolders}>
+        <Collapse expanded={showFolders}>
           <NfeSettingsPanel
             opened={showFolders}
             onSaved={() => {

@@ -214,7 +214,7 @@ export default function DashboardVisuals({
 
   return (
     <Stack gap="md">
-      <Grid gutter="md">
+      <Grid gap="md">
         {/* Movimento e saldo num gráfico só */}
         <Grid.Col span={{ base: 12, lg: 7 }}>
           <Panel title="Movimento e saldo" subtitle={periodContext}>
