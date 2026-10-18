@@ -183,11 +183,13 @@ class InventorySessionService:
 
             query = (query or "").strip()
             order_by = "p.nome ASC"
+            order_params: List[object] = []
             if query:
                 where.append("(p.nome LIKE ? OR CAST(p.id AS TEXT) = ?)")
                 params.extend([f"%{query.upper()}%", query])
-                safe_query = query.replace("'", "")
-                order_by = f"CASE WHEN CAST(p.id AS TEXT) = '{safe_query}' THEN 0 ELSE 1 END, p.nome ASC"
+                # Busca pelo id primeiro, sempre por parametro (nunca texto do usuario no SQL).
+                order_by = "CASE WHEN CAST(p.id AS TEXT) = ? THEN 0 ELSE 1 END, p.nome ASC"
+                order_params.append(query)
             where_sql = " AND ".join(where)
 
             rows = conn.execute(
@@ -207,7 +209,7 @@ class InventorySessionService:
                 ORDER BY {order_by}
                 LIMIT ? OFFSET ?
                 """,
-                tuple(params + [limit, offset]),
+                tuple(params + order_params + [limit, offset]),
             ).fetchall()
             total_row = conn.execute(
                 f"""

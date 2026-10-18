@@ -133,7 +133,9 @@ def test_other_machine_receives_from_the_shared_folder(tools, tmp_path):  # noqa
     assert len(repository.all_rules()) == 2
 
 
-def test_other_machine_receives_from_the_publisher_server(tools, tmp_path):  # noqa: F811
+def test_other_machine_receives_from_the_publisher_server(client, tools, tmp_path):  # noqa: F811
+    # O servidor so liga com senha; a "outra maquina" do teste le a mesma senha do arquivo.
+    assert client.put("/backup/base-oficial/config", json={"role": "publisher", "server_token": "senha-da-loja"}).status_code == 200
     port = _free_port()
     server_url = f"http://127.0.0.1:{port}"
     share = LocalShareService()

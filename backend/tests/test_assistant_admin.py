@@ -31,7 +31,7 @@ def _admin(tmp_path, role="publisher"):
 
 def test_only_the_publisher_machine_can_be_admin(tmp_path):
     consumer = _admin(tmp_path, role="consumer")
-    assert consumer.status() == {"maquina_publicadora": False, "senha_definida": False, "autenticado": False}
+    assert consumer.status() == {"maquina_publicadora": False, "senha_definida": False, "autenticado": False, "pin_whatsapp_definido": False}
     # Outra maquina tem senha e login proprios (para o robo reserva do WhatsApp)...
     consumer.set_password(PASSWORD)
     token = consumer.login(PASSWORD)["token"]
@@ -99,7 +99,7 @@ def test_admin_flow_through_the_api(client, tools):  # noqa: F811
     )
     try:
         status = client.get("/assistente/admin/status").json()["data"]
-        assert status == {"maquina_publicadora": True, "senha_definida": False, "autenticado": False}
+        assert status == {"maquina_publicadora": True, "senha_definida": False, "autenticado": False, "pin_whatsapp_definido": False}
 
         rule = {"codigo_a": "5327-988-7101", "codigo_b": "5327-988-7116", "tipo": "similar", "observacao": "muda o atuador"}
         denied = client.post("/assistente/conhecimento", json=rule)

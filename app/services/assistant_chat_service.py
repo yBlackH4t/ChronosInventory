@@ -45,7 +45,7 @@ from app.services.assistant_teach_service import (
     with_teach_hint,
 )
 from app.services.assistant_web_search_service import AssistantWebSearchService, format_web_answer
-from app.services.assistant_tools_service import COMPACT_LIMITS, AssistantToolsService
+from app.services.assistant_tools_service import COMPACT_LIMITS, WHATSAPP_BLOCKED_TOOLS, AssistantToolsService
 
 LOG = logging.getLogger(__name__)
 
@@ -79,12 +79,22 @@ class _RecordingTools:
     historico e o texto pronto serve para conferir a resposta da IA.
     """
 
-    def __init__(self, inner: Any, calls: List[Dict[str, Any]], ready: Optional[List[Tuple[str, bool]]] = None) -> None:
+    def __init__(
+        self,
+        inner: Any,
+        calls: List[Dict[str, Any]],
+        ready: Optional[List[Tuple[str, bool]]] = None,
+        blocked_tools: frozenset = frozenset(),
+    ) -> None:
         self.inner = inner
         self.calls = calls
         self.ready: List[Tuple[str, bool]] = ready if ready is not None else []
+        # Ferramentas fora deste canal (WhatsApp: movimentacoes). Nem a IA nem a busca direta usam.
+        self.blocked_tools = blocked_tools
 
     def run_tool(self, name: str, arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        if name in self.blocked_tools:
+            return {"erro": "Ferramenta indisponível neste canal."}
         output = self.inner.run_tool(name, arguments)
         self.calls.append(_summarize_call(name, arguments, output))
         if output.get("texto_pronto"):
@@ -99,7 +109,7 @@ class _RecordingTools:
         return list(dict.fromkeys(chosen))
 
     def with_limits(self, limits: Any) -> "_RecordingTools":
-        return _RecordingTools(self.inner.with_limits(limits), self.calls, self.ready)
+        return _RecordingTools(self.inner.with_limits(limits), self.calls, self.ready, self.blocked_tools)
 
 
 class AssistantChatService:
@@ -183,7 +193,8 @@ class AssistantChatService:
         """
         historico = historico or []
         calls: List[Dict[str, Any]] = []
-        tools = _RecordingTools(self.tools, calls)
+        blocked = WHATSAPP_BLOCKED_TOOLS if canal == "whatsapp" else frozenset()
+        tools = _RecordingTools(self.tools, calls, blocked_tools=blocked)
         private = canal != "whatsapp"  # nunca pede para o cliente ensinar
         reply = parse_teach_reply(mensagem) if private else None
         search = private and not reply and wants_search(mensagem)

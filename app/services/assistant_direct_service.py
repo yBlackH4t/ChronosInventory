@@ -137,6 +137,8 @@ class AssistantDirectService:
             if spaced:
                 codes, code_source = spaced, " ".join(spaced)
         topic_tool = self._topic_tool(mensagem)
+        if topic_tool in (getattr(self.tools, "blocked_tools", None) or ()):
+            topic_tool = None  # WhatsApp do cliente: "quando vendeu" vira consulta de estoque
         if topic_tool and not codes and not chassis:
             # Pergunta de movimentacao ou de codigo Master Power sem codigo: nao e busca por veiculo
             # ("codigo master" achava a Renault Master).

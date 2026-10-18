@@ -2,11 +2,11 @@
 Repository para operacoes com produtos.
 Responsabilidade unica: acesso a dados de produtos.
 
-v3.0.0: Estoques via product_inventory (locais dinâmicos).
-- Queries fazem JOIN com product_inventory + inventory_locations
+v3.0.0: Estoques por local na tabela produto_estoque (locais dinâmicos, tabela locais).
+- Queries fazem JOIN com produto_estoque + locais
 - Removidos get_total_stock_canoas/get_total_stock_pf
 - Adicionado get_stock_totals_by_location()
-- create/update escrevem em product_inventory
+- create/update escrevem em produto_estoque
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ class ProductRepository(BaseRepository):
     def _attach_inventories(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Dado uma lista de dicts de produto, carrega inventories do
-        product_inventory e injeta como campo 'inventories': {loc_id: qty}.
+        produto_estoque e injeta como campo 'inventories': {loc_id: qty}.
         """
         if not products:
             return products

@@ -1198,6 +1198,7 @@ def test_official_base_local_server_publish_and_apply(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "publisher",
             "machine_label": "PC-SERVIDOR",
             "publisher_name": "Usuario Teste",
@@ -1257,6 +1258,7 @@ def test_official_base_local_server_status_reflects_start_and_stop(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "publisher",
             "machine_label": "PC-SERVER-STATUS",
             "server_port": port,
@@ -1295,6 +1297,7 @@ def test_compare_local_server_snapshot_flow(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "consumer",
             "machine_label": "PC-COMPARE",
             "server_port": port,
@@ -1340,6 +1343,7 @@ def test_compare_remote_server_inspection_exposes_port_and_latest_snapshot(clien
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "consumer",
             "machine_label": "PC-COMPARE-REMOTE",
             "server_port": port,
@@ -1375,6 +1379,7 @@ def test_compare_local_server_snapshot_history_retention_and_delete(client):
     configured = client.put(
         "/backup/base-oficial/config",
         json={
+            "server_token": "senha-de-teste",  # o servidor so liga com senha
             "role": "consumer",
             "machine_label": "PC-COMPARE-HIST",
             "server_port": port,
@@ -1896,35 +1901,47 @@ def test_analytics_entradas_saidas_and_distribuicao(client):
     assert distrib_data["total"] >= 0
 
 
-def test_create_product_generates_initial_entry_in_flow(client):
+def test_initial_stock_is_not_counted_as_entry_in_dashboard_metrics(client):
+    """O estoque inicial do cadastro so faz o saldo bater: nao e mercadoria que chegou."""
     created = client.post(
         "/produtos",
         json={"nome": "Produto Fluxo Inicial", "inventories": {"11": 2, "12": 3}},
     )
     assert created.status_code == 201
+    product_id = created.json()["data"]["id"]
+    entrada = client.post(
+        "/movimentacoes",
+        json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 4, "destino_location_id": 11},
+    )
+    assert entrada.status_code == 201, entrada.text
 
     today = datetime.now().strftime("%Y-%m-%d")
 
-    flow_ambos = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&bucket=day"
-    )
-    assert flow_ambos.status_code == 200
-    flow_ambos_data = flow_ambos.json()["data"]
-    assert len(flow_ambos_data) == 1
-    assert flow_ambos_data[0]["entradas"] == 5
-    assert flow_ambos_data[0]["saidas"] == 0
+    def flow(extra=""):
+        response = client.get(f"/analytics/movements/flow?date_from={today}&date_to={today}&bucket=day{extra}")
+        assert response.status_code == 200
+        return response.json()["data"]
 
-    flow_canoas = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&location_id=11&bucket=day"
-    )
-    assert flow_canoas.status_code == 200
-    assert flow_canoas.json()["data"][0]["entradas"] == 2
+    (ambos,) = flow()
+    assert (ambos["entradas"], ambos["saidas"], ambos["estoque_inicial"]) == (4, 0, 5)
+    (canoas,) = flow("&location_id=11")
+    assert (canoas["entradas"], canoas["estoque_inicial"]) == (4, 2)
+    (pf,) = flow("&location_id=12")
+    assert (pf["entradas"], pf["estoque_inicial"]) == (0, 3)
 
-    flow_pf = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&location_id=12&bucket=day"
-    )
-    assert flow_pf.status_code == 200
-    assert flow_pf.json()["data"][0]["entradas"] == 3
+    (dia,) = client.get(f"/analytics/entradas-saidas?date_from={today}&date_to={today}").json()["data"]
+    assert (dia["entradas"], dia["estoque_inicial"]) == (4, 5)
+
+    naturezas = client.get(f"/analytics/movements/by-nature?date_from={today}&date_to={today}&tipo=ENTRADA")
+    assert naturezas.status_code == 200, naturezas.text
+    assert sum(item["quantidade"] for item in naturezas.json()["data"]) == 4
+
+    # O saldo continua contando o estoque inicial.
+    evolution = client.get(f"/analytics/stock/evolution?date_from={today}&date_to={today}&bucket=day")
+    assert evolution.status_code == 200
+    assert evolution.json()["data"][-1]["total_stock"] == 9
+    summary = client.get("/analytics/stock/summary").json()["data"]
+    assert summary["total_geral"] == 9
 
 
 def test_analytics_top_sem_mov(client):
@@ -2253,3 +2270,21 @@ def test_inventory_session_does_not_include_inactive_products(client):
     ids = {row["produto_id"] for row in items.json()["data"]}
     assert active_id in ids
     assert inactive_id not in ids
+
+
+def test_inventory_counts_search_is_parameterized(client):
+    first = _create_product(client, "ZETA INVENTARIO BUSCA", qtd_canoas=1, qtd_pf=0)
+    _create_product(client, f"ALFA INVENTARIO {first}", qtd_canoas=1, qtd_pf=0)
+    session_id = client.post("/inventario/sessoes", json={"nome": "Busca", "location_id": 11}).json()["data"]["id"]
+    url = f"/inventario/sessoes/{session_id}/itens"
+
+    # Busca pelo id: o produto com esse id vem antes do que so tem o numero no nome.
+    rows = client.get(url, params={"query": str(first), "page_size": 100}).json()["data"]
+    assert rows[0]["produto_id"] == first
+
+    # Texto com aspas e SQL nao quebra a consulta nem vira comando.
+    for evil in ("1' OR '1'='1", "x') ; DROP TABLE produtos; --", "'"):
+        response = client.get(url, params={"query": evil, "page_size": 100})
+        assert response.status_code == 200, response.text
+        assert response.json()["data"] == []
+    assert client.get("/produtos").status_code == 200

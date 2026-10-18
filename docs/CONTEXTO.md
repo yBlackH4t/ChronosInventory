@@ -92,6 +92,12 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
+0. **Seguranca do backend** (branch `claude/seguranca-backend`, a partir da `main` 2.5.4; falta o
+   bump de versao e a tela do PIN do WhatsApp): Host/Origin na API, servidor da base oficial so com
+   senha (bloqueio por IP, senha protegida com DPAPI), chaves de API protegidas, PIN para `/aprovar`,
+   chave do A1 cifrada no temp, limites de download/upload, estoque inicial fora das entradas do
+   dashboard. **Atencao ao atualizar:** a publicadora sem senha deixa de ligar o servidor ate o dono
+   definir uma senha (a mesma nas outras maquinas).
 0. **2.5.0, novo visual** (branch `claude/project-thread-8wdsu2`, PR para a `main`): as 11 ideias
    do mockup que o dono aprovou. Falta o dono revisar, juntar e criar a tag. Conferir na cópia do
    banco real se a "Evolução do estoque" ficou sem saldo negativo.

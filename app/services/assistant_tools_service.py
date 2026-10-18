@@ -984,3 +984,13 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
         },
     },
 ]
+
+
+# Ferramentas que nao vao para o cliente no WhatsApp: historico de vendas/entradas e interno.
+WHATSAPP_BLOCKED_TOOLS = frozenset({"movimentacoes_produto"})
+
+
+def tool_definitions(tools: Any = None) -> List[Dict[str, Any]]:
+    """As ferramentas que o modelo pode ver, sem as bloqueadas para este canal (`blocked_tools`)."""
+    blocked = getattr(tools, "blocked_tools", None) or ()
+    return [tool for tool in ASSISTANT_TOOLS if tool["name"] not in blocked]

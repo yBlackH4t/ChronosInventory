@@ -359,3 +359,75 @@ def test_authorized_xml_wins_over_the_unsigned_copy_of_the_same_note(client, tmp
     # Mesmo com o arquivo autorizado em outra pasta, sem a chave no nome.
     (vendas / f"{CHAVE}-procNFe.xml").rename(tmp_path / "Geradas" / "nota.xml")
     assert client.get(f"/nfe/{CHAVE}").json()["data"]["autorizada"] is True
+
+
+def test_sefaz_response_rejects_doctype_and_huge_gzip(monkeypatch):
+    import base64
+    import gzip
+
+    import pytest
+
+    from core import nfe_sefaz
+
+    bomb = '<!DOCTYPE x [<!ENTITY a "aaaa">]><x>&a;</x>'.encode()
+    with pytest.raises(nfe_sefaz.SefazError, match="DOCTYPE"):
+        nfe_sefaz.parse_response(bomb)
+
+    def body(doc_bytes):
+        doc = base64.b64encode(gzip.compress(doc_bytes)).decode()
+        return (
+            '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body>'
+            '<retDistDFeInt xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01"><cStat>138</cStat>'
+            f'<xMotivo>ok</xMotivo><loteDistDFeInt><docZip NSU="1" schema="procNFe_v4.00.xsd">{doc}'
+            "</docZip></loteDistDFeInt></retDistDFeInt></soap:Body></soap:Envelope>"
+        ).encode()
+
+    with pytest.raises(nfe_sefaz.SefazError, match="DOCTYPE"):
+        nfe_sefaz.parse_response(body(b'<!DOCTYPE x [<!ENTITY a "a">]><x/>'))
+    monkeypatch.setattr(nfe_sefaz, "MAX_DOC_BYTES", 1000)
+    with pytest.raises(nfe_sefaz.SefazError, match="grande demais"):
+        nfe_sefaz.parse_response(body(b"<x>" + b"a" * 5000 + b"</x>"))
+    assert nfe_sefaz.parse_response(body(b"<x>pequeno</x>")).xml == b"<x>pequeno</x>"
+
+
+def test_certificate_key_is_never_written_in_clear_and_temp_files_are_removed(tmp_path, monkeypatch):
+    import os
+    import ssl
+
+    import pytest
+    import requests
+
+    from core import nfe_sefaz
+
+    with open(_pfx(tmp_path), "rb") as fh:
+        pfx = fh.read()
+    key, cert, extras = nfe_sefaz.load_certificate(pfx, "segredo1")
+    folder = tmp_path / "temp_nfe"
+    folder.mkdir()
+    cert_file, key_file, password = nfe_sefaz.write_temp_credentials(key, cert, extras, str(folder))
+    pem = open(key_file, "rb").read()
+    assert b"ENCRYPTED PRIVATE KEY" in pem and b"BEGIN PRIVATE KEY" not in pem
+    context = ssl.create_default_context()
+    context.load_cert_chain(cert_file, key_file, password=password)  # abre so com a senha da memoria
+    with pytest.raises(ssl.SSLError):
+        ssl.create_default_context().load_cert_chain(cert_file, key_file, password=b"errada")
+
+    # download_nfe: a pasta temporaria some mesmo quando a SEFAZ nao responde.
+    created = []
+    real_mkdtemp = nfe_sefaz.tempfile.mkdtemp
+
+    def tracking_mkdtemp(*args, **kwargs):
+        path = real_mkdtemp(*args, **kwargs)
+        created.append(path)
+        return path
+
+    def offline(self, *args, **kwargs):
+        assert kwargs.get("cert") is None  # o certificado vai no contexto TLS, nao em arquivo aberto
+        raise requests.exceptions.ConnectionError("sem internet")
+
+    monkeypatch.setattr(nfe_sefaz, "_use_system_trust", lambda: None)  # nao mexe no ssl do processo
+    monkeypatch.setattr(nfe_sefaz.tempfile, "mkdtemp", tracking_mkdtemp)
+    monkeypatch.setattr(requests.Session, "post", offline)
+    with pytest.raises(nfe_sefaz.SefazError, match="SEFAZ"):
+        nfe_sefaz.download_nfe(CHAVE, pfx=pfx, senha="segredo1", cnpj="03897158000102")
+    assert created and not os.path.exists(created[0])
