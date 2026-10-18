@@ -287,7 +287,7 @@ export default function BackupPage() {
         </Text>
       ),
       labels: { confirm: "Restaurar agora", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => restoreMutation.mutate(effectiveSelectedBackupName),
     });
   };

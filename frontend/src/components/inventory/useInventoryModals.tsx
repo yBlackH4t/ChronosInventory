@@ -26,7 +26,7 @@ export function useInventoryModals({
         </Text>
       ),
       labels: { confirm: "Fechar sessao", cancel: "Cancelar" },
-      confirmProps: { color: "orange" },
+      confirmProps: { color: "warning" },
       onConfirm: () => closeSessionMutation.mutate(session.id),
     });
   };
@@ -42,7 +42,7 @@ export function useInventoryModals({
         </Text>
       ),
       labels: { confirm: "Excluir sessao", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteSessionMutation.mutate(session.id),
     });
   };
@@ -57,7 +57,7 @@ export function useInventoryModals({
         </Text>
       ),
       labels: { confirm: "Aplicar ajustes", cancel: "Cancelar" },
-      confirmProps: { color: "orange" },
+      confirmProps: { color: "warning" },
       onConfirm: () => applyMutation.mutate(sessionId),
     });
   };
@@ -73,7 +73,7 @@ export function useInventoryModals({
         </Text>
       ),
       labels: { confirm: "Iniciar e zerar fisico", cancel: "Cancelar" },
-      confirmProps: { color: "orange" },
+      confirmProps: { color: "warning" },
       onConfirm: onInitializeCollector,
     });
   };

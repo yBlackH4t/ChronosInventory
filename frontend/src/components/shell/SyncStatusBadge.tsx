@@ -68,7 +68,7 @@ export function SyncStatusBadge() {
     label = "Não configurado";
     hasGlow = false;
   } else if (hasError) {
-    dotColor = "var(--mantine-color-orange-6)";
+    dotColor = "var(--mantine-color-warning-6)";
     label = "Sync pendente";
     hasGlow = false;
   } else if (!data.verificado_em) {
@@ -77,8 +77,8 @@ export function SyncStatusBadge() {
     hasGlow = false;
   } else {
     dotColor = isPublisher
-      ? "var(--mantine-color-blue-6)"
-      : "var(--mantine-color-teal-6)";
+      ? "var(--mantine-color-info-6)"
+      : "var(--mantine-color-success-6)";
     label = isPublisher ? "Publicadora" : "Sincronizado";
     hasGlow = true;
   }
@@ -111,7 +111,7 @@ export function SyncStatusBadge() {
             style={{
               cursor: "pointer",
               background: "transparent",
-              border: "1px solid var(--border-subtle)",
+              border: "1px solid var(--border)",
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
@@ -153,8 +153,8 @@ export function SyncStatusBadge() {
                   !isConfigured
                     ? "gray"
                     : isPublisher
-                    ? "blue"
-                    : "teal"
+                    ? "info"
+                    : "success"
                 }
               >
                 {!isConfigured
@@ -180,7 +180,7 @@ export function SyncStatusBadge() {
               {data.erro && isConfigured && (
                 <Alert
                   icon={<IconAlertCircle size={14} />}
-                  color="orange"
+                  color="warning"
                   variant="light"
                   p="xs"
                 >
@@ -265,7 +265,6 @@ export function SyncStatusBadge() {
             <Button
               size="xs"
               variant="light"
-              color={isPublisher ? "blue" : "teal"}
               leftSection={<IconRefresh size={14} />}
               loading={syncMutation.isPending}
               onClick={() => {

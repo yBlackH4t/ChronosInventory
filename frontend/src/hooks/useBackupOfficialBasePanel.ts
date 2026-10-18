@@ -393,7 +393,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
       children:
         "O sistema vai criar um backup automatico do banco atual, baixar a base oficial do servidor remoto informado e reiniciar o aplicativo ao final. As fotos de produto colocadas nesta maquina sao mantidas.",
       labels: { confirm: "Atualizar base", cancel: "Cancelar" },
-      confirmProps: { color: "orange" },
+      confirmProps: { color: "warning" },
       onConfirm: () => officialBaseApplyMutation.mutate(),
     });
   }, [officialBaseApplyMutation]);
@@ -404,7 +404,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
       children:
         "Isso vai remover a base oficial mais recente publicada neste servidor local. Os snapshots do historico continuam existentes, mas os outros computadores nao vao mais encontrar uma base atual para baixar.",
       labels: { confirm: "Excluir base atual", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () =>
         officialBaseDeleteMutation.mutate({ deleteLatest: true }),
     });
@@ -416,7 +416,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         title: "Excluir publicacao historica",
         children: `Isso vai remover este snapshot do historico publicado em ${dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}. Essa acao nao altera a base local ativa.`,
         labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
-        confirmProps: { color: "red" },
+        confirmProps: { color: "danger" },
         onConfirm: () =>
           officialBaseDeleteMutation.mutate({
             manifestPath: item.manifest_path,

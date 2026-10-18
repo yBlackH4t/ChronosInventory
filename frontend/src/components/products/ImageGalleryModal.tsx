@@ -54,24 +54,7 @@ export function ImageGalleryModal({
         withIndicators
         initialSlide={initialSlide}
         height="100vh"
-        styles={{
-          indicator: {
-            width: 12,
-            height: 4,
-            transition: "width 250ms ease",
-            "&[data-active]": {
-              width: 40,
-            },
-          },
-          control: {
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            border: "none",
-            color: "white",
-            "&:hover": {
-              backgroundColor: "rgba(255, 255, 255, 0.2)",
-            },
-          },
-        }}
+        classNames={{ indicator: "gallery-indicator", control: "gallery-control" }}
       >
         {images.map((img) => (
           <Carousel.Slide key={img.id} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>

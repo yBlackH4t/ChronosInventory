@@ -129,7 +129,7 @@ export default function StockCompareServerSection({
               <Button
                 size="xs"
                 variant="subtle"
-                color="red"
+                color="danger"
                 onClick={onDeleteLatestSnapshot}
                 disabled={!compareServerStatus?.local_snapshot_available}
                 loading={deleteLatestSnapshotLoading}

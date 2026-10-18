@@ -235,7 +235,7 @@ export default function AssistantPage() {
             <SuggestProposalButton />
             <Button
               variant="light"
-              color="red"
+              color="danger"
               size="xs"
               leftSection={<IconTrash size={14} />}
               onClick={clearChat}
@@ -270,7 +270,7 @@ export default function AssistantPage() {
             <Alert
               icon={<IconAlertCircle size={16} />}
               title="Erro"
-              color="red"
+              color="danger"
               mb="sm"
               withCloseButton
               onClose={() => setErrorMsg(null)}
@@ -281,7 +281,7 @@ export default function AssistantPage() {
                   <Button
                     size="xs"
                     variant="outline"
-                    color="red"
+                    color="danger"
                     leftSection={<IconSettings size={14} />}
                     onClick={() => navigate(SETTINGS_PATH)}
                   >
@@ -315,7 +315,7 @@ export default function AssistantPage() {
                           p="sm"
                           radius="md"
                           withBorder
-                          bg={isUser ? "blue.6" : "var(--mantine-color-default-hover)"}
+                          bg={isUser ? "info.6" : "var(--mantine-color-default-hover)"}
                           c={isUser ? "white" : undefined}
                         >
                           {isUser && msg.fotoUrl && (
@@ -385,7 +385,7 @@ export default function AssistantPage() {
                             </Group>
                             <Alert
                               variant="light"
-                              color="blue"
+                              color="info"
                               p="xs"
                               radius="md"
                               icon={<IconInfoCircle size={16} />}
@@ -453,7 +453,7 @@ export default function AssistantPage() {
                   </Group>
                   <ActionIcon
                     size="sm"
-                    color="red"
+                    color="danger"
                     variant="subtle"
                     onClick={handleRemovePhoto}
                     title="Remover foto"
@@ -496,7 +496,6 @@ export default function AssistantPage() {
                 flex={1}
               />
               <ActionIcon
-                color="blue"
                 size="lg"
                 radius="md"
                 onClick={handleSend}

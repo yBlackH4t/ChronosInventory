@@ -73,7 +73,7 @@ export default function AdminWhatsAppTab() {
         message: data.ativo
           ? `Envio diário ativado para as ${data.hora}.`
           : "Envio diário desativado.",
-        color: "teal",
+        color: "success",
       });
       queryClient.invalidateQueries({
         queryKey: ["assistant-admin-daily-summary"],
@@ -83,7 +83,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Erro ao atualizar",
         message: err.message || "Não foi possível atualizar as configurações do resumo.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -96,7 +96,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Horário inválido",
         message: "Digite no formato HH:MM (ex: 08:00).",
-        color: "red",
+        color: "danger",
       });
     }
   };
@@ -130,7 +130,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Iniciando WhatsApp",
         message: data.estado === "aguardando_qr" ? "Escaneie o QR code gerado." : "Conectando ao WhatsApp...",
-        color: "teal",
+        color: "success",
       });
       invalidate();
     },
@@ -138,7 +138,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Erro ao iniciar",
         message: err.message || "Não foi possível iniciar a conexão do WhatsApp.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -149,7 +149,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "WhatsApp desligado",
         message: "A ponte do WhatsApp foi pausada.",
-        color: "blue",
+        color: "info",
       });
       invalidate();
     },
@@ -157,7 +157,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Erro ao desligar",
         message: err.message || "Não foi possível parar a ponte do WhatsApp.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -168,7 +168,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Desconectado",
         message: "Este computador foi desvinculado dos aparelhos conectados.",
-        color: "orange",
+        color: "warning",
       });
       setModalDesconectar(false);
       invalidate();
@@ -177,7 +177,7 @@ export default function AdminWhatsAppTab() {
       notifications.show({
         title: "Erro ao desconectar",
         message: err.message || "Não foi possível desconectar a sessão.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -188,28 +188,28 @@ export default function AdminWhatsAppTab() {
         return <Badge color="gray" variant="light">Desligado</Badge>;
       case "conectando":
         return (
-          <Badge color="yellow" variant="light" leftSection={<Loader size={10} color="yellow" />}>
+          <Badge color="warning" variant="light" leftSection={<Loader size={10} color="warning" />}>
             Conectando…
           </Badge>
         );
       case "aguardando_qr":
-        return <Badge color="blue" variant="filled">Escaneie o QR code</Badge>;
+        return <Badge color="info" variant="filled">Escaneie o QR code</Badge>;
       case "conectado":
         return (
-          <Badge color="green" variant="filled" leftSection={<IconCheck size={12} />}>
+          <Badge color="success" variant="filled" leftSection={<IconCheck size={12} />}>
             Conectado ao número {numero || ""}
           </Badge>
         );
       case "reconectando":
         return (
-          <Badge color="yellow" variant="light" leftSection={<Loader size={10} color="yellow" />}>
+          <Badge color="warning" variant="light" leftSection={<Loader size={10} color="warning" />}>
             Reconectando…
           </Badge>
         );
       case "desconectado":
-        return <Badge color="orange" variant="light">Desconectado do celular — conecte de novo</Badge>;
+        return <Badge color="warning" variant="light">Desconectado do celular — conecte de novo</Badge>;
       case "erro":
-        return <Badge color="red" variant="filled">Erro na conexão</Badge>;
+        return <Badge color="danger" variant="filled">Erro na conexão</Badge>;
       default:
         return <Badge color="gray">{estado}</Badge>;
     }
@@ -233,11 +233,11 @@ export default function AdminWhatsAppTab() {
       <Alert
         icon={<IconAlertCircle size={16} />}
         title="Erro ao obter status do WhatsApp"
-        color="red"
+        color="danger"
       >
         <Group justify="space-between">
           <Text size="sm">{error instanceof Error ? error.message : "Erro de comunicação."}</Text>
-          <Button size="xs" variant="outline" color="red" onClick={() => refetch()}>
+          <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
             Tentar novamente
           </Button>
         </Group>
@@ -255,7 +255,7 @@ export default function AdminWhatsAppTab() {
       {/* Aviso Fixo Legal */}
       <Alert
         icon={<IconAlertTriangle size={16} />}
-        color="orange"
+        color="warning"
         variant="light"
         p="xs"
       >
@@ -268,7 +268,7 @@ export default function AdminWhatsAppTab() {
       <Card withBorder p="md" radius="md" shadow="xs">
         <Group justify="space-between" align="center" mb="md" wrap="wrap">
           <Group gap="xs">
-            <IconBrandWhatsapp size={28} color="var(--mantine-color-teal-6)" />
+            <IconBrandWhatsapp size={28} color="var(--mantine-color-success-6)" />
             <div>
               <Title order={4}>WhatsApp do Assistente</Title>
               <Text size="xs" c="dimmed">
@@ -292,7 +292,7 @@ export default function AdminWhatsAppTab() {
         </Group>
 
         {status?.erro && (
-          <Alert color="red" variant="light" p="xs" mb="md" icon={<IconAlertCircle size={16} />}>
+          <Alert color="danger" variant="light" p="xs" mb="md" icon={<IconAlertCircle size={16} />}>
             Erro: {status.erro}
           </Alert>
         )}
@@ -305,7 +305,7 @@ export default function AdminWhatsAppTab() {
               da empresa ao Chronos.
             </Text>
             <Button
-              color="teal"
+              color="success"
               size="md"
               leftSection={<IconBrandWhatsapp size={20} />}
               onClick={() => startMutation.mutate()}
@@ -335,7 +335,7 @@ export default function AdminWhatsAppTab() {
             </Paper>
 
             <Group gap="xs" align="center">
-              <IconDeviceMobile size={18} color="var(--mantine-color-teal-6)" />
+              <IconDeviceMobile size={18} color="var(--mantine-color-success-6)" />
               <Text size="sm" fw={500}>
                 No celular: WhatsApp &gt; Configurações &gt; Aparelhos conectados &gt; Conectar um aparelho
               </Text>
@@ -389,7 +389,7 @@ export default function AdminWhatsAppTab() {
                   </Button>
                   <Button
                     size="xs"
-                    color="red"
+                    color="danger"
                     variant="light"
                     leftSection={<IconUnlink size={14} />}
                     onClick={() => setModalDesconectar(true)}
@@ -404,7 +404,7 @@ export default function AdminWhatsAppTab() {
       </Card>
 
       {status?.papel_robo === "reserva" && (
-        <Alert color={status.principal_respondendo ? "blue" : "orange"} variant="light" p="xs">
+        <Alert color={status.principal_respondendo ? "info" : "warning"} variant="light" p="xs">
           <Text size="xs">
             <strong>PC reserva.</strong>{" "}
             {status.principal_respondendo
@@ -420,7 +420,7 @@ export default function AdminWhatsAppTab() {
       <Card withBorder p="md" radius="md" shadow="xs">
         <Group justify="space-between" align="center" mb="sm" wrap="wrap">
           <Group gap="xs">
-            <IconCalendarTime size={24} color="var(--mantine-color-blue-6)" />
+            <IconCalendarTime size={24} color="var(--mantine-color-info-6)" />
             <div>
               <Text fw={600} size="sm">
                 Resumo diário
@@ -434,7 +434,6 @@ export default function AdminWhatsAppTab() {
           <Button
             size="xs"
             variant="light"
-            color="blue"
             leftSection={<IconEye size={14} />}
             onClick={() => setModalResumo(true)}
           >
@@ -488,7 +487,7 @@ export default function AdminWhatsAppTab() {
       {/* Quadro informativo: Como usar */}
       <Card withBorder p="md" radius="md" bg="var(--mantine-color-default-hover)">
         <Group gap="xs" mb="xs">
-          <IconHelp size={20} color="var(--mantine-color-blue-6)" />
+          <IconHelp size={20} color="var(--mantine-color-info-6)" />
           <Text fw={600} size="sm">
             Como usar o Modo Copiloto
           </Text>
@@ -576,7 +575,7 @@ export default function AdminWhatsAppTab() {
               Cancelar
             </Button>
             <Button
-              color="red"
+              color="danger"
               onClick={() => disconnectMutation.mutate()}
               loading={disconnectMutation.isPending}
             >

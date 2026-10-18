@@ -43,7 +43,7 @@ export default function EstornoModal({
       notifications.show({
         title: "Sucesso",
         message: "Estorno realizado com sucesso",
-        color: "green",
+        color: "success",
       });
       queryClient.invalidateQueries({ queryKey: ["movements"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -56,7 +56,7 @@ export default function EstornoModal({
       notifications.show({
         title: "Erro",
         message: error.message || "Falha ao realizar estorno",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -93,7 +93,7 @@ export default function EstornoModal({
           <Button variant="default" onClick={onClose} disabled={isPending}>
             Cancelar
           </Button>
-          <Button color="red" onClick={() => estornar()} loading={isPending}>
+          <Button color="danger" onClick={() => estornar()} loading={isPending}>
             Confirmar Estorno
           </Button>
         </Group>

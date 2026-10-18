@@ -37,6 +37,7 @@ import {
 import { movementNatureLabel } from "../../lib/movements";
 import { detectCondition } from "../../lib/brands";
 import { VERSION_COLORS, type VersionLabel } from "../../lib/semantic";
+import { clickableRowProps } from "../../lib/clickableRow";
 
 export const CHART_HEIGHT = 260;
 
@@ -382,8 +383,7 @@ export function StockHealthPanel({
                     return (
                       <Table.Tr
                         key={item.produto_id}
-                        onClick={() => onOpenProduct(item)}
-                        style={{ cursor: "pointer" }}
+                        {...clickableRowProps(() => onOpenProduct(item))}
                       >
                         <Table.Td>
                           <Text size="sm" truncate="end" maw={420}>

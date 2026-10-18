@@ -146,7 +146,7 @@ export default function ProductLinkModal({
                 #{product.produto_vinculado_id} - {product.produto_vinculado_nome}
               </Badge>
               <Button
-                color="red"
+                color="danger"
                 variant="subtle"
                 size="xs"
                 leftSection={<IconUnlink size={14} />}

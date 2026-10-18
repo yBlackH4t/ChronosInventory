@@ -224,7 +224,7 @@ export function LocalBackupsSection({
                 Testar
               </Button>
               <Button
-                color="red"
+                color="danger"
                 variant="light"
                 disabled={!selectedBackupName}
                 loading={restoreLoading}

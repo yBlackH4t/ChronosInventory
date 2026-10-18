@@ -25,11 +25,11 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
   const send = useMutation({
     mutationFn: () => sendWhatsAppDraft(draft.id, text),
     onSuccess: () => {
-      notifications.show({ title: "Enviado", message: `Rascunho #${draft.id} foi para o cliente.`, color: "teal" });
+      notifications.show({ title: "Enviado", message: `Rascunho #${draft.id} foi para o cliente.`, color: "success" });
       refresh();
     },
     onError: (err: Error) => {
-      notifications.show({ title: "Não foi possível enviar", message: err.message, color: "red" });
+      notifications.show({ title: "Não foi possível enviar", message: err.message, color: "danger" });
       refresh();
     },
   });
@@ -50,7 +50,7 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
             </Text>
           </Group>
           {text !== draft.texto && (
-            <Badge size="xs" color="orange" variant="light">
+            <Badge size="xs" color="warning" variant="light">
               editado
             </Badge>
           )}
@@ -63,7 +63,7 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
           <Button
             size="xs"
             variant="subtle"
-            color="red"
+            color="danger"
             leftSection={<IconTrash size={14} />}
             loading={discard.isPending}
             onClick={() => discard.mutate()}
@@ -72,7 +72,7 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
           </Button>
           <Button
             size="xs"
-            color="teal"
+            color="success"
             leftSection={<IconSend size={14} />}
             loading={send.isPending}
             disabled={!text.trim()}
@@ -100,7 +100,7 @@ export default function WhatsAppDraftsCard({ review }: { review: boolean }) {
   const reviewMutation = useMutation({
     mutationFn: setWhatsAppReview,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assistant-admin-whatsapp"] }),
-    onError: (err: Error) => notifications.show({ title: "Erro", message: err.message, color: "red" }),
+    onError: (err: Error) => notifications.show({ title: "Erro", message: err.message, color: "danger" }),
   });
   const drafts = draftsQuery.data ?? [];
 
@@ -108,7 +108,7 @@ export default function WhatsAppDraftsCard({ review }: { review: boolean }) {
     <Card withBorder p="md" radius="md" shadow="xs">
       <Group justify="space-between" align="center" mb="sm" wrap="wrap">
         <Group gap="xs">
-          <IconPencilCheck size={24} color="var(--mantine-color-teal-6)" />
+          <IconPencilCheck size={24} color="var(--mantine-color-success-6)" />
           <div>
             <Text fw={600} size="sm">
               Revisar antes de enviar

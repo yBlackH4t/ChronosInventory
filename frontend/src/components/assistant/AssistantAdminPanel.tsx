@@ -90,7 +90,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Login efetuado",
         message: "Área de administrador do assistente liberada.",
-        color: "green",
+        color: "success",
       });
       setSenhaInput("");
       clearAdminNotice();
@@ -100,7 +100,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Falha no login",
         message: err.message || "Senha incorreta ou acesso não permitido.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -111,7 +111,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Sessão encerrada",
         message: "Você saiu da área de administrador.",
-        color: "blue",
+        color: "info",
       });
       queryClient.invalidateQueries({ queryKey: ["assistant-admin-status"] });
     },
@@ -124,7 +124,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha criada",
         message: "Senha de admin configurada. Faça login para continuar.",
-        color: "green",
+        color: "success",
       });
       setSenhaNovaInput("");
       setSenhaNovaConfirm("");
@@ -134,7 +134,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Erro ao criar senha",
         message: err.message || "Não foi possível registrar a senha.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -146,7 +146,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha alterada",
         message: "A senha foi alterada com sucesso. Faça login novamente.",
-        color: "green",
+        color: "success",
       });
       setModalTrocarSenha(false);
       setTrocaSenhaAtual("");
@@ -158,7 +158,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Erro ao trocar senha",
         message: err.message || "Não foi possível alterar a senha.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -175,7 +175,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha muito curta",
         message: "A senha de admin precisa ter no mínimo 6 caracteres.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -183,7 +183,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senhas não conferem",
         message: "A confirmação de senha não confere.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -196,7 +196,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha atual obrigatória",
         message: "Informe a senha atual de admin.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -204,7 +204,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha muito curta",
         message: "A nova senha precisa ter no mínimo 6 caracteres.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -212,7 +212,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senhas não conferem",
         message: "A confirmação da nova senha não confere.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -240,7 +240,7 @@ export default function AssistantAdminPanel() {
       <Alert
         icon={<IconAlertCircle size={16} />}
         title="Erro ao verificar status do admin"
-        color="red"
+        color="danger"
       >
         <Group justify="space-between">
           <Text size="sm">
@@ -248,7 +248,7 @@ export default function AssistantAdminPanel() {
               ? statusError.message
               : "Erro ao se comunicar com o backend."}
           </Text>
-          <Button size="xs" variant="outline" color="red" onClick={() => refetchStatus()}>
+          <Button size="xs" variant="outline" color="danger" onClick={() => refetchStatus()}>
             Tentar novamente
           </Button>
         </Group>
@@ -260,7 +260,7 @@ export default function AssistantAdminPanel() {
       <Card withBorder p="lg" radius="md" maw={480} mx="auto" shadow="sm">
         <Stack gap="md">
           <Group gap="xs">
-            <IconShieldLock size={28} color="var(--mantine-color-blue-6)" />
+            <IconShieldLock size={28} color="var(--mantine-color-info-6)" />
             <div>
               <Title order={4}>Criar Senha de Administrador</Title>
               <Text size="xs" c="dimmed">
@@ -291,7 +291,6 @@ export default function AssistantAdminPanel() {
                 type="submit"
                 fullWidth
                 mt="xs"
-                color="blue"
                 loading={criarSenhaMutation.isPending}
               >
                 Criar Senha e Continuar
@@ -306,7 +305,7 @@ export default function AssistantAdminPanel() {
       <Card withBorder p="lg" radius="md" maw={440} mx="auto" shadow="sm">
         <Stack gap="md">
           <Group gap="xs">
-            <IconLock size={26} color="var(--mantine-color-blue-6)" />
+            <IconLock size={26} color="var(--mantine-color-info-6)" />
             <div>
               <Title order={4}>Área do Administrador</Title>
               <Text size="xs" c="dimmed">
@@ -318,7 +317,7 @@ export default function AssistantAdminPanel() {
           {session.notice && (
             <Alert
               icon={<IconAlertCircle size={16} />}
-              color="orange"
+              color="warning"
               variant="light"
               withCloseButton
               onClose={() => clearAdminNotice()}
@@ -341,7 +340,6 @@ export default function AssistantAdminPanel() {
                 type="submit"
                 fullWidth
                 mt="xs"
-                color="blue"
                 leftSection={<IconKey size={16} />}
                 loading={loginMutation.isPending}
               >
@@ -360,7 +358,7 @@ export default function AssistantAdminPanel() {
         <Alert
           icon={<IconInfoCircle size={18} />}
           title="Máquina não publicadora"
-          color="orange"
+          color="warning"
           variant="light"
         >
           Para ensinar o assistente, esta máquina precisa ser a publicadora da
@@ -409,10 +407,10 @@ export default function AssistantAdminPanel() {
       <Paper withBorder p="xs" radius="md" bg="var(--mantine-color-default-hover)">
         <Group justify="space-between" wrap="wrap">
           <Group gap="xs">
-            <Badge color="green" variant="light" leftSection={<IconShieldLock size={12} />}>
+            <Badge color="success" variant="light" leftSection={<IconShieldLock size={12} />}>
               Admin Autenticado
             </Badge>
-            <Badge color="blue" variant="outline">
+            <Badge color="info" variant="outline">
               Máquina Publicadora
             </Badge>
           </Group>
@@ -429,7 +427,7 @@ export default function AssistantAdminPanel() {
             <Button
               size="xs"
               variant="light"
-              color="red"
+              color="danger"
               leftSection={<IconLogout size={14} />}
               onClick={() => logoutMutation.mutate()}
               loading={logoutMutation.isPending}
@@ -448,7 +446,7 @@ export default function AssistantAdminPanel() {
             leftSection={<IconListCheck size={16} />}
             rightSection={
               pendingCount > 0 ? (
-                <Badge size="xs" color="orange" circle>
+                <Badge size="xs" color="warning" circle>
                   {pendingCount}
                 </Badge>
               ) : undefined
@@ -521,7 +519,6 @@ export default function AssistantAdminPanel() {
                 Cancelar
               </Button>
               <Button
-                color="blue"
                 type="submit"
                 loading={trocarSenhaMutation.isPending}
               >

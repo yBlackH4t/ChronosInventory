@@ -38,7 +38,7 @@ function DeltaBadge({ delta }: { delta: StatDelta }) {
     <Badge
       size="sm"
       variant="light"
-      color={flat ? "gray" : good ? "success" : "orange"}
+      color={flat ? "gray" : good ? "success" : "warning"}
       tt="none"
       className="num"
       style={{ flexShrink: 0 }}

@@ -271,7 +271,7 @@ export default function ProductsPage() {
             </Stack>
           ),
           labels: { confirm: "Inativar produto", cancel: "Fechar" },
-          confirmProps: { color: "orange" },
+          confirmProps: { color: "warning" },
           onConfirm: () => inactivateMutation.mutate(productId),
         });
       } else {
@@ -368,7 +368,7 @@ export default function ProductsPage() {
         </Stack>
       ),
       labels: { confirm: "Excluir", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteMutation.mutate(product.id),
     });
   };
@@ -701,7 +701,7 @@ export default function ProductsPage() {
         </Text>
       ),
       labels: { confirm: "Descartar", cancel: "Continuar editando" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => {
         if (editing) {
           editForm.reset();

@@ -20,7 +20,7 @@ export function movementTone(tipo: MovementKind, natureza?: string | null): stri
 export type VersionLabel = "NOVA" | "REMAN" | "MONTADA";
 
 export const VERSION_COLORS: Record<VersionLabel, string> = {
-  NOVA: "blue",
+  NOVA: "info",
   REMAN: "warning",
   MONTADA: "violet",
 };

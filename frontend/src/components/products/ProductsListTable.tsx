@@ -27,6 +27,7 @@ import EmptyState from "../ui/EmptyState";
 import StockPill from "../ui/StockPill";
 import ProductThumb from "./ProductThumb";
 import SalesMiniBars from "./SalesMiniBars";
+import { clickableRowProps } from "../../lib/clickableRow";
 
 type ProductsListTableProps = {
   rows: Product[];
@@ -185,11 +186,13 @@ export function ProductsListTable({
               return (
                 <Table.Tr
                   key={product.id}
-                  className={selectedId === product.id ? "row-selected" : undefined}
-                  onClick={() => onOpenDetails(product)}
+                  {...clickableRowProps(() => onOpenDetails(product))}
+                  className={selectedId === product.id ? "clickable-row row-selected" : "clickable-row"}
                   onMouseEnter={() => onHoverProduct?.(product)}
                   onMouseLeave={() => onHoverProduct?.(null)}
-                  style={{ cursor: "pointer", height: ROW_HEIGHT }}
+                  onFocus={() => onHoverProduct?.(product)}
+                  onBlur={() => onHoverProduct?.(null)}
+                  style={{ height: ROW_HEIGHT }}
                 >
                   <Table.Td>
                     <Group gap={10} wrap="nowrap">
@@ -266,7 +269,6 @@ export function ProductsListTable({
                     >
                       <Tooltip label="Movimentar estoque (tecla N)">
                         <ActionIcon
-                          color="blue"
                           variant="light"
                           aria-label="Movimentar estoque (tecla N)"
                           onClick={() => onQuickMove?.(product)}

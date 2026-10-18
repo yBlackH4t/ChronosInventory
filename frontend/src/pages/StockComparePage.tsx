@@ -373,7 +373,7 @@ export default function StockComparePage() {
         </Text>
       ),
       labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteLatestSnapshotMutation.mutate(),
     });
   };
@@ -388,7 +388,7 @@ export default function StockComparePage() {
         </Text>
       ),
       labels: { confirm: "Excluir historico", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteHistorySnapshotMutation.mutate(manifestPath),
     });
   };

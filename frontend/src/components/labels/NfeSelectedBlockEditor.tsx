@@ -330,7 +330,7 @@ export default function NfeSelectedBlockEditor({
       <Button
         size="xs"
         variant="subtle"
-        color="red"
+        color="danger"
         leftSection={<IconTrash size={14} />}
         onClick={onRemove}
       >

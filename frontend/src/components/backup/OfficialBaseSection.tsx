@@ -207,7 +207,7 @@ export function OfficialBaseSection({
           </Group>
           {serverIsRunning && !status?.server_token_set && (
             <Alert
-              color="yellow"
+              color="warning"
               variant="light"
               icon={<IconAlertTriangle size={18} />}
               title="Servidor desprotegido"
@@ -254,7 +254,7 @@ export function OfficialBaseSection({
             <Button
               size="xs"
               variant="subtle"
-              color="red"
+              color="danger"
               onClick={onDeleteLatest}
               loading={deletePending}
             >
@@ -302,7 +302,7 @@ export function OfficialBaseSection({
 
       {emptyDatabase && (
         <Alert
-          color="red"
+          color="danger"
           variant="light"
           icon={<IconAlertTriangle size={18} />}
           title="Esta base está vazia"
@@ -452,7 +452,7 @@ export function OfficialBaseSection({
                       {status?.server_token_set && (
                         <Button
                           variant="subtle"
-                          color="red"
+                          color="danger"
                           onClick={onRemoveServerToken}
                           loading={saveConfigLoading}
                         >
@@ -461,7 +461,7 @@ export function OfficialBaseSection({
                       )}
                     </Group>
                     {status?.server_token_set && (
-                      <Text size="xs" c="green.6" fw={500}>
+                      <Text size="xs" c="success" fw={500}>
                         ✓ Senha configurada
                       </Text>
                     )}

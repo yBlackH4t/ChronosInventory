@@ -242,7 +242,7 @@ function QuickMovementForm({
                     key={loc.id}
                     size="xs"
                     variant={qty > 0 ? "light" : "outline"}
-                    color={qty > 0 ? "teal" : "gray"}
+                    color={qty > 0 ? "success" : "gray"}
                   >
                     {loc.label || loc.name}: {qty}
                   </Badge>
@@ -291,7 +291,7 @@ function QuickMovementForm({
                 value: "ENTRADA",
                 label: (
                   <Group gap={6} justify="center">
-                    <IconArrowUpRight size={16} color="var(--mantine-color-teal-6)" />
+                    <IconArrowUpRight size={16} color="var(--mantine-color-success-6)" />
                     <Text fw={600} size="sm">
                       Entrada
                     </Text>

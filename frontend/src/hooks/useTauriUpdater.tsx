@@ -68,7 +68,7 @@ export function useTauriUpdater() {
               id: notificationId,
               title: "Falha ao atualizar",
               message,
-              color: "red",
+              color: "danger",
               loading: false,
               autoClose: false,
             });
@@ -82,14 +82,14 @@ export function useTauriUpdater() {
                   </Text>
                 ),
                 labels: { confirm: "Restaurar", cancel: "Depois" },
-                confirmProps: { color: "orange" },
+                confirmProps: { color: "warning" },
                 onConfirm: async () => {
                   try {
                     await api.backupRestorePreUpdate();
                     notifications.show({
                       title: "Dados restaurados",
                       message: "Backup pre-update restaurado com sucesso.",
-                      color: "green",
+                      color: "success",
                     });
                   } catch (restoreError) {
                     const restoreMessage =
@@ -99,7 +99,7 @@ export function useTauriUpdater() {
                     notifications.show({
                       title: "Falha ao restaurar",
                       message: restoreMessage,
-                      color: "red",
+                      color: "danger",
                     });
                   }
                 },

@@ -115,13 +115,13 @@ export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelPr
 
       <Divider label="Notas de fornecedor (baixar o XML da SEFAZ)" labelPosition="left" />
       {cert ? (
-        <Alert color="teal" icon={<IconCertificate size={16} />}>
+        <Alert color="success" icon={<IconCertificate size={16} />}>
           <Group justify="space-between" wrap="nowrap">
             <Text size="sm">
               Certificado de {cert.titular}
               {cert.cnpj ? ` (${formatCnpj(cert.cnpj)})` : ""}, válido até {formatDate(cert.validade)}.
             </Text>
-            <Button size="xs" variant="subtle" color="red" onClick={() => void removeCertificate()}>
+            <Button size="xs" variant="subtle" color="danger" onClick={() => void removeCertificate()}>
               Remover
             </Button>
           </Group>

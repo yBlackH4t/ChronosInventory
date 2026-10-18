@@ -100,7 +100,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Proposta aprovada",
         message: `Proposta #${id} aprovada e incorporada à base de conhecimento.`,
-        color: "green",
+        color: "success",
       });
       invalidate();
     },
@@ -108,7 +108,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Erro ao aprovar proposta",
         message: err.message || "Não foi possível aprovar a proposta.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -119,7 +119,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Proposta recusada",
         message: `Proposta #${id} recusada.`,
-        color: "blue",
+        color: "info",
       });
       invalidate();
     },
@@ -127,7 +127,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Erro ao recusar proposta",
         message: err.message || "Não foi possível recusar a proposta.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -138,7 +138,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Regra salva",
         message: `Regra entre ${variables.codigo_a} e ${variables.codigo_b} registrada com sucesso.`,
-        color: "green",
+        color: "success",
       });
       invalidate();
     },
@@ -146,7 +146,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Erro ao salvar",
         message: err.message || "Não foi possível registrar a regra.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -157,7 +157,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Concluído",
         message: `Código ${codigo} concluído da lista de revisão.`,
-        color: "blue",
+        color: "info",
       });
       invalidate();
     },
@@ -165,7 +165,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Erro",
         message: err.message || "Não foi possível concluir o código.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -218,7 +218,7 @@ export default function AdminReviewTab() {
       notifications.show({
         title: "Campo obrigatório",
         message: "Informe o outro código para relacionar.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -255,11 +255,11 @@ export default function AdminReviewTab() {
       <Alert
         icon={<IconAlertCircle size={16} />}
         title="Erro ao carregar revisão"
-        color="red"
+        color="danger"
       >
         <Group justify="space-between">
           <Text size="sm">{error instanceof Error ? error.message : "Erro desconhecido"}</Text>
-          <Button size="xs" variant="outline" color="red" onClick={() => refetch()}>
+          <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
             Tentar novamente
           </Button>
         </Group>
@@ -274,7 +274,7 @@ export default function AdminReviewTab() {
     return (
       <Card withBorder p="xl" radius="md" ta="center">
         <Stack align="center" gap="xs">
-          <IconSparkles size={36} color="var(--mantine-color-blue-5)" />
+          <IconSparkles size={36} color="var(--mantine-color-info-5)" />
           <Text fw={500}>Tudo em dia!</Text>
           <Text size="sm" c="dimmed" maw={480}>
             Nenhum código pendente de revisão nem propostas enviadas pelo WhatsApp.
@@ -291,12 +291,12 @@ export default function AdminReviewTab() {
         <Stack gap="xs">
           <Group justify="space-between">
             <Group gap="xs">
-              <IconBrandWhatsapp size={20} color="var(--mantine-color-teal-6)" />
+              <IconBrandWhatsapp size={20} color="var(--mantine-color-success-6)" />
               <Text fw={700} size="sm">
                 Propostas de regras (WhatsApp /ensinar e Sugerir ao admin)
               </Text>
             </Group>
-            <Badge color="teal" variant="light">
+            <Badge color="success" variant="light">
               {proposals.length} pendente{proposals.length === 1 ? "" : "s"}
             </Badge>
           </Group>
@@ -324,10 +324,10 @@ export default function AdminReviewTab() {
                       <Badge
                         color={
                           prop.tipo === "igual"
-                            ? "green"
+                            ? "success"
                             : prop.tipo === "similar"
-                            ? "orange"
-                            : "red"
+                            ? "warning"
+                            : "danger"
                         }
                         variant="filled"
                         size="xs"
@@ -356,7 +356,7 @@ export default function AdminReviewTab() {
                   <Group gap="xs">
                     <Button
                       size="xs"
-                      color="green"
+                      color="success"
                       variant="light"
                       leftSection={<IconCheck size={14} />}
                       onClick={() => approveProposalMutation.mutate(prop.id)}
@@ -366,7 +366,7 @@ export default function AdminReviewTab() {
                     </Button>
                     <Button
                       size="xs"
-                      color="red"
+                      color="danger"
                       variant="subtle"
                       leftSection={<IconX size={14} />}
                       onClick={() => rejectProposalMutation.mutate(prop.id)}
@@ -383,7 +383,7 @@ export default function AdminReviewTab() {
       )}
 
       {hasItems && (
-        <Alert color="blue" variant="light" icon={<IconInfoCircle size={16} />}>
+        <Alert color="info" variant="light" icon={<IconInfoCircle size={16} />}>
           Estes códigos foram pesquisados mas não estavam em estoque. Ensine o assistente
           relacionando-os com peças equivalentes ou descarte se não houver correlação.
         </Alert>
@@ -402,7 +402,7 @@ export default function AdminReviewTab() {
                   <Text fw={700} size="lg">
                     {item.codigo}
                   </Text>
-                  <Badge color="blue" variant="light">
+                  <Badge color="info" variant="light">
                     Perguntado {item.vezes} {item.vezes === 1 ? "vez" : "vezes"}
                   </Badge>
                   <Badge color="gray" variant="outline">
@@ -438,7 +438,7 @@ export default function AdminReviewTab() {
                   <Badge
                     key={idx}
                     size="sm"
-                    color={con.relacao === "igual" ? "green" : "orange"}
+                    color={con.relacao === "igual" ? "success" : "warning"}
                     variant="light"
                   >
                     {con.relacao === "igual" ? "=" : "~"} {con.codigo}
@@ -474,7 +474,7 @@ export default function AdminReviewTab() {
                           {sug.produto_id !== null && (
                             <Badge
                               size="xs"
-                              color={sug.estoque_total > 0 ? "teal" : "gray"}
+                              color={sug.estoque_total > 0 ? "success" : "gray"}
                               variant="light"
                             >
                               Estoque: {sug.estoque_total}
@@ -491,7 +491,7 @@ export default function AdminReviewTab() {
                       <Group gap="xs">
                         <Button
                           size="xs"
-                          color="green"
+                          color="success"
                           variant="light"
                           leftSection={<IconCheck size={14} />}
                           onClick={() =>
@@ -503,7 +503,7 @@ export default function AdminReviewTab() {
                         </Button>
                         <Button
                           size="xs"
-                          color="orange"
+                          color="warning"
                           variant="light"
                           leftSection={<IconArrowsExchange size={14} />}
                           onClick={() =>
@@ -516,7 +516,7 @@ export default function AdminReviewTab() {
                         <Tooltip label="Marca como diferente para o assistente nunca sugerir">
                           <Button
                             size="xs"
-                            color="red"
+                            color="danger"
                             variant="subtle"
                             leftSection={<IconX size={14} />}
                             onClick={() =>
@@ -583,7 +583,7 @@ export default function AdminReviewTab() {
             >
               Cancelar
             </Button>
-            <Button color="orange" onClick={handleConfirmSimilar}>
+            <Button color="warning" onClick={handleConfirmSimilar}>
               Salvar como Similar
             </Button>
           </Group>
@@ -650,7 +650,7 @@ export default function AdminReviewTab() {
             >
               Cancelar
             </Button>
-            <Button color="blue" onClick={handleConfirmCustom}>
+            <Button onClick={handleConfirmCustom}>
               Salvar Regra
             </Button>
           </Group>

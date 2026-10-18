@@ -63,7 +63,7 @@ export function notifySuccess(message: string) {
   notifications.show({
     title: "Sucesso",
     message,
-    color: "green",
+    color: "success",
   });
 }
 
@@ -117,7 +117,7 @@ export function notifyError(
     notifications.show({
       title,
       message,
-      color: "red",
+      color: "danger",
     });
     return;
   }
@@ -126,6 +126,6 @@ export function notifyError(
   notifications.show({
     title: "Erro",
     message,
-    color: "red",
+    color: "danger",
   });
 }

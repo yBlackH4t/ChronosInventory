@@ -207,7 +207,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
                   </Text>
                 ),
                 labels: { confirm: "Restaurar", cancel: "Depois" },
-                confirmProps: { color: "orange" },
+                confirmProps: { color: "warning" },
                 onConfirm: async () => {
                   try {
                     await api.backupRestorePreUpdate();

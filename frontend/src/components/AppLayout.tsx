@@ -98,7 +98,7 @@ export default function AppLayout({
               <Button
                 size="xs"
                 variant="light"
-                color="orange"
+                color="warning"
                 onClick={() => void handleRestartNow()}
                 loading={restarting}
               >

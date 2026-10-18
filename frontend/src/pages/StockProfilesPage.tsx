@@ -166,7 +166,7 @@ export default function StockProfilesPage() {
         </Text>
       ),
       labels: { confirm: "Remover estoque", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteMutation.mutate(profile),
     });
   };
