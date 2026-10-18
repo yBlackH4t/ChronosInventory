@@ -36,8 +36,9 @@ class StockDistributionOut(BaseModel):
 
 class FlowPoint(BaseModel):
     period: str
-    entradas: int
+    entradas: int  # sem o estoque inicial do cadastro
     saidas: int
+    estoque_inicial: int = 0  # entradas do cadastro (documento CADASTRO_INICIAL): so para o saldo
 
 
 class SaidasPoint(BaseModel):
@@ -83,8 +84,9 @@ class ExternalTransferItem(BaseModel):
 # Compat com endpoints antigos
 class EntradasSaidasPoint(BaseModel):
     date: str
-    entradas: int
+    entradas: int  # sem o estoque inicial do cadastro
     saidas: int
+    estoque_inicial: int = 0
 
 
 class EstoqueEvolucaoPoint(BaseModel):

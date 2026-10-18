@@ -95,7 +95,7 @@ Regras:
 - `GET /analytics/movements/timeseries?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&scope=CANOAS|PF|AMBOS&bucket=day|week|month`
   - serie temporal de `SAIDA`
 - `GET /analytics/movements/flow?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&scope=CANOAS|PF|AMBOS&bucket=day|week|month`
-  - entradas vs saidas
+  - entradas vs saidas. `entradas` nao conta o estoque inicial do cadastro (documento `CADASTRO_INICIAL`), que vem a parte em `estoque_inicial` (some com `entradas` para reconstruir o saldo). O mesmo vale para `GET /analytics/entradas-saidas`.
 - `GET /analytics/stock/evolution?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&bucket=day|week|month`
   - evolucao de estoque total
 - `GET /analytics/products/inactive?days=30&date_to=YYYY-MM-DD&limit=5`
@@ -106,7 +106,7 @@ Regras:
 - `GET /analytics/stock/items?days=90&date_to=YYYY-MM-DD&location_id=` (2.5.0)
   - um item por produto com saldo: `estoque`, `ultima_saida`, `dias_sem_saida` e `saidas_periodo` (saida normal, sem ajuste/estorno); base da "Saude do estoque"
 - `GET /analytics/movements/by-nature?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&tipo=SAIDA|ENTRADA&location_id=` (2.5.0)
-  - quantidade e numero de movimentacoes por natureza no periodo
+  - quantidade e numero de movimentacoes por natureza no periodo (sem o estoque inicial do cadastro)
 - `GET /analytics/products/{id}/stock-history?days=180&date_to=YYYY-MM-DD` (2.5.0)
   - saldo total do produto no inicio, em cada dia com mudanca e hoje (nunca negativo)
 

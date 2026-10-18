@@ -90,7 +90,13 @@ class MovementAnalyticsService:
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
         rows = self.repo.get_flow_timeseries(df, dt, bucket=bucket, location_id=self.normalize_location(scope))
         return [
-            {"period": row["periodo"], "entradas": int(row.get("entradas") or 0), "saidas": int(row.get("saidas") or 0)}
+            {
+                "period": row["periodo"],
+                "entradas": int(row.get("entradas") or 0),
+                "saidas": int(row.get("saidas") or 0),
+                # Estoque inicial do cadastro: fora de "entradas", mas conta para o saldo.
+                "estoque_inicial": int(row.get("estoque_inicial") or 0),
+            }
             for row in rows
         ]
 
@@ -329,7 +335,14 @@ class MovementAnalyticsService:
         while current <= date_to:
             key = current.isoformat()
             row = by_day.get(key, {})
-            series.append({"date": key, "entradas": int(row.get("entradas") or 0), "saidas": int(row.get("saidas") or 0)})
+            series.append(
+                {
+                    "date": key,
+                    "entradas": int(row.get("entradas") or 0),
+                    "saidas": int(row.get("saidas") or 0),
+                    "estoque_inicial": int(row.get("estoque_inicial") or 0),
+                }
+            )
             current += timedelta(days=1)
         return series
 

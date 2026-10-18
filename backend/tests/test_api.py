@@ -1901,35 +1901,47 @@ def test_analytics_entradas_saidas_and_distribuicao(client):
     assert distrib_data["total"] >= 0
 
 
-def test_create_product_generates_initial_entry_in_flow(client):
+def test_initial_stock_is_not_counted_as_entry_in_dashboard_metrics(client):
+    """O estoque inicial do cadastro so faz o saldo bater: nao e mercadoria que chegou."""
     created = client.post(
         "/produtos",
         json={"nome": "Produto Fluxo Inicial", "inventories": {"11": 2, "12": 3}},
     )
     assert created.status_code == 201
+    product_id = created.json()["data"]["id"]
+    entrada = client.post(
+        "/movimentacoes",
+        json={"tipo": "ENTRADA", "produto_id": product_id, "quantidade": 4, "destino_location_id": 11},
+    )
+    assert entrada.status_code == 201, entrada.text
 
     today = datetime.now().strftime("%Y-%m-%d")
 
-    flow_ambos = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&bucket=day"
-    )
-    assert flow_ambos.status_code == 200
-    flow_ambos_data = flow_ambos.json()["data"]
-    assert len(flow_ambos_data) == 1
-    assert flow_ambos_data[0]["entradas"] == 5
-    assert flow_ambos_data[0]["saidas"] == 0
+    def flow(extra=""):
+        response = client.get(f"/analytics/movements/flow?date_from={today}&date_to={today}&bucket=day{extra}")
+        assert response.status_code == 200
+        return response.json()["data"]
 
-    flow_canoas = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&location_id=11&bucket=day"
-    )
-    assert flow_canoas.status_code == 200
-    assert flow_canoas.json()["data"][0]["entradas"] == 2
+    (ambos,) = flow()
+    assert (ambos["entradas"], ambos["saidas"], ambos["estoque_inicial"]) == (4, 0, 5)
+    (canoas,) = flow("&location_id=11")
+    assert (canoas["entradas"], canoas["estoque_inicial"]) == (4, 2)
+    (pf,) = flow("&location_id=12")
+    assert (pf["entradas"], pf["estoque_inicial"]) == (0, 3)
 
-    flow_pf = client.get(
-        f"/analytics/movements/flow?date_from={today}&date_to={today}&location_id=12&bucket=day"
-    )
-    assert flow_pf.status_code == 200
-    assert flow_pf.json()["data"][0]["entradas"] == 3
+    (dia,) = client.get(f"/analytics/entradas-saidas?date_from={today}&date_to={today}").json()["data"]
+    assert (dia["entradas"], dia["estoque_inicial"]) == (4, 5)
+
+    naturezas = client.get(f"/analytics/movements/by-nature?date_from={today}&date_to={today}&tipo=ENTRADA")
+    assert naturezas.status_code == 200, naturezas.text
+    assert sum(item["quantidade"] for item in naturezas.json()["data"]) == 4
+
+    # O saldo continua contando o estoque inicial.
+    evolution = client.get(f"/analytics/stock/evolution?date_from={today}&date_to={today}&bucket=day")
+    assert evolution.status_code == 200
+    assert evolution.json()["data"][-1]["total_stock"] == 9
+    summary = client.get("/analytics/stock/summary").json()["data"]
+    assert summary["total_geral"] == 9
 
 
 def test_analytics_top_sem_mov(client):
