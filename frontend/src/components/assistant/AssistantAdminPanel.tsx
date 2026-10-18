@@ -44,6 +44,7 @@ import AdminReviewTab from "./AdminReviewTab";
 import AdminKnowledgeTab from "./AdminKnowledgeTab";
 import AdminHistoryTab from "./AdminHistoryTab";
 import AdminWhatsAppTab from "./AdminWhatsAppTab";
+import WhatsAppPinButton from "./WhatsAppPinButton";
 import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 export default function AssistantAdminPanel() {
@@ -417,6 +418,7 @@ export default function AssistantAdminPanel() {
           </Group>
 
           <Group gap="xs">
+            <WhatsAppPinButton pinDefinido={!!status.pin_whatsapp_definido} />
             <Button
               size="xs"
               variant="default"

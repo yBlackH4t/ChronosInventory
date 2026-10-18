@@ -709,8 +709,11 @@ export type SaidasPoint = {
 
 export type FlowPoint = {
   period: string;
+  /** Sem o estoque inicial do cadastro. */
   entradas: number;
   saidas: number;
+  /** Estoque inicial do cadastro: não é entrada, mas conta para reconstruir o saldo. */
+  estoque_inicial?: number;
 };
 
 export type StockEvolutionPoint = {

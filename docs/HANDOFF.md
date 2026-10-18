@@ -422,6 +422,13 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-18 — Claude Code — Versão 2.5.5 (correções da avaliação completa)
+- Branch: `claude/project-thread-vw3djm`, juntando `claude/frontend-correcoes-a11y-copy` e
+  `claude/seguranca-backend`. Tela do PIN do WhatsApp (`components/assistant/WhatsAppPinButton.tsx`,
+  `POST /assistente/admin/pin-whatsapp`). O saldo do gráfico do Painel usa `estoque_inicial`, que
+  saiu das entradas. Versão 2.5.5 e CHANGELOG.
+- Verificações: pytest 262 ok / ruff ok / build ok / lint ok (5 avisos antigos) / vitest 32 ok.
+
 ### 2026-10-18 — Claude Code — Correções de telas (acessibilidade, cores, textos, dependências)
 - Branch: `claude/frontend-correcoes-a11y-copy` (sobre a `main` 65d638d, versão 2.5.4 sem mudar).
 - Contraste (texto ≥ 4,5:1 nos dois temas; âmbar/verde escuros no claro via `cssVariablesResolver`),

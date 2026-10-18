@@ -10,6 +10,21 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.5.5",
+    "date": "2026-10-18",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: PIN para aprovar pelo WhatsApp: em Assistente > Admin, o botão \"Criar PIN do WhatsApp\" define um PIN de 4 a 8 números. A partir de agora, aprovar ou recusar pelo WhatsApp é /aprovar 3 1234 (número da sugestão e PIN). Sem PIN, esses dois comandos ficam desligados. Cinco PINs errados seguidos bloqueiam por 10 minutos.",
+      "Mudanca: Base oficial exige senha: o computador que publica a base só liga o servidor se tiver uma senha definida (a mesma nas outras máquinas). Cinco senhas erradas seguidas bloqueiam aquele computador por 5 minutos. A senha passa a ficar guardada protegida pelo Windows.",
+      "Mudanca: Chaves do assistente protegidas: as chaves do Groq e do Gemini passam a ficar guardadas protegidas pelo Windows, e não mais em texto aberto. Nada muda para quem usa.",
+      "Mudanca: Entradas sem o estoque inicial: o estoque cadastrado junto com um produto novo não conta mais como \"entrada\" no Painel, nos gráficos e nos números de entradas. O saldo continua certo.",
+      "Mudanca: Textos e cores: acentos corrigidos em todo o app, nomes mais claros (\"Computador principal\", \"Lançar nota fiscal\", \"cópia do estoque\"), cinzas mais escuros para ler melhor, selos maiores, botões das linhas mais visíveis e laranja só para saída.",
+      "Mudanca: Bibliotecas atualizadas (React 19.3, Mantine 8.3.18, FastAPI, cryptography e outras), sem mudança de uso.",
+      "Correcao: Segurança: um site aberto no navegador do mesmo computador não consegue mais falar com o Chronos nem baixar o banco. Sugestões vindas de outras máquinas precisam da senha da base oficial. A chave do certificado digital não fica mais exposta durante a consulta à SEFAZ, e as respostas da SEFAZ e os downloads da base têm limites de tamanho e de tempo.",
+      "Correcao: Linhas do Painel e das listas podem ser abertas pelo teclado (Tab e Enter)."
+    ]
+  },
+  {
     "version": "2.5.4",
     "date": "2026-10-15",
     "title": "Correcao e estabilidade",

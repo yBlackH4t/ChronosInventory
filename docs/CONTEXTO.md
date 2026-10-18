@@ -19,7 +19,7 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
-- **Versão em uso na empresa:** 2.5.1 (2026-10-15). Em PR: 2.5.2 (assistente que pergunta e aprende, passo 1) e 2.5.3 (disco e backups: cópias antigas limitadas, backup em atraso ao abrir, segunda pasta em outro disco, um log só).
+- **Versão em uso na empresa:** 2.5.4 (2026-10-15). Em PR: 2.5.5 (correções da avaliação de 2026-10-18).
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.
@@ -92,12 +92,16 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
-0. **Seguranca do backend** (branch `claude/seguranca-backend`, a partir da `main` 2.5.4; falta o
-   bump de versao e a tela do PIN do WhatsApp): Host/Origin na API, servidor da base oficial so com
-   senha (bloqueio por IP, senha protegida com DPAPI), chaves de API protegidas, PIN para `/aprovar`,
-   chave do A1 cifrada no temp, limites de download/upload, estoque inicial fora das entradas do
-   dashboard. **Atencao ao atualizar:** a publicadora sem senha deixa de ligar o servidor ate o dono
-   definir uma senha (a mesma nas outras maquinas).
+0. **2.5.5, correções da avaliação** (branch `claude/project-thread-vw3djm`, PR para a `main`):
+   segurança do backend (Host/Origin na API, servidor da base oficial só com senha e bloqueio por
+   IP, senhas e chaves de API protegidas com DPAPI, PIN para `/aprovar` com tela em Assistente >
+   Admin, chave do A1 cifrada no temp, limites de download/upload), estoque inicial fora das
+   entradas, contraste, acentos e textos, Node 22 e bibliotecas atualizadas. Falta o dono revisar,
+   juntar e criar a tag. **Atenção ao atualizar:** a publicadora sem senha deixa de ligar o servidor
+   até o dono definir uma senha (a mesma nas outras máquinas); `/aprovar` pelo WhatsApp só funciona
+   depois de criar o PIN.
+0. **Visual novo "Vidro suave"** (escolhido em 2026-10-18; plano e amostras no Projeto): começa na
+   2.6.0, depois da 2.5.5.
 0. **2.5.0, novo visual** (branch `claude/project-thread-8wdsu2`, PR para a `main`): as 11 ideias
    do mockup que o dono aprovou. Falta o dono revisar, juntar e criar a tag. Conferir na cópia do
    banco real se a "Evolução do estoque" ficou sem saldo negativo.
