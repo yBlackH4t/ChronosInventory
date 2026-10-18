@@ -14,6 +14,11 @@ Erro:
 { "error": { "code": "...", "message": "...", "details": ... } }
 ```
 
+## Acesso local (Host e Origin)
+- Fora de `/api/scanner/*`, o cabecalho `Host` precisa ser `127.0.0.1`, `localhost` ou `tauri.localhost` (qualquer porta); outro nome responde 403 (protege contra DNS rebinding). Com `CHRONOS_ALLOW_LAN_API=1`, o IP da maquina tambem vale.
+- `POST`/`PUT`/`PATCH`/`DELETE` fora do scanner com cabecalho `Origin` fora da lista do CORS respondem 403 (CSRF). Sem `Origin` (ferramentas locais) continua valendo.
+- O scanner do celular (`/api/scanner/*`) segue acessivel pelo IP da rede.
+
 ## Observabilidade
 - Header `X-Request-ID` em todas as respostas.
 - Logs com `request_id`, metodo, path, status e tempo.
@@ -133,8 +138,11 @@ Regras:
 
 ### Base oficial: senha do servidor local (porta 8765)
 - `PUT /backup/base-oficial/config` aceita `server_token` (min. 6 caracteres; `null` mantem, `""` remove). A mesma senha em todas as maquinas. `GET /backup/base-oficial/status` devolve so `server_token_set: bool` (a senha nunca volta).
-- Com senha, o servidor exige o cabecalho `X-Chronos-Senha` em `/official/*`, `/compare/*` (e `/knowledge` do assistente); sem ele responde 401. `/health` continua aberto e informa `senha_exigida` e `senha_ok`. As buscas desta maquina mandam a senha sozinhas; senha diferente vira uma mensagem explicando o que configurar.
-- Sem senha configurada, o servidor continua aberto como antes.
+- O servidor exige o cabecalho `X-Chronos-Senha` em `/official/*`, `/compare/*`, `/knowledge` e `POST /proposals`; sem ele ou com senha errada responde 401. `/health` continua aberto: sem senha informa so `senha_exigida`; com a senha certa inclui `senha_ok: true`; com senha errada responde 401. As buscas desta maquina mandam a senha sozinhas; senha diferente vira uma mensagem explicando o que configurar.
+- O servidor so liga com senha: `POST /backup/base-oficial-servidor/iniciar` (ou `PUT /backup/base-oficial/config` com `server_enabled: true`) sem senha responde 400 "Defina uma senha para publicar a base.".
+- 5 senhas erradas em 5 minutos bloqueiam o IP por 5 minutos (429). Sugestoes (`POST /proposals`): no maximo 20 por IP por hora (429); o `autor` enviado e ignorado e vira `PC <ip>`.
+- A senha fica protegida no `official_base_config.json` (chave `server_token_protegida`, DPAPI do Windows); o `server_token` antigo em texto puro e regravado protegido na primeira leitura. As chaves de API em `assistente_config.json` seguem a mesma regra.
+- Download da base remota: limite de 500 MB e prazo de 30 min (60 s sem receber nada cancela).
 
 ## Assistente de IA
 Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A busca direta (sem IA) responde primeiro quando entende a pergunta (codigo, veiculo/motor, "essa dai"); a IA so entra quando ela nao entende. Sem IA disponivel, responde pela busca direta.
@@ -151,10 +159,11 @@ Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A 
 
 ### Admin do assistente (maquina publicadora + senha)
 Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login) e a maquina configurada como publicadora da base oficial; sem isso: `403 admin_necessario`.
-- `GET /assistente/admin/status` - `{ maquina_publicadora, senha_definida, autenticado }`.
+- `GET /assistente/admin/status` - `{ maquina_publicadora, senha_definida, autenticado, pin_whatsapp_definido }`.
 - `POST /assistente/admin/senha` - `{ senha_nova (6+), senha_atual? }`. A atual e exigida quando ja existe senha. Trocar a senha encerra as sessoes.
 - `POST /assistente/admin/login` - `{ senha }` -> `{ token, expira_em }` (sessao de 8 h, some quando o backend reinicia).
 - `POST /assistente/admin/logout`.
+- `POST /assistente/admin/pin-whatsapp` (admin) - `{ pin }`: PIN de 4 a 8 numeros para `/aprovar <n> <PIN>` e `/recusar <n> <PIN>` no WhatsApp; `null` ou `""` remove. Devolve o mesmo que `/admin/status` (o PIN nunca volta; fica so como hash PBKDF2 na secao `admin`). Sem PIN, o WhatsApp responde "Para aprovar pelo WhatsApp, crie um PIN em Assistente > Admin.". 5 PINs errados em 10 min bloqueiam o aprovar pelo WhatsApp por 10 min. Trocar a senha de admin mantem o PIN. 422 se o PIN nao tiver de 4 a 8 numeros; 403 sem admin.
 
 ### Base de conhecimento do especialista
 - `GET /assistente/conhecimento?busca=&limite=&offset=` - regras `{ id, codigo_a, codigo_b, tipo: igual|similar|diferente, observacao, criado_em, atualizado_em }`. Leitura livre.

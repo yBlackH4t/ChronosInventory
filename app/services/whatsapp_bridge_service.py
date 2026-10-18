@@ -50,6 +50,8 @@ DRAFT_REACTION = "📝"
 DRAFT_MAX_AGE_SECONDS = 6 * 3600
 MAX_DRAFTS = 30
 
+PIN_MISSING_TEXT = "Para aprovar pelo WhatsApp, crie um PIN em Assistente > Admin."
+
 HELP_TEXT = (
     "*Assistente do Chronos*\n"
     "• Reaja com 🤖 numa mensagem do cliente: eu respondo na conversa.\n"
@@ -57,7 +59,7 @@ HELP_TEXT = (
     "• /perguntar <pergunta>: pergunte aqui, sem envolver o cliente\n"
     "  ex.: /perguntar 4031196 é a mesma que 5455609?\n"
     "  Se eu não souber, responda /igual, /similar ou /diferente [observação]\n"
-    "• /aprovar <nº> ou /recusar <nº>: uma proposta (veja em /pendentes)\n"
+    "• /aprovar <nº> <PIN> ou /recusar <nº> <PIN>: uma proposta (veja em /pendentes)\n"
     "• /ensinar <código> <igual|similar|diferente> <código> [observação]\n"
     "  ex.: /ensinar 53279887101 similar 53279887210 muda o atuador\n"
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
@@ -155,6 +157,7 @@ class WhatsAppBridge:
         # /perguntar: a conversa particular com a IA (pergunta e resposta), para o "/igual" saber do que fala.
         self._private: List[Tuple[float, Dict[str, str]]] = []
         self.teacher: Any = None
+        self.admin: Any = None  # AssistantAdminService (testes trocam por um de mentira)
         self._lock = threading.Lock()
         if run_async is None:
             executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="whatsapp-assistente")
@@ -367,11 +370,23 @@ class WhatsAppBridge:
 
     def _decide(self, name: str, args: List[str]) -> str:
         if not args or not args[0].lstrip("#").isdigit():
-            return f"Use assim: {name} 3 (o número aparece em /pendentes)"
+            return f"Use assim: {name} 3 1234 (o número aparece em /pendentes; depois, o seu PIN)"
         from app.services.assistant_admin_service import AssistantAdminService
 
-        if not AssistantAdminService().is_publisher():
+        if self.admin is None:
+            self.admin = AssistantAdminService()
+        admin = self.admin
+        if not admin.is_publisher():
             return "Aprovar e recusar só no PC principal (o que publica a base)."
+        # Quem pega o celular desbloqueado nao aprova nada sem o PIN (Assistente > Admin).
+        if not admin.has_whatsapp_pin():
+            return PIN_MISSING_TEXT
+        if len(args) < 2:
+            return f"Falta o PIN. Use assim: {name} {args[0].lstrip('#')} 1234"
+        if admin.whatsapp_pin_blocked():
+            return "PIN errado várias vezes. Aprovar pelo WhatsApp fica bloqueado por 10 minutos."
+        if not admin.check_whatsapp_pin(args[1]):
+            return "PIN incorreto."
         if self.teacher is None:
             from app.services.assistant_teach_service import AssistantTeachService
 
@@ -387,7 +402,7 @@ class WhatsAppBridge:
             note = f" ({item['observacao']})" if item.get("observacao") else ""
             lines.append(f"• #{item['id']}: {item['codigo_a']} *{item['tipo']}* {item['codigo_b']}{note}")
         if proposals:
-            lines.append("Para decidir: /aprovar <nº> ou /recusar <nº>")
+            lines.append("Para decidir: /aprovar <nº> <PIN> ou /recusar <nº> <PIN>")
         if review:
             lines.append("Códigos sem estoque para revisar:")
             lines += [f"• {item['codigo']} (perguntado {item['vezes']}x)" for item in review]
