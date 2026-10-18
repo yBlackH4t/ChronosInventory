@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from "react";
 import { Center, Loader, Stack, Text } from "@mantine/core";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "motion/react";
 import PageTransition from "../components/PageTransition";
 import { getLoadedPage, loadPage, type PagePath } from "./routePreload";
 

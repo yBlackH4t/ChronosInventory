@@ -29,27 +29,59 @@ export const statusColors = {
   info: "info",
 } as const;
 
+// Sora vem embutida no app (@fontsource/sora), sem internet.
 const FONT_STACK =
-  '"Inter Variable", Inter, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
+  'Sora, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif';
 
 export const appTheme = createTheme({
-  primaryColor: "brand",
-  primaryShade: { light: 6, dark: 5 },
+  // Estilo "Vidro suave" (2.6.0): azul-petróleo #0E7490 (tom 6) com degradê até o
+  // céu #38BDF8.
+  primaryColor: "petrol",
+  primaryShade: { light: 6, dark: 6 },
+  defaultGradient: { from: "#0e7490", to: "#38bdf8", deg: 135 },
 
   colors: {
-    // Slate-tinted dark scale: Mantine uses it for every dark-mode surface
-    // (inputs, segmented controls, menus), so it must match the app tokens.
+    // Escala escura puxada para o petróleo: o Mantine a usa em toda superfície do tema
+    // escuro (campos, controles, menus), então segue os tokens do global.css.
     dark: [
-      "#e2e8f0",
-      "#cbd5e1",
-      "#94a3b8",
-      "#64748b",
-      "#2a3850",
-      "#1a2740",
-      "#162235",
-      "#0f172a",
-      "#0b0f17",
-      "#070a10",
+      "#e6eef3",
+      "#c5d3dc",
+      "#9bb0be",
+      "#6b8394",
+      "#2c3f4c",
+      "#213441",
+      "#182a36",
+      "#11202b",
+      "#0c1821",
+      "#070f15",
+    ],
+
+    // Cor principal: azul-petróleo, construída em volta de #0E7490 (tom 6).
+    petrol: [
+      "#e7f6f9",
+      "#cfedf3",
+      "#a3dde8",
+      "#6fc8da",
+      "#3fafc7",
+      "#1a93ae",
+      "#0e7490",
+      "#0b5f77",
+      "#0a4d61",
+      "#083c4c",
+    ],
+
+    // Céu: fim do degradê da cor principal e destaque no tema escuro.
+    sky: [
+      "#f0f9ff",
+      "#e0f2fe",
+      "#bae6fd",
+      "#7dd3fc",
+      "#38bdf8",
+      "#0ea5e9",
+      "#0284c7",
+      "#0369a1",
+      "#075985",
+      "#0c4a6e",
     ],
 
     // Neutral scale used for text, borders, and surfaces.
@@ -78,20 +110,6 @@ export const appTheme = createTheme({
       "#4338ca",
       "#3730a3",
       "#312e81",
-    ],
-
-    // Accent support color for informational emphasis.
-    accent: [
-      "#ecfeff",
-      "#cffafe",
-      "#a5f3fc",
-      "#67e8f9",
-      "#22d3ee",
-      "#06b6d4",
-      "#0891b2",
-      "#0e7490",
-      "#155e75",
-      "#164e63",
     ],
 
     success: [
@@ -147,7 +165,7 @@ export const appTheme = createTheme({
     ],
   },
 
-  black: "#0f172a",
+  black: "#10222e",
   white: "#ffffff",
 
   defaultRadius: "md",
@@ -180,23 +198,24 @@ export const appTheme = createTheme({
 
   headings: {
     fontFamily: FONT_STACK,
-    fontWeight: "650",
+    fontWeight: "600",
     sizes: {
-      h1: { fontSize: rem(30), lineHeight: "1.15", fontWeight: "650" },
-      h2: { fontSize: rem(24), lineHeight: "1.2", fontWeight: "650" },
-      h3: { fontSize: rem(19), lineHeight: "1.25", fontWeight: "650" },
+      h1: { fontSize: rem(28), lineHeight: "1.15", fontWeight: "600" },
+      h2: { fontSize: rem(23), lineHeight: "1.2", fontWeight: "600" },
+      h3: { fontSize: rem(18), lineHeight: "1.25", fontWeight: "600" },
       h4: { fontSize: rem(16), lineHeight: "1.3", fontWeight: "600" },
       h5: { fontSize: rem(14.5), lineHeight: "1.35", fontWeight: "600" },
       h6: { fontSize: rem(13.5), lineHeight: "1.35", fontWeight: "600" },
     },
   },
 
+  // Sombras suaves e largas do vidro (azuladas, nunca pretas).
   shadows: {
-    xs: "0 1px 2px rgba(15, 23, 42, 0.05)",
-    sm: "0 2px 8px rgba(15, 23, 42, 0.06)",
-    md: "0 8px 24px rgba(15, 23, 42, 0.10)",
-    lg: "0 12px 32px rgba(15, 23, 42, 0.16)",
-    xl: "0 24px 56px rgba(15, 23, 42, 0.24)",
+    xs: "0 1px 2px rgba(15, 40, 60, 0.05)",
+    sm: "0 1px 2px rgba(15, 40, 60, 0.04), 0 8px 28px rgba(15, 40, 60, 0.07)",
+    md: "0 2px 6px rgba(15, 40, 60, 0.06), 0 16px 40px rgba(15, 40, 60, 0.12)",
+    lg: "0 4px 10px rgba(15, 40, 60, 0.08), 0 20px 48px rgba(15, 40, 60, 0.16)",
+    xl: "0 8px 16px rgba(15, 40, 60, 0.10), 0 28px 64px rgba(15, 40, 60, 0.22)",
   },
 
   components: {
@@ -205,12 +224,6 @@ export const appTheme = createTheme({
         size: "sm",
         radius: "md",
         fw: 550,
-      },
-      styles: {
-        root: {
-          transition:
-            "background-color 120ms ease, border-color 120ms ease, color 120ms ease",
-        },
       },
     }),
 
@@ -221,10 +234,11 @@ export const appTheme = createTheme({
       },
     }),
 
+    // Vidro (fundo, borda, sombra e desfoque) vem do global.css.
     Card: Card.extend({
       defaultProps: {
         withBorder: true,
-        radius: "lg",
+        radius: "xl",
         shadow: "none",
         p: "lg",
       },
@@ -242,7 +256,7 @@ export const appTheme = createTheme({
       defaultProps: {
         size: "sm",
         radius: "md",
-        comboboxProps: { shadow: "md", radius: "md" },
+        comboboxProps: { shadow: "md", radius: "lg" },
       },
     }),
 
@@ -251,7 +265,7 @@ export const appTheme = createTheme({
     }),
 
     SegmentedControl: SegmentedControl.extend({
-      defaultProps: { radius: "md" },
+      defaultProps: { radius: "lg" },
     }),
 
     Badge: Badge.extend({
@@ -284,7 +298,7 @@ export const appTheme = createTheme({
 
     Menu: Menu.extend({
       defaultProps: {
-        radius: "md",
+        radius: "lg",
         shadow: "md",
         transitionProps: { transition: "pop-top-right", duration: 120 },
       },
@@ -292,7 +306,7 @@ export const appTheme = createTheme({
 
     Popover: Popover.extend({
       defaultProps: {
-        radius: "md",
+        radius: "lg",
         shadow: "md",
         transitionProps: { transition: "pop", duration: 120 },
       },
@@ -318,7 +332,7 @@ export const appTheme = createTheme({
     Modal: Modal.extend({
       defaultProps: {
         centered: true,
-        radius: "lg",
+        radius: "xl",
         shadow: "xl",
         overlayProps: {
           backgroundOpacity: 0.45,
@@ -346,6 +360,7 @@ export const appTheme = createTheme({
 // (d97706 3,2:1; 059669 3,8:1). Texto, contorno e variante "light" usam um tom
 // mais escuro; "filled" usa o tom 7, que segura texto branco (>= 4,5:1).
 const LIGHT_TEXT_SHADES: Record<string, number> = {
+  petrol: 7,
   warning: 8,
   success: 8,
   danger: 7,
@@ -364,9 +379,12 @@ const lightTextOverrides: Record<string, string> = Object.fromEntries(
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {},
   light: {
-    "--mantine-color-body": "#f8fafc",
-    "--mantine-color-default-border": "#e2e8f0",
-    "--mantine-color-dimmed": "#64748b",
+    // Fundo de Paper/campos; a página usa --bg (global.css), com as manchas de cor.
+    "--mantine-color-body": "#ffffff",
+    "--mantine-color-default-border": "#d5dee4",
+    // #4F6371: 5,6:1 sobre o fundo #EEF3F6 e mais sobre o vidro.
+    "--mantine-color-dimmed": "#4f6371",
+    "--mantine-color-text": "#10222e",
     ...lightTextOverrides,
     "--mantine-color-warning-filled": "var(--mantine-color-warning-7)",
     "--mantine-color-warning-filled-hover": "var(--mantine-color-warning-8)",
@@ -374,8 +392,9 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     "--mantine-color-success-filled-hover": "var(--mantine-color-success-8)",
   },
   dark: {
-    "--mantine-color-body": "#0b0f17",
-    "--mantine-color-default-border": "rgba(148, 163, 184, 0.16)",
-    "--mantine-color-dimmed": "#94a3b8",
+    "--mantine-color-body": "#11202b",
+    "--mantine-color-default-border": "rgba(155, 176, 190, 0.18)",
+    "--mantine-color-dimmed": "#9bb0be",
+    "--mantine-color-text": "#e6eef3",
   },
 });

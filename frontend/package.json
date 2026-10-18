@@ -23,7 +23,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/sora": "^5.3.0",
     "@mantine/carousel": "^8.3.18",
     "@mantine/core": "^8.3.18",
     "@mantine/dates": "^8.3.18",
@@ -33,6 +33,7 @@
     "@mantine/modals": "^8.3.18",
     "@mantine/notifications": "^8.3.18",
     "@mantine/spotlight": "^8.3.18",
+    "@number-flow/react": "^0.6.2",
     "@tabler/icons-react": "^3.49.0",
     "@tanstack/query-async-storage-persister": "^5.104.4",
     "@tanstack/react-query": "^5.104.4",
@@ -45,9 +46,9 @@
     "@tauri-apps/plugin-updater": "^2.10.1",
     "dayjs": "^1.11.23",
     "embla-carousel-react": "^8.6.0",
-    "framer-motion": "^12.43.0",
     "idb-keyval": "^6.3.0",
     "jsbarcode": "^3.12.3",
+    "motion": "^12.43.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

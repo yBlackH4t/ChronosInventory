@@ -21,7 +21,6 @@ import {
   IconSparkles,
   IconSun,
 } from "@tabler/icons-react";
-import { motion } from "framer-motion";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import type { HealthOut } from "../../lib/api";
@@ -40,6 +39,7 @@ import {
 import { SyncStatusBadge } from "./SyncStatusBadge";
 import chronosIcon from "../../assets/chronos-icon.svg";
 import ShortcutsModal from "../common/ShortcutsModal";
+import NavIndicator from "./NavIndicator";
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -66,6 +66,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
   const [appVersion, setAppVersion] = useState(health.version);
   const [releaseNotesChecked, setReleaseNotesChecked] = useState(false);
   const [shortcutsOpened, setShortcutsOpened] = useState(false);
+  const [navEl, setNavEl] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -273,181 +274,176 @@ export default function TopBar({ health }: { health: HealthOut }) {
 
   return (
     <div className="topbar-inner">
-      <div className="topbar-row">
-        <Link to="/dashboard" className="topbar-brand">
-          <img src={chronosIcon} width={28} height={28} alt="" />
-          <span className="topbar-brand-name">Chronos</span>
-        </Link>
+      <div className="topbar-card">
+        <div className="topbar-row">
+          <Link to="/dashboard" className="topbar-brand">
+            <img src={chronosIcon} width={28} height={28} alt="" />
+            <span className="topbar-brand-name">Chronos</span>
+          </Link>
 
-        <button
-          type="button"
-          className="cmd-trigger"
-          onClick={() => spotlight.open()}
-          aria-label="Buscar produto ou ir para uma tela"
-        >
-          <IconSearch size={15} stroke={1.75} />
-          <span className="cmd-trigger-label">
-            Buscar produto ou ir para…
-          </span>
-          <Kbd size="xs">Ctrl K</Kbd>
-        </button>
-
-        <div className="topbar-actions">
-          {backendSupportsProfiles && (
-            <Tooltip
-              label={
-                restartRequired
-                  ? "Reinicio pendente para aplicar o perfil"
-                  : `Perfil de estoque ativo (${activeProfileId})`
-              }
-            >
-              <Link to="/estoques" className="profile-pill">
-                <span
-                  className="status-dot"
-                  data-variant={restartRequired ? "warning" : undefined}
-                  style={{ width: 6, height: 6, boxShadow: "none" }}
-                />
-                {activeProfileName}
-              </Link>
-            </Tooltip>
-          )}
-
-          <SyncStatusBadge />
-
-          <Tooltip label={`API conectada · v${appVersion}`}>
-            <span className="status-dot-wrap" aria-label="API conectada">
-              <span className="status-dot" />
+          <button
+            type="button"
+            className="cmd-trigger"
+            onClick={() => spotlight.open()}
+            aria-label="Buscar produto ou ir para uma tela"
+          >
+            <IconSearch size={15} stroke={1.75} />
+            <span className="cmd-trigger-label">
+              Buscar produto ou ir para…
             </span>
-          </Tooltip>
+            <Kbd size="xs">Ctrl K</Kbd>
+          </button>
 
-          <Tooltip label="Usar celular como leitor de código de barras">
-            <ActionIcon
-              size="lg"
-              color="gray"
-              aria-label="Scanner via celular"
-              onClick={() => void openScannerModal()}
-            >
-              <IconQrcode size={18} stroke={1.5} />
-            </ActionIcon>
-          </Tooltip>
+          <div className="topbar-actions">
+            {backendSupportsProfiles && (
+              <Tooltip
+                label={
+                  restartRequired
+                    ? "Reinicio pendente para aplicar o perfil"
+                    : `Perfil de estoque ativo (${activeProfileId})`
+                }
+              >
+                <Link to="/estoques" className="profile-pill">
+                  <span
+                    className="status-dot"
+                    data-variant={restartRequired ? "warning" : undefined}
+                    style={{ width: 6, height: 6, boxShadow: "none" }}
+                  />
+                  {activeProfileName}
+                </Link>
+              </Tooltip>
+            )}
 
-          <Tooltip label="Atalhos do teclado (?)">
-            <ActionIcon
-              size="lg"
-              color="gray"
-              aria-label="Atalhos do teclado"
-              onClick={() => setShortcutsOpened(true)}
-            >
-              <IconHelp size={18} stroke={1.5} />
-            </ActionIcon>
-          </Tooltip>
+            <SyncStatusBadge />
 
-          <Tooltip label={isDark ? "Usar tema claro" : "Usar tema escuro"}>
-            <ActionIcon
-              size="lg"
-              color="gray"
-              aria-label="Alternar tema"
-              onClick={() => setColorScheme(isDark ? "light" : "dark")}
-            >
-              {isDark ? (
-                <IconSun size={18} stroke={1.5} />
-              ) : (
-                <IconMoonStars size={18} stroke={1.5} />
-              )}
-            </ActionIcon>
-          </Tooltip>
+            <Tooltip label={`API conectada · v${appVersion}`}>
+              <span className="status-dot-wrap" aria-label="API conectada">
+                <span className="status-dot" data-pulse />
+              </span>
+            </Tooltip>
 
-          <Menu position="bottom-end" width={260} withinPortal>
-            <Menu.Target>
+            <Tooltip label="Usar celular como leitor de código de barras">
               <ActionIcon
                 size="lg"
                 color="gray"
-                aria-label="Administração e sistema"
+                aria-label="Scanner via celular"
+                onClick={() => void openScannerModal()}
               >
-                <IconSettings size={18} stroke={1.5} />
+                <IconQrcode size={18} stroke={1.5} />
               </ActionIcon>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {ADMIN_NAV.map((group, index) => (
-                <div key={group.title}>
-                  {index > 0 && <Menu.Divider />}
-                  <Menu.Label>{group.title}</Menu.Label>
-                  {group.items.map((item) => (
-                    <Menu.Item
-                      key={item.to}
-                      component={Link}
-                      to={item.to}
-                      leftSection={<item.icon size={16} stroke={1.5} />}
-                      onMouseEnter={() => prefetch(item.to)}
-                    >
-                      {item.label}
-                    </Menu.Item>
-                  ))}
-                </div>
-              ))}
-              <Menu.Divider />
-              <Menu.Item
-                component={Link}
-                to="/novidades"
-                leftSection={<IconSparkles size={16} stroke={1.5} />}
-              >
-                Novidades
-              </Menu.Item>
-              {isTauri() && (
-                <Menu.Item
-                  leftSection={
-                    checkingUpdate ? (
-                      <Loader size={14} />
-                    ) : (
-                      <IconRefresh size={16} stroke={1.5} />
-                    )
-                  }
-                  disabled={checkingUpdate}
-                  onClick={() => void handleCheckUpdate()}
-                >
-                  Verificar atualização
-                </Menu.Item>
-              )}
-              <Text size="xs" c="dimmed" px="sm" py={6}>
-                Chronos Inventory v{appVersion}
-              </Text>
-            </Menu.Dropdown>
-          </Menu>
-        </div>
-      </div>
+            </Tooltip>
 
-      <nav className="topbar-tabs" aria-label="Navegação principal">
-        {PRIMARY_NAV.map((item, index) => {
-          const active = isRouteActive(location.pathname, item.to);
-          return (
-            <Tooltip
-              key={item.to}
-              label={`Alt+${index + 1}`}
-              openDelay={700}
-              position="bottom"
-            >
-              <NavLink
-                to={item.to}
-                className="topnav-tab"
-                onMouseEnter={() => prefetch(item.to)}
-                onFocus={() => prefetch(item.to)}
+            <Tooltip label="Atalhos do teclado (?)">
+              <ActionIcon
+                size="lg"
+                color="gray"
+                aria-label="Atalhos do teclado"
+                onClick={() => setShortcutsOpened(true)}
               >
-                <span className="topnav-tab-inner">
+                <IconHelp size={18} stroke={1.5} />
+              </ActionIcon>
+            </Tooltip>
+
+            <Tooltip label={isDark ? "Usar tema claro" : "Usar tema escuro"}>
+              <ActionIcon
+                size="lg"
+                color="gray"
+                aria-label="Alternar tema"
+                onClick={() => setColorScheme(isDark ? "light" : "dark")}
+              >
+                {isDark ? (
+                  <IconSun size={18} stroke={1.5} />
+                ) : (
+                  <IconMoonStars size={18} stroke={1.5} />
+                )}
+              </ActionIcon>
+            </Tooltip>
+
+            <Menu position="bottom-end" width={260} withinPortal>
+              <Menu.Target>
+                <ActionIcon
+                  size="lg"
+                  color="gray"
+                  aria-label="Administração e sistema"
+                >
+                  <IconSettings size={18} stroke={1.5} />
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {ADMIN_NAV.map((group, index) => (
+                  <div key={group.title}>
+                    {index > 0 && <Menu.Divider />}
+                    <Menu.Label>{group.title}</Menu.Label>
+                    {group.items.map((item) => (
+                      <Menu.Item
+                        key={item.to}
+                        component={Link}
+                        to={item.to}
+                        leftSection={<item.icon size={16} stroke={1.5} />}
+                        onMouseEnter={() => prefetch(item.to)}
+                      >
+                        {item.label}
+                      </Menu.Item>
+                    ))}
+                  </div>
+                ))}
+                <Menu.Divider />
+                <Menu.Item
+                  component={Link}
+                  to="/novidades"
+                  leftSection={<IconSparkles size={16} stroke={1.5} />}
+                >
+                  Novidades
+                </Menu.Item>
+                {isTauri() && (
+                  <Menu.Item
+                    leftSection={
+                      checkingUpdate ? (
+                        <Loader size={14} />
+                      ) : (
+                        <IconRefresh size={16} stroke={1.5} />
+                      )
+                    }
+                    disabled={checkingUpdate}
+                    onClick={() => void handleCheckUpdate()}
+                  >
+                    Verificar atualização
+                  </Menu.Item>
+                )}
+                <Text size="xs" c="dimmed" px="sm" py={6}>
+                  Chronos Inventory v{appVersion}
+                </Text>
+              </Menu.Dropdown>
+            </Menu>
+          </div>
+        </div>
+
+        <nav className="topbar-tabs" aria-label="Navegação principal" ref={setNavEl}>
+          <NavIndicator track={navEl} activeKey={location.pathname} />
+          {PRIMARY_NAV.map((item, index) => {
+            const active = isRouteActive(location.pathname, item.to);
+            return (
+              <Tooltip
+                key={item.to}
+                label={`Alt+${index + 1}`}
+                openDelay={700}
+                position="bottom"
+              >
+                <NavLink
+                  to={item.to}
+                  className="topnav-tab"
+                  data-active={active || undefined}
+                  onMouseEnter={() => prefetch(item.to)}
+                  onFocus={() => prefetch(item.to)}
+                >
                   <item.icon size={16} stroke={1.5} />
                   {item.label}
-                </span>
-                {active && (
-                  <motion.span
-                    layoutId="topnav-indicator"
-                    className="topnav-tab-indicator"
-                    transition={{ type: "spring", stiffness: 520, damping: 42 }}
-                  />
-                )}
-              </NavLink>
-            </Tooltip>
-          );
-        })}
-      </nav>
+                </NavLink>
+              </Tooltip>
+            );
+          })}
+        </nav>
+      </div>
       <ShortcutsModal
         opened={shortcutsOpened}
         onClose={() => setShortcutsOpened(false)}
