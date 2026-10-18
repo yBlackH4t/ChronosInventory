@@ -23,7 +23,7 @@ from app.services.assistant_common import (
     collect_products,
     tool_output_json,
 )
-from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
+from app.services.assistant_tools_service import AssistantToolsService, tool_definitions
 
 LOG = logging.getLogger(__name__)
 
@@ -34,10 +34,10 @@ MAX_RETRY_WAIT_SECONDS = 20.0
 HttpPost = Callable[..., Any]
 
 
-def openai_tools() -> List[Dict[str, Any]]:
+def openai_tools(available: Any = None) -> List[Dict[str, Any]]:
     """Ferramentas no formato do OpenAI (sem `strict`/`additionalProperties`, que nem todos aceitam)."""
     tools = []
-    for tool in ASSISTANT_TOOLS:
+    for tool in tool_definitions(available):
         parameters = {k: v for k, v in tool["input_schema"].items() if k != "additionalProperties"}
         tools.append(
             {
@@ -70,7 +70,7 @@ def run_openai_compatible(
     conversation: List[Dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
     found: Dict[int, Dict[str, Any]] = {}
     tools_used: List[str] = []
-    tool_defs = openai_tools()
+    tool_defs = openai_tools(tools)
 
     for _ in range(MAX_TOOL_ROUNDS):
         payload = {

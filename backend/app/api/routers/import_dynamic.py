@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -80,13 +79,7 @@ def analyze_excel(
     file_id = f"import_{timestamp}_{_safe_upload_name(file.filename)}"
     temp_path = os.path.join(temp_dir, file_id)
     
-    with open(temp_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    size = os.path.getsize(temp_path)
-    if size > MAX_IMPORT_SIZE_BYTES:
-        FileUtils.delete_file(temp_path)
-        raise ValidationException("Arquivo muito grande (max 50MB).")
+    FileUtils.save_stream_limited(file.file, temp_path, MAX_IMPORT_SIZE_BYTES, "Arquivo muito grande (max 50MB).")
 
     try:
         result = import_service.analyze_file(temp_path)

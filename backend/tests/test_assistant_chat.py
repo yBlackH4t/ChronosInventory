@@ -568,3 +568,28 @@ def test_api_keys_are_stored_protected_and_plain_files_are_migrated(store):
     store.save_section("whatsapp", {"ligado": False})
     assert CLAUDE_KEY not in open(store.config_path, encoding="utf-8").read()
     assert store.load()["chaves"] == {"anthropic": CLAUDE_KEY}
+
+
+def test_whatsapp_customers_never_get_product_movements(tools, store):  # noqa: F811
+    question = "qual foi a ultima vez que ela saiu? 53279887116"
+    # Busca direta: no app vai para as movimentacoes; no WhatsApp do cliente, vira consulta de estoque.
+    store.update(provedor="nenhum")
+    service = AssistantChatService(tools=tools, config_store=store)
+    assert service.chat(question, canal="app")["ferramentas_usadas"] == ["movimentacoes_produto"]
+    on_whatsapp = service.chat(question, canal="whatsapp")
+    assert "movimentacoes_produto" not in on_whatsapp["ferramentas_usadas"]
+    assert "Última saída" not in on_whatsapp["resposta"]
+
+    # IA: a ferramenta nem aparece para o modelo, e se ele insistir, nao roda.
+    fake = FakePost(
+        [
+            _completion(tool_calls=[_call("call_1", "movimentacoes_produto", {"codigo": "53279887116"})]),
+            _completion("Não tenho essa informação."),
+        ]
+    )
+    result = _groq_service(tools, store, fake).chat("me conta o giro dessa peça aí", canal="whatsapp")
+    names = {t["function"]["name"] for t in fake.calls[0]["json"]["tools"]}
+    assert "movimentacoes_produto" not in names and "buscar_por_codigo" in names
+    tool_turn = fake.calls[1]["json"]["messages"][-1]
+    assert "indispon" in tool_turn["content"]
+    assert "Última saída" not in result["resposta"]

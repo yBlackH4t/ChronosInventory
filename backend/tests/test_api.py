@@ -2258,3 +2258,21 @@ def test_inventory_session_does_not_include_inactive_products(client):
     ids = {row["produto_id"] for row in items.json()["data"]}
     assert active_id in ids
     assert inactive_id not in ids
+
+
+def test_inventory_counts_search_is_parameterized(client):
+    first = _create_product(client, "ZETA INVENTARIO BUSCA", qtd_canoas=1, qtd_pf=0)
+    _create_product(client, f"ALFA INVENTARIO {first}", qtd_canoas=1, qtd_pf=0)
+    session_id = client.post("/inventario/sessoes", json={"nome": "Busca", "location_id": 11}).json()["data"]["id"]
+    url = f"/inventario/sessoes/{session_id}/itens"
+
+    # Busca pelo id: o produto com esse id vem antes do que so tem o numero no nome.
+    rows = client.get(url, params={"query": str(first), "page_size": 100}).json()["data"]
+    assert rows[0]["produto_id"] == first
+
+    # Texto com aspas e SQL nao quebra a consulta nem vira comando.
+    for evil in ("1' OR '1'='1", "x') ; DROP TABLE produtos; --", "'"):
+        response = client.get(url, params={"query": evil, "page_size": 100})
+        assert response.status_code == 200, response.text
+        assert response.json()["data"] == []
+    assert client.get("/produtos").status_code == 200

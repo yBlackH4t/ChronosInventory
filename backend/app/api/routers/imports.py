@@ -4,7 +4,6 @@ import os
 from datetime import datetime
 from typing import Optional
 
-import shutil
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.services.import_service import ImportService
@@ -50,8 +49,7 @@ def import_excel(
         temp_dir = FileUtils.get_temp_directory()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         temp_path = os.path.join(temp_dir, f"import_{timestamp}_{_safe_upload_name(file.filename)}")
-        with open(temp_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
+        FileUtils.save_stream_limited(file.file, temp_path, MAX_IMPORT_SIZE_BYTES, "Arquivo muito grande (max 50MB).")
         excel_path = temp_path
     else:
         _validate_extension(path)

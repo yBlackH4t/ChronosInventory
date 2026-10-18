@@ -153,3 +153,20 @@ def test_cross_site_writes_are_refused_csrf(client):
     ok = client.post("/produtos", headers={"Origin": "http://tauri.localhost"}, json={"nome": "TURBO CSRF OK"})
     assert ok.status_code == 201, ok.text
     assert client.post("/produtos", json={"nome": "TURBO SEM ORIGIN"}).status_code == 201
+
+
+def test_uploads_stop_at_the_size_limit_and_leave_nothing_behind(client, monkeypatch):
+    from backend.app.api.routers import import_dynamic, imports
+
+    monkeypatch.setattr(import_dynamic, "MAX_IMPORT_SIZE_BYTES", 100)
+    monkeypatch.setattr(imports, "MAX_IMPORT_SIZE_BYTES", 100)
+    temp_dir = FileUtils.get_temp_directory()
+    before = set(os.listdir(temp_dir))
+    big = b"nome;CANOAS\n" + b"TURBO X;1\n" * 50
+    response = client.post("/import-dynamic/analyze", files={"file": ("grande.csv", big, "text/csv")})
+    assert response.status_code == 400
+    assert "muito grande" in response.json()["error"]["message"]
+    response = client.post("/import/excel", files={"file": ("grande.xlsx", big, "application/octet-stream")})
+    assert response.status_code == 400
+    assert "muito grande" in response.json()["error"]["message"]
+    assert set(os.listdir(temp_dir)) == before
