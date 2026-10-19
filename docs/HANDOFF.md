@@ -422,6 +422,26 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-19 — Claude Code — 2.6.2: Produtos, ficha, Movimentar e Movimentações
+- Branch: `claude/produtos-movimentacoes` (a partir da `main` 2.6.0; versão, CHANGELOG e Python
+  sem mudar). Só telas.
+- Produtos: código da peça como rótulo da linha (`lib/productView.ts`, `splitProductCode`), marca
+  e versão em texto com um ponto de cor, saldo grande (verde/âmbar com dica "Estoque baixo"/
+  vermelho), "Movimentar" sempre visível e o resto no menu "⋯"; coluna de filial sem saldo some
+  (se só uma tem saldo, a coluna vira "Saldo · Canoas"); filtros em chips (Todos, Com estoque,
+  Zerados). Busca ao vivo: linhas deslizam/esmaecem (FLIP, `hooks/useFlipList.ts` + `lib/flip.ts`,
+  sem o pacote de layout do motion; a virtualização continua).
+- Ficha: foto grande, código e ações no topo; zero da filial em cinza, vermelho só no total
+  zerado; gráfico com um rótulo por mês; últimas 5 movimentações logo abaixo; "foto que viaja"
+  da linha até a ficha (`lib/sharedFlight.ts`, mede e anima, como o `NavIndicator`).
+- Movimentar: o saldo da linha pisca verde/laranja e rola até o valor novo (NumberFlow).
+- Movimentações: linha do tempo compacta (uma linha por movimento), selo "Cadastro" no lugar da
+  observação padrão, estornada riscada (e sem botão de estornar de novo), movimento novo entra
+  no topo, ações visíveis. Corrigido: o estorno não atualizava as listas (chaves erradas).
+- Níveis de animação: Completo tudo; Suave só esmaecer (sem voo, sem rolar); Nenhum nada.
+- Capturas: `/mnt/project-files/visual/2.6.2/`. Verificações: build ok / lint 0 erros (5 avisos
+  antigos) / vitest 59 ok.
+
 ### 2026-10-18 — Claude Code — 2.6.0, passo "base nova" (estilo Vidro suave)
 - Branch: `claude/vidro-suave-base` (a partir da `claude/project-thread-vw3djm`, 2.5.5; versão,
   CHANGELOG e Python sem mudar). Só a base do app; o redesenho de cada tela vem depois.

@@ -59,9 +59,10 @@ export default function EstornoModal({
         message: "Estorno realizado com sucesso",
         color: "success",
       });
-      queryClient.invalidateQueries({ queryKey: ["movements"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product-history"] });
+      // As chaves usadas pelas telas (antes eram "movements"/"products" e a lista não atualizava).
+      for (const key of ["movimentacoes", "produtos", "produto", "historico", "produto-saldo-historico", "analytics"]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
       setObservacao("");
       onSuccess?.();
       onClose();

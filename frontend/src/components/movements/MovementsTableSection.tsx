@@ -13,7 +13,7 @@ import { useLocalStorage } from "@mantine/hooks";
 import { IconArrowBackUp, IconArrowRight, IconHistory } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { MovementOut } from "../../lib/api";
 import {
@@ -22,6 +22,7 @@ import {
   signedQuantity,
   type ResolvedMovementTableLayout,
 } from "../../lib/movements";
+import { reversedMovementIds } from "../../lib/movementTimeline";
 import EmptyState from "../ui/EmptyState";
 import { useLocations } from "../../hooks/useLocations";
 import EstornoModal from "./EstornoModal";
@@ -77,8 +78,12 @@ export default function MovementsTableSection({
     overscan: 10,
   });
 
-  const locationName = (id?: number | null) =>
-    id ? (locations.find((l) => l.id === id)?.name ?? `#${id}`) : null;
+  const reversed = useMemo(() => reversedMovementIds(rows), [rows]);
+  const locationName = (id?: number | null) => {
+    if (!id) return null;
+    const loc = locations.find((l) => l.id === id);
+    return loc ? loc.label || loc.name : `#${id}`;
+  };
 
   const columnCount = tableLayout.showExtraColumns ? 8 : 7;
   const virtualItems = rowVirtualizer.getVirtualItems();
@@ -172,8 +177,14 @@ export default function MovementsTableSection({
                 const origem = locationName(mov.origem_location_id);
                 const destino = locationName(mov.destino_location_id);
                 const isEstorno = mov.natureza === "ESTORNO";
+                const isReversed = reversed.has(mov.id);
                 return (
-                  <Table.Tr key={mov.id} style={{ height: ROW_HEIGHT }}>
+                  <Table.Tr
+                    key={mov.id}
+                    className="mv-table-row"
+                    data-reversed={isReversed || undefined}
+                    style={{ height: ROW_HEIGHT }}
+                  >
                     <Table.Td>
                       <Text size="sm" className="num">
                         {dayjs(mov.data).format("DD/MM/YYYY")}
@@ -245,7 +256,7 @@ export default function MovementsTableSection({
                       </Table.Td>
                     )}
                     <Table.Td>
-                      <Group gap={2} justify="flex-end" wrap="nowrap" className="row-actions">
+                      <Group gap={2} justify="flex-end" wrap="nowrap" className="pm-actions">
                         <Tooltip label="Histórico do produto">
                           <ActionIcon
                             color="gray"
@@ -255,13 +266,21 @@ export default function MovementsTableSection({
                             <IconHistory size={16} stroke={1.5} />
                           </ActionIcon>
                         </Tooltip>
-                        <Tooltip label={isEstorno ? "Já é um estorno" : "Estornar movimentação"}>
+                        <Tooltip
+                          label={
+                            isEstorno
+                              ? "Já é um estorno"
+                              : isReversed
+                                ? "Já foi estornada"
+                                : "Estornar movimentação"
+                          }
+                        >
                           <ActionIcon
                             color="gray"
                             className="action-danger"
                             aria-label="Estornar movimentação"
                             onClick={() => setEstornoMovement(mov)}
-                            disabled={isEstorno}
+                            disabled={isEstorno || isReversed}
                           >
                             <IconArrowBackUp size={16} stroke={1.5} />
                           </ActionIcon>
