@@ -1031,6 +1031,64 @@ class MovementRepository(BaseRepository):
             (product_id, since),
         )
 
+    def get_product_stock_levels(self, location_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Saldo de hoje de cada produto ativo (no local ou somando os locais ativos)."""
+        if location_id is not None:
+            return self._execute_query(
+                """
+                SELECT pi.produto_id as produto_id, pi.quantidade as estoque
+                FROM produto_estoque pi
+                JOIN produtos p ON p.id = pi.produto_id
+                JOIN locais l ON l.id = pi.local_id
+                WHERE p.ativo = 1 AND l.ativo = 1 AND pi.local_id = ?
+                """,
+                (location_id,),
+            )
+        return self._execute_query(
+            """
+            SELECT p.id as produto_id,
+                   COALESCE((
+                       SELECT SUM(pi.quantidade)
+                       FROM produto_estoque pi
+                       JOIN locais l ON l.id = pi.local_id
+                       WHERE pi.produto_id = p.id AND l.ativo = 1
+                   ), 0) as estoque
+            FROM produtos p
+            WHERE p.ativo = 1
+            """
+        )
+
+    def get_products_daily_net(self, since: str, location_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Quanto o saldo de cada produto mudou em cada dia desde `since` (no local ou no total).
+        `cadastro` = 1 no dia do estoque inicial: antes dele o produto nao existia.
+        """
+        if location_id is not None:
+            delta = self._scope_movement_delta_expr(location_id, "m")
+        else:
+            # No total, transferencia entre locais nao muda o saldo.
+            delta = """
+                CASE
+                    WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                    WHEN m.tipo = 'SAIDA' THEN -m.quantidade
+                    ELSE 0
+                END
+            """
+        return self._execute_query(
+            f"""
+            SELECT m.produto_id as produto_id,
+                   date(m.data_hora) as dia,
+                   SUM({delta}) as delta,
+                   MAX(CASE WHEN {_is_initial_stock("m")} THEN 1 ELSE 0 END) as cadastro
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND m.data_hora >= ?
+            GROUP BY m.produto_id, date(m.data_hora)
+            """,
+            (since,),
+        )
+
     def get_product_total_stock(self, product_id: int) -> int:
         row = self._execute_query(
             "SELECT COALESCE(SUM(quantidade), 0) as total FROM produto_estoque WHERE produto_id = ?",

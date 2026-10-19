@@ -105,6 +105,7 @@ Regras:
   - retorna `estoque_atual`, `total_saida` e `dias_cobertura`, do mais urgente para o menos
 - `GET /analytics/stock/items?days=90&date_to=YYYY-MM-DD&location_id=` (2.5.0)
   - um item por produto com saldo: `estoque`, `ultima_saida`, `dias_sem_saida` e `saidas_periodo` (saida normal, sem ajuste/estorno); base da "Saude do estoque"
+- `GET /analytics/stock/count-history?days=30&date_to=YYYY-MM-DD&location_id=` (2.6.1) - produtos com saldo e zerados no fim de cada dia: `[{ date, com_saldo, zerados }]` (linhas do topo do Painel). Volta a partir do saldo de hoje; produto cadastrado no periodo nao conta antes do estoque inicial. `days` de 2 a 365.
 - `GET /analytics/movements/by-nature?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&tipo=SAIDA|ENTRADA&location_id=` (2.5.0)
   - quantidade e numero de movimentacoes por natureza no periodo (sem o estoque inicial do cadastro)
 - `GET /analytics/products/{id}/stock-history?days=180&date_to=YYYY-MM-DD` (2.5.0)
@@ -176,6 +177,7 @@ Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login
 ### Revisao e historico
 - `GET /assistente/revisao` (admin) - codigos pesquisados sem estoque ainda nao revisados: `{ codigo, vezes, ultima_vez, exemplo, conversas, conhecimento: [{codigo, relacao, obs}], sugestoes: [{codigo, produto_id, nome, estoque_total, motivo}] }`.
 - `POST /assistente/revisao/{codigo}/concluir` (admin) - tira o codigo da lista (volta se for perguntado de novo).
+- `GET /assistente/painel` (sem login, 2.6.1) - so contagens para o Painel: `{ perguntas_hoje, para_revisar, rascunhos, whatsapp_estado, whatsapp_ativo }`. Nao devolve conteudo das conversas.
 - `GET /assistente/historico?limite=&offset=` (admin) - conversas, da mais nova para a mais antiga.
 - `PUT /assistente/historico/{id}/correcao` (admin) - `{ resposta_correta, observacao? }`.
 - `GET /assistente/historico/exportar` (admin) - arquivo JSONL (uma conversa por linha, sem o autor).

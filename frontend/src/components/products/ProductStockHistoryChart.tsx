@@ -14,6 +14,7 @@ import {
 import { api } from "../../lib/apiClient";
 import { useChartTheme } from "../../lib/chartTheme";
 import type { ProductStockHistoryPoint } from "../../lib/api";
+import { monthTicks } from "../../lib/productView";
 
 type DotProps = { cx?: number; cy?: number; payload?: ProductStockHistoryPoint };
 
@@ -38,6 +39,8 @@ export default function ProductStockHistoryChart({ productId }: { productId: num
   }
 
   const data = points.map((p) => ({ ...p, ts: dayjs(p.date).valueOf() }));
+  // Um rótulo por mês (o dia 1), em vez de "jul jul ago ago".
+  const ticks = data.length ? monthTicks(data[0].ts, data[data.length - 1].ts) : [];
   const renderDot = ({ cx, cy, payload }: DotProps) => {
     if (cx === undefined || cy === undefined || !payload) return <g key={`${cx}-${cy}`} />;
     if (!payload.entradas && !payload.saidas) return <g key={payload.date} />;
@@ -59,11 +62,12 @@ export default function ProductStockHistoryChart({ productId }: { productId: num
               type="number"
               scale="time"
               domain={["dataMin", "dataMax"]}
+              ticks={ticks}
+              interval={0}
               tickFormatter={(value: number) => dayjs(value).format("MMM")}
               tick={chart.tick}
               axisLine={false}
               tickLine={false}
-              minTickGap={24}
             />
             <YAxis
               allowDecimals={false}

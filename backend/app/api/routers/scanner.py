@@ -38,44 +38,153 @@ HTML_CONTENT = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a141b">
     <title>Scanner Chronos</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background-color: #121212; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        #reader { width: 100%; max-width: 600px; }
-        .header { text-align: center; padding: 15px; width: 100%; background-color: #1f1f1f; font-weight: bold; font-size: 1.2rem; }
-        .status { margin-top: 20px; font-size: 1rem; color: #4ade80; height: 30px; font-weight: bold; }
-        .error { color: #f87171; }
-        .history-container { margin-top: 15px; width: 100%; max-width: 600px; text-align: left; padding: 0 15px; box-sizing: border-box; }
-        .history-title { font-size: 0.9rem; color: #aaa; margin-bottom: 5px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .history-list { list-style: none; margin: 0; padding: 0; max-height: 150px; overflow-y: auto; }
-        .history-list li { padding: 5px 0; border-bottom: 1px solid #222; font-size: 0.85rem; display: flex; justify-content: space-between; }
-        .history-list li span.time { color: #888; font-size: 0.75rem; }
+        /* Visual "Vidro suave" (escuro): contraste de texto >= 4,5:1 sobre o fundo e os cartoes. */
+        :root {
+            --bg: #0a141b;
+            --card: rgba(19, 34, 45, 0.86);
+            --card-strong: #13222d;
+            --border: rgba(155, 176, 190, 0.18);
+            --text: #e6eef3;
+            --muted: #9bb0be;
+            --accent: #38bdf8;
+            --on-accent: #0a141b;
+            --success: #34d399;
+            --danger: #f87171;
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; }
+        body {
+            margin: 0; padding: 0;
+            background:
+                radial-gradient(60% 40% at 15% 0%, rgba(14, 116, 144, 0.35), transparent 70%),
+                radial-gradient(50% 40% at 100% 100%, rgba(30, 58, 138, 0.3), transparent 70%),
+                var(--bg);
+            color: var(--text);
+            font-family: "Sora", "Segoe UI", system-ui, -apple-system, sans-serif;
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; overflow-x: hidden;
+        }
+        button { font: inherit; }
+        .header {
+            width: 100%; max-width: 640px;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 14px 16px;
+        }
+        .brand { font-weight: 700; font-size: 1.1rem; letter-spacing: 0.01em; }
+        .brand small { display: block; font-weight: 400; font-size: 0.75rem; color: var(--muted); }
+        .beep-toggle {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 12px; min-height: 40px;
+            border-radius: 999px; border: 1px solid var(--border);
+            background: var(--card); color: var(--muted);
+            font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+        }
+        .beep-toggle .knob {
+            width: 30px; height: 18px; border-radius: 999px; background: rgba(155, 176, 190, 0.3);
+            position: relative; transition: background-color 0.18s;
+        }
+        .beep-toggle .knob::after {
+            content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+            border-radius: 50%; background: var(--text); transition: transform 0.18s var(--ease-out);
+        }
+        .beep-toggle[aria-pressed="true"] { color: var(--text); border-color: rgba(56, 189, 248, 0.5); }
+        .beep-toggle[aria-pressed="true"] .knob { background: var(--accent); }
+        .beep-toggle[aria-pressed="true"] .knob::after { transform: translateX(12px); background: var(--on-accent); }
+        .beep-toggle:focus-visible, .primary-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+        .card {
+            width: calc(100% - 32px); max-width: 608px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+            -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+        }
+        #reader { width: 100%; max-width: 608px; border-radius: 16px; overflow: hidden; border: 0 !important; }
+        #reader button, #reader select { font: inherit; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--card-strong); color: var(--text); }
+        #reader a { color: var(--accent); }
+        .primary-btn {
+            display: block; width: 100%; padding: 20px 12px;
+            font-size: 1.1rem; font-weight: 700; text-align: center;
+            background: var(--accent); color: var(--on-accent);
+            border: none; border-radius: 14px; cursor: pointer;
+            box-shadow: 0 6px 20px rgba(56, 189, 248, 0.25);
+        }
+        .status {
+            margin: 16px 16px 0; min-height: 28px; font-size: 1rem; font-weight: 600; text-align: center;
+            color: var(--muted);
+        }
+        .status.ok { color: var(--success); }
+        .status.error { color: var(--danger); }
+        .history-container { margin: 12px 0 24px; padding: 12px 14px; }
+        .history-title { font-size: 0.8rem; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+        .history-list { list-style: none; margin: 0; padding: 0; max-height: 40vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+        .history-list li {
+            padding: 9px 12px; border-radius: 10px; font-size: 0.9rem;
+            display: flex; justify-content: space-between; gap: 12px;
+            background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border);
+            outline: 2px solid transparent; outline-offset: -2px;
+        }
+        .history-list li span.time { color: var(--muted); font-size: 0.78rem; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+        /* Item lido: moldura verde que pulsa duas vezes (so esmaece com "Diminuir animacoes"). */
+        .history-list li.hit {
+            outline-color: var(--success);
+            background: rgba(52, 211, 153, 0.1);
+            animation: hit-pulse 0.65s var(--ease-out) 2;
+        }
+        @keyframes hit-pulse {
+            0% { outline-color: transparent; outline-offset: 2px; }
+            45% { outline-color: var(--success); outline-offset: -2px; }
+            100% { outline-color: rgba(52, 211, 153, 0.7); outline-offset: -2px; }
+        }
+        @keyframes hit-fade {
+            0% { outline-color: transparent; }
+            25% { outline-color: var(--success); }
+            100% { outline-color: var(--success); }
+        }
+        #start-overlay {
+            position: fixed; inset: 0; z-index: 1000; padding: 24px;
+            background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+        }
+        #start-overlay .title { font-size: 1.5rem; font-weight: 700; }
+        #start-overlay .hint { color: var(--muted); font-size: 0.9rem; text-align: center; max-width: 320px; }
+        #start-overlay .primary-btn { max-width: 320px; }
+        @media (prefers-reduced-motion: reduce) {
+            .history-list li.hit { animation: hit-fade 0.4s ease-out 1 forwards; }
+            .beep-toggle .knob, .beep-toggle .knob::after { transition: none; }
+        }
     </style>
 </head>
 <body>
-    <div id="start-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: #121212; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;">
-        <div style="font-size: 1.5rem; margin-bottom: 20px; font-weight: bold;">Leitor Chronos</div>
-        <button id="start-btn" style="padding: 15px 40px; font-size: 1.2rem; background: #4ade80; color: #111; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">INICIAR CÂMERA</button>
-        <div style="margin-top: 20px; color: #888; font-size: 0.9rem;">Toque para habilitar o som do bipe</div>
+    <div id="start-overlay">
+        <div class="title">Leitor Chronos</div>
+        <button id="start-btn" class="primary-btn" type="button">INICIAR CÂMERA</button>
+        <div class="hint">O bipe vem desligado. Para ligar, toque em "Bipe" no alto da tela.</div>
     </div>
 
-
-    <div class="header">Chronos Scanner</div>
-    <div id="reader"></div>
+    <div class="header">
+        <div class="brand">Chronos Scanner<small>Leitura vai direto para o computador</small></div>
+        <button id="beep-toggle" class="beep-toggle" type="button" aria-pressed="false">
+            <span class="knob" aria-hidden="true"></span><span id="beep-label">Bipe desligado</span>
+        </button>
+    </div>
+    <div id="reader" class="card"></div>
     <!-- Sem https (pagina aberta pelo IP da maquina) o navegador nao libera a camera ao vivo,
          mas deixa tirar foto: o codigo e lido da foto. -->
-    <div id="photo-mode" style="display: none; width: 100%; max-width: 600px; padding: 20px 15px; box-sizing: border-box; text-align: center;">
-        <label for="photo-input" style="display: block; padding: 22px 10px; font-size: 1.2rem; background: #4ade80; color: #111; border-radius: 10px; font-weight: bold; cursor: pointer;">TIRAR FOTO DO CÓDIGO</label>
+    <div id="photo-mode" class="card" style="display: none; padding: 16px; text-align: center;">
+        <label for="photo-input" class="primary-btn">TIRAR FOTO DO CÓDIGO</label>
         <input id="photo-input" type="file" accept="image/*" capture="environment" style="display: none;">
-        <div style="margin-top: 12px; color: #aaa; font-size: 0.85rem;">Fotografe o código de barras com o celular parado e com luz. Na nota, é o código acima da chave de acesso.</div>
+        <div style="margin-top: 12px; color: var(--muted); font-size: 0.85rem;">Fotografe o código de barras com o celular parado e com luz. Na nota, é o código acima da chave de acesso.</div>
     </div>
 
-    <div class="status" id="status-text">Apontando câmera...</div>
-    
-    <div class="history-container">
-        <div class="history-title">Últimos lidos:</div>
+    <div class="status" id="status-text" role="status" aria-live="polite">Apontando câmera...</div>
+
+    <div class="history-container card">
+        <div class="history-title">Últimos lidos</div>
         <ul class="history-list" id="history-list"></ul>
     </div>
 
@@ -84,7 +193,9 @@ HTML_CONTENT = """
         const historyList = document.getElementById('history-list');
         const startOverlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
-        
+        const beepToggle = document.getElementById('beep-toggle');
+        const beepLabel = document.getElementById('beep-label');
+
         if (!window.isSecureContext) {
             startBtn.innerText = 'COMEÇAR';
         }
@@ -93,42 +204,70 @@ HTML_CONTENT = """
         let html5QrcodeScanner = null;
         let audioCtx = null;
 
+        // Bipe: desligado por padrao, lembrado neste celular.
+        const BEEP_KEY = 'chronos.scanner.bipe';
+        let beepOn = false;
+        try { beepOn = localStorage.getItem(BEEP_KEY) === '1'; } catch (e) { beepOn = false; }
+
+        function setStatus(text, kind) {
+            statusText.innerText = text;
+            statusText.className = 'status' + (kind ? ' ' + kind : '');
+        }
+
+        function ensureAudio() {
+            if (audioCtx) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) audioCtx = new AudioContext();
+        }
+
+        function renderBeep() {
+            beepToggle.setAttribute('aria-pressed', beepOn ? 'true' : 'false');
+            beepLabel.innerText = beepOn ? 'Bipe ligado' : 'Bipe desligado';
+        }
+
         function playBeep() {
-            if (!audioCtx) return;
+            if (!beepOn || !audioCtx) return;
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
             const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            
+
             oscillator.type = 'sine';
-            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); // 1000Hz beep
-            
-            gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            
+            oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); // 1000Hz, curto
+
+            gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+
             oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
-            
+
             oscillator.start();
-            oscillator.stop(audioCtx.currentTime + 0.15);
+            oscillator.stop(audioCtx.currentTime + 0.12);
         }
+
+        beepToggle.addEventListener('click', () => {
+            beepOn = !beepOn;
+            try { localStorage.setItem(BEEP_KEY, beepOn ? '1' : '0'); } catch (e) { /* modo privado */ }
+            renderBeep();
+            if (beepOn) {
+                // O toque destrava o som (iOS) e serve de amostra do bipe.
+                ensureAudio();
+                playBeep();
+            }
+        });
+        renderBeep();
 
         // Desbloquear áudio e iniciar scanner
         startBtn.addEventListener('click', () => {
-            // Inicializar o contexto de áudio
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (AudioContext) {
-                audioCtx = new AudioContext();
-                // Toca um bip inaudível/rápido só para destravar o som no iOS
-                playBeep();
-            }
+            // Com o bipe ligado, o toque no botao destrava o som (iOS).
+            if (beepOn) ensureAudio();
             
             startOverlay.style.display = 'none';
 
             if (!window.isSecureContext) {
                 document.getElementById('photo-mode').style.display = 'block';
-                statusText.innerText = 'Toque no botão e fotografe o código';
+                setStatus('Toque no botão e fotografe o código', '');
                 return;
             }
 
@@ -146,11 +285,9 @@ HTML_CONTENT = """
             const input = event.target;
             const file = input.files && input.files[0];
             if (!file) return;
-            statusText.style.color = '#4ade80';
-            statusText.innerText = 'Lendo a foto...';
+            setStatus('Lendo a foto...', '');
             if (typeof ZXing === 'undefined') {
-                statusText.style.color = '#f87171';
-                statusText.innerText = 'O leitor não carregou: o celular precisa de internet. Recarregue a página.';
+                setStatus('O leitor não carregou: o celular precisa de internet. Recarregue a página.', 'error');
                 input.value = '';
                 return;
             }
@@ -164,12 +301,10 @@ HTML_CONTENT = """
                 if (code) {
                     sendBarcode(code);
                 } else {
-                    statusText.style.color = '#f87171';
-                    statusText.innerText = 'Não achei código na foto. Tente de novo, com o celular parado e com luz.';
+                    setStatus('Não achei código na foto. Tente de novo, com o celular parado e com luz.', 'error');
                 }
             } catch (err) {
-                statusText.style.color = '#f87171';
-                statusText.innerText = 'Não consegui abrir a foto. Tente de novo.';
+                setStatus('Não consegui abrir a foto. Tente de novo.', 'error');
             } finally {
                 URL.revokeObjectURL(url);
                 input.value = '';
@@ -279,10 +414,9 @@ HTML_CONTENT = """
         function sendBarcode(code) {
             if (isProcessing) return;
             isProcessing = true;
-            statusText.innerText = `Lido: ${code}`;
-            statusText.style.color = '#4ade80';
+            setStatus(`Lido: ${code}`, 'ok');
 
-            // Tocar o som
+            // Bipe (se ligado)
             playBeep();
 
             if (navigator.vibrate) {
@@ -296,7 +430,7 @@ HTML_CONTENT = """
             })
             .then(response => response.json())
             .then(data => {
-                statusText.innerText = `Lido: ${data.display_name}`;
+                setStatus(`Lido: ${data.display_name}`, 'ok');
                 
                 // Adicionar ao histórico
                 const li = document.createElement('li');
@@ -310,17 +444,19 @@ HTML_CONTENT = """
                 timeSpan.textContent = timeStr;
                 li.appendChild(nameSpan);
                 li.appendChild(timeSpan);
+                // Moldura verde so no item que acabou de ser lido.
+                historyList.querySelectorAll('li.hit').forEach((el) => el.classList.remove('hit'));
+                li.classList.add('hit');
                 historyList.prepend(li);
                 if (historyList.children.length > 15) {
                     historyList.removeChild(historyList.lastChild);
                 }
 
-                setTimeout(() => { isProcessing = false; statusText.innerText = 'Pronto para o próximo...'; }, 1000);
+                setTimeout(() => { isProcessing = false; setStatus('Pronto para o próximo...', ''); }, 1000);
             })
             .catch(err => {
-                statusText.innerText = 'Erro de conexão!';
-                statusText.style.color = '#f87171';
-                setTimeout(() => { isProcessing = false; statusText.style.color = '#4ade80'; statusText.innerText = 'Tente novamente...'; }, 2000);
+                setStatus('Erro de conexão!', 'error');
+                setTimeout(() => { isProcessing = false; setStatus('Tente novamente...', ''); }, 2000);
             });
         }
 

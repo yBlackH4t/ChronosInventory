@@ -10,6 +10,23 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.6.1",
+    "date": "2026-10-19",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Mudanca: Painel novo, em blocos: o que pede ação vem primeiro. No topo ficam quatro números que rolam até o valor (unidades em estoque, saídas em 30 dias, produtos com estoque e zerados), cada um com a linha dos últimos 30 dias. Logo abaixo, o bloco grande \"Pede ação hoje\" junta os zerados que venderam, os que estão perto de zerar e os parados que mais ocupam; clicar abre a ficha do produto. Em volta ficam a saúde do estoque (girando, lento e parado), o movimento da semana ou do mês, as mais saídas, o assistente e o WhatsApp, e as últimas movimentações, que entram sozinhas no topo. O Painel ficou com menos da metade da altura.",
+      "Mudanca: Produtos: o código da peça aparece em destaque no começo de cada linha, com a marca e a versão em texto simples. O saldo fica grande à direita, o botão \"Movimentar\" sempre visível e as outras ações no menu \"⋯\". Filiais sem estoque somem da tabela, os filtros viraram botões (Todos, Com estoque, Zerados) e as linhas se reacomodam ao buscar.",
+      "Mudanca: Ficha do produto: foto grande, saldo por filial (zero em cinza), um rótulo por mês no gráfico e as últimas 5 movimentações já visíveis. A foto e o código \"viajam\" da linha até a ficha.",
+      "Mudanca: Movimentar: ao confirmar, o saldo da linha pisca em verde (entrada), laranja (saída) ou azul (transferência) e rola até o valor novo.",
+      "Mudanca: Movimentações: uma linha por movimento, com o código, o tipo, o local e a quantidade. O estoque inicial aparece como \"Cadastro\", a movimentação estornada fica riscada e os botões ficam sempre visíveis.",
+      "Mudanca: Lançar nota fiscal: a janela mostra as etapas (ler a chave, conferir os itens e confirmar), os itens aparecem um a um, o \"Fica\" rola até o valor e o nome do produto escolhido não é mais cortado.",
+      "Mudanca: Assistente: a conversa aparece em balões, os códigos de peça viram etiquetas, a resposta aparece em sequência e três pontinhos mostram que ele está pensando.",
+      "Mudanca: Leitura de código: na movimentação em lote e no celular, o item lido ganha uma moldura verde. O bipe ao ler pode ser ligado ou desligado (vem desligado).",
+      "Mudanca: Relatórios > Análises: a distribuição por filial, os dias com mais movimento, para onde foram as saídas, o estoque por marca e versão e as transferências externas saíram do Painel e foram para cá.",
+      "Correcao: Estorno: a lista de movimentações e a de produtos agora se atualizam logo depois de estornar."
+    ]
+  },
+  {
     "version": "2.6.0",
     "date": "2026-10-19",
     "title": "Novidades e ajustes",

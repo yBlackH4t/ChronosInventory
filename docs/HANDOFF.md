@@ -422,6 +422,80 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-19 — Claude Code — 2.6.3, NF-e, Assistente e leitura de código (Vidro suave)
+- Branch: `claude/nf-assistente` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e regras
+  do backend sem mudar). Arquivos compartilhados (`global.css`, `theme.ts`, `AppLayout.tsx`) intactos:
+  os estilos novos ficam em `components/scanner/scanner.css` e `components/assistant/assistantChat.css`.
+- **Lançar nota fiscal** (`NfeMovementModal.tsx`): etapas ler a chave → conferir itens → confirmar,
+  com indicador (`NfeStepper.tsx`, lógica em `lib/nfeSteps.ts`) e um bloco por etapa (o da etapa
+  atual com a borda da cor principal). Itens entram um a um; "Hoje → Fica" numa coluna, com o
+  "Fica" rolando até o valor (`AnimatedNumber`/NumberFlow). Produto escolhido num seletor novo
+  (`NfeProductPicker.tsx`, Combobox com a busca dentro da lista) que quebra o nome em duas linhas;
+  a coluna do produto é a mais larga (janela de 1040 px). Natureza, local externo, motivo do ajuste,
+  observação e "Ignorar (casco)" continuam iguais (o item ignorado fica riscado, não apagado).
+  Cabeçalho da janela opaco (o título se sobrepunha ao conteúdo rolando).
+- **Assistente** (`AssistantPage.tsx`, `AssistantAnswer.tsx`, `ThinkingIndicator.tsx`, lógica em
+  `lib/assistantAnswer.ts`): balões (pergunta à direita na cor principal; resposta num cartão à
+  esquerda), cada código de peça como etiqueta com borda (Garrett com hífen e códigos só de números;
+  não pega GT4594, anos ou quantidades), linhas da resposta, botões e cartões de produto entrando em
+  sequência (150 ms cada, `components/ui/Reveal.tsx` + `lib/reveal.ts`), três pontos "Pensando…".
+  Igual/Similar/Diferente, Pesquisar na internet, Configurações e Copiar resposta mantidos. O mock
+  (`VITE_ASSISTENTE_MOCK=1`) ganhou o caso "A é igual a B?" com os botões de ensinar.
+- **Leitura de código**: na Movimentação em lote, o item lido ganha uma moldura verde que pulsa e a
+  lista rola até ele; chave "Bipe ao ler" (desligada por padrão, lembrada na máquina,
+  `lib/scanFeedback.ts`); anúncio para leitor de tela. Página do celular
+  (`backend/app/api/routers/scanner.py`, só HTML/CSS/JS da página) no visual escuro, botão "Bipe"
+  (desligado por padrão, lembrado no celular) e moldura verde no último lido.
+- Animações: Completo = desloca e pulsa; Suave = só esmaece; Nenhum = nada (a moldura fica parada
+  1,6 s). Contraste conferido (>= 4,5:1) no claro e no escuro, nas três cores principais.
+- Verificações: build, lint (0 erros), vitest 58 (18 novos em `lib/nfAssistenteScan.test.ts`),
+  pytest 262, ruff. Telas em `/mnt/project-files/visual/2.6.3/` (banco de teste + mock).
+
+### 2026-10-19 — Claude Code — 2.6.2: Produtos, ficha, Movimentar e Movimentações
+- Branch: `claude/produtos-movimentacoes` (a partir da `main` 2.6.0; versão, CHANGELOG e Python
+  sem mudar). Só telas.
+- Produtos: código da peça como rótulo da linha (`lib/productView.ts`, `splitProductCode`), marca
+  e versão em texto com um ponto de cor, saldo grande (verde/âmbar com dica "Estoque baixo"/
+  vermelho), "Movimentar" sempre visível e o resto no menu "⋯"; coluna de filial sem saldo some
+  (se só uma tem saldo, a coluna vira "Saldo · Canoas"); filtros em chips (Todos, Com estoque,
+  Zerados). Busca ao vivo: linhas deslizam/esmaecem (FLIP, `hooks/useFlipList.ts` + `lib/flip.ts`,
+  sem o pacote de layout do motion; a virtualização continua).
+- Ficha: foto grande, código e ações no topo; zero da filial em cinza, vermelho só no total
+  zerado; gráfico com um rótulo por mês; últimas 5 movimentações logo abaixo; "foto que viaja"
+  da linha até a ficha (`lib/sharedFlight.ts`, mede e anima, como o `NavIndicator`).
+- Movimentar: o saldo da linha pisca verde/laranja e rola até o valor novo (NumberFlow).
+- Movimentações: linha do tempo compacta (uma linha por movimento), selo "Cadastro" no lugar da
+  observação padrão, estornada riscada (e sem botão de estornar de novo), movimento novo entra
+  no topo, ações visíveis. Corrigido: o estorno não atualizava as listas (chaves erradas).
+- Níveis de animação: Completo tudo; Suave só esmaecer (sem voo, sem rolar); Nenhum nada.
+- Capturas: `/mnt/project-files/visual/2.6.2/`. Verificações: build ok / lint 0 erros (5 avisos
+  antigos) / vitest 59 ok.
+
+### 2026-10-19 — Claude Code — 2.6.1, Painel em blocos ("bento")
+- Branch: `claude/painel-bento` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e constantes
+  sem mudar). Só o Painel, os blocos dele, Relatórios > Análises e duas rotas novas.
+- Painel (`pages/DashboardPage.tsx`, `components/dashboard/bento/`): cabe em ~1,5 tela (1520 px a
+  1440 de largura, antes ~2.400). Topo com 4 números que rolam e linha dos 30 dias que se desenha
+  (unidades, saídas em 30 dias com ritmo de 7 dias, produtos com estoque, zerados); filtro de
+  filial, semana/mês e data mantidos. Blocos: "Pede ação hoje" (o maior: zerados que venderam,
+  perto de zerar e parados que mais ocupam numa lista só, com etiqueta Zerado/Repor/Parado; clicar
+  abre a ficha do produto pela mesma rota `?openId=` da busca), Saúde do estoque (medidor circular),
+  Assistente e WhatsApp (perguntas de hoje, respostas e códigos para revisar, robô com ponto que
+  pulsa; some se a rota não existir), Movimento da semana/mês (barras que crescem; saldo num
+  gráfico pequeno separado, sem eixo duplo), Mais saídas (barras enchem em sequência) e Atividade ao
+  vivo (últimas movimentações a cada 20 s; a nova desce do topo). Sem Recharts no Painel.
+- Animações respeitam os níveis: Completo cresce/desenha/desliza, Suave só esmaece, Nenhum aparece
+  pronto (`lib/dashboardMotion.ts` + testes). Contraste conferido no claro e no escuro (todos os
+  textos do Painel >= 4,5:1). Funciona de 1100 px para cima sem rolagem lateral.
+- Saíram do Painel para Relatórios > Análises (`components/reports/ReportsAnalysisSection.tsx`,
+  `AnalysisPanels.tsx`): distribuição por filial, dias com mais movimento, para onde foram as saídas,
+  marca e versão, transferências externas. Os cartões por filial do topo foram tirados.
+- Backend: `GET /analytics/stock/count-history` (produtos com saldo e zerados por dia) e
+  `GET /assistente/painel` (só contagens, sem login); testes em `backend/tests/test_dashboard_bento.py`.
+- Capturas: `/mnt/project-files/visual/2.6.1/`.
+- Verificações: pytest 264 ok / ruff ok / versões ok / build ok / lint 0 erros (5 avisos antigos) /
+  vitest 52 ok.
+
 ### 2026-10-18 — Claude Code — 2.6.0, passo "base nova" (estilo Vidro suave)
 - Branch: `claude/vidro-suave-base` (a partir da `claude/project-thread-vw3djm`, 2.5.5; versão,
   CHANGELOG e Python sem mudar). Só a base do app; o redesenho de cada tela vem depois.

@@ -114,3 +114,9 @@ class ProductStockHistoryPoint(BaseModel):
     saldo: int
     entradas: int
     saidas: int
+
+
+class StockCountPoint(BaseModel):
+    date: str
+    com_saldo: int
+    zerados: int

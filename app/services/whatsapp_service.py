@@ -249,6 +249,14 @@ class WhatsAppService:
             **self._robot_role(),
         }
 
+    def panel_status(self) -> Dict[str, Any]:
+        """Estado do robo para o Painel: sem QR, numero nem consulta ao PC principal."""
+        return {
+            "estado": self.state,
+            "ativo": bool(self.config_store.load_section("whatsapp").get("ativo")),
+            "rascunhos": len(self.list_drafts()),
+        }
+
     # ------------------------------------------------------------------
     # PC principal e PC reserva do robo
     # ------------------------------------------------------------------
