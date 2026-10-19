@@ -1,0 +1,332 @@
+/* ==========================================================================
+   Lançar nota fiscal (NF-e) e retorno da leitura de código (2.6.3).
+   Animações seguem Configurações > Aparência: o "nenhum" é zerado pela regra global
+   (:root[data-motion="nenhum"] *); o "suave" só troca cor e opacidade.
+   ========================================================================== */
+
+/* Cabeçalho da janela opaco: o conteúdo rola por baixo sem o título se sobrepor ao texto. */
+.modal-solid-header.mantine-Modal-header {
+  background: var(--surface-overlay);
+}
+
+/* Etapas: ler a chave -> conferir itens -> confirmar */
+.nfe-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.nfe-step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+/* Traço até a próxima etapa (fica verde quando esta foi feita). */
+.nfe-step:not(:last-child)::after {
+  content: "";
+  flex: 1;
+  min-width: 16px;
+  height: 2px;
+  margin: 13px 4px 0;
+  border-radius: 2px;
+  background: var(--border-strong);
+  transition: background-color var(--dur) var(--ease);
+}
+
+.nfe-step[data-status="done"]::after {
+  background: var(--success);
+}
+
+.nfe-step-dot {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  transition:
+    background-color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
+}
+
+.nfe-step[data-status="current"] .nfe-step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  /* Texto claro no tema claro e escuro no escuro: >= 4,5:1 sobre a cor principal. */
+  color: var(--surface-solid);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.nfe-step[data-status="done"] .nfe-step-dot {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--surface-solid);
+}
+
+.nfe-step-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: 3px;
+}
+
+.nfe-step-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.nfe-step:not([data-status="todo"]) .nfe-step-label {
+  color: var(--text);
+}
+
+.nfe-step-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Cada etapa é um bloco; o da etapa atual ganha a borda da cor principal. */
+.nfe-section {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px 16px;
+  background: var(--surface-2);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.nfe-section[data-active] {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.nfe-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.nfe-section-number {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.nfe-nota-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+/* Itens da nota: a coluna do produto é a mais larga e o nome quebra em duas linhas. */
+.nfe-items-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.nfe-items {
+  width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.nfe-col-item {
+  width: 30%;
+}
+
+.nfe-col-qty {
+  width: 96px;
+}
+
+.nfe-col-stock {
+  width: 124px;
+}
+
+.nfe-items th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.nfe-items td {
+  padding: 10px 12px;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.nfe-items tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.nfe-items .nfe-num {
+  text-align: right;
+}
+
+/* Item ignorado (casco): riscado em vez de apagado, para o texto seguir legível. */
+.nfe-item-row[data-ignored] td:first-child .mantine-Text-root:first-child {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.nfe-item-row[data-ignored] {
+  background: var(--surface-2);
+}
+
+.nfe-picker-input {
+  height: auto !important;
+  min-height: var(--input-height-xs, 30px);
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
+  text-align: left;
+  line-height: 1.35;
+}
+
+.nfe-picker-name {
+  word-break: break-word;
+}
+
+.nfe-hoje-fica {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.nfe-hoje {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.nfe-arrow {
+  color: var(--text-muted);
+}
+
+.nfe-fica {
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 2ch;
+}
+
+.nfe-hoje-fica[data-tone="out"] .nfe-fica {
+  color: var(--warning);
+}
+
+.nfe-hoje-fica[data-tone="in"] .nfe-fica {
+  color: var(--success);
+}
+
+.nfe-hoje-fica[data-tone="short"] :is(.nfe-fica, .nfe-hoje) {
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .nfe-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .nfe-step:not(:last-child)::after {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Leitura de código: moldura verde no item achado
+   -------------------------------------------------------------------------- */
+
+.scan-hit,
+.scan-hit > td {
+  background-color: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.scan-hit {
+  outline: 2px solid var(--success);
+  outline-offset: -2px;
+}
+
+/* Completo: a moldura pulsa duas vezes, abrindo um pouco. */
+:root[data-motion="completo"] .scan-hit {
+  animation: scan-pulse 0.65s var(--ease-out) 2;
+}
+
+/* Suave: só acende e apaga a cor, sem mexer. */
+:root[data-motion="suave"] .scan-hit {
+  animation: scan-fade 1.3s ease-out 1 forwards;
+}
+
+@keyframes scan-pulse {
+  0% {
+    outline-color: transparent;
+    outline-offset: 2px;
+  }
+  45% {
+    outline-color: var(--success);
+    outline-offset: -2px;
+  }
+  100% {
+    outline-color: color-mix(in srgb, var(--success) 70%, transparent);
+    outline-offset: -2px;
+  }
+}
+
+@keyframes scan-fade {
+  0% {
+    outline-color: transparent;
+  }
+  20% {
+    outline-color: var(--success);
+  }
+  75% {
+    outline-color: var(--success);
+  }
+  100% {
+    outline-color: transparent;
+  }
+}
+
+.scan-panel {
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+}

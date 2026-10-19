@@ -10,11 +10,18 @@ import {
   NumberInput,
   Select,
   Stack,
-  Table,
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconAlertTriangle, IconFileInvoice, IconSearch, IconSettings } from "@tabler/icons-react";
+import {
+  IconAlertTriangle,
+  IconArrowRight,
+  IconCheck,
+  IconFileInvoice,
+  IconSearch,
+  IconSettings,
+} from "@tabler/icons-react";
+import { m } from "motion/react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/apiClient";
@@ -23,7 +30,15 @@ import { formatNfeKey, parseNfeKey } from "../../lib/nfe";
 import { notifyError, notifySuccess } from "../../lib/notify";
 import { PRODUCT_ADJUSTMENT_REASON_OPTIONS } from "../../lib/productMovement";
 import { useLocations } from "../../hooks/useLocations";
+import { useMotionLevel } from "../../lib/motionContext";
+import { nfeStepIndex, stockAfter } from "../../lib/nfeSteps";
+import { revealFor } from "../../lib/reveal";
+import AnimatedNumber from "../ui/AnimatedNumber";
+import Reveal from "../ui/Reveal";
+import NfeProductPicker from "./NfeProductPicker";
 import NfeSettingsPanel from "./NfeSettingsPanel";
+import NfeStepper from "./NfeStepper";
+import "./scanner.css";
 
 type RowState = {
   produtoId: string | null;
@@ -50,12 +65,9 @@ function formatEmissao(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString("pt-BR");
 }
 
-function productOption(p: NfeProduto) {
-  return { value: String(p.id), label: p.nome };
-}
-
 export default function NfeMovementModal({ opened, chave, onClose }: NfeMovementModalProps) {
   const queryClient = useQueryClient();
+  const motionLevel = useMotionLevel();
   const { activeLocations } = useLocations();
   const [input, setInput] = useState("");
   const [nota, setNota] = useState<NfePreview | null>(null);
@@ -242,224 +254,362 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
 
   const locationOptions = activeLocations.map((loc) => ({ value: String(loc.id), label: loc.label || loc.name }));
 
+  const itemsWithoutProduct = nota
+    ? nota.itens.filter((i) => !rows[i.item]?.produtoId && !rows[i.item]?.ignorar).length
+    : 0;
+  const itemsShort =
+    nota && tipo === "SAIDA"
+      ? nota.itens.filter((i) => {
+          const stock = stockOf(rows[i.item]);
+          return stock !== null && stock < (rows[i.item]?.quantidade ?? 0);
+        }).length
+      : 0;
+  const step = nfeStepIndex({
+    hasNota: Boolean(nota),
+    itemsWithoutProduct,
+    itemsShort,
+    allIgnored: Boolean(nota && nota.itens.length > 0 && nota.itens.every((i) => rows[i.item]?.ignorar)),
+    hasProblems: problems.length > 0,
+  });
+  const ignoredCount = nota ? nota.itens.filter((i) => rows[i.item]?.ignorar).length : 0;
+  const stockAtLocation = (product: NfeProduto) => (locationId ? product.estoque[locationId] ?? 0 : null);
+
   return (
-    <Modal opened={opened} onClose={onClose} title="Lançar nota fiscal (NF-e)" size="xl">
-      <Stack gap="md">
-        <Group align="flex-end" gap="xs" wrap="nowrap">
-          <TextInput
-            style={{ flex: 1 }}
-            label="Chave da NF-e"
-            description="Bipe o código de barras do DANFE (celular ou leitor) ou digite a chave. Nota de fornecedor é baixada da SEFAZ com o certificado."
-            placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
-            value={input}
-            onChange={(e) => setInput(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void load(input);
-            }}
-            data-autofocus
-          />
-          <Button leftSection={<IconSearch size={16} />} onClick={() => void load(input)} loading={loading}>
-            Buscar
-          </Button>
-          <Button variant="subtle" leftSection={<IconSettings size={16} />} onClick={() => setShowFolders((v) => !v)}>
-            Configurar
-          </Button>
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={
+        <Group gap="xs">
+          <IconFileInvoice size={20} stroke={1.6} />
+          <span>Lançar nota fiscal (NF-e)</span>
         </Group>
+      }
+      size={1040}
+      classNames={{ header: "modal-solid-header" }}
+    >
+      <Stack gap="lg">
+        <NfeStepper current={step} />
 
-        <Collapse expanded={showFolders}>
-          <NfeSettingsPanel
-            opened={showFolders}
-            onSaved={() => {
-              setShowFolders(false);
-              if (input) void load(input);
-            }}
-          />
-        </Collapse>
-
-        {loadError && (
-          <Alert color="danger" icon={<IconAlertTriangle size={16} />}>
-            {loadError}
-          </Alert>
-        )}
-
-        {nota && (
-          <>
-            <Group gap="lg" align="flex-start">
-              <IconFileInvoice size={28} stroke={1.5} />
-              <Stack gap={2} style={{ flex: 1 }}>
-                <Text fw={600}>
-                  NF {nota.numero} · série {nota.serie} · {formatEmissao(nota.emissao)}
-                </Text>
-                <Text size="sm" c="dimmed">
-                  {nota.natureza_operacao} · {nota.tipo_sugerido === "SAIDA" ? "para" : "de"}{" "}
-                  {nota.tipo_sugerido === "SAIDA" ? nota.destinatario : nota.emitente}
-                </Text>
-              </Stack>
+        <section className="nfe-section" data-active={step === 0 || undefined} aria-labelledby="nfe-step-1">
+          <h3 className="nfe-section-title" id="nfe-step-1">
+            <span className="nfe-section-number" aria-hidden>
+              1
+            </span>
+            Ler a chave
+          </h3>
+          <Stack gap="sm">
+            <Group align="flex-end" gap="xs" wrap="nowrap">
+              <TextInput
+                style={{ flex: 1 }}
+                label="Chave da NF-e"
+                description="Bipe o código de barras do DANFE (celular ou leitor) ou digite a chave. Nota de fornecedor é baixada da SEFAZ com o certificado."
+                placeholder="0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000"
+                value={input}
+                onChange={(e) => setInput(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void load(input);
+                }}
+                classNames={{ input: "num" }}
+                data-autofocus
+              />
+              <Button leftSection={<IconSearch size={16} />} onClick={() => void load(input)} loading={loading}>
+                Buscar
+              </Button>
+              <Button variant="subtle" leftSection={<IconSettings size={16} />} onClick={() => setShowFolders((v) => !v)}>
+                Configurar
+              </Button>
             </Group>
 
-            <Group grow>
-              <Select
-                label="Movimento"
-                data={[
-                  { value: "SAIDA", label: "Saída (baixa do estoque)" },
-                  { value: "ENTRADA", label: "Entrada (soma ao estoque)" },
-                ]}
-                value={tipo}
-                onChange={(v) => v && applyTipo(nota, v as "SAIDA" | "ENTRADA")}
-                allowDeselect={false}
+            <Collapse expanded={showFolders}>
+              <NfeSettingsPanel
+                opened={showFolders}
+                onSaved={() => {
+                  setShowFolders(false);
+                  if (input) void load(input);
+                }}
               />
-              <Select
-                label="Local"
-                data={locationOptions}
-                value={locationId}
-                onChange={setLocationId}
-                allowDeselect={false}
-              />
-            </Group>
+            </Collapse>
 
-            <Group grow align="flex-start">
-              <Select
-                label="Natureza"
-                description="Nota da matriz ou de outra filial é transferência externa."
-                data={[
-                  { value: "OPERACAO_NORMAL", label: tipo === "SAIDA" ? "Operação normal (venda)" : "Operação normal (fábrica / fornecedor)" },
-                  { value: "TRANSFERENCIA_EXTERNA", label: "Transferência externa (matriz / filial)" },
-                  { value: "AJUSTE", label: "Ajuste" },
-                ]}
-                value={natureza}
-                onChange={(v) => v && setNatureza(v as NfeNatureza)}
-                allowDeselect={false}
-              />
-              {natureza === "TRANSFERENCIA_EXTERNA" && (
-                <TextInput
-                  label="Local externo"
-                  description={tipo === "SAIDA" ? "Para onde vai." : "De onde vem."}
-                  value={localExterno}
-                  onChange={(e) => setLocalExterno(e.currentTarget.value)}
-                  maxLength={120}
-                />
-              )}
-              {natureza === "AJUSTE" && (
-                <Select
-                  label="Motivo do ajuste"
-                  description="Obrigatório para ajuste."
-                  data={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
-                  value={motivoAjuste}
-                  onChange={setMotivoAjuste}
-                  allowDeselect={false}
-                />
-              )}
-            </Group>
-            <TextInput
-              label="Observação"
-              value={observacao}
-              onChange={(e) => setObservacao(e.currentTarget.value)}
-              maxLength={200}
-            />
-
-            <Table verticalSpacing="xs">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Item da nota</Table.Th>
-                  <Table.Th style={{ width: "40%" }}>Produto no Chronos</Table.Th>
-                  <Table.Th style={{ width: 100 }}>Qtd.</Table.Th>
-                  <Table.Th style={{ width: 70 }}>Hoje</Table.Th>
-                  <Table.Th style={{ width: 70 }}>Fica</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {nota.itens.map((item) => {
-                  const row = rows[item.item];
-                  const badge = CONFIANCA_LABEL[item.confianca];
-                  const stock = stockOf(row);
-                  const short = tipo === "SAIDA" && stock !== null && stock < (row?.quantidade ?? 0);
-                  const after =
-                    stock === null ? null : stock + (tipo === "SAIDA" ? -1 : 1) * (row?.quantidade ?? 0);
-                  return (
-                    <Table.Tr key={item.item} style={row?.ignorar ? { opacity: 0.55 } : undefined}>
-                      <Table.Td>
-                        <Text size="sm">{item.descricao}</Text>
-                        <Text size="xs" c="dimmed">
-                          Cód. {item.codigo} · {item.quantidade_nota} {item.unidade}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Select
-                          size="xs"
-                          searchable
-                          placeholder="Procure por nome ou código"
-                          nothingFoundMessage="Nada encontrado"
-                          data={(row?.options ?? []).map(productOption)}
-                          value={row?.produtoId ?? null}
-                          onChange={(v) => updateRow(item.item, { produtoId: v })}
-                          onSearchChange={(q) => searchProducts(item.item, q)}
-                          error={!row?.produtoId && !row?.ignorar}
-                          disabled={row?.ignorar}
-                        />
-                        <Checkbox
-                          size="xs"
-                          mt={6}
-                          label="Ignorar (não é estoque, ex.: casco)"
-                          checked={row?.ignorar ?? false}
-                          onChange={(e) => updateRow(item.item, { ignorar: e.currentTarget.checked })}
-                        />
-                        {badge && !row?.ignorar && row?.produtoId === (item.produto_sugerido ? String(item.produto_sugerido.id) : null) && (
-                          <Badge size="xs" variant="light" color={badge.color} mt={4}>
-                            {badge.label}
-                          </Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <NumberInput
-                          size="xs"
-                          min={1}
-                          value={row?.quantidade ?? 1}
-                          disabled={row?.ignorar}
-                          onChange={(v) => updateRow(item.item, { quantidade: Math.max(1, Number(v) || 1) })}
-                        />
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" c={short ? "danger" : undefined} fw={short ? 600 : undefined}>
-                          {stock ?? "—"}
-                        </Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" fw={600} c={short ? "danger" : tipo === "SAIDA" ? "orange" : "success"}>
-                          {after ?? "—"}
-                        </Text>
-                      </Table.Td>
-                    </Table.Tr>
-                  );
-                })}
-              </Table.Tbody>
-            </Table>
-
-            {problems.length > 0 && (
-              <Alert color="warning" icon={<IconAlertTriangle size={16} />}>
-                <Stack gap={2}>
-                  {problems.map((p) => (
-                    <Text size="sm" key={p}>
-                      {p}
-                    </Text>
-                  ))}
-                </Stack>
+            {loadError && (
+              <Alert color="danger" icon={<IconAlertTriangle size={16} />}>
+                {loadError}
               </Alert>
             )}
 
-            <Group justify="flex-end">
-              <Button variant="default" onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button
-                color={tipo === "SAIDA" ? "danger" : "success"}
-                disabled={problems.length > 0}
-                loading={saving}
-                onClick={() => void confirm()}
-              >
-                {tipo === "SAIDA" ? "Dar saída" : "Dar entrada"} da NF {nota.numero}
-              </Button>
-            </Group>
-          </>
+            {nota && (
+              <Reveal index={0} className="nfe-nota-summary">
+                <Stack gap={2} miw={0} style={{ flex: 1 }}>
+                  <Text fw={600}>
+                    NF {nota.numero} · série {nota.serie} · {formatEmissao(nota.emissao)}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    {nota.natureza_operacao} · {nota.tipo_sugerido === "SAIDA" ? "para" : "de"}{" "}
+                    {nota.tipo_sugerido === "SAIDA" ? nota.destinatario : nota.emitente}
+                  </Text>
+                </Stack>
+                <Group gap={6}>
+                  <Badge variant="light" color="gray">
+                    {nota.itens.length === 1 ? "1 item" : `${nota.itens.length} itens`}
+                  </Badge>
+                  {nota.cancelada ? (
+                    <Badge variant="light" color="danger">
+                      Cancelada
+                    </Badge>
+                  ) : nota.autorizada ? (
+                    <Badge variant="light" color="success">
+                      Autorizada
+                    </Badge>
+                  ) : (
+                    <Badge variant="light" color="warning">
+                      Sem autorização
+                    </Badge>
+                  )}
+                </Group>
+              </Reveal>
+            )}
+          </Stack>
+        </section>
+
+        {nota && (
+          <section className="nfe-section" data-active={step === 1 || undefined} aria-labelledby="nfe-step-2">
+            <h3 className="nfe-section-title" id="nfe-step-2">
+              <span className="nfe-section-number" aria-hidden>
+                2
+              </span>
+              Conferir itens
+              <Text component="span" size="xs" c="dimmed" fw={400} ml="auto">
+                {itemsWithoutProduct > 0
+                  ? `Falta escolher o produto de ${itemsWithoutProduct === 1 ? "1 item" : `${itemsWithoutProduct} itens`}`
+                  : ignoredCount > 0
+                    ? ignoredCount === 1
+                      ? "1 item ignorado"
+                      : `${ignoredCount} itens ignorados`
+                    : "Todos os itens com produto"}
+              </Text>
+            </h3>
+            <Stack gap="sm">
+              <Group grow>
+                <Select
+                  label="Movimento"
+                  data={[
+                    { value: "SAIDA", label: "Saída (baixa do estoque)" },
+                    { value: "ENTRADA", label: "Entrada (soma ao estoque)" },
+                  ]}
+                  value={tipo}
+                  onChange={(v) => v && applyTipo(nota, v as "SAIDA" | "ENTRADA")}
+                  allowDeselect={false}
+                />
+                <Select
+                  label="Local"
+                  data={locationOptions}
+                  value={locationId}
+                  onChange={setLocationId}
+                  allowDeselect={false}
+                />
+              </Group>
+
+              <div className="nfe-items-wrap">
+                <table className="nfe-items">
+                  <colgroup>
+                    <col className="nfe-col-item" />
+                    <col className="nfe-col-product" />
+                    <col className="nfe-col-qty" />
+                    <col className="nfe-col-stock" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th scope="col">Item da nota</th>
+                      <th scope="col">Produto no Chronos</th>
+                      <th scope="col">Qtd.</th>
+                      <th scope="col" className="nfe-num">
+                        Hoje → Fica
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nota.itens.map((item, index) => {
+                      const row = rows[item.item];
+                      const badge = CONFIANCA_LABEL[item.confianca];
+                      const stock = stockOf(row);
+                      const short = tipo === "SAIDA" && stock !== null && stock < (row?.quantidade ?? 0);
+                      const after = stockAfter(stock, row?.quantidade ?? 0, tipo);
+                      const reveal = revealFor(motionLevel, index, { step: 0.08, maxSteps: 10 });
+                      const rowProps = {
+                        className: "nfe-item-row",
+                        "data-ignored": row?.ignorar || undefined,
+                        "data-short": short || undefined,
+                      };
+                      const cells = (
+                        <>
+                          <td>
+                            <Text size="sm" style={{ wordBreak: "break-word" }}>
+                              {item.descricao}
+                            </Text>
+                            <Text size="xs" c="dimmed">
+                              Cód. {item.codigo} · {item.quantidade_nota} {item.unidade}
+                            </Text>
+                          </td>
+                          <td>
+                            <NfeProductPicker
+                              options={row?.options ?? []}
+                              value={row?.produtoId ?? null}
+                              onChange={(v) => updateRow(item.item, { produtoId: v })}
+                              onSearch={(q) => searchProducts(item.item, q)}
+                              stockAt={stockAtLocation}
+                              error={!row?.produtoId && !row?.ignorar}
+                              disabled={row?.ignorar}
+                              ariaLabel={`Produto do item ${item.item}: ${item.descricao}`}
+                            />
+                            <Group gap={8} mt={6} wrap="wrap">
+                              <Checkbox
+                                size="xs"
+                                label="Ignorar (não é estoque, ex.: casco)"
+                                checked={row?.ignorar ?? false}
+                                onChange={(e) => updateRow(item.item, { ignorar: e.currentTarget.checked })}
+                              />
+                              {badge &&
+                                !row?.ignorar &&
+                                row?.produtoId === (item.produto_sugerido ? String(item.produto_sugerido.id) : null) && (
+                                  <Badge size="xs" variant="light" color={badge.color}>
+                                    {badge.label}
+                                  </Badge>
+                                )}
+                            </Group>
+                          </td>
+                          <td>
+                            <NumberInput
+                              size="xs"
+                              min={1}
+                              value={row?.quantidade ?? 1}
+                              disabled={row?.ignorar}
+                              aria-label={`Quantidade do item ${item.item}`}
+                              onChange={(v) => updateRow(item.item, { quantidade: Math.max(1, Number(v) || 1) })}
+                            />
+                          </td>
+                          <td className="nfe-num">
+                            {after === null ? (
+                              <Text size="sm" c="dimmed">
+                                —
+                              </Text>
+                            ) : (
+                              <span
+                                className="nfe-hoje-fica"
+                                data-tone={short ? "short" : tipo === "SAIDA" ? "out" : "in"}
+                                title={`Hoje ${stock}, fica ${after}`}
+                              >
+                                <span className="nfe-hoje num">{stock}</span>
+                                <IconArrowRight size={13} aria-hidden className="nfe-arrow" />
+                                <span className="nfe-fica">
+                                  <AnimatedNumber value={after} />
+                                </span>
+                              </span>
+                            )}
+                          </td>
+                        </>
+                      );
+                      return reveal ? (
+                        <m.tr
+                          key={item.item}
+                          {...rowProps}
+                          initial={reveal.initial}
+                          animate={reveal.animate}
+                          transition={reveal.transition}
+                        >
+                          {cells}
+                        </m.tr>
+                      ) : (
+                        <tr key={item.item} {...rowProps}>
+                          {cells}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Stack>
+          </section>
+        )}
+
+        {nota && (
+          <section className="nfe-section" data-active={step === 2 || undefined} aria-labelledby="nfe-step-3">
+            <h3 className="nfe-section-title" id="nfe-step-3">
+              <span className="nfe-section-number" aria-hidden>
+                3
+              </span>
+              Confirmar
+            </h3>
+            <Stack gap="sm">
+              <Group grow align="flex-start">
+                <Select
+                  label="Natureza"
+                  description="Nota da matriz ou de outra filial é transferência externa."
+                  data={[
+                    {
+                      value: "OPERACAO_NORMAL",
+                      label: tipo === "SAIDA" ? "Operação normal (venda)" : "Operação normal (fábrica / fornecedor)",
+                    },
+                    { value: "TRANSFERENCIA_EXTERNA", label: "Transferência externa (matriz / filial)" },
+                    { value: "AJUSTE", label: "Ajuste" },
+                  ]}
+                  value={natureza}
+                  onChange={(v) => v && setNatureza(v as NfeNatureza)}
+                  allowDeselect={false}
+                />
+                {natureza === "TRANSFERENCIA_EXTERNA" && (
+                  <TextInput
+                    label="Local externo"
+                    description={tipo === "SAIDA" ? "Para onde vai." : "De onde vem."}
+                    value={localExterno}
+                    onChange={(e) => setLocalExterno(e.currentTarget.value)}
+                    maxLength={120}
+                  />
+                )}
+                {natureza === "AJUSTE" && (
+                  <Select
+                    label="Motivo do ajuste"
+                    description="Obrigatório para ajuste."
+                    data={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
+                    value={motivoAjuste}
+                    onChange={setMotivoAjuste}
+                    allowDeselect={false}
+                  />
+                )}
+              </Group>
+              <TextInput
+                label="Observação"
+                value={observacao}
+                onChange={(e) => setObservacao(e.currentTarget.value)}
+                maxLength={200}
+              />
+
+              {problems.length > 0 && (
+                <Alert color="warning" icon={<IconAlertTriangle size={16} />} title="Antes de lançar">
+                  <Stack gap={2}>
+                    {problems.map((p) => (
+                      <Text size="sm" key={p}>
+                        {p}
+                      </Text>
+                    ))}
+                  </Stack>
+                </Alert>
+              )}
+
+              <Group justify="flex-end">
+                <Button variant="default" onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button
+                  color={tipo === "SAIDA" ? "danger" : "success"}
+                  disabled={problems.length > 0}
+                  loading={saving}
+                  leftSection={<IconCheck size={16} />}
+                  onClick={() => void confirm()}
+                >
+                  {tipo === "SAIDA" ? "Dar saída" : "Dar entrada"} da NF {nota.numero}
+                </Button>
+              </Group>
+            </Stack>
+          </section>
         )}
       </Stack>
     </Modal>

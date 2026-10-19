@@ -9,9 +9,7 @@ import {
   ActionIcon,
   Button,
   ScrollArea,
-  Badge,
   Alert,
-  Loader,
   Box,
   Title,
   Tabs,
@@ -24,27 +22,23 @@ import {
   IconTrash,
   IconSettings,
   IconAlertCircle,
-  IconInfoCircle,
-  IconSearch,
   IconMessageChatbot,
   IconShieldLock,
   IconCamera,
   IconX,
-  IconCheck,
-  IconCopy,
 } from "@tabler/icons-react";
-import { useClipboard } from "@mantine/hooks";
-import AssistantProductCard from "../components/assistant/AssistantProductCard";
-import { useProductsVisual } from "../hooks/useProductsVisual";
 import { useNavigate } from "react-router-dom";
 import {
   sendAssistantMessage,
   sendAssistantPhotoMessage,
   AssistantApiError,
 } from "../lib/assistantApi";
-import { formatWhatsAppText } from "../lib/assistantFormat";
 import AssistantAdminPanel from "../components/assistant/AssistantAdminPanel";
 import SuggestProposalButton from "../components/assistant/SuggestProposalButton";
+import AssistantAnswer from "../components/assistant/AssistantAnswer";
+import ThinkingIndicator from "../components/assistant/ThinkingIndicator";
+import Reveal from "../components/ui/Reveal";
+import "../components/assistant/assistantChat.css";
 import type { AssistantMessage, AssistantProduct, AssistantResponseMode } from "../types/assistant";
 
 type ChatMessage = AssistantMessage & {
@@ -56,39 +50,7 @@ type ChatMessage = AssistantMessage & {
   ensinar?: { codigo_a: string; codigo_b: string; pesquisar?: boolean } | null;
 };
 
-const TEACH_OPTIONS = [
-  { word: "igual", label: "Igual" },
-  { word: "similar", label: "Similar" },
-  { word: "diferente", label: "Diferente" },
-];
-
 const SETTINGS_PATH = "/configuracoes#assistant-settings";
-
-function AssistantProducts({ products }: { products: AssistantProduct[] }) {
-  const visual = useProductsVisual(products.map((p) => p.id));
-  return (
-    <Box mt="xs">
-      {products.map((prod) => (
-        <AssistantProductCard key={prod.id} product={prod} visual={visual.get(prod.id)} />
-      ))}
-    </Box>
-  );
-}
-
-function CopyAnswerButton({ text }: { text: string }) {
-  const clipboard = useClipboard({ timeout: 1600 });
-  return (
-    <Button
-      size="compact-xs"
-      variant="subtle"
-      color={clipboard.copied ? "success" : "gray"}
-      leftSection={clipboard.copied ? <IconCheck size={12} /> : <IconCopy size={12} />}
-      onClick={() => clipboard.copy(text)}
-    >
-      {clipboard.copied ? "Copiado" : "Copiar resposta"}
-    </Button>
-  );
-}
 
 export default function AssistantPage() {
   const [activeTab, setActiveTab] = useState<string>("chat");
@@ -292,7 +254,7 @@ export default function AssistantPage() {
             </Alert>
           )}
 
-          <Paper withBorder p="md" radius="md" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <Paper withBorder p="md" radius="md" className="chat-surface" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <ScrollArea viewportRef={scrollRef} style={{ flex: 1, paddingRight: "10px" }} offsetScrollbars>
               <Stack gap="md" pb="sm">
                 {messages.length === 0 ? (
@@ -309,16 +271,26 @@ export default function AssistantPage() {
                 ) : (
                   messages.map((msg, idx) => {
                     const isUser = msg.papel === "usuario";
+                    if (!isUser) {
+                      return (
+                        <div key={idx} className="chat-row" data-from="assistente">
+                          <span className="chat-avatar" aria-hidden>
+                            <IconMessageChatbot size={16} />
+                          </span>
+                          <AssistantAnswer
+                            message={msg}
+                            isLast={idx === messages.length - 1}
+                            busy={mutation.isPending}
+                            onTeach={handleTeach}
+                            onOpenSettings={() => navigate(SETTINGS_PATH)}
+                          />
+                        </div>
+                      );
+                    }
                     return (
-                      <Box key={idx} style={{ alignSelf: isUser ? "flex-end" : "flex-start", maxWidth: "80%" }}>
-                        <Paper
-                          p="sm"
-                          radius="md"
-                          withBorder
-                          bg={isUser ? "info.6" : "var(--mantine-color-default-hover)"}
-                          c={isUser ? "white" : undefined}
-                        >
-                          {isUser && msg.fotoUrl && (
+                      <Reveal key={idx} index={0} className="chat-row" style={{ justifyContent: "flex-end" }}>
+                        <div className="chat-bubble-user">
+                          {msg.fotoUrl && (
                             <Box mb={msg.texto ? "xs" : 0}>
                               <Image
                                 src={msg.fotoUrl}
@@ -330,102 +302,19 @@ export default function AssistantPage() {
                               />
                             </Box>
                           )}
-                          {!isUser && msg.leitura_foto && (
-                            <Group gap={6} mb={6}>
-                              <IconCamera size={13} style={{ opacity: 0.7 }} />
-                              <Text size="xs" c="dimmed" fw={500}>
-                                {msg.leitura_foto}
-                              </Text>
-                            </Group>
-                          )}
                           {msg.texto ? (
                             <Text size="sm" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                              {formatWhatsAppText(msg.texto)}
+                              {msg.texto}
                             </Text>
                           ) : null}
-                        </Paper>
-                        {!isUser && msg.ensinar && idx === messages.length - 1 && (
-                          <Group gap={6} mt={6}>
-                            {TEACH_OPTIONS.map((option) => (
-                              <Button
-                                key={option.word}
-                                size="compact-xs"
-                                variant="light"
-                                disabled={mutation.isPending}
-                                onClick={() => handleTeach(option.word)}
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
-                            {msg.ensinar.pesquisar && (
-                              <Button
-                                size="compact-xs"
-                                variant="subtle"
-                                leftSection={<IconSearch size={12} />}
-                                disabled={mutation.isPending}
-                                onClick={() => handleTeach("pesquisar")}
-                              >
-                                Pesquisar na internet
-                              </Button>
-                            )}
-                          </Group>
-                        )}
-                        {!isUser && msg.aviso && (
-                          <Stack gap={6} mt={6}>
-                            <Group gap={6}>
-                              <Badge
-                                size="xs"
-                                variant="light"
-                                color="gray"
-                                leftSection={<IconSearch size={10} />}
-                                title="Esta resposta veio da busca direta no estoque, sem IA."
-                              >
-                                Busca direta (sem IA)
-                              </Badge>
-                            </Group>
-                            <Alert
-                              variant="light"
-                              color="info"
-                              p="xs"
-                              radius="md"
-                              icon={<IconInfoCircle size={16} />}
-                            >
-                              <Group justify="space-between" gap="xs" wrap="nowrap">
-                                <Text size="xs">{msg.aviso}</Text>
-                                <Button
-                                  size="compact-xs"
-                                  variant="subtle"
-                                  leftSection={<IconSettings size={12} />}
-                                  onClick={() => navigate(SETTINGS_PATH)}
-                                >
-                                  Configurações
-                                </Button>
-                              </Group>
-                            </Alert>
-                          </Stack>
-                        )}
-                        {!isUser && msg.texto ? (
-                          <Group gap={4} mt={4}>
-                            <CopyAnswerButton text={msg.texto} />
-                          </Group>
-                        ) : null}
-                        {!isUser && msg.produtos && msg.produtos.length > 0 && (
-                          <AssistantProducts products={msg.produtos} />
-                        )}
-                      </Box>
+                        </div>
+                      </Reveal>
                     );
                   })
                 )}
 
                 {mutation.isPending && (
-                  <Box style={{ alignSelf: "flex-start", maxWidth: "80%" }}>
-                    <Group gap="xs" p="sm">
-                      <Loader size="sm" type="dots" />
-                      <Text size="sm" c="dimmed">
-                        {mutation.variables?.photo ? "Lendo a foto…" : "Assistente digitando..."}
-                      </Text>
-                    </Group>
-                  </Box>
+                  <ThinkingIndicator label={mutation.variables?.photo ? "Lendo a foto…" : "Pensando…"} />
                 )}
               </Stack>
             </ScrollArea>

@@ -422,6 +422,35 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-19 — Claude Code — 2.6.3, NF-e, Assistente e leitura de código (Vidro suave)
+- Branch: `claude/nf-assistente` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e regras
+  do backend sem mudar). Arquivos compartilhados (`global.css`, `theme.ts`, `AppLayout.tsx`) intactos:
+  os estilos novos ficam em `components/scanner/scanner.css` e `components/assistant/assistantChat.css`.
+- **Lançar nota fiscal** (`NfeMovementModal.tsx`): etapas ler a chave → conferir itens → confirmar,
+  com indicador (`NfeStepper.tsx`, lógica em `lib/nfeSteps.ts`) e um bloco por etapa (o da etapa
+  atual com a borda da cor principal). Itens entram um a um; "Hoje → Fica" numa coluna, com o
+  "Fica" rolando até o valor (`AnimatedNumber`/NumberFlow). Produto escolhido num seletor novo
+  (`NfeProductPicker.tsx`, Combobox com a busca dentro da lista) que quebra o nome em duas linhas;
+  a coluna do produto é a mais larga (janela de 1040 px). Natureza, local externo, motivo do ajuste,
+  observação e "Ignorar (casco)" continuam iguais (o item ignorado fica riscado, não apagado).
+  Cabeçalho da janela opaco (o título se sobrepunha ao conteúdo rolando).
+- **Assistente** (`AssistantPage.tsx`, `AssistantAnswer.tsx`, `ThinkingIndicator.tsx`, lógica em
+  `lib/assistantAnswer.ts`): balões (pergunta à direita na cor principal; resposta num cartão à
+  esquerda), cada código de peça como etiqueta com borda (Garrett com hífen e códigos só de números;
+  não pega GT4594, anos ou quantidades), linhas da resposta, botões e cartões de produto entrando em
+  sequência (150 ms cada, `components/ui/Reveal.tsx` + `lib/reveal.ts`), três pontos "Pensando…".
+  Igual/Similar/Diferente, Pesquisar na internet, Configurações e Copiar resposta mantidos. O mock
+  (`VITE_ASSISTENTE_MOCK=1`) ganhou o caso "A é igual a B?" com os botões de ensinar.
+- **Leitura de código**: na Movimentação em lote, o item lido ganha uma moldura verde que pulsa e a
+  lista rola até ele; chave "Bipe ao ler" (desligada por padrão, lembrada na máquina,
+  `lib/scanFeedback.ts`); anúncio para leitor de tela. Página do celular
+  (`backend/app/api/routers/scanner.py`, só HTML/CSS/JS da página) no visual escuro, botão "Bipe"
+  (desligado por padrão, lembrado no celular) e moldura verde no último lido.
+- Animações: Completo = desloca e pulsa; Suave = só esmaece; Nenhum = nada (a moldura fica parada
+  1,6 s). Contraste conferido (>= 4,5:1) no claro e no escuro, nas três cores principais.
+- Verificações: build, lint (0 erros), vitest 58 (18 novos em `lib/nfAssistenteScan.test.ts`),
+  pytest 262, ruff. Telas em `/mnt/project-files/visual/2.6.3/` (banco de teste + mock).
+
 ### 2026-10-19 — Claude Code — 2.6.2: Produtos, ficha, Movimentar e Movimentações
 - Branch: `claude/produtos-movimentacoes` (a partir da `main` 2.6.0; versão, CHANGELOG e Python
   sem mudar). Só telas.
