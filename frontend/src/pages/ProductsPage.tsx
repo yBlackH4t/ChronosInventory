@@ -3,10 +3,10 @@ import {
   ActionIcon,
   Badge,
   Button,
+  Chip,
   Group,
   Kbd,
   Popover,
-  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -42,6 +42,10 @@ import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
 import { MAX_PRODUCT_IMAGES, useProductImages } from "../hooks/useProductImages";
 import { useScanner } from "../lib/useScanner";
+import { useMotionLevel } from "../lib/motionContext";
+import { applyMovementToProduct, flashKindFor } from "../lib/productView";
+import { captureFlight, clearFlight } from "../lib/sharedFlight";
+import type { StockFlash } from "../components/products/StockNumber";
 import {
   adjustmentReasonLabel,
   movementColor,
@@ -51,6 +55,7 @@ import {
 } from "../lib/productMovement";
 import { useProfileScope } from "../state/profileScope";
 import type {
+  MovementCreate,
   MovementOut,
   Product,
   ProductCreate,
@@ -82,12 +87,24 @@ const SORT_OPTIONS = [
 
 const PRODUCTS_TAB_ID = "products";
 
+type StockFilter = "TODOS" | "COM_ESTOQUE" | "ZERADOS";
+
+const STOCK_FILTERS: { value: StockFilter; label: string }[] = [
+  { value: "TODOS", label: "Todos" },
+  { value: "COM_ESTOQUE", label: "Com estoque" },
+  { value: "ZERADOS", label: "Zerados" },
+];
+
+function isStockFilter(value: unknown): value is StockFilter {
+  return STOCK_FILTERS.some((item) => item.value === value);
+}
+
 type ProductsTabState = {
   query: string;
   page: number;
   pageSize: string;
   sort: string;
-  stockFilter?: "TODOS" | "COM_ESTOQUE";
+  stockFilter?: StockFilter;
   selectedId: number | null;
   drawerOpened: boolean;
   historyPage: number;
@@ -127,8 +144,8 @@ export default function ProductsPage() {
   );
   const [sort, setSort] = useState(persistedState.sort);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
-  const [stockFilter, setStockFilter] = useState<"TODOS" | "COM_ESTOQUE">(
-    persistedState.stockFilter ?? "TODOS",
+  const [stockFilter, setStockFilter] = useState<StockFilter>(
+    isStockFilter(persistedState.stockFilter) ? persistedState.stockFilter : "TODOS",
   );
 
   const [linkModalOpened, { open: openLinkModal, close: closeLinkModal }] = useDisclosure(false);
@@ -142,6 +159,44 @@ export default function ProductsPage() {
   const [hoveredProduct, setHoveredProduct] = useState<Product | null>(null);
   const [quickMoveProduct, setQuickMoveProduct] = useState<Product | null>(null);
   const [quickMoveOpened, setQuickMoveOpened] = useState(false);
+
+  const motionLevel = useMotionLevel();
+  const [stockFlash, setStockFlash] = useState<StockFlash | null>(null);
+  const flashTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
+  // Depois de movimentar: o saldo da linha pisca na cor do movimento e rola até o novo valor.
+  // A lista em cache já recebe o saldo novo (a API confirma em seguida, ao recarregar).
+  const handleMoved = (product: Product, movement: MovementCreate) => {
+    if (motionLevel !== "nenhum") {
+      setStockFlash({
+        productId: product.id,
+        kind: flashKindFor(movement.tipo),
+        from: product.total_stock,
+        nonce: Date.now(),
+      });
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+      flashTimer.current = window.setTimeout(() => setStockFlash(null), 1900);
+    }
+    queryClient.setQueriesData<SuccessResponse<Product[]>>(
+      { queryKey: ["produtos", profileScopeKey] },
+      (old) =>
+        old?.data
+          ? {
+              ...old,
+              data: old.data.map((item) =>
+                item.id === product.id ? applyMovementToProduct(item, movement) : item,
+              ),
+            }
+          : old,
+    );
+    queryClient.invalidateQueries({ queryKey: ["analytics", profileScopeKey, "stock-summary"] });
+  };
 
   const handleOpenQuickMove = (product: Product) => {
     setQuickMoveProduct(product);
@@ -173,7 +228,8 @@ export default function ProductsPage() {
           page,
           page_size: Number(pageSize),
           sort,
-          has_stock: stockFilter === "COM_ESTOQUE" ? true : undefined,
+          has_stock:
+            stockFilter === "COM_ESTOQUE" ? true : stockFilter === "ZERADOS" ? false : undefined,
         },
         { signal },
       ),
@@ -397,7 +453,10 @@ export default function ProductsPage() {
     null,
   );
 
-  const openDetails = (product: Product) => {
+  const openDetails = (product: Product, row?: HTMLElement | null) => {
+    // A foto e o código saem da linha e pousam na ficha (só no nível Completo).
+    if (row && !drawerOpened) captureFlight(row, product.id);
+    else clearFlight();
     setSelectedId(product.id);
     setSelectedSnapshot(product);
     setDrawerOpened(true);
@@ -760,18 +819,23 @@ export default function ProductsPage() {
             }}
             style={{ flex: 1, minWidth: 260 }}
           />
-          <SegmentedControl
-            size="sm"
+          <Chip.Group
+            multiple={false}
             value={stockFilter}
             onChange={(val) => {
-              setStockFilter(val as "TODOS" | "COM_ESTOQUE");
+              if (!isStockFilter(val)) return;
+              setStockFilter(val);
               setPage(1);
             }}
-            data={[
-              { label: "Todos", value: "TODOS" },
-              { label: "Com estoque", value: "COM_ESTOQUE" },
-            ]}
-          />
+          >
+            <Group gap={6} role="group" aria-label="Filtrar por estoque">
+              {STOCK_FILTERS.map((item) => (
+                <Chip key={item.value} value={item.value} size="sm" variant="light">
+                  {item.label}
+                </Chip>
+              ))}
+            </Group>
+          </Chip.Group>
           <Popover position="bottom-end" width={260}>
             <Popover.Target>
               <Button
@@ -844,6 +908,7 @@ export default function ProductsPage() {
         loading={productsQuery.isLoading}
         errorMessage={productsErrorMessage}
         query={query}
+        flash={stockFlash}
         onRetry={() => void productsQuery.refetch()}
         onClearSearch={() => {
           setQuery("");
@@ -956,8 +1021,8 @@ export default function ProductsPage() {
         }}
         product={quickMoveProduct}
         locations={locations}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+        onSuccess={(movement) => {
+          if (quickMoveProduct) handleMoved(quickMoveProduct, movement);
         }}
       />
     </Stack>

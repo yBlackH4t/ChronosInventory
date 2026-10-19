@@ -34,21 +34,25 @@ import {
   type ProductMovementNature,
   type ProductMovementType,
 } from "../../lib/productMovement";
+import { detectBrand } from "../../lib/brands";
+import { splitProductCode } from "../../lib/productView";
 import { useProfileScope } from "../../state/profileScope";
+import "../../styles/products-movements.css";
 
 type QuickMovementModalProps = {
   opened: boolean;
   onClose: () => void;
   product: Product | null;
   locations: InventoryLocation[];
-  onSuccess?: () => void;
+  /** Chamado com o que foi lançado (a lista usa para piscar e rolar o saldo). */
+  onSuccess?: (movement: MovementCreate) => void;
 };
 
 type QuickMovementFormProps = {
   product: Product;
   locations: InventoryLocation[];
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (movement: MovementCreate) => void;
 };
 
 function computeInitialLocations(
@@ -102,6 +106,11 @@ function QuickMovementForm({
   const [documento, setDocumento] = useState<string>("");
   const [observacao, setObservacao] = useState<string>("");
 
+  const nameParts = useMemo(
+    () => splitProductCode(product.nome, detectBrand(product.nome)),
+    [product.nome],
+  );
+
   const natureOptions = useMemo(
     () => movementNatureOptionsByType(tipo),
     [tipo],
@@ -116,7 +125,7 @@ function QuickMovementForm({
 
   const mutation = useMutation({
     mutationFn: (payload: MovementCreate) => api.createMovement(payload),
-    onSuccess: () => {
+    onSuccess: (_data, payload) => {
       notifySuccess(
         `${
           tipo === "SAIDA"
@@ -138,7 +147,7 @@ function QuickMovementForm({
       queryClient.invalidateQueries({
         queryKey: ["movimentacoes", profileScopeKey],
       });
-      onSuccess?.();
+      onSuccess?.(payload);
       onClose();
     },
     onError: (err) => {
@@ -228,9 +237,12 @@ function QuickMovementForm({
         {/* Card com dados do item e saldos */}
         <Paper p="sm" radius="md" withBorder bg="var(--mantine-color-default-hover)">
           <Stack gap={4}>
-            <Text fw={650} size="sm" lineClamp={2}>
-              {product.nome}
-            </Text>
+            <Group gap={8} wrap="nowrap" miw={0}>
+              {nameParts.code && <span className="pm-code">{nameParts.code}</span>}
+              <Text fw={nameParts.code ? 500 : 650} size="sm" lineClamp={2} title={product.nome}>
+                {nameParts.code ? nameParts.rest : product.nome}
+              </Text>
+            </Group>
             <Group gap="xs" mt={4} wrap="wrap">
               <Text size="xs" c="dimmed">
                 Saldos atuais:
