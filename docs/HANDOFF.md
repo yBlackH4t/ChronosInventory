@@ -1100,3 +1100,7 @@ npm run lint
 - Verificações: pytest ok / build ok / lint ok
 - Pendências ou observações para o outro agente: ...
 -->
+
+### 2026-10-19 — Claude Code — 2.6.2, correção da publicação
+- A tag v2.6.1 falhou no `build_backend.ps1`: o autodiagnóstico do executável (`app/services/assistant_packaging_check.py`) usava o Host padrão `testserver` do TestClient, que a trava de Host da 2.5.5 recusa fora de `APP_ENV=test`. Agora usa `base_url="http://127.0.0.1"`. Teste novo em `backend/tests/test_packaging_check.py` roda o autodiagnóstico sem `APP_ENV`.
+- A v2.6.1 nunca foi publicada; a 2.6.2 leva tudo (2.5.5, 2.6.0 e 2.6.1). Não recriar a tag v2.6.1.
