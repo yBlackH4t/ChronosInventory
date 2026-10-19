@@ -43,10 +43,10 @@ export function buildInventorySheetHtml(
 ): string {
   const generatedAt = input.generatedAt ?? new Date();
   const sessionName = escapeHtml(
-    (input.sessionName || "").trim() || "Sessao manual",
+    (input.sessionName || "").trim() || "Sessão manual",
   );
   const local = escapeHtml(
-    (input.local || "").trim() || "Local nao especificado",
+    (input.local || "").trim() || "Local não especificado",
   );
   const totalRows = Number.isFinite(input.totalRows)
     ? Math.max(20, Number(input.totalRows))
@@ -56,7 +56,7 @@ export function buildInventorySheetHtml(
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>Folha de Inventario</title>
+    <title>Folha de Inventário</title>
     <style>
       :root {
         color-scheme: only light;
@@ -167,13 +167,13 @@ export function buildInventorySheetHtml(
   <body>
     <main class="page">
       <section class="header">
-        <p class="brand">Chronos Inventory - Folha de Inventario</p>
-        <p class="subtitle">Preencha no papel e depois transcreva para a sessao no sistema.</p>
+        <p class="brand">Chronos Inventory - Folha de Inventário</p>
+        <p class="subtitle">Preencha no papel e depois transcreva para a sessão no sistema.</p>
         <div class="meta">
-          <div><strong>Sessao:</strong> ${sessionName}</div>
+          <div><strong>Sessão:</strong> ${sessionName}</div>
           <div><strong>Local:</strong> ${local}</div>
           <div><strong>Gerado em:</strong> ${formatDateTime(generatedAt)}</div>
-          <div><strong>Responsavel:</strong> _______________________</div>
+          <div><strong>Responsável:</strong> _______________________</div>
         </div>
       </section>
 
@@ -185,7 +185,7 @@ export function buildInventorySheetHtml(
       <table>
         <thead>
           <tr>
-            <th class="col-code">Codigo</th>
+            <th class="col-code">Código</th>
             <th class="col-tally">Palitinhos</th>
             <th class="col-qty">Qtd final</th>
           </tr>

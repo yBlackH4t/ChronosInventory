@@ -6,7 +6,7 @@ import { api } from "../lib/apiClient";
 import PageHeader from "../components/ui/PageHeader";
 import { ApiError, type DownloadResponse } from "../lib/api";
 import { downloadBlob } from "../lib/download";
-import { notifyError, notifySuccess } from "../lib/notify";
+import { OUTDATED_APP_MESSAGE, notifyError, notifySuccess } from "../lib/notify";
 
 export default function ExportPage() {
   const exportMutation = useMutation<DownloadResponse, Error, void>({
@@ -14,7 +14,7 @@ export default function ExportPage() {
     onSuccess: (res) => {
       const filename = res.filename || "export.xlsx";
       downloadBlob(res.blob, filename);
-      notifySuccess("Exportacao concluida");
+      notifySuccess("Exportação concluída");
     },
     onError: (error) => notifyError(error),
   });
@@ -30,9 +30,9 @@ export default function ExportPage() {
       if (error instanceof ApiError && error.status === 404) {
         notifyError(
           new Error(
-            "O backend local ainda nao conhece esta exportacao. Atualize/recompile o backend do app e tente novamente.",
+            OUTDATED_APP_MESSAGE,
           ),
-          "Backend local desatualizado.",
+          "Chronos desatualizado",
         );
         return;
       }

@@ -42,6 +42,11 @@ describe("dashboardMath", () => {
     expect(stockBackward(1, [{ date: "a", entradas: 9, saidas: 0 }, { date: "b", entradas: 0, saidas: 0 }])).toEqual([1, 1]);
   });
 
+  it("counts the initial stock of a new product when walking the stock back", () => {
+    const days = fillDays([{ period: "2026-10-02", entradas: 0, saidas: 1, estoque_inicial: 4 }], "2026-10-01", "2026-10-02");
+    expect(stockBackward(13, days)).toEqual([10, 13]);
+  });
+
   it("builds a 7-day week with the balance carried and stopped at today", () => {
     const series = buildBalanceSeries(
       [{ period: "2026-10-13", entradas: 4, saidas: 1 }],

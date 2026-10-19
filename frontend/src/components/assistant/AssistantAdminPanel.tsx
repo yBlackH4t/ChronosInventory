@@ -44,6 +44,8 @@ import AdminReviewTab from "./AdminReviewTab";
 import AdminKnowledgeTab from "./AdminKnowledgeTab";
 import AdminHistoryTab from "./AdminHistoryTab";
 import AdminWhatsAppTab from "./AdminWhatsAppTab";
+import WhatsAppPinButton from "./WhatsAppPinButton";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 export default function AssistantAdminPanel() {
   const queryClient = useQueryClient();
@@ -90,7 +92,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Login efetuado",
         message: "Área de administrador do assistente liberada.",
-        color: "green",
+        color: "success",
       });
       setSenhaInput("");
       clearAdminNotice();
@@ -100,7 +102,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Falha no login",
         message: err.message || "Senha incorreta ou acesso não permitido.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -111,7 +113,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Sessão encerrada",
         message: "Você saiu da área de administrador.",
-        color: "blue",
+        color: "info",
       });
       queryClient.invalidateQueries({ queryKey: ["assistant-admin-status"] });
     },
@@ -124,7 +126,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha criada",
         message: "Senha de admin configurada. Faça login para continuar.",
-        color: "green",
+        color: "success",
       });
       setSenhaNovaInput("");
       setSenhaNovaConfirm("");
@@ -134,7 +136,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Erro ao criar senha",
         message: err.message || "Não foi possível registrar a senha.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -146,7 +148,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha alterada",
         message: "A senha foi alterada com sucesso. Faça login novamente.",
-        color: "green",
+        color: "success",
       });
       setModalTrocarSenha(false);
       setTrocaSenhaAtual("");
@@ -158,7 +160,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Erro ao trocar senha",
         message: err.message || "Não foi possível alterar a senha.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -175,7 +177,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha muito curta",
         message: "A senha de admin precisa ter no mínimo 6 caracteres.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -183,7 +185,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senhas não conferem",
         message: "A confirmação de senha não confere.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -196,7 +198,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha atual obrigatória",
         message: "Informe a senha atual de admin.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -204,7 +206,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senha muito curta",
         message: "A nova senha precisa ter no mínimo 6 caracteres.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -212,7 +214,7 @@ export default function AssistantAdminPanel() {
       notifications.show({
         title: "Senhas não conferem",
         message: "A confirmação da nova senha não confere.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -240,15 +242,15 @@ export default function AssistantAdminPanel() {
       <Alert
         icon={<IconAlertCircle size={16} />}
         title="Erro ao verificar status do admin"
-        color="red"
+        color="danger"
       >
         <Group justify="space-between">
           <Text size="sm">
             {statusError instanceof Error
               ? statusError.message
-              : "Erro ao se comunicar com o backend."}
+              : ASSISTANT_UNREACHABLE_MESSAGE}
           </Text>
-          <Button size="xs" variant="outline" color="red" onClick={() => refetchStatus()}>
+          <Button size="xs" variant="outline" color="danger" onClick={() => refetchStatus()}>
             Tentar novamente
           </Button>
         </Group>
@@ -260,7 +262,7 @@ export default function AssistantAdminPanel() {
       <Card withBorder p="lg" radius="md" maw={480} mx="auto" shadow="sm">
         <Stack gap="md">
           <Group gap="xs">
-            <IconShieldLock size={28} color="var(--mantine-color-blue-6)" />
+            <IconShieldLock size={28} color="var(--mantine-color-info-6)" />
             <div>
               <Title order={4}>Criar Senha de Administrador</Title>
               <Text size="xs" c="dimmed">
@@ -291,10 +293,9 @@ export default function AssistantAdminPanel() {
                 type="submit"
                 fullWidth
                 mt="xs"
-                color="blue"
                 loading={criarSenhaMutation.isPending}
               >
-                Criar Senha e Continuar
+                Criar senha e continuar
               </Button>
             </Stack>
           </form>
@@ -306,7 +307,7 @@ export default function AssistantAdminPanel() {
       <Card withBorder p="lg" radius="md" maw={440} mx="auto" shadow="sm">
         <Stack gap="md">
           <Group gap="xs">
-            <IconLock size={26} color="var(--mantine-color-blue-6)" />
+            <IconLock size={26} color="var(--mantine-color-info-6)" />
             <div>
               <Title order={4}>Área do Administrador</Title>
               <Text size="xs" c="dimmed">
@@ -318,7 +319,7 @@ export default function AssistantAdminPanel() {
           {session.notice && (
             <Alert
               icon={<IconAlertCircle size={16} />}
-              color="orange"
+              color="warning"
               variant="light"
               withCloseButton
               onClose={() => clearAdminNotice()}
@@ -341,7 +342,6 @@ export default function AssistantAdminPanel() {
                 type="submit"
                 fullWidth
                 mt="xs"
-                color="blue"
                 leftSection={<IconKey size={16} />}
                 loading={loginMutation.isPending}
               >
@@ -359,12 +359,12 @@ export default function AssistantAdminPanel() {
       <Stack gap="md">
         <Alert
           icon={<IconInfoCircle size={18} />}
-          title="Máquina não publicadora"
-          color="orange"
+          title="Este não é o computador principal"
+          color="warning"
           variant="light"
         >
-          Para ensinar o assistente, esta máquina precisa ser a publicadora da
-          base oficial (Backup &gt; Base oficial &gt; Papel desta máquina: Publica a base).
+          Para ensinar o assistente, use o computador principal (Backup &gt; Base
+          oficial &gt; Papel desta máquina: Computador principal).
           Nesta máquina, a base de conhecimento fica disponível apenas para consulta.
         </Alert>
 
@@ -374,8 +374,8 @@ export default function AssistantAdminPanel() {
             Robô do WhatsApp (PC reserva)
           </Title>
           <Text size="sm" c="dimmed" mb="md">
-            Conecte o WhatsApp da empresa também neste PC. Ele só responde quando o PC principal (o que
-            publica a base) estiver desligado, por exemplo nas férias. A senha abaixo é deste PC.
+            Conecte o WhatsApp da empresa também neste PC. Ele só responde quando o computador principal
+            estiver desligado, por exemplo nas férias. A senha abaixo é deste PC.
           </Text>
           {!status?.senha_definida ? createPasswordCard : !session.token ? loginCard : <AdminWhatsAppTab />}
         </Card>
@@ -409,15 +409,16 @@ export default function AssistantAdminPanel() {
       <Paper withBorder p="xs" radius="md" bg="var(--mantine-color-default-hover)">
         <Group justify="space-between" wrap="wrap">
           <Group gap="xs">
-            <Badge color="green" variant="light" leftSection={<IconShieldLock size={12} />}>
+            <Badge color="success" variant="light" leftSection={<IconShieldLock size={12} />}>
               Admin Autenticado
             </Badge>
-            <Badge color="blue" variant="outline">
-              Máquina Publicadora
+            <Badge color="info" variant="outline">
+              Computador principal
             </Badge>
           </Group>
 
           <Group gap="xs">
+            <WhatsAppPinButton pinDefinido={!!status.pin_whatsapp_definido} />
             <Button
               size="xs"
               variant="default"
@@ -429,7 +430,7 @@ export default function AssistantAdminPanel() {
             <Button
               size="xs"
               variant="light"
-              color="red"
+              color="danger"
               leftSection={<IconLogout size={14} />}
               onClick={() => logoutMutation.mutate()}
               loading={logoutMutation.isPending}
@@ -448,7 +449,7 @@ export default function AssistantAdminPanel() {
             leftSection={<IconListCheck size={16} />}
             rightSection={
               pendingCount > 0 ? (
-                <Badge size="xs" color="orange" circle>
+                <Badge size="xs" color="warning" circle>
                   {pendingCount}
                 </Badge>
               ) : undefined
@@ -521,7 +522,6 @@ export default function AssistantAdminPanel() {
                 Cancelar
               </Button>
               <Button
-                color="blue"
                 type="submit"
                 loading={trocarSenhaMutation.isPending}
               >

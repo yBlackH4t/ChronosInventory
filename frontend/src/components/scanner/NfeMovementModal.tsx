@@ -39,9 +39,9 @@ type NfeMovementModalProps = {
 };
 
 const CONFIANCA_LABEL: Record<NfeItemPreview["confianca"], { label: string; color: string } | null> = {
-  aprendido: { label: "já usado antes", color: "teal" },
-  codigo: { label: "pelo código", color: "blue" },
-  duvida: { label: "confira", color: "orange" },
+  aprendido: { label: "já usado antes", color: "success" },
+  codigo: { label: "pelo código", color: "info" },
+  duvida: { label: "confira", color: "warning" },
   nenhum: null,
 };
 
@@ -243,7 +243,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   const locationOptions = activeLocations.map((loc) => ({ value: String(loc.id), label: loc.label || loc.name }));
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Baixa por nota fiscal (NF-e)" size="xl">
+    <Modal opened={opened} onClose={onClose} title="Lançar nota fiscal (NF-e)" size="xl">
       <Stack gap="md">
         <Group align="flex-end" gap="xs" wrap="nowrap">
           <TextInput
@@ -277,7 +277,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
         </Collapse>
 
         {loadError && (
-          <Alert color="red" icon={<IconAlertTriangle size={16} />}>
+          <Alert color="danger" icon={<IconAlertTriangle size={16} />}>
             {loadError}
           </Alert>
         )}
@@ -419,12 +419,12 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                         />
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm" c={short ? "red" : undefined} fw={short ? 600 : undefined}>
+                        <Text size="sm" c={short ? "danger" : undefined} fw={short ? 600 : undefined}>
                           {stock ?? "—"}
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Text size="sm" fw={600} c={short ? "red" : tipo === "SAIDA" ? "orange" : "teal"}>
+                        <Text size="sm" fw={600} c={short ? "danger" : tipo === "SAIDA" ? "orange" : "success"}>
                           {after ?? "—"}
                         </Text>
                       </Table.Td>
@@ -435,7 +435,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
             </Table>
 
             {problems.length > 0 && (
-              <Alert color="orange" icon={<IconAlertTriangle size={16} />}>
+              <Alert color="warning" icon={<IconAlertTriangle size={16} />}>
                 <Stack gap={2}>
                   {problems.map((p) => (
                     <Text size="sm" key={p}>
@@ -451,7 +451,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                 Cancelar
               </Button>
               <Button
-                color={tipo === "SAIDA" ? "red" : "green"}
+                color={tipo === "SAIDA" ? "danger" : "success"}
                 disabled={problems.length > 0}
                 loading={saving}
                 onClick={() => void confirm()}

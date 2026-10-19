@@ -31,6 +31,7 @@ from backend.app.schemas.assistant import (
     AdminLoginIn,
     AdminLoginOut,
     AdminPasswordIn,
+    AdminWhatsAppPinIn,
     AdminStatusOut,
     AssistantConfigIn,
     AssistantConfigOut,
@@ -148,6 +149,18 @@ def admin_set_password(
     admin: AssistantAdminService = Depends(get_assistant_admin_service),
 ):
     admin.set_password(payload.senha_nova, payload.senha_atual)
+    return ok(AdminStatusOut(**admin.status(_admin_token(request))))
+
+
+@router.post("/admin/pin-whatsapp", response_model=SuccessResponse[AdminStatusOut])
+def admin_set_whatsapp_pin(
+    payload: AdminWhatsAppPinIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+):
+    """PIN de /aprovar e /recusar pelo WhatsApp (admin logado na publicadora). pin vazio remove."""
+    admin.require(_admin_token(request))
+    admin.set_whatsapp_pin(payload.pin)
     return ok(AdminStatusOut(**admin.status(_admin_token(request))))
 
 

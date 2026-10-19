@@ -4,7 +4,7 @@ import { VERSION_COLORS } from "./semantic";
 // Red is intentionally absent: it is reserved for destructive actions.
 const BRAND_COLORS: Record<string, string> = {
   HOLSET: "blue",
-  BORGWARNER: "orange",
+  BORGWARNER: "pink",
   GARRETT: "yellow",
   "MASTER POWER": "teal",
   MAHLE: "indigo",

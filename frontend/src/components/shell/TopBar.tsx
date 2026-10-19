@@ -125,7 +125,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
     }
 
     modals.open({
-      title: `Novidades da versao ${release.version}`,
+      title: `Novidades da versão ${release.version}`,
       size: "lg",
       children: (
         <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
@@ -146,7 +146,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
 
       const update = await updater.check();
       if (!update) {
-        notifySuccess("Nenhuma atualizacao disponivel.");
+        notifySuccess("Nenhuma atualização disponível.");
         return;
       }
 
@@ -154,7 +154,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
       const notes = getReleaseNotesFromManifest({ body: update.body });
 
       modals.openConfirmModal({
-        title: `Nova versao ${version} disponivel`,
+        title: `Nova versão ${version} disponível`,
         children: (
           <Text
             size="sm"
@@ -174,17 +174,17 @@ export default function TopBar({ health }: { health: HealthOut }) {
           try {
             await api.backupCreatePreUpdate();
             backupCreated = true;
-            notifySuccess("Backup pre-update criado.");
+            notifySuccess("Cópia de segurança criada antes de atualizar.");
           } catch (error) {
             notifyError(
               error,
-              "Falha ao criar backup pre-update. Atualizacao cancelada.",
+              "Não foi possível criar a cópia de segurança antes de atualizar. A atualização foi cancelada.",
             );
             return;
           }
 
           try {
-            notifySuccess("Instalando atualizacao...");
+            notifySuccess("Instalando atualização...");
             // Baixa antes de fechar o backend: se o download falhar, o app continua funcionando.
             await update.download();
             try {
@@ -196,26 +196,26 @@ export default function TopBar({ health }: { health: HealthOut }) {
             await update.install();
             await process.relaunch();
           } catch (error) {
-            notifyError(error, "Falha ao instalar atualizacao.");
+            notifyError(error, "Falha ao instalar atualização.");
             if (backupCreated) {
               modals.openConfirmModal({
-                title: "Restaurar dados pre-update?",
+                title: "Voltar aos dados de antes da atualização?",
                 children: (
                   <Text size="sm">
-                    A instalacao falhou. Deseja restaurar automaticamente o
-                    ultimo backup pre-update?
+                    A instalação falhou. Deseja restaurar automaticamente o
+                    última cópia de segurança feita antes de atualizar?
                   </Text>
                 ),
                 labels: { confirm: "Restaurar", cancel: "Depois" },
-                confirmProps: { color: "orange" },
+                confirmProps: { color: "warning" },
                 onConfirm: async () => {
                   try {
                     await api.backupRestorePreUpdate();
-                    notifySuccess("Backup pre-update restaurado com sucesso.");
+                    notifySuccess("Dados de antes da atualização restaurados.");
                   } catch (restoreError) {
                     notifyError(
                       restoreError,
-                      "Falha ao restaurar backup pre-update.",
+                      "Não foi possível restaurar a cópia de segurança de antes da atualização.",
                     );
                   }
                 },
@@ -225,7 +225,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
         },
       });
     } catch (error) {
-      notifyError(error, "Falha ao verificar atualizacao.");
+      notifyError(error, "Falha ao verificar atualização.");
     } finally {
       setCheckingUpdate(false);
     }
@@ -362,7 +362,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
               <ActionIcon
                 size="lg"
                 color="gray"
-                aria-label="Administracao e sistema"
+                aria-label="Administração e sistema"
               >
                 <IconSettings size={18} stroke={1.5} />
               </ActionIcon>
@@ -416,7 +416,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
         </div>
       </div>
 
-      <nav className="topbar-tabs" aria-label="Navegacao principal">
+      <nav className="topbar-tabs" aria-label="Navegação principal">
         {PRIMARY_NAV.map((item, index) => {
           const active = isRouteActive(location.pathname, item.to);
           return (

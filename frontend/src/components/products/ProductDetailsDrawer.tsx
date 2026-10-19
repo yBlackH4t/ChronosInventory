@@ -497,7 +497,7 @@ export function ProductDetailsDrawer({
 
                   {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
                     <TextInput
-                      label="Local Externo"
+                      label="Local externo"
                       placeholder="Ex: Matriz, Maringá"
                       required
                       {...movementForm.getInputProps("local_externo")}
@@ -506,7 +506,7 @@ export function ProductDetailsDrawer({
 
                   {movementForm.values.natureza === "AJUSTE" && (
                     <Select
-                      label="Motivo do Ajuste"
+                      label="Motivo do ajuste"
                       data={adjustmentReasonOptions}
                       required
                       {...movementForm.getInputProps("motivo_ajuste")}
@@ -604,7 +604,7 @@ export function ProductDetailsDrawer({
                       }
                     >
                       <ActionIcon
-                        color={img.is_primary ? "yellow" : "gray"}
+                        color={img.is_primary ? "warning" : "gray"}
                         onClick={() => !img.is_primary && onSetPrimaryImage(img.id)}
                         loading={setPrimaryImageLoading}
                         aria-label={img.is_primary ? "Imagem principal" : "Definir como principal"}

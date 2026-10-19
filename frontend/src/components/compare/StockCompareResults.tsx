@@ -51,8 +51,8 @@ const FILTER_OPTIONS: { value: CompareFilter; label: string }[] = [
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   IDENTICAL: { label: "Igual", color: "gray" },
-  STOCK: { label: "Estoque", color: "blue" },
-  ONLY_LEFT: { label: "Só A", color: "orange" },
+  STOCK: { label: "Estoque", color: "info" },
+  ONLY_LEFT: { label: "Só A", color: "violet" },
   ONLY_RIGHT: { label: "Só B", color: "teal" },
   NAME: { label: "Nome", color: "violet" },
   ACTIVE: { label: "Status", color: "yellow" },
@@ -83,7 +83,7 @@ export default function StockCompareResults({
       <Card>
         <EmptyState
           message="Nenhuma comparação carregada"
-          description="Publique um snapshot nesta máquina e compare com outro computador, ou compare dois arquivos manualmente."
+          description="Publique uma cópia do estoque nesta máquina e compare com outro computador, ou compare dois arquivos manualmente."
         />
       </Card>
     );

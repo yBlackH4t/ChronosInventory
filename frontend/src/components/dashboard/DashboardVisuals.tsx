@@ -198,7 +198,7 @@ export default function DashboardVisuals({
               </Stack>
               <Badge
                 variant="light"
-                color={item.dias_cobertura <= 7 ? "red" : "orange"}
+                color={item.dias_cobertura <= 7 ? "danger" : "warning"}
                 tt="none"
                 className="num"
                 style={{ flexShrink: 0 }}

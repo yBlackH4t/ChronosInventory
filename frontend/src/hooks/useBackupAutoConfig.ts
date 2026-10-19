@@ -10,7 +10,7 @@ import type {
 import { notifyError, notifySuccess } from "../lib/notify";
 
 export const AUTO_SCHEDULE_MODE_OPTIONS = [
-  { value: "DAILY", label: "Diario" },
+  { value: "DAILY", label: "Diário" },
   { value: "WEEKLY", label: "Semanal" },
 ] as const;
 
@@ -51,7 +51,7 @@ export function useBackupAutoConfig() {
   >({
     mutationFn: (payload) => api.backupUpdateAutoConfig(payload),
     onSuccess: (response) => {
-      notifySuccess("Configuracao de backup automatico atualizada");
+      notifySuccess("Configuração de backup automático atualizada");
       queryClient.setQueryData(["backup-auto-config"], response);
       setAutoEnabledInput(null);
       setAutoHourInput(null);

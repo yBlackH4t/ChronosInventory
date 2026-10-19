@@ -114,3 +114,59 @@ def test_concurrent_exits_never_oversell(client):
     assert all(code in (201, 409) for code in statuses)
     product = client.get(f"/produtos/{product_id}").json()["data"]
     assert product["total_stock"] == 0
+
+
+def test_foreign_host_header_is_refused_dns_rebinding(client):
+    for host in ("evil.example", "evil.example:8000", "127.0.0.1.nip.io"):
+        response = client.get("/produtos", headers={"Host": host})
+        assert response.status_code == 403, host
+    for host in ("127.0.0.1:8000", "localhost:8000", "tauri.localhost", "localhost"):
+        assert client.get("/produtos", headers={"Host": host}).status_code == 200, host
+
+
+def test_phone_scanner_keeps_working_through_the_lan_ip_host(client):
+    remote = _remote(client)
+    assert remote.get("/api/scanner/app", headers={"Host": "192.168.0.10:8000"}).status_code == 200
+    # Fora do scanner, o IP da rede como Host nao vale (so com a API liberada para a rede).
+    assert client.get("/produtos", headers={"Host": "192.168.0.10:8000"}).status_code == 403
+
+
+def test_lan_api_accepts_ip_hosts_but_not_names(client, monkeypatch):
+    monkeypatch.setenv("CHRONOS_ALLOW_LAN_API", "1")
+    assert client.get("/produtos", headers={"Host": "192.168.0.10:8000"}).status_code == 200
+    assert client.get("/produtos", headers={"Host": "evil.example"}).status_code == 403
+
+
+def test_cross_site_writes_are_refused_csrf(client):
+    evil = {"Origin": "https://site-malicioso.example"}
+    response = client.post(
+        "/import-dynamic/analyze",
+        headers=evil,
+        files={"file": ("a.csv", b"nome;CANOAS\nTURBO X;1\n", "text/csv")},
+    )
+    assert response.status_code == 403
+    assert client.delete("/produtos/1", headers=evil).status_code == 403
+    assert client.post("/produtos", headers={"Origin": "null"}, json={"nome": "X"}).status_code == 403
+    # Leitura de outro site nao e bloqueada aqui (o CORS ja impede de ler a resposta).
+    assert client.get("/produtos", headers=evil).status_code == 200
+    # O app (Tauri) e quem nao manda Origin continuam.
+    ok = client.post("/produtos", headers={"Origin": "http://tauri.localhost"}, json={"nome": "TURBO CSRF OK"})
+    assert ok.status_code == 201, ok.text
+    assert client.post("/produtos", json={"nome": "TURBO SEM ORIGIN"}).status_code == 201
+
+
+def test_uploads_stop_at_the_size_limit_and_leave_nothing_behind(client, monkeypatch):
+    from backend.app.api.routers import import_dynamic, imports
+
+    monkeypatch.setattr(import_dynamic, "MAX_IMPORT_SIZE_BYTES", 100)
+    monkeypatch.setattr(imports, "MAX_IMPORT_SIZE_BYTES", 100)
+    temp_dir = FileUtils.get_temp_directory()
+    before = set(os.listdir(temp_dir))
+    big = b"nome;CANOAS\n" + b"TURBO X;1\n" * 50
+    response = client.post("/import-dynamic/analyze", files={"file": ("grande.csv", big, "text/csv")})
+    assert response.status_code == 400
+    assert "muito grande" in response.json()["error"]["message"]
+    response = client.post("/import/excel", files={"file": ("grande.xlsx", big, "application/octet-stream")})
+    assert response.status_code == 400
+    assert "muito grande" in response.json()["error"]["message"]
+    assert set(os.listdir(temp_dir)) == before

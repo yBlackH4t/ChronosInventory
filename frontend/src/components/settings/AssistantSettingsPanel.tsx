@@ -99,8 +99,8 @@ export default function AssistantSettingsPanel() {
 
   if (isError || !config) {
     return (
-      <Alert icon={<IconAlertCircle size={16} />} title="Erro" color="red">
-        Falha ao carregar as configurações do assistente.
+      <Alert icon={<IconAlertCircle size={16} />} title="Configurações do assistente indisponíveis" color="danger">
+        Não foi possível carregar as configurações. Feche e abra o Chronos; se continuar, avise o responsável.
       </Alert>
     );
   }
@@ -115,9 +115,9 @@ export default function AssistantSettingsPanel() {
   return (
     <Card withBorder p="md" radius="md" id="assistant-settings">
       <Group mb="md" align="center">
-        <IconRobot size={24} color="var(--mantine-color-blue-6)" />
+        <IconRobot size={24} color="var(--mantine-color-info-6)" />
         <Title order={4}>Assistente de IA</Title>
-        <Badge color={config.configurado ? "green" : "red"} variant="light">
+        <Badge color={config.configurado ? "success" : "danger"} variant="light">
           {config.configurado ? "Configurado" : "Não configurado"}
         </Badge>
       </Group>
@@ -138,13 +138,13 @@ export default function AssistantSettingsPanel() {
         />
 
         {semIa && (
-          <Alert color="blue" variant="light" p="sm" icon={<IconInfoCircle size={16} />}>
+          <Alert color="info" variant="light" p="sm" icon={<IconInfoCircle size={16} />}>
             Sem IA: o assistente responde apenas pela busca direta no estoque.
           </Alert>
         )}
 
         {usaAmbiente && precisaChave && (
-          <Alert color="blue" variant="light" p="sm" icon={<IconInfoCircle size={16} />}>
+          <Alert color="info" variant="light" p="sm" icon={<IconInfoCircle size={16} />}>
             Usando {ENV_KEY_NAMES[config.provedor] ?? "a chave"} configurada no ambiente deste computador.
           </Alert>
         )}
@@ -181,7 +181,7 @@ export default function AssistantSettingsPanel() {
               </Button>
               <Button
                 variant="light"
-                color="red"
+                color="danger"
                 leftSection={<IconTrash size={16} />}
                 onClick={handleRemoveKey}
                 disabled={!config.chave_mascarada || usaAmbiente || mutation.isPending}
@@ -232,7 +232,7 @@ export default function AssistantSettingsPanel() {
         )}
 
         {mutation.isError && (
-          <Alert color="red" variant="light" p="sm" icon={<IconAlertCircle size={16} />}>
+          <Alert color="danger" variant="light" p="sm" icon={<IconAlertCircle size={16} />}>
             Não foi possível salvar: {mutation.error instanceof Error ? mutation.error.message : "erro desconhecido"}
           </Alert>
         )}

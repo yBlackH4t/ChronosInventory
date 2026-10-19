@@ -6,7 +6,7 @@ import type { VersionLabel } from "./semantic";
 
 // Contas da dashboard, separadas da tela para poderem ser testadas.
 
-export type DayFlow = { date: string; entradas: number; saidas: number };
+export type DayFlow = { date: string; entradas: number; saidas: number; estoqueInicial?: number };
 
 /** Um ponto por dia entre `from` e `to` (inclusive), com zero nos dias sem movimento. */
 export function fillDays(points: FlowPoint[], from: string, to: string): DayFlow[] {
@@ -17,7 +17,12 @@ export function fillDays(points: FlowPoint[], from: string, to: string): DayFlow
   while (!cursor.isAfter(end, "day")) {
     const key = cursor.format("YYYY-MM-DD");
     const point = byDay.get(key);
-    out.push({ date: key, entradas: point?.entradas ?? 0, saidas: point?.saidas ?? 0 });
+    out.push({
+      date: key,
+      entradas: point?.entradas ?? 0,
+      saidas: point?.saidas ?? 0,
+      estoqueInicial: point?.estoque_inicial ?? 0,
+    });
     cursor = cursor.add(1, "day");
   }
   return out;
@@ -39,7 +44,7 @@ export function stockBackward(currentTotal: number, days: DayFlow[]): number[] {
   let running = currentTotal;
   for (let i = days.length - 1; i >= 0; i -= 1) {
     out[i] = Math.max(running, 0);
-    running -= days[i].entradas - days[i].saidas;
+    running -= days[i].entradas + (days[i].estoqueInicial ?? 0) - days[i].saidas;
   }
   return out;
 }
@@ -87,7 +92,8 @@ export function buildBalanceSeries(
   let carry: number | null = null;
   if (firstEvoKey) {
     const f = flowBy.get(firstEvoKey);
-    carry = Math.max((evoBy.get(firstEvoKey) ?? 0) - ((f?.entradas ?? 0) - (f?.saidas ?? 0)), 0);
+    const net = (f?.entradas ?? 0) + (f?.estoque_inicial ?? 0) - (f?.saidas ?? 0);
+    carry = Math.max((evoBy.get(firstEvoKey) ?? 0) - net, 0);
   } else if (currentTotal !== null && dateTo >= today) {
     carry = currentTotal;
   }

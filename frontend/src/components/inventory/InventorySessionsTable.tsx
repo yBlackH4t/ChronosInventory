@@ -11,6 +11,7 @@ import dayjs from "dayjs";
 
 import type { InventorySessionOut } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
+import { clickableRowProps } from "../../lib/clickableRow";
 
 type InventorySessionsTableProps = {
   sessions: InventorySessionOut[];
@@ -74,9 +75,11 @@ export function InventorySessionsTable({
               return (
                 <Table.Tr
                   key={session.id}
-                  className={selectedSessionId === session.id ? "row-selected" : undefined}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => onSelectSession(session)}
+                  {...clickableRowProps(() => onSelectSession(session))}
+                  className={
+                    selectedSessionId === session.id ? "clickable-row row-selected" : "clickable-row"
+                  }
+                  aria-selected={selectedSessionId === session.id}
                 >
                   <Table.Td>
                     <Text size="sm" fw={500} lineClamp={1}>

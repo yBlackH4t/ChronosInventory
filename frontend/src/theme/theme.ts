@@ -259,6 +259,17 @@ export const appTheme = createTheme({
         radius: "sm",
         variant: "light",
       },
+      // Dois tamanhos só: pequeno (xs/sm, 11px) e normal (md em diante, 12px).
+      // O padrão do Mantine descia a 9px no "xs", ilegível no balcão.
+      vars: (_theme, props) => {
+        const small = props.size === "xs" || props.size === "sm";
+        return {
+          root: {
+            "--badge-fz": small ? rem(11) : rem(12),
+            "--badge-height": small ? rem(20) : rem(22),
+          },
+        };
+      },
       styles: {
         root: { fontWeight: 600, letterSpacing: "0.02em" },
       },
@@ -331,6 +342,24 @@ export const appTheme = createTheme({
   },
 });
 
+// No tema claro, o tom padrão (6) de âmbar e verde não dá contraste de texto
+// (d97706 3,2:1; 059669 3,8:1). Texto, contorno e variante "light" usam um tom
+// mais escuro; "filled" usa o tom 7, que segura texto branco (>= 4,5:1).
+const LIGHT_TEXT_SHADES: Record<string, number> = {
+  warning: 8,
+  success: 8,
+  danger: 7,
+  info: 7,
+};
+
+const lightTextOverrides: Record<string, string> = Object.fromEntries(
+  Object.entries(LIGHT_TEXT_SHADES).flatMap(([name, shade]) => [
+    [`--mantine-color-${name}-text`, `var(--mantine-color-${name}-${shade})`],
+    [`--mantine-color-${name}-light-color`, `var(--mantine-color-${name}-${shade})`],
+    [`--mantine-color-${name}-outline`, `var(--mantine-color-${name}-${shade})`],
+  ]),
+);
+
 // Aligns Mantine's own surface variables with the tokens in global.css.
 export const cssVariablesResolver: CSSVariablesResolver = () => ({
   variables: {},
@@ -338,6 +367,11 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     "--mantine-color-body": "#f8fafc",
     "--mantine-color-default-border": "#e2e8f0",
     "--mantine-color-dimmed": "#64748b",
+    ...lightTextOverrides,
+    "--mantine-color-warning-filled": "var(--mantine-color-warning-7)",
+    "--mantine-color-warning-filled-hover": "var(--mantine-color-warning-8)",
+    "--mantine-color-success-filled": "var(--mantine-color-success-7)",
+    "--mantine-color-success-filled-hover": "var(--mantine-color-success-8)",
   },
   dark: {
     "--mantine-color-body": "#0b0f17",

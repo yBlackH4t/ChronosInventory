@@ -12,7 +12,7 @@ export function useLocations() {
       } catch (err) {
         console.error("Failed to load locations", err);
         notifyError(
-          new Error("Nao foi possivel carregar os locais de estoque."),
+          new Error("Não foi possível carregar os locais de estoque."),
         );
         return [];
       }

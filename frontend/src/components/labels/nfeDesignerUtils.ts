@@ -91,7 +91,7 @@ export function readFileAsDataUrl(file: File): Promise<string> {
         resolve(reader.result);
         return;
       }
-      reject(new Error("Nao foi possivel ler a imagem selecionada."));
+      reject(new Error("Não foi possível ler a imagem selecionada."));
     };
     reader.onerror = () =>
       reject(reader.error ?? new Error("Falha ao ler imagem."));

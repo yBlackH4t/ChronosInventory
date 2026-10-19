@@ -1,6 +1,14 @@
 import { notifications } from "@mantine/notifications";
 import { ApiError } from "./api";
 
+/** Quando o serviço local não conhece a rota/campo: o app ficou pela metade na atualização. */
+export const OUTDATED_APP_MESSAGE =
+  "Esta versão do Chronos está desatualizada. Instale a atualização e abra o app de novo.";
+
+/** Falha de rede/serviço nas telas do assistente. */
+export const ASSISTANT_UNREACHABLE_MESSAGE =
+  "Não foi possível falar com o assistente. Feche e abra o Chronos; se continuar, avise o responsável.";
+
 type ValidationDetail = {
   type?: string;
   loc?: Array<string | number>;
@@ -31,8 +39,8 @@ function friendlyFieldName(field: string | null): string {
     destino: "Destino",
     natureza: "Natureza",
     motivo_ajuste: "Motivo de ajuste",
-    movimento_ref_id: "Movimento de referencia",
-    observacao: "Observacao",
+    movimento_ref_id: "Movimentação de referência",
+    observacao: "Observação",
     documento: "Documento",
     local_externo: "Local externo",
   };
@@ -42,18 +50,18 @@ function friendlyFieldName(field: string | null): string {
 function detailToFriendlyMessage(detail: ValidationDetail): string | null {
   const field = friendlyFieldName(extractField(detail));
   const type = detail.type || "";
-  if (type === "missing") return `Campo obrigatorio: ${field}.`;
+  if (type === "missing") return `Campo obrigatório: ${field}.`;
   if (type === "extra_forbidden") {
-    return `Campo '${field}' nao e aceito nesta versao do backend. Atualize o aplicativo.`;
+    return OUTDATED_APP_MESSAGE;
   }
   if (type === "string_too_long" || type === "too_long") {
-    return `O campo ${field} excede o tamanho maximo permitido.`;
+    return `O campo ${field} excede o tamanho máximo permitido.`;
   }
   if (type === "greater_than_equal" || type === "greater_than") {
-    return `Valor invalido para ${field}.`;
+    return `Valor inválido para ${field}.`;
   }
   if (type === "literal_error") {
-    return `Valor invalido para ${field}.`;
+    return `Valor inválido para ${field}.`;
   }
   if (detail.msg) return detail.msg;
   return null;
@@ -63,7 +71,7 @@ export function notifySuccess(message: string) {
   notifications.show({
     title: "Sucesso",
     message,
-    color: "green",
+    color: "success",
   });
 }
 
@@ -76,7 +84,7 @@ export function notifyError(
     let title = "Erro";
 
     if (error.code === "validation_error") {
-      title = "Erro de validacao";
+      title = "Erro de validação";
       const details = normalizeDetails(error.details);
       const incompatibleMovementFields = new Set([
         "natureza",
@@ -90,12 +98,8 @@ export function notifyError(
         const field = extractField(detail);
         return field ? incompatibleMovementFields.has(field) : false;
       });
-      const requires120 = details.some(
-        (detail) => extractField(detail) === "motivo_ajuste",
-      );
-
       if (hasIncompatibleMovementField) {
-        message = `Backend desatualizado para esta operacao. Atualize o app para versao ${requires120 ? "1.2.0" : "1.1.0"} ou superior.`;
+        message = OUTDATED_APP_MESSAGE;
       } else {
         const mapped = details
           .map(detailToFriendlyMessage)
@@ -107,7 +111,7 @@ export function notifyError(
     } else if (error.code === "insufficient_stock") {
       title = "Estoque insuficiente";
     } else if (error.code === "not_found") {
-      title = "Nao encontrado";
+      title = "Não encontrado";
     } else if (error.code === "database_error") {
       title = "Falha no banco";
     } else if (error.code === "file_error") {
@@ -117,7 +121,7 @@ export function notifyError(
     notifications.show({
       title,
       message,
-      color: "red",
+      color: "danger",
     });
     return;
   }
@@ -126,6 +130,6 @@ export function notifyError(
   notifications.show({
     title: "Erro",
     message,
-    color: "red",
+    color: "danger",
   });
 }

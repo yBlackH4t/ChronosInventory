@@ -47,7 +47,7 @@ function findFirstDescendantByTag(
   return null;
 }
 
-function textOf(node: Element | null, fallback = "Nao informado"): string {
+function textOf(node: Element | null, fallback = "Não informado"): string {
   const value = (node?.textContent || "").trim();
   return value || fallback;
 }
@@ -69,7 +69,7 @@ function parsePositiveFloat(value: string | null | undefined): number {
 }
 
 function formatWeight(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "Nao informado";
+  if (!Number.isFinite(value) || value <= 0) return "Não informado";
   if (Math.round(value) === value) return String(Math.round(value));
   return value.toFixed(2).replace(/\.?0+$/, "");
 }
@@ -79,7 +79,7 @@ export function parseNfeShippingData(xmlText: string): NfeShippingData {
   const doc = parser.parseFromString(xmlText, "application/xml");
   const parseErrorNode = doc.getElementsByTagName("parsererror")[0];
   if (parseErrorNode) {
-    throw new Error("XML invalido ou corrompido.");
+    throw new Error("XML inválido ou corrompido.");
   }
 
   const root = doc.documentElement;

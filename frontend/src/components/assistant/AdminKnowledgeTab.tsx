@@ -39,6 +39,7 @@ import type {
   KnowledgeRelation,
   KnowledgeSyncStatus,
 } from "../../types/assistantAdmin";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 interface AdminKnowledgeTabProps {
   readOnly?: boolean;
@@ -90,7 +91,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
           data.papel === "publisher"
             ? "Regras de conhecimento publicadas com sucesso."
             : "Regras de conhecimento atualizadas com sucesso.",
-        color: "teal",
+        color: "success",
       });
       invalidate();
     },
@@ -98,7 +99,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       notifications.show({
         title: "Erro ao sincronizar",
         message: err.message || "Não foi possível sincronizar o conhecimento.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -109,7 +110,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       notifications.show({
         title: "Regra adicionada",
         message: `Regra entre ${variables.codigo_a} e ${variables.codigo_b} salva com sucesso.`,
-        color: "green",
+        color: "success",
       });
       setModalNovaRegra(false);
       setCodigoA("");
@@ -122,7 +123,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       notifications.show({
         title: "Erro ao adicionar",
         message: err.message || "Não foi possível cadastrar a regra.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -133,7 +134,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       notifications.show({
         title: "Regra removida",
         message: "Regra de conhecimento excluída com sucesso.",
-        color: "blue",
+        color: "info",
       });
       setDeleteConfirmId(null);
       invalidate();
@@ -142,7 +143,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       notifications.show({
         title: "Erro ao remover",
         message: err.message || "Não foi possível remover a regra.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -152,7 +153,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       notifications.show({
         title: "Campos obrigatórios",
         message: "Informe os dois códigos para cadastrar a regra.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -167,11 +168,11 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
   const getRelationBadge = (relation: string) => {
     switch (relation) {
       case "igual":
-        return <Badge color="green" variant="filled">igual</Badge>;
+        return <Badge color="success" variant="filled">igual</Badge>;
       case "similar":
-        return <Badge color="orange" variant="filled">similar</Badge>;
+        return <Badge color="warning" variant="filled">similar</Badge>;
       case "diferente":
-        return <Badge color="red" variant="filled">diferente</Badge>;
+        return <Badge color="danger" variant="filled">diferente</Badge>;
       default:
         return <Badge color="gray">{relation}</Badge>;
     }
@@ -220,7 +221,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       <Card withBorder p="xs" radius="md" bg="var(--mantine-color-default-hover)">
         <Group justify="space-between" wrap="wrap" gap="xs">
           <Group gap="xs">
-            <IconRefresh size={16} color="var(--mantine-color-blue-6)" />
+            <IconRefresh size={16} color="var(--mantine-color-info-6)" />
             <Text size="xs" fw={500}>
               {isSyncLoading ? "Verificando sincronização..." : renderSyncMessage()}
             </Text>
@@ -229,7 +230,6 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
           <Button
             size="compact-xs"
             variant="light"
-            color="blue"
             leftSection={<IconRefresh size={12} />}
             loading={syncMutation.isPending}
             onClick={() => syncMutation.mutate()}
@@ -243,7 +243,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
         <Alert
           icon={<IconAlertCircle size={16} />}
           title="Aviso de sincronização"
-          color="orange"
+          color="warning"
           variant="light"
           p="xs"
         >
@@ -270,7 +270,6 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
         {!readOnly && (
           <Button
             leftSection={<IconPlus size={16} />}
-            color="blue"
             onClick={() => setModalNovaRegra(true)}
           >
             Nova regra
@@ -293,11 +292,11 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
         <Alert
           icon={<IconAlertCircle size={16} />}
           title="Erro ao carregar regras"
-          color="red"
+          color="danger"
         >
           <Group justify="space-between">
-            <Text size="sm">{error instanceof Error ? error.message : "Erro desconhecido"}</Text>
-            <Button size="xs" variant="outline" color="red" onClick={() => refetch()}>
+            <Text size="sm">{error instanceof Error ? error.message : ASSISTANT_UNREACHABLE_MESSAGE}</Text>
+            <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
               Tentar novamente
             </Button>
           </Group>
@@ -366,7 +365,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
                       <Table.Td style={{ textAlign: "right" }}>
                         <Tooltip label="Excluir regra">
                           <ActionIcon
-                            color="red"
+                            color="danger"
                             variant="subtle"
                             size="sm"
                             onClick={() => setDeleteConfirmId(rule.id)}
@@ -431,7 +430,6 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
               Cancelar
             </Button>
             <Button
-              color="blue"
               onClick={handleSaveRule}
               loading={addRuleMutation.isPending}
             >
@@ -459,7 +457,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
               Cancelar
             </Button>
             <Button
-              color="red"
+              color="danger"
               onClick={() => {
                 if (deleteConfirmId !== null) {
                   deleteRuleMutation.mutate(deleteConfirmId);

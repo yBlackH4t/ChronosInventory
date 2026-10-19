@@ -537,7 +537,7 @@ export default function DashboardPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Dashboard"
+        title="Painel"
         subtitle="Visão consolidada do estoque e das movimentações no período."
       />
 

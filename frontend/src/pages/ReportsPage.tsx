@@ -212,7 +212,7 @@ export default function ReportsPage() {
     onSuccess: (res) => {
       const filename = res.filename || "Relatorio_Estoque.pdf";
       downloadBlob(res.blob, filename);
-      notifySuccess("Relatorio de estoque gerado.");
+      notifySuccess("Relatório de estoque gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -231,7 +231,7 @@ export default function ReportsPage() {
         res.blob,
         res.filename || "Relatorio_Estoque_Selecionado.pdf",
       );
-      notifySuccess("Relatorio dos itens selecionados gerado.");
+      notifySuccess("Relatório dos itens selecionados gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -245,7 +245,7 @@ export default function ReportsPage() {
       }),
     onSuccess: (res) => {
       downloadBlob(res.blob, res.filename || "Relatorio_Vendas_Reais.pdf");
-      notifySuccess("Relatorio de vendas reais gerado.");
+      notifySuccess("Relatório de vendas reais gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -259,7 +259,7 @@ export default function ReportsPage() {
       }),
     onSuccess: (res) => {
       downloadBlob(res.blob, res.filename || "Relatorio_Estoque_Parado.pdf");
-      notifySuccess("Relatorio de estoque parado gerado.");
+      notifySuccess("Relatório de estoque parado gerado.");
     },
     onError: (error) => notifyError(error),
   });

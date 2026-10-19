@@ -34,6 +34,7 @@ import {
 import { formatWhatsAppText } from "../../lib/assistantFormat";
 import { downloadBlob } from "../../lib/download";
 import type { Conversation } from "../../types/assistantAdmin";
+import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
 const PAGE_SIZE = 20;
 
@@ -82,7 +83,7 @@ export default function AdminHistoryTab() {
       notifications.show({
         title: "Correção salva",
         message: "A resposta correta do especialista foi registrada.",
-        color: "green",
+        color: "success",
       });
       setModalCorrecao((prev) => ({ ...prev, opened: false }));
       queryClient.invalidateQueries({ queryKey: ["assistant-admin-history"] });
@@ -91,7 +92,7 @@ export default function AdminHistoryTab() {
       notifications.show({
         title: "Erro ao salvar correção",
         message: err.message || "Não foi possível registrar a correção.",
-        color: "red",
+        color: "danger",
       });
     },
   });
@@ -104,13 +105,13 @@ export default function AdminHistoryTab() {
       notifications.show({
         title: "Exportação concluída",
         message: "Arquivo assistente_historico.jsonl baixado com sucesso.",
-        color: "blue",
+        color: "info",
       });
     } catch (err: unknown) {
       notifications.show({
         title: "Erro ao exportar",
         message: err instanceof Error ? err.message : "Falha ao baixar o histórico.",
-        color: "red",
+        color: "danger",
       });
     } finally {
       setExporting(false);
@@ -131,7 +132,7 @@ export default function AdminHistoryTab() {
       notifications.show({
         title: "Campo obrigatório",
         message: "Informe o texto da resposta correta.",
-        color: "orange",
+        color: "warning",
       });
       return;
     }
@@ -151,7 +152,6 @@ export default function AdminHistoryTab() {
         <Button
           leftSection={<IconDownload size={16} />}
           variant="light"
-          color="blue"
           onClick={handleExportJsonl}
           loading={exporting}
         >
@@ -174,11 +174,11 @@ export default function AdminHistoryTab() {
         <Alert
           icon={<IconAlertCircle size={16} />}
           title="Erro ao carregar histórico"
-          color="red"
+          color="danger"
         >
           <Group justify="space-between">
-            <Text size="sm">{error instanceof Error ? error.message : "Erro desconhecido"}</Text>
-            <Button size="xs" variant="outline" color="red" onClick={() => refetch()}>
+            <Text size="sm">{error instanceof Error ? error.message : ASSISTANT_UNREACHABLE_MESSAGE}</Text>
+            <Button size="xs" variant="outline" color="danger" onClick={() => refetch()}>
               Tentar novamente
             </Button>
           </Group>
@@ -212,7 +212,7 @@ export default function AdminHistoryTab() {
                   <Group gap="xs">
                     <Badge
                       variant="light"
-                      color={conv.canal === "app" ? "blue" : "teal"}
+                      color={conv.canal === "app" ? "info" : "success"}
                       leftSection={
                         conv.canal !== "app" ? (
                           <IconBrandWhatsapp size={12} />
@@ -245,7 +245,7 @@ export default function AdminHistoryTab() {
                   <Button
                     size="xs"
                     variant={conv.resposta_correta ? "light" : "subtle"}
-                    color={conv.resposta_correta ? "teal" : "blue"}
+                    color={conv.resposta_correta ? "success" : "info"}
                     leftSection={
                       conv.resposta_correta ? (
                         <IconCheck size={14} />
@@ -287,7 +287,7 @@ export default function AdminHistoryTab() {
 
                 {/* Se tiver aviso */}
                 {conv.aviso && (
-                  <Alert color="blue" variant="light" p="xs" mb="xs">
+                  <Alert color="info" variant="light" p="xs" mb="xs">
                     <Text size="xs">{conv.aviso}</Text>
                   </Alert>
                 )}
@@ -299,7 +299,7 @@ export default function AdminHistoryTab() {
                       Códigos sem estoque pesquisados:
                     </Text>
                     {conv.codigos_sem_estoque.map((cod) => (
-                      <Badge key={cod} size="xs" color="orange" variant="outline">
+                      <Badge key={cod} size="xs" color="warning" variant="outline">
                         {cod}
                       </Badge>
                     ))}
@@ -411,7 +411,7 @@ export default function AdminHistoryTab() {
               Cancelar
             </Button>
             <Button
-              color="teal"
+              color="success"
               onClick={handleSaveCorrection}
               loading={correctMutation.isPending}
             >

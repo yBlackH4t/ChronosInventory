@@ -82,7 +82,7 @@ export function GlobalSpotlight() {
             <IconBox
               size={18}
               stroke={1.5}
-              color={inStock ? "var(--mantine-color-teal-6)" : "var(--mantine-color-gray-6)"}
+              color={inStock ? "var(--mantine-color-success-6)" : "var(--mantine-color-gray-6)"}
             />
           ),
           rightSection: (
@@ -100,7 +100,7 @@ export function GlobalSpotlight() {
               <Badge
                 size="xs"
                 variant={inStock ? "filled" : "outline"}
-                color={inStock ? "teal" : "gray"}
+                color={inStock ? "success" : "gray"}
               >
                 {inStock ? `${prod.total_stock} un` : "Sem saldo"}
               </Badge>

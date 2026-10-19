@@ -56,7 +56,7 @@ export default function AppLayout({
     } catch (error) {
       notifyError(
         error,
-        "Nao foi possivel reiniciar automaticamente. Feche e abra o app.",
+        "Não foi possível reiniciar automaticamente. Feche e abra o app.",
       );
     } finally {
       setRestarting(false);
@@ -92,13 +92,13 @@ export default function AppLayout({
                   color="var(--warning)"
                 />
                 <Text size="sm">
-                  Alteracoes aplicadas. Reinicie o sistema para ter efeito.
+                  Alterações aplicadas. Reinicie o sistema para ter efeito.
                 </Text>
               </Group>
               <Button
                 size="xs"
                 variant="light"
-                color="orange"
+                color="warning"
                 onClick={() => void handleRestartNow()}
                 loading={restarting}
               >

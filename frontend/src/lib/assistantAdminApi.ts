@@ -68,6 +68,7 @@ const MOCK_TOKEN = "mock-admin-token";
 const mock = {
   publicadora: true,
   senha: null as string | null,
+  pinWhatsapp: null as string | null,
   nextRuleId: 3,
   rules: [
     { id: 1, codigo_a: "4031196", codigo_b: "4031195", tipo: "igual", observacao: null, criado_em: "2026-10-08T14:02:00", atualizado_em: "2026-10-08T14:02:00" },
@@ -146,7 +147,12 @@ const mock = {
 };
 
 function mockStatus(): AdminStatus {
-  return { maquina_publicadora: mock.publicadora, senha_definida: mock.senha !== null, autenticado: getAdminToken() === MOCK_TOKEN };
+  return {
+    maquina_publicadora: mock.publicadora,
+    senha_definida: mock.senha !== null,
+    autenticado: getAdminToken() === MOCK_TOKEN,
+    pin_whatsapp_definido: mock.pinWhatsapp !== null,
+  };
 }
 
 let mockSyncLastUpdated: string | null = "2026-10-09T22:30:00Z";
@@ -201,6 +207,16 @@ export async function setAdminPassword(body: AdminPasswordRequest): Promise<Admi
   // Trocar a senha encerra as sessões no backend.
   if (!status.autenticado) setAdminToken(null);
   return status;
+}
+
+/** Cria, troca ou (com null) remove o PIN de /aprovar e /recusar pelo WhatsApp. */
+export async function setWhatsAppPin(pin: string | null): Promise<AdminStatus> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mock.pinWhatsapp = pin || null;
+    return mockStatus();
+  }
+  return adminRequest<AdminStatus>("/admin/pin-whatsapp", { method: "POST", body: { pin } });
 }
 
 export async function adminLogin(senha: string): Promise<AdminLoginResponse> {

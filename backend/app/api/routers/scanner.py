@@ -302,7 +302,14 @@ HTML_CONTENT = """
                 const li = document.createElement('li');
                 const now = new Date();
                 const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
-                li.innerHTML = `<span>${data.display_name}</span><span class="time">${timeStr}</span>`;
+                // textContent: o nome vem do banco/codigo lido e nao pode virar HTML.
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = String(data.display_name ?? '');
+                const timeSpan = document.createElement('span');
+                timeSpan.className = 'time';
+                timeSpan.textContent = timeStr;
+                li.appendChild(nameSpan);
+                li.appendChild(timeSpan);
                 historyList.prepend(li);
                 if (historyList.children.length > 15) {
                     historyList.removeChild(historyList.lastChild);

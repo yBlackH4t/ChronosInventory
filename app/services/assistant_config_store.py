@@ -3,17 +3,30 @@ Configuracao do assistente de IA (docs/PLANO_IA.md).
 
 Fica num arquivo JSON na pasta raiz do app, fora do banco: assim as chaves de API
 nao vao para backups, diagnosticos nem para a base oficial publicada na rede.
-As chaves nunca sao devolvidas pela API nem escritas no log.
+As chaves nunca sao devolvidas pela API nem escritas no log. No arquivo ficam protegidas
+com o DPAPI do Windows (core/secret_box); chaves antigas em texto puro sao regravadas
+protegidas na primeira leitura. `load()` continua devolvendo a chave em claro.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
+import threading
 from typing import Any, Dict, Optional
 
+from core import secret_box
 from core.exceptions import ValidationException
 from core.utils.file_utils import FileUtils
+
+LOG = logging.getLogger(__name__)
+_PROTECTED_PREFIXES = ("dpapi:", "b64:")
+_file_lock = threading.RLock()
+
+
+def _is_protected(value: str) -> bool:
+    return value.startswith(_PROTECTED_PREFIXES)
 
 # Provedores de IA. "openai" = API no formato do OpenAI (Groq, Gemini e Ollama usam).
 # compacto: respostas das ferramentas menores, para caber em limites gratuitos apertados.
@@ -103,16 +116,49 @@ class AssistantConfigStore:
             json.dump(data, f, ensure_ascii=False, indent=2)
         os.replace(tmp_path, self.config_path)
 
+    @staticmethod
+    def _open_keys(stored: Any) -> tuple[Dict[str, str], bool]:
+        """(chaves em claro, havia chave em texto puro)."""
+        keys = stored if isinstance(stored, dict) else {}
+        opened: Dict[str, str] = {}
+        has_plain = False
+        for provider in PROVIDERS:
+            value = str(keys.get(provider) or "").strip()
+            if not value:
+                continue
+            if _is_protected(value):
+                try:
+                    opened[provider] = secret_box.unprotect(value).strip()
+                except Exception:
+                    # Arquivo de outro usuario/maquina: o DPAPI nao abre. Fica sem a chave.
+                    LOG.warning("assistente: nao foi possivel abrir a chave guardada de %s", provider)
+                continue
+            opened[provider] = value
+            has_plain = True
+        return {p: k for p, k in opened.items() if k}, has_plain
+
+    @staticmethod
+    def _protect_keys(keys: Dict[str, str]) -> Dict[str, str]:
+        return {p: secret_box.protect(k) for p, k in keys.items() if k}
+
     def load(self) -> Dict[str, Any]:
-        data = self._read_raw()
+        with _file_lock:
+            data = self._read_raw()
+            keys, has_plain = self._open_keys(data.get("chaves"))
+            if has_plain:
+                # Migracao transparente: chaves antigas em texto puro passam a ficar protegidas.
+                data["chaves"] = self._protect_keys(keys)
+                try:
+                    self._write_raw(data)
+                except OSError:
+                    LOG.warning("assistente: nao foi possivel regravar as chaves protegidas")
         provider = str(data.get("provedor") or DEFAULT_PROVIDER)
         effort = str(data.get("esforco") or DEFAULT_EFFORT)
-        keys = data.get("chaves") if isinstance(data.get("chaves"), dict) else {}
         models = data.get("modelos") if isinstance(data.get("modelos"), dict) else {}
         return {
             "provedor": provider if provider in PROVIDERS else DEFAULT_PROVIDER,
             "esforco": effort if effort in VALID_EFFORTS else DEFAULT_EFFORT,
-            "chaves": {p: str(keys.get(p) or "").strip() for p in PROVIDERS if keys.get(p)},
+            "chaves": keys,
             "modelos": {p: str(models.get(p) or "").strip() for p in PROVIDERS if models.get(p)},
         }
 
@@ -145,9 +191,11 @@ class AssistantConfigStore:
         current["chaves"] = {p: k for p, k in current["chaves"].items() if k}
         current["modelos"] = {p: m for p, m in current["modelos"].items() if m}
 
-        raw = self._read_raw()  # preserva o resto do arquivo (ex.: senha de admin)
-        raw.update(current)
-        self._write_raw(raw)
+        with _file_lock:
+            raw = self._read_raw()  # preserva o resto do arquivo (ex.: senha de admin)
+            raw.update(current)
+            raw["chaves"] = self._protect_keys(current["chaves"])
+            self._write_raw(raw)
         return current
 
     def load_section(self, name: str) -> Dict[str, Any]:
@@ -156,9 +204,10 @@ class AssistantConfigStore:
         return section if isinstance(section, dict) else {}
 
     def save_section(self, name: str, data: Dict[str, Any]) -> None:
-        raw = self._read_raw()
-        raw[name] = data
-        self._write_raw(raw)
+        with _file_lock:
+            raw = self._read_raw()
+            raw[name] = data
+            self._write_raw(raw)
 
     def load_admin(self) -> Dict[str, Any]:
         """Hash da senha de admin (nunca a senha)."""

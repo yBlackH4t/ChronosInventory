@@ -37,7 +37,7 @@ export default class AppErrorBoundary extends Component<
           <Stack gap="sm" align="center" maw={560}>
             <Title order={2}>Ocorreu um erro inesperado</Title>
             <Text ta="center" c="dimmed">
-              A tela apresentou uma falha de renderizacao. Recarregue o
+              A tela apresentou uma falha ao ser exibida. Recarregue o
               aplicativo para continuar.
             </Text>
             <Button onClick={this.reload}>Recarregar aplicativo</Button>

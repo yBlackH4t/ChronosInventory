@@ -75,7 +75,7 @@ export default function ProductStockHistoryChart({ productId }: { productId: num
             <Tooltip
               {...chart.tooltip}
               labelFormatter={(value) => dayjs(Number(value)).format("DD/MM/YYYY")}
-              formatter={(value: number | string | undefined, _name, item) => {
+              formatter={(value, _name, item) => {
                 const p = (item as { payload?: ProductStockHistoryPoint } | undefined)?.payload;
                 const moves = p ? [p.entradas ? `+${p.entradas}` : "", p.saidas ? `−${p.saidas}` : ""].filter(Boolean).join(" ") : "";
                 return [`${value}${moves ? ` (${moves})` : ""}`, "Saldo"];

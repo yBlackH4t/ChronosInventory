@@ -56,7 +56,7 @@ export function ProductHistoryTable({
   if (errorMessage) {
     return (
       <EmptyState
-        message={`Falha ao carregar historico: ${errorMessage}`}
+        message={`Falha ao carregar histórico: ${errorMessage}`}
         actionLabel="Tentar novamente"
         onAction={onRetry}
       />
@@ -79,7 +79,7 @@ export function ProductHistoryTable({
             <Table.Th>Documento</Table.Th>
             <Table.Th>Motivo ajuste</Table.Th>
             <Table.Th>Local externo</Table.Th>
-            <Table.Th>Observacao</Table.Th>
+            <Table.Th>Observação</Table.Th>
             <Table.Th>Data</Table.Th>
             <Table.Th>Ações</Table.Th>
           </Table.Tr>
@@ -116,7 +116,7 @@ export function ProductHistoryTable({
                   className="action-danger"
                   onClick={() => setEstornoMovement(mov)}
                   disabled={mov.natureza === "ESTORNO"}
-                  title={mov.natureza === "ESTORNO" ? "Essa movimentacao ja e um estorno" : "Estornar"}
+                  title={mov.natureza === "ESTORNO" ? "Essa movimentação já é um estorno" : "Estornar"}
                 >
                   Estornar
                 </Button>
@@ -127,7 +127,7 @@ export function ProductHistoryTable({
             <Table.Tr>
               <Table.Td colSpan={12}>
                 <Text c="dimmed" ta="center">
-                  Sem historico
+                  Sem histórico
                 </Text>
               </Table.Td>
             </Table.Tr>

@@ -266,6 +266,33 @@ class FileUtils:
             raise FileOperationException(f"Erro ao remover arquivo: {exc}") from exc
 
     @staticmethod
+    def save_stream_limited(source, target_path: str, max_bytes: int, too_big_message: str) -> int:
+        """
+        Copia um arquivo enviado para `target_path` contando os bytes: passou de `max_bytes`,
+        para na hora, apaga o pedaco gravado e levanta ValidationException(too_big_message).
+        """
+        from core.exceptions import ValidationException
+
+        written = 0
+        try:
+            with open(target_path, "wb") as target:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    written += len(chunk)
+                    if written > max_bytes:
+                        raise ValidationException(too_big_message)
+                    target.write(chunk)
+        except BaseException:
+            try:
+                os.remove(target_path)
+            except OSError:
+                pass
+            raise
+        return written
+
+    @staticmethod
     def rename_file(old_path: str, new_path: str) -> None:
         try:
             os.rename(old_path, new_path)

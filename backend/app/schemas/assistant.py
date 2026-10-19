@@ -72,6 +72,13 @@ class AdminStatusOut(BaseModel):
     maquina_publicadora: bool
     senha_definida: bool
     autenticado: bool
+    pin_whatsapp_definido: bool = False
+
+
+class AdminWhatsAppPinIn(BaseModel):
+    """PIN para /aprovar e /recusar pelo WhatsApp: 4 a 8 numeros; null ou "" remove."""
+
+    pin: str | None = Field(default=None, max_length=8, pattern=r"^(\d{4,8})?$")
 
 
 class AdminPasswordIn(BaseModel):
