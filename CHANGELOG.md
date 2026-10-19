@@ -25,6 +25,17 @@ Formato recomendado:
 
 
 
+## [2.6.0] - 2026-10-19
+
+### Added
+- **Visual novo "Vidro suave":** fonte Sora, cartões de vidro translúcido, manchas de cor que se movem devagar no fundo, barra do topo flutuante e menu com uma pílula que desliza até a aba aberta. Vale para o app inteiro, no tema claro e no escuro.
+- **Animações:** a troca de tela desliza de leve, os cartões aparecem em sequência e os números do Painel rolam até o valor.
+- **Nível de animação:** em Configurações > Aparência > Animações dá para escolher Completo, Suave ou Nenhum. "Nenhum" também desliga o desfoque do vidro, para PCs mais fracos. Com os efeitos de animação do Windows desligados, o Chronos usa no máximo Suave.
+
+### Changed
+- **Cor principal:** a cor padrão passa a ser azul-petróleo. Quem já tinha escolhido Índigo continua com ela.
+- **Biblioteca das telas** atualizada para o Mantine 9.
+
 ## [2.5.5] - 2026-10-18
 
 ### Added
