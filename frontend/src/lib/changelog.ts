@@ -10,6 +10,15 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.6.1",
+    "date": "2026-10-19",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: Painel novo, em blocos: o que pede ação vem primeiro. No topo ficam quatro números que rolam até o valor (unidades em estoque, saídas em 30 dias, produtos com estoque e zerados), cada um com a linha dos últimos 30 dias. Logo abaixo, o bloco grande \"Pede ação hoje\" junta os zerados que venderam, os que estão perto de zerar e os parados que mais ocupam; clicar abre a ficha do produto. Em volta ficam a saúde do estoque (girando, lento e parado), o movimento da semana ou do mês, as mais saídas, o assistente e o WhatsApp, e as últimas movimentações, que entram sozinhas no topo. O Painel ficou com menos da metade da altura.",
+      "Mudanca: Relatórios > Análises: a distribuição por filial, os dias com mais movimento, para onde foram as saídas, o estoque por marca e versão e as transferências externas saíram do Painel e foram para cá."
+    ]
+  },
+  {
     "version": "2.6.0",
     "date": "2026-10-19",
     "title": "Novidades e ajustes",
