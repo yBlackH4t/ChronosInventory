@@ -106,6 +106,8 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
    manchas, animações com níveis Completo/Suave/Nenhum em Configurações > Aparência e Mantine 9.
    Próximo: redesenho tela a tela. Testar num PC fraco da empresa se o vidro pesa (se pesar,
    "Nenhum").
+   ✅ 2.6.1, Painel em blocos: branch `claude/painel-bento` (a partir da `main` 2.6.0); os gráficos
+   que saíram do Painel estão em Relatórios > Análises. Falta o dono revisar e juntar.
 0. **2.5.0, novo visual** (branch `claude/project-thread-8wdsu2`, PR para a `main`): as 11 ideias
    do mockup que o dono aprovou. Falta o dono revisar, juntar e criar a tag. Conferir na cópia do
    banco real se a "Evolução do estoque" ficou sem saldo negativo.

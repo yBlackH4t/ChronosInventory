@@ -422,6 +422,9 @@ class MovementService:
     def get_weekly_saidas(self, product_ids: List[int], date_to: date, weeks: int = 13) -> dict:
         return self.analytics.get_weekly_saidas(product_ids, date_to, weeks)
 
+    def get_stock_count_history(self, date_to: date, days: int = 30, scope: str = "AMBOS") -> List[dict]:
+        return self.analytics.get_stock_count_history(date_to, days, scope)
+
     def get_product_stock_history(self, product_id: int, date_to: date, days: int = 180) -> List[dict]:
         return self.analytics.get_product_stock_history(product_id, date_to, days)
 

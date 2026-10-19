@@ -1,21 +1,6 @@
-import {
-  Suspense,
-  lazy,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import {
-  Card,
-  Group,
-  Loader,
-  Stack,
-  Text,
-  SegmentedControl,
-} from "@mantine/core";
-import { IconCalendar, IconPackageOff } from "@tabler/icons-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SegmentedControl, Stack, Text } from "@mantine/core";
+import { IconCalendar } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { DatePickerInput } from "@mantine/dates";
 import { useQuery } from "@tanstack/react-query";
@@ -25,43 +10,45 @@ import { loadTabState, saveTabState } from "../state/tabStateCache";
 import { useProfileScope } from "../state/profileScope";
 import { useLocations } from "../hooks/useLocations";
 import PageHeader from "../components/ui/PageHeader";
-import StatTile, { type StatDelta } from "../components/ui/StatTile";
-import { useChartTheme, useLocationColor } from "../lib/chartTheme";
+import { useChartTheme } from "../lib/chartTheme";
 import {
   buildBalanceSeries,
   fillDays,
-  groupByBrandVersion,
   percentChange,
   stockBackward,
   sum,
+  summarizeHealth,
 } from "../lib/dashboardMath";
+import { actionSummary, buildActionList } from "../lib/dashboardActions";
+import { rollingSum } from "../lib/dashboardBento";
+import { getAssistantPanel, getStockCountHistory } from "../lib/dashboardApi";
 import type {
   FlowPoint,
-  MovementNatureTotal,
-  StockItemOverview,
-  StockDistribution,
-  StockSummary,
+  MovementOut,
+  RecentStockoutItem,
   StockEvolutionPoint,
+  StockItemOverview,
+  StockSummary,
+  StockoutRiskItem,
   SuccessResponse,
   TopSaidaItem,
-  RecentStockoutItem,
-  StockoutRiskItem,
-  ExternalTransferItem,
 } from "../lib/api";
 import { notifyError } from "../lib/notify";
-
-const DashboardVisuals = lazy(
-  () => import("../components/dashboard/DashboardVisuals"),
-);
+import KpiTile from "../components/dashboard/bento/KpiTile";
+import ActionListBlock from "../components/dashboard/bento/ActionListBlock";
+import MovementBlock from "../components/dashboard/bento/MovementBlock";
+import HealthBlock from "../components/dashboard/bento/HealthBlock";
+import TopSaidasBlock from "../components/dashboard/bento/TopSaidasBlock";
+import AssistantBlock from "../components/dashboard/bento/AssistantBlock";
+import ActivityBlock from "../components/dashboard/bento/ActivityBlock";
+import "../components/dashboard/bento/bento.css";
 
 type Scope = number | null;
 type PeriodMode = "week" | "month";
-type ExternalTransferType = "ENTRADA" | "SAIDA";
 type DashboardTabState = {
   scope: Scope;
   periodMode: PeriodMode;
   selectedDate: string | null;
-  externalTransferType: ExternalTransferType;
   scrollY: number;
 };
 
@@ -70,36 +57,24 @@ const DEFAULT_DASHBOARD_TAB_STATE: DashboardTabState = {
   scope: null,
   periodMode: "week",
   selectedDate: dayjs().format("YYYY-MM-DD"),
-  externalTransferType: "SAIDA",
   scrollY: 0,
 };
 
-type SummaryCard = {
-  label: string;
-  value: number;
-  accent?: string;
-  hint?: string;
-  icon?: React.ReactNode;
-  trend?: number[];
-  trendColor?: string;
-  delta?: StatDelta | null;
-  footer?: React.ReactNode;
-};
+/** A atividade ao vivo se atualiza sozinha neste intervalo. */
+const LIVE_REFRESH_MS = 20_000;
 
 function getQueryErrorMessage(error: unknown): string | null {
   if (!error) return null;
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
-  return "Falha ao carregar dados do dashboard.";
+  return "Falha ao carregar dados do painel.";
 }
 
 export default function DashboardPage() {
   const { profileScopeKey } = useProfileScope();
   const { activeLocations: locations } = useLocations();
-  const { colorFor } = useLocationColor();
   const chart = useChartTheme();
   const navigate = useNavigate();
-  const [natureTipo, setNatureTipo] = useState<"SAIDA" | "ENTRADA">("SAIDA");
   const lastErrorToastRef = useRef<string | null>(null);
   const persistedState = useMemo(
     () =>
@@ -108,384 +83,201 @@ export default function DashboardPage() {
     [],
   );
   const [selectedScope, setScope] = useState<Scope>(persistedState.scope);
-  // Com um local só, o filtro e a divisão por filial não dizem nada: tudo vira "todas".
+  // Com um local só, o filtro de filial não diz nada: tudo vira "todas".
   const multiLocation = locations.length > 1;
   const scope: Scope = multiLocation ? selectedScope : null;
-  const [periodMode, setPeriodMode] = useState<PeriodMode>(
-    persistedState.periodMode,
-  );
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    persistedState.selectedDate,
-  );
-  const [externalTransferType, setExternalTransferType] =
-    useState<ExternalTransferType>(
-      persistedState.externalTransferType ?? "SAIDA",
-    );
-  const [showAllExternalTransfers, setShowAllExternalTransfers] =
-    useState(false);
+  const [periodMode, setPeriodMode] = useState<PeriodMode>(persistedState.periodMode);
+  const [selectedDate, setSelectedDate] = useState<string | null>(persistedState.selectedDate);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
 
   const selected = dayjs(selectedDate ?? new Date());
-  const dateFrom = useMemo(
-    () =>
-      selected
-        .startOf(periodMode === "week" ? "week" : "month")
-        .format("YYYY-MM-DD"),
-    [selected, periodMode],
-  );
-  const dateTo = useMemo(
-    () =>
-      selected
-        .endOf(periodMode === "week" ? "week" : "month")
-        .format("YYYY-MM-DD"),
-    [selected, periodMode],
-  );
-
+  const unit = periodMode === "week" ? "week" : "month";
+  const dateFrom = selected.startOf(unit).format("YYYY-MM-DD");
+  const dateTo = selected.endOf(unit).format("YYYY-MM-DD");
   const bucket = periodMode === "week" ? "day" : "week";
+  const today = dayjs().format("YYYY-MM-DD");
+  // 60 dias, dia a dia: os números do topo comparam 30 dias com os 30 anteriores.
+  const trendFrom = dayjs().subtract(59, "day").format("YYYY-MM-DD");
+
+  const scopeLabel =
+    scope !== null
+      ? (locations.find((l) => l.id === scope)?.label || locations.find((l) => l.id === scope)?.name || "Filial")
+      : multiLocation
+        ? "Todas as filiais"
+        : (locations[0]?.label || locations[0]?.name || "Estoque");
+  const periodLabel = periodMode === "week" ? "Semana" : "Mês";
+  const periodContext = `${periodLabel} de ${dayjs(dateFrom).format("DD/MM")} a ${dayjs(dateTo).format("DD/MM")} · ${scopeLabel}`;
+
+  const base = ["analytics", profileScopeKey] as const;
 
   const summaryQuery = useQuery<SuccessResponse<StockSummary>>({
-    queryKey: ["analytics", profileScopeKey, "stock-summary", scope],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsStockSummary({ scope }, { signal }),
+    queryKey: [...base, "stock-summary", scope],
+    queryFn: ({ signal }) => api.getAnalyticsStockSummary({ scope }, { signal }),
   });
-
-  const distributionQuery = useQuery<SuccessResponse<StockDistribution>>({
-    queryKey: ["analytics", profileScopeKey, "stock-distribution", scope],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsStockDistribution({ scope }, { signal }),
-  });
-
-  const topSaidasQuery = useQuery<SuccessResponse<TopSaidaItem[]>>({
-    queryKey: [
-      "analytics",
-      profileScopeKey,
-      "top-saidas",
-      dateFrom,
-      dateTo,
-      scope,
-    ],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsTopSaidas(
-        { date_from: dateFrom, date_to: dateTo, scope, limit: 5 },
-        { signal },
-      ),
-  });
-
-  const flowQuery = useQuery<SuccessResponse<FlowPoint[]>>({
-    queryKey: [
-      "analytics",
-      profileScopeKey,
-      "flow",
-      dateFrom,
-      dateTo,
-      scope,
-      bucket,
-    ],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsFlow(
-        {
-          date_from: dateFrom,
-          date_to: dateTo,
-          scope,
-          bucket,
-        },
-        { signal },
-      ),
-  });
-
-  const evolutionQuery = useQuery<SuccessResponse<StockEvolutionPoint[]>>({
-    queryKey: [
-      "analytics",
-      profileScopeKey,
-      "stock-evolution",
-      dateFrom,
-      dateTo,
-      scope,
-      bucket,
-    ],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsStockEvolution(
-        {
-          date_from: dateFrom,
-          date_to: dateTo,
-          scope,
-          bucket,
-        },
-        { signal },
-      ),
-  });
-  const recentStockoutsQuery = useQuery<SuccessResponse<RecentStockoutItem[]>>({
-    queryKey: ["analytics", profileScopeKey, "recent-stockouts", dateTo, scope],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsRecentStockouts(
-        {
-          days: 30,
-          date_to: dateTo,
-          scope,
-          limit: 5,
-        },
-        { signal },
-      ),
-  });
-  const stockoutRiskQuery = useQuery<SuccessResponse<StockoutRiskItem[]>>({
-    queryKey: ["analytics", profileScopeKey, "stockout-risk", scope],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsStockoutRisk(
-        { days: 30, max_dias: 15, scope, limit: 5 },
-        { signal },
-      ),
-  });
-  const externalTransfersQuery = useQuery<
-    SuccessResponse<ExternalTransferItem[]>
-  >({
-    queryKey: [
-      "analytics",
-      profileScopeKey,
-      "external-transfers",
-      dateFrom,
-      dateTo,
-      scope,
-      externalTransferType,
-    ],
-    queryFn: ({ signal }) =>
-      api.getAnalyticsExternalTransfers(
-        {
-          date_from: dateFrom,
-          date_to: dateTo,
-          scope,
-          tipo: externalTransferType,
-          limit: 15,
-        },
-        { signal },
-      ),
-  });
-
-  // Últimos 60 dias, dia a dia: cartões (30 dias vs 30 anteriores) e calendário (12 semanas).
-  const today = dayjs().format("YYYY-MM-DD");
-  const trendFrom = dayjs().subtract(83, "day").format("YYYY-MM-DD");
   const trendQuery = useQuery<SuccessResponse<FlowPoint[]>>({
-    queryKey: ["analytics", profileScopeKey, "flow-trend", trendFrom, today, scope],
+    queryKey: [...base, "flow-trend", trendFrom, today, scope],
     queryFn: ({ signal }) =>
-      api.getAnalyticsFlow(
-        { date_from: trendFrom, date_to: today, scope, bucket: "day" },
-        { signal },
-      ),
+      api.getAnalyticsFlow({ date_from: trendFrom, date_to: today, scope, bucket: "day" }, { signal }),
   });
-
+  const countsQuery = useQuery({
+    queryKey: [...base, "stock-count-history", scope],
+    queryFn: ({ signal }) => getStockCountHistory({ days: 30, scope }, signal),
+    retry: false,
+  });
   const stockItemsQuery = useQuery<SuccessResponse<StockItemOverview[]>>({
-    queryKey: ["analytics", profileScopeKey, "stock-items", scope],
+    queryKey: [...base, "stock-items", scope],
     queryFn: ({ signal }) => api.getAnalyticsStockItems({ days: 90, scope }, { signal }),
   });
-
-  const natureQuery = useQuery<SuccessResponse<MovementNatureTotal[]>>({
-    queryKey: ["analytics", profileScopeKey, "by-nature", dateFrom, dateTo, scope, natureTipo],
+  const recentStockoutsQuery = useQuery<SuccessResponse<RecentStockoutItem[]>>({
+    queryKey: [...base, "recent-stockouts", today, scope, 8],
     queryFn: ({ signal }) =>
-      api.getAnalyticsMovementsByNature(
-        { date_from: dateFrom, date_to: dateTo, tipo: natureTipo, scope },
-        { signal },
-      ),
+      api.getAnalyticsRecentStockouts({ days: 30, date_to: today, scope, limit: 8 }, { signal }),
+  });
+  const stockoutRiskQuery = useQuery<SuccessResponse<StockoutRiskItem[]>>({
+    queryKey: [...base, "stockout-risk", scope, 8],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsStockoutRisk({ days: 30, max_dias: 15, scope, limit: 8 }, { signal }),
+  });
+  const flowQuery = useQuery<SuccessResponse<FlowPoint[]>>({
+    queryKey: [...base, "flow", dateFrom, dateTo, scope, bucket],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsFlow({ date_from: dateFrom, date_to: dateTo, scope, bucket }, { signal }),
+  });
+  const evolutionQuery = useQuery<SuccessResponse<StockEvolutionPoint[]>>({
+    queryKey: [...base, "stock-evolution", dateFrom, dateTo, scope, bucket],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsStockEvolution({ date_from: dateFrom, date_to: dateTo, scope, bucket }, { signal }),
+  });
+  const topSaidasQuery = useQuery<SuccessResponse<TopSaidaItem[]>>({
+    queryKey: [...base, "top-saidas", dateFrom, dateTo, scope],
+    queryFn: ({ signal }) =>
+      api.getAnalyticsTopSaidas({ date_from: dateFrom, date_to: dateTo, scope, limit: 5 }, { signal }),
+  });
+  // Com filial escolhida, busca mais e filtra aqui (a rota filtra origem OU destino, não os dois).
+  const liveQuery = useQuery<SuccessResponse<MovementOut[]>>({
+    queryKey: ["movements", "dashboard-live", profileScopeKey, scope],
+    queryFn: ({ signal }) =>
+      api.listMovements({ page: 1, page_size: scope === null ? 6 : 40, sort: "-data" }, { signal }),
+    refetchInterval: LIVE_REFRESH_MS,
+  });
+  // Sem a rota (backend antigo) ou com erro: o bloco do assistente some, sem aviso.
+  const assistantQuery = useQuery({
+    queryKey: ["assistant-panel", profileScopeKey],
+    queryFn: ({ signal }) => getAssistantPanel(signal),
+    retry: false,
+    refetchInterval: 60_000,
   });
 
-  const dashboardErrors = useMemo(
-    () =>
-      [
-        summaryQuery.error,
-        distributionQuery.error,
-        topSaidasQuery.error,
-        flowQuery.error,
-        evolutionQuery.error,
-        recentStockoutsQuery.error,
-        stockoutRiskQuery.error,
-        externalTransfersQuery.error,
-        trendQuery.error,
-        stockItemsQuery.error,
-        natureQuery.error,
-      ]
-        .map(getQueryErrorMessage)
-        .filter((item): item is string => Boolean(item)),
-    [
-      summaryQuery.error,
-      distributionQuery.error,
-      topSaidasQuery.error,
-      flowQuery.error,
-      evolutionQuery.error,
-      recentStockoutsQuery.error,
-      stockoutRiskQuery.error,
-      externalTransfersQuery.error,
-      trendQuery.error,
-      stockItemsQuery.error,
-      natureQuery.error,
-    ],
-  );
+  const dashboardErrors = [
+    summaryQuery.error,
+    trendQuery.error,
+    stockItemsQuery.error,
+    recentStockoutsQuery.error,
+    stockoutRiskQuery.error,
+    flowQuery.error,
+    evolutionQuery.error,
+    topSaidasQuery.error,
+    liveQuery.error,
+  ]
+    .map(getQueryErrorMessage)
+    .filter((item): item is string => Boolean(item));
+  const errorKey = dashboardErrors.join("|");
 
   useEffect(() => {
-    if (dashboardErrors.length === 0) {
+    if (!errorKey) {
       lastErrorToastRef.current = null;
       return;
     }
+    const errors = errorKey.split("|");
     const combinedMessage =
-      dashboardErrors.length === 1
-        ? dashboardErrors[0]
-        : `Falha ao carregar parte do dashboard (${dashboardErrors.length} blocos). Primeiro erro: ${dashboardErrors[0]}`;
+      errors.length === 1
+        ? errors[0]
+        : `Falha ao carregar parte do painel (${errors.length} blocos). Primeiro erro: ${errors[0]}`;
     if (lastErrorToastRef.current === combinedMessage) return;
     lastErrorToastRef.current = combinedMessage;
     notifyError(new Error(combinedMessage));
-  }, [dashboardErrors]);
+  }, [errorKey]);
 
   const summary = summaryQuery.data?.data;
-  const topSaidas = topSaidasQuery.data?.data ?? [];
-  const distribution = distributionQuery.data?.data;
-  const flow = useMemo(() => flowQuery.data?.data ?? [], [flowQuery.data]);
-  const evolution = useMemo(() => evolutionQuery.data?.data ?? [], [evolutionQuery.data]);
-  const recentStockouts = recentStockoutsQuery.data?.data ?? [];
-  const stockoutRisk = stockoutRiskQuery.data?.data ?? [];
-  const externalTransfers = externalTransfersQuery.data?.data ?? [];
   const stockItems = useMemo(() => stockItemsQuery.data?.data ?? [], [stockItemsQuery.data]);
-  const natureItems = natureQuery.data?.data ?? [];
+  const health = useMemo(() => summarizeHealth(stockItems), [stockItems]);
+  const counts = countsQuery.data;
 
   const trendDays = useMemo(
     () => fillDays(trendQuery.data?.data ?? [], trendFrom, today),
     [trendQuery.data, trendFrom, today],
   );
-  const brandRows = useMemo(() => groupByBrandVersion(stockItems), [stockItems]);
-  const balance = useMemo(
-    () =>
-      buildBalanceSeries(
-        flow,
-        evolution,
-        periodMode,
-        dateFrom,
-        dateTo,
-        today,
-        summary?.total_geral ?? null,
-      ),
-    [flow, evolution, periodMode, dateFrom, dateTo, today, summary?.total_geral],
-  );
 
-  // Cartões com tendência: últimos 30 dias contra os 30 anteriores.
+  const currentTotal =
+    scope !== null
+      ? (summary?.locations.find((l) => l.location_id === scope)?.total ?? 0)
+      : (summary?.total_geral ?? 0);
+
   const kpis = useMemo(() => {
     const last30 = trendDays.slice(-30);
     const prev30 = trendDays.slice(-60, -30);
-    const cumulative = (values: number[]) => {
-      let acc = 0;
-      return values.map((value) => (acc += value));
-    };
-    const currentTotal =
-      scope !== null
-        ? (summary?.locations.find((l) => l.location_id === scope)?.total ?? 0)
-        : (summary?.total_geral ?? 0);
     const stockLine = stockBackward(currentTotal, trendDays).slice(-30);
     const saidas = sum(last30.map((d) => d.saidas));
-    const entradas = sum(last30.map((d) => d.entradas));
+    const pace = rollingSum(trendDays.map((d) => d.saidas), 7).slice(-30);
     return {
       stockLine,
       stockDelta: percentChange(currentTotal, stockLine[0] ?? 0),
       saidas,
-      saidasLine: cumulative(last30.map((d) => d.saidas)),
+      saidasLine: pace,
       saidasDelta: percentChange(saidas, sum(prev30.map((d) => d.saidas))),
-      entradas,
-      entradasLine: cumulative(last30.map((d) => d.entradas)),
-      entradasDelta: percentChange(entradas, sum(prev30.map((d) => d.entradas))),
     };
-  }, [trendDays, summary, scope]);
+  }, [trendDays, currentTotal]);
 
-  const summaryCards = useMemo<SummaryCard[]>(() => {
-    if (!summary || !summary.locations) return [];
+  const actionItems = useMemo(
+    () =>
+      buildActionList({
+        stockouts: recentStockoutsQuery.data?.data ?? [],
+        risk: stockoutRiskQuery.data?.data ?? [],
+        parados: health.parados,
+        limit: 8,
+      }),
+    [recentStockoutsQuery.data, stockoutRiskQuery.data, health.parados],
+  );
+  const actionsLoading =
+    recentStockoutsQuery.isLoading || stockoutRiskQuery.isLoading || stockItemsQuery.isLoading;
 
-    const zeroCard: SummaryCard = {
-      label: "Itens sem estoque",
-      value: summary.zerados ?? 0,
-      hint: "Produtos com saldo zero",
-      icon: <IconPackageOff size={16} stroke={1.5} />,
-    };
-    const withStock = stockItems.length;
-    const catalogTotal = withStock + (summary.zerados ?? 0);
-    const share = catalogTotal > 0 ? (withStock / catalogTotal) * 100 : 0;
-    const productsCard: SummaryCard = {
-      label: "Produtos com saldo",
-      value: withStock,
-      hint: `de ${catalogTotal.toLocaleString("pt-BR")} cadastrados · ${share.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% com peça na prateleira`,
-      footer: (
-        <div className="inline-bar" role="img" aria-label={`${share.toFixed(1)}% do cadastro com saldo`}>
-          <span style={{ width: `${Math.max(share, 1)}%`, background: chart.accent }} />
-        </div>
+  const balance = useMemo(
+    () =>
+      buildBalanceSeries(
+        flowQuery.data?.data ?? [],
+        evolutionQuery.data?.data ?? [],
+        periodMode,
+        dateFrom,
+        dateTo,
+        today,
+        currentTotal,
       ),
-    };
-    const activityCards: SummaryCard[] = [
-      productsCard,
-      {
-        label: "Saídas em 30 dias",
-        value: kpis.saidas,
-        trend: kpis.saidasLine,
-        trendColor: chart.semantic.outflow,
-        delta:
-          kpis.saidasDelta === null
-            ? null
-            : { percent: kpis.saidasDelta, label: "vs 30 dias antes" },
-      },
-      {
-        label: "Entradas em 30 dias",
-        value: kpis.entradas,
-        trend: kpis.entradasLine,
-        trendColor: chart.semantic.inflow,
-        delta:
-          kpis.entradasDelta === null
-            ? null
-            : { percent: kpis.entradasDelta, label: "vs 30 dias antes" },
-      },
-    ];
+    [flowQuery.data, evolutionQuery.data, periodMode, dateFrom, dateTo, today, currentTotal],
+  );
 
-    if (scope !== null) {
-      const location = summary.locations.find((l) => l.location_id === scope);
-      return [
-        {
-          label: `Estoque em ${location ? location.location_name : "local"}`,
-          value: location ? location.total : summary.total_geral,
-          accent: location ? colorFor(location.location_name) : undefined,
-          hint: "Unidades disponíveis",
-          trend: kpis.stockLine,
-          trendColor: location ? colorFor(location.location_name) : chart.accent,
-        },
-        ...activityCards,
-        zeroCard,
-      ];
-    }
+  const liveRows = useMemo(() => {
+    const rows = liveQuery.data?.data ?? [];
+    if (scope === null) return rows.slice(0, 6);
+    return rows
+      .filter((row) => row.origem_location_id === scope || row.destino_location_id === scope)
+      .slice(0, 6);
+  }, [liveQuery.data, scope]);
 
-    if (!multiLocation) {
-      return [
-        {
-          label: "Unidades em estoque",
-          value: summary.total_geral,
-          trend: kpis.stockLine,
-          trendColor: chart.accent,
-          delta: kpis.stockDelta === null ? null : { percent: kpis.stockDelta, label: "em 30 dias" },
-        },
-        ...activityCards,
-      ];
-    }
+  const locationName = useCallback(
+    (id: number | null | undefined) => {
+      if (id === null || id === undefined || !multiLocation) return null;
+      const loc = locations.find((l) => l.id === id);
+      return loc ? loc.label || loc.name : null;
+    },
+    [locations, multiLocation],
+  );
 
-    const cards: SummaryCard[] = summary.locations.map((loc) => ({
-      label: loc.location_name,
-      value: loc.total,
-      accent: colorFor(loc.location_name),
-      hint: "Unidades em estoque",
-    }));
-
-    cards.push(
-      {
-        label: "Total geral",
-        value: summary.total_geral,
-        hint: "Todas as filiais",
-        trend: kpis.stockLine,
-        trendColor: chart.accent,
-        delta: kpis.stockDelta === null ? null : { percent: kpis.stockDelta, label: "em 30 dias" },
-      },
-      ...activityCards,
-      zeroCard,
-    );
-
-    return cards;
-  }, [chart, colorFor, kpis, multiLocation, scope, stockItems.length, summary]);
+  const openProduct = useCallback(
+    (produtoId: number, nome: string) =>
+      navigate(`/produtos?search=${encodeURIComponent(nome)}&openId=${produtoId}`),
+    [navigate],
+  );
+  const showMonth = periodMode === "week" ? () => setPeriodMode("month") : undefined;
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -493,21 +285,15 @@ export default function DashboardPage() {
         scope: selectedScope,
         periodMode,
         selectedDate,
-        externalTransferType,
         scrollY: nextScrollY,
       });
     },
-    [externalTransferType, periodMode, scrollY, selectedDate, selectedScope],
+    [periodMode, scrollY, selectedDate, selectedScope],
   );
 
   useEffect(() => {
     persistState();
   }, [persistState]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShowAllExternalTransfers(false);
-  }, [dateFrom, dateTo, scope, externalTransferType]);
 
   useEffect(() => {
     if (!persistedState.scrollY || persistedState.scrollY <= 0) return;
@@ -534,26 +320,33 @@ export default function DashboardPage() {
     };
   }, [persistState]);
 
+  const catalogTotal = counts?.length
+    ? counts[counts.length - 1].com_saldo + counts[counts.length - 1].zerados
+    : stockItems.length + (summary?.zerados ?? 0);
+  const withStock = stockItems.length;
+  const zerados = summary?.zerados ?? 0;
+  const soldOut = recentStockoutsQuery.data?.data.length ?? 0;
+  const assistant = assistantQuery.data;
+
   return (
-    <Stack gap="lg">
+    <Stack gap="lg" className="bento">
       <PageHeader
         title="Painel"
-        subtitle="Visão consolidada do estoque e das movimentações no período."
+        subtitle={
+          actionsLoading
+            ? "Visão do estoque e do que pede ação hoje."
+            : `${actionSummary(actionItems.length)} · ${scopeLabel}`
+        }
       />
 
       <div className="toolbar-row">
         {multiLocation ? (
           <SegmentedControl
             value={scope === null ? "AMBOS" : String(scope)}
-            onChange={(value) =>
-              setScope(value === "AMBOS" ? null : Number(value))
-            }
+            onChange={(value) => setScope(value === "AMBOS" ? null : Number(value))}
             data={[
               { value: "AMBOS", label: "Todas as filiais" },
-              ...locations.map((loc) => ({
-                value: String(loc.id),
-                label: loc.label || loc.name,
-              })),
+              ...locations.map((loc) => ({ value: String(loc.id), label: loc.label || loc.name })),
             ]}
           />
         ) : null}
@@ -579,83 +372,95 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="stat-grid">
-        {summaryQuery.isLoading
-          ? Array.from(
-              { length: 4 },
-              (_, index) => <StatTile key={index} label="Carregando" value="" loading />,
-            )
-          : summaryCards.map((card) => (
-              <StatTile
-                key={card.label}
-                label={card.label}
-                value={card.value}
-                hint={card.hint}
-                accent={card.accent}
-                icon={card.icon}
-                trend={card.trend}
-                trendColor={card.trendColor}
-                delta={card.delta}
-                footer={card.footer}
-              />
-            ))}
+      <div className="bento-kpis">
+        <KpiTile
+          index={0}
+          label={scope !== null ? `Unidades em ${scopeLabel}` : "Unidades em estoque"}
+          value={currentTotal}
+          loading={summaryQuery.isLoading}
+          trend={trendQuery.isLoading ? undefined : kpis.stockLine}
+          trendColor={chart.accent}
+          trendLabel="Saldo dos últimos 30 dias"
+          delta={
+            kpis.stockDelta === null ? null : { percent: kpis.stockDelta, label: "em 30 dias", upIsGood: true }
+          }
+        />
+        <KpiTile
+          index={1}
+          label="Saídas em 30 dias"
+          value={kpis.saidas}
+          loading={trendQuery.isLoading}
+          trend={kpis.saidasLine}
+          trendColor={chart.semantic.outflow}
+          trendLabel="Ritmo de saídas (soma de 7 dias) nos últimos 30 dias"
+          delta={
+            kpis.saidasDelta === null
+              ? null
+              : { percent: kpis.saidasDelta, label: "vs 30 dias antes", upIsGood: true }
+          }
+        />
+        <KpiTile
+          index={2}
+          label="Produtos com estoque"
+          value={withStock}
+          loading={stockItemsQuery.isLoading}
+          hint={`de ${catalogTotal.toLocaleString("pt-BR")} produtos ativos`}
+          trend={counts?.map((p) => p.com_saldo)}
+          trendColor={chart.semantic.ok}
+          trendLabel="Produtos com estoque nos últimos 30 dias"
+        />
+        <KpiTile
+          index={3}
+          label="Zerados"
+          value={zerados}
+          loading={summaryQuery.isLoading}
+          hint={
+            recentStockoutsQuery.isLoading
+              ? undefined
+              : soldOut === 0
+                ? "nenhum vendeu nos últimos 30 dias"
+                : `${soldOut >= 8 ? "8 ou mais" : soldOut} ${soldOut === 1 ? "vendeu" : "venderam"} nos últimos 30 dias`
+          }
+          trend={counts?.map((p) => p.zerados)}
+          trendColor={chart.semantic.crit}
+          trendLabel="Produtos zerados nos últimos 30 dias"
+        />
       </div>
 
-      <Suspense
-        fallback={
-          <Card>
-            <Group gap="sm">
-              <Loader size="sm" />
-              <Text size="sm" c="dimmed">
-                Carregando gráficos…
-              </Text>
-            </Group>
-          </Card>
-        }
-      >
-        <DashboardVisuals
-          scope={scope}
-          periodMode={periodMode}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          distribution={distribution}
-          distributionLoading={distributionQuery.isLoading}
-          topSaidas={topSaidas}
-          topSaidasLoading={topSaidasQuery.isLoading}
-          balance={balance}
-          balanceLoading={flowQuery.isLoading || evolutionQuery.isLoading}
-          natureItems={natureItems}
-          natureLoading={natureQuery.isLoading}
-          natureTipo={natureTipo}
-          onNatureTipoChange={setNatureTipo}
-          stockItems={stockItems}
-          stockItemsLoading={stockItemsQuery.isLoading}
-          brandRows={brandRows}
-          heatDays={trendDays}
-          heatLoading={trendQuery.isLoading}
-          today={today}
-          onShowMonth={periodMode === "week" ? () => setPeriodMode("month") : undefined}
-          onOpenProduct={(produtoId, nome) =>
-            navigate(`/produtos?search=${encodeURIComponent(nome)}&openId=${produtoId}`)
-          }
-          onBrandClick={(brand) =>
-            navigate(`/produtos?search=${encodeURIComponent(brand === "Outras" ? "" : brand)}`)
-          }
-          externalTransfers={externalTransfers}
-          externalTransfersLoading={externalTransfersQuery.isLoading}
-          externalTransferType={externalTransferType}
-          onExternalTransferTypeChange={setExternalTransferType}
-          showAllExternalTransfers={showAllExternalTransfers}
-          onToggleAllExternalTransfers={() =>
-            setShowAllExternalTransfers((current) => !current)
-          }
-          recentStockouts={recentStockouts}
-          recentStockoutsLoading={recentStockoutsQuery.isLoading}
-          stockoutRisk={stockoutRisk}
-          stockoutRiskLoading={stockoutRiskQuery.isLoading}
-          multiLocation={multiLocation}
+      <div className="bento-grid" data-assistant={assistant ? "on" : "off"}>
+        <ActionListBlock
+          items={actionItems}
+          loading={actionsLoading}
+          subtitle={`Zerados que venderam, perto de zerar e parados que mais ocupam · ${scopeLabel}`}
+          onOpenProduct={openProduct}
         />
-      </Suspense>
+        <HealthBlock
+          counts={health.counts}
+          loading={stockItemsQuery.isLoading}
+          subtitle={`${withStock.toLocaleString("pt-BR")} produtos com estoque, pela última saída · ${scopeLabel}`}
+        />
+        {assistant ? <AssistantBlock data={assistant} onOpenAssistant={() => navigate("/assistente")} /> : null}
+        <MovementBlock
+          data={balance}
+          loading={flowQuery.isLoading || evolutionQuery.isLoading}
+          periodMode={periodMode}
+          subtitle={periodContext}
+          onShowMonth={showMonth}
+        />
+        <TopSaidasBlock
+          items={topSaidasQuery.data?.data ?? []}
+          loading={topSaidasQuery.isLoading}
+          subtitle={periodContext}
+          onShowMonth={showMonth}
+          onOpenProduct={openProduct}
+        />
+        <ActivityBlock
+          rows={liveRows}
+          loading={liveQuery.isLoading}
+          locationName={locationName}
+          onOpenProduct={openProduct}
+        />
+      </div>
     </Stack>
   );
 }

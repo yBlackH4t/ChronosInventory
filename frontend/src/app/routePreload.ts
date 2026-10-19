@@ -41,9 +41,7 @@ export function getLoadedPage(path: PagePath): ComponentType | undefined {
 }
 
 // Chunks a page lazy-loads on its first render.
-const PAGE_EXTRAS: Partial<Record<PagePath, () => Promise<unknown>>> = {
-  "/dashboard": () => import("../components/dashboard/DashboardVisuals"),
-};
+const PAGE_EXTRAS: Partial<Record<PagePath, () => Promise<unknown>>> = {};
 
 const started = new Set<string>();
 

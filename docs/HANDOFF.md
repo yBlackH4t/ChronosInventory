@@ -422,6 +422,31 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-19 — Claude Code — 2.6.1, Painel em blocos ("bento")
+- Branch: `claude/painel-bento` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e constantes
+  sem mudar). Só o Painel, os blocos dele, Relatórios > Análises e duas rotas novas.
+- Painel (`pages/DashboardPage.tsx`, `components/dashboard/bento/`): cabe em ~1,5 tela (1520 px a
+  1440 de largura, antes ~2.400). Topo com 4 números que rolam e linha dos 30 dias que se desenha
+  (unidades, saídas em 30 dias com ritmo de 7 dias, produtos com estoque, zerados); filtro de
+  filial, semana/mês e data mantidos. Blocos: "Pede ação hoje" (o maior: zerados que venderam,
+  perto de zerar e parados que mais ocupam numa lista só, com etiqueta Zerado/Repor/Parado; clicar
+  abre a ficha do produto pela mesma rota `?openId=` da busca), Saúde do estoque (medidor circular),
+  Assistente e WhatsApp (perguntas de hoje, respostas e códigos para revisar, robô com ponto que
+  pulsa; some se a rota não existir), Movimento da semana/mês (barras que crescem; saldo num
+  gráfico pequeno separado, sem eixo duplo), Mais saídas (barras enchem em sequência) e Atividade ao
+  vivo (últimas movimentações a cada 20 s; a nova desce do topo). Sem Recharts no Painel.
+- Animações respeitam os níveis: Completo cresce/desenha/desliza, Suave só esmaece, Nenhum aparece
+  pronto (`lib/dashboardMotion.ts` + testes). Contraste conferido no claro e no escuro (todos os
+  textos do Painel >= 4,5:1). Funciona de 1100 px para cima sem rolagem lateral.
+- Saíram do Painel para Relatórios > Análises (`components/reports/ReportsAnalysisSection.tsx`,
+  `AnalysisPanels.tsx`): distribuição por filial, dias com mais movimento, para onde foram as saídas,
+  marca e versão, transferências externas. Os cartões por filial do topo foram tirados.
+- Backend: `GET /analytics/stock/count-history` (produtos com saldo e zerados por dia) e
+  `GET /assistente/painel` (só contagens, sem login); testes em `backend/tests/test_dashboard_bento.py`.
+- Capturas: `/mnt/project-files/visual/2.6.1/`.
+- Verificações: pytest 264 ok / ruff ok / versões ok / build ok / lint 0 erros (5 avisos antigos) /
+  vitest 52 ok.
+
 ### 2026-10-18 — Claude Code — 2.6.0, passo "base nova" (estilo Vidro suave)
 - Branch: `claude/vidro-suave-base` (a partir da `claude/project-thread-vw3djm`, 2.5.5; versão,
   CHANGELOG e Python sem mudar). Só a base do app; o redesenho de cada tela vem depois.

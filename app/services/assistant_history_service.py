@@ -221,6 +221,15 @@ class AssistantHistoryService:
         ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
         return [{"codigo": code, "vezes": times} for code, times in ordered[:limit]]
 
+    def count_since(self, since: str) -> int:
+        """Perguntas feitas desde `since` (ISO), no app e no WhatsApp (contador do Painel)."""
+        conn = self._connect()
+        try:
+            row = conn.execute("SELECT COUNT(*) AS total FROM conversas WHERE criado_em >= ?", (since,)).fetchone()
+        finally:
+            conn.close()
+        return int(row["total"] or 0)
+
     def mark_reviewed(self, codes: Iterable[str]) -> None:
         conn = self._connect()
         try:

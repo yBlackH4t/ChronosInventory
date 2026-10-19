@@ -1,6 +1,9 @@
 import {
-  Badge,
+  ActionIcon,
+  Button,
+  ColorInput,
   Group,
+  Popover,
   SegmentedControl,
   Skeleton,
   Stack,
@@ -9,35 +12,21 @@ import {
   Tooltip as MantineTooltip,
   UnstyledButton,
 } from "@mantine/core";
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Legend,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { IconPalette } from "@tabler/icons-react";
 import dayjs from "dayjs";
+import { useState } from "react";
 
 import EmptyState from "../ui/EmptyState";
 import Panel from "../ui/Panel";
-import type { MovementNatureTotal, StockItemOverview } from "../../lib/api";
-import { useChartTheme } from "../../lib/chartTheme";
-import {
-  type BalancePoint,
-  type BrandVersionRow,
-  type DayFlow,
-  type HealthBucket,
-  heatmapWeeks,
-  summarizeHealth,
-} from "../../lib/dashboardMath";
+import type { ExternalTransferItem, MovementNatureTotal, StockDistribution } from "../../lib/api";
+import { useChartTheme, useLocationColor } from "../../lib/chartTheme";
+import { type BrandVersionRow, type DayFlow, heatmapWeeks } from "../../lib/dashboardMath";
 import { movementNatureLabel } from "../../lib/movements";
-import { detectCondition } from "../../lib/brands";
-import { VERSION_COLORS, type VersionLabel } from "../../lib/semantic";
-import { clickableRowProps } from "../../lib/clickableRow";
+import { type VersionLabel } from "../../lib/semantic";
+
+// Análises que saíram do Painel na 2.6.1 (Relatórios > Análises): para onde foram as
+// saídas, marcas e versões, calendário de movimento, divisão por filial e transferências
+// externas.
 
 export const CHART_HEIGHT = 260;
 
@@ -47,80 +36,6 @@ export function PanelSkeleton({ height = CHART_HEIGHT }: { height?: number }) {
       <Skeleton h={height * 0.18} w="35%" radius="sm" />
       <Skeleton h={height * 0.62} radius="sm" />
     </Stack>
-  );
-}
-
-const formatAxisNumber = (value: number) => value.toLocaleString("pt-BR");
-
-// ---------------------------------------------------------------------------
-// Movimento e saldo (ideia 3): barras de entrada e saída + linha do saldo.
-// ---------------------------------------------------------------------------
-export function BalanceChart({ data }: { data: BalancePoint[] }) {
-  const chart = useChartTheme();
-  const axisProps = { tick: chart.tick, axisLine: false, tickLine: false } as const;
-
-  return (
-    <div style={{ width: "100%", height: CHART_HEIGHT }}>
-      <ResponsiveContainer>
-        <ComposedChart data={data} margin={{ top: 8, right: 4, left: 0, bottom: 0 }} barGap={2}>
-          <CartesianGrid vertical={false} stroke={chart.grid} />
-          <XAxis dataKey="label" {...axisProps} interval="preserveStartEnd" minTickGap={12} />
-          <YAxis
-            yAxisId="mov"
-            allowDecimals={false}
-            width="auto"
-            tickFormatter={formatAxisNumber}
-            {...axisProps}
-          />
-          <YAxis
-            yAxisId="saldo"
-            orientation="right"
-            allowDecimals={false}
-            width="auto"
-            domain={["auto", "auto"]}
-            tickFormatter={formatAxisNumber}
-            {...axisProps}
-            tick={{ ...chart.tick, fill: chart.accent }}
-          />
-          <Tooltip
-            {...chart.tooltip}
-            cursor={{ fill: chart.cursorFill }}
-            formatter={(value, name) => [
-              Number(value ?? 0).toLocaleString("pt-BR"),
-              String(name ?? ""),
-            ]}
-          />
-          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: chart.tick.fill }} />
-          <Bar
-            yAxisId="mov"
-            dataKey="entradas"
-            name="Entradas"
-            fill={chart.semantic.inflow}
-            radius={[3, 3, 0, 0]}
-            maxBarSize={18}
-          />
-          <Bar
-            yAxisId="mov"
-            dataKey="saidas"
-            name="Saídas"
-            fill={chart.semantic.outflow}
-            radius={[3, 3, 0, 0]}
-            maxBarSize={18}
-          />
-          <Line
-            yAxisId="saldo"
-            type="monotone"
-            dataKey="saldo"
-            name="Saldo"
-            stroke={chart.accent}
-            strokeWidth={2.2}
-            dot={false}
-            activeDot={{ r: 4 }}
-            connectNulls={false}
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
-    </div>
   );
 }
 
@@ -296,125 +211,6 @@ export function BrandVersionPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Saúde do estoque (ideia 5).
-// ---------------------------------------------------------------------------
-const HEALTH_META: Record<HealthBucket, { label: string; hint: string; color: string }> = {
-  GIRANDO: { label: "Girando", hint: "saiu nos últimos 30 dias", color: "success" },
-  LENTO: { label: "Lento", hint: "última saída de 31 a 90 dias", color: "warning" },
-  PARADO: { label: "Parado", hint: "sem saída há mais de 90 dias", color: "danger" },
-};
-
-export function StockHealthPanel({
-  items,
-  loading,
-  subtitle,
-  onOpenProduct,
-}: {
-  items: StockItemOverview[];
-  loading: boolean;
-  subtitle: string;
-  onOpenProduct: (item: StockItemOverview) => void;
-}) {
-  const chart = useChartTheme();
-  const { counts, parados } = summarizeHealth(items);
-  const total = items.length;
-  const hex: Record<HealthBucket, string> = {
-    GIRANDO: chart.semantic.ok,
-    LENTO: chart.semantic.warn,
-    PARADO: chart.semantic.crit,
-  };
-  const buckets: HealthBucket[] = ["GIRANDO", "LENTO", "PARADO"];
-
-  return (
-    <Panel
-      title="Saúde do estoque"
-      subtitle={`${total.toLocaleString("pt-BR")} produtos com saldo · última saída de cada um · ${subtitle}`}
-    >
-      {loading ? (
-        <PanelSkeleton height={200} />
-      ) : total === 0 ? (
-        <EmptyState message="Nenhum produto com saldo" />
-      ) : (
-        <Stack gap="md" pt={4}>
-          <div className="share-bar" style={{ height: 14 }} role="img" aria-label="Divisão do estoque por giro">
-            {buckets.map((bucket) =>
-              counts[bucket] > 0 ? (
-                <span
-                  key={bucket}
-                  title={`${HEALTH_META[bucket].label}: ${counts[bucket]}`}
-                  style={{ width: `${(counts[bucket] / total) * 100}%`, background: hex[bucket] }}
-                />
-              ) : null,
-            )}
-          </div>
-          <Group grow align="flex-start" gap="md" wrap="wrap">
-            {buckets.map((bucket) => (
-              <Stack key={bucket} gap={2} miw={130}>
-                <Badge color={HEALTH_META[bucket].color} variant="light" w="fit-content">
-                  {HEALTH_META[bucket].label}
-                </Badge>
-                <Text fz={22} fw={650} className="num">
-                  {counts[bucket].toLocaleString("pt-BR")}
-                </Text>
-                <Text size="xs" c="dimmed">
-                  {HEALTH_META[bucket].hint}
-                </Text>
-              </Stack>
-            ))}
-          </Group>
-          {parados.length > 0 ? (
-            <Table.ScrollContainer minWidth={460}>
-              <Table verticalSpacing={6}>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Parados que mais ocupam</Table.Th>
-                    <Table.Th w={110}>Versão</Table.Th>
-                    <Table.Th w={60} ta="right">
-                      Saldo
-                    </Table.Th>
-                    <Table.Th w={110} ta="right">
-                      Parado há
-                    </Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {parados.slice(0, 5).map((item) => {
-                    const condition = detectCondition(item.nome);
-                    return (
-                      <Table.Tr
-                        key={item.produto_id}
-                        {...clickableRowProps(() => onOpenProduct(item))}
-                      >
-                        <Table.Td>
-                          <Text size="sm" truncate="end" maw={420}>
-                            {item.nome}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Badge size="xs" variant="outline" color={VERSION_COLORS[condition.label]}>
-                            {condition.label}
-                          </Badge>
-                        </Table.Td>
-                        <Table.Td ta="right" fw={650} className="num">
-                          {item.estoque}
-                        </Table.Td>
-                        <Table.Td ta="right" c="dimmed" className="num">
-                          {item.dias_sem_saida === null ? "nunca saiu" : `${item.dias_sem_saida} dias`}
-                        </Table.Td>
-                      </Table.Tr>
-                    );
-                  })}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
-          ) : null}
-        </Stack>
-      )}
-    </Panel>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Calendário de movimento (ideia 6): 12 semanas, mais escuro = mais movimento.
 // ---------------------------------------------------------------------------
 const WEEKDAY_LABELS = ["Seg", "", "Qua", "", "Sex", "", ""];
@@ -518,6 +314,216 @@ export function ActivityHeatmap({
             </text>
           </svg>
         </Stack>
+      )}
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Distribuição por filial (com as cores de cada filial).
+// ---------------------------------------------------------------------------
+export function DistributionPanel({
+  distribution,
+  loading,
+}: {
+  distribution?: StockDistribution;
+  loading: boolean;
+}) {
+  const { colorFor, setColor, palette } = useLocationColor();
+  const items = distribution?.items ?? [];
+  const total = distribution?.total ?? 0;
+
+  return (
+    <Panel
+      title="Distribuição por filial"
+      subtitle={`Hoje · ${total.toLocaleString("pt-BR")} unidades em estoque`}
+      actions={
+        items.length > 0 ? (
+          <Popover width={240} position="bottom-end">
+            <Popover.Target>
+              <ActionIcon color="gray" size="sm" aria-label="Cores das filiais">
+                <IconPalette size={16} stroke={1.5} />
+              </ActionIcon>
+            </Popover.Target>
+            <Popover.Dropdown>
+              <Text size="xs" fw={600} c="dimmed" mb="xs">
+                Cores por filial
+              </Text>
+              <Stack gap="xs">
+                {items.map((item) => (
+                  <Group key={item.local} justify="space-between" wrap="nowrap">
+                    <Text size="xs" truncate maw={90}>
+                      {item.local}
+                    </Text>
+                    <ColorInput
+                      size="xs"
+                      format="hex"
+                      swatches={palette}
+                      value={colorFor(item.local)}
+                      onChange={(val) => setColor(item.local, val)}
+                      w={120}
+                    />
+                  </Group>
+                ))}
+              </Stack>
+            </Popover.Dropdown>
+          </Popover>
+        ) : undefined
+      }
+    >
+      {loading ? (
+        <PanelSkeleton height={160} />
+      ) : items.length === 0 ? (
+        <EmptyState message="Sem estoque distribuído no momento" />
+      ) : (
+        <Stack gap="lg" pt={4}>
+          <div className="share-bar" role="img" aria-label="Participação por filial">
+            {items.map((item) => (
+              <span
+                key={item.local}
+                title={`${item.local}: ${item.quantidade}`}
+                style={{
+                  width: `${total > 0 ? (item.quantidade / total) * 100 : 0}%`,
+                  background: colorFor(item.local),
+                }}
+              />
+            ))}
+          </div>
+          <Stack gap={10}>
+            {items.map((item) => {
+              const itemShare = total > 0 ? (item.quantidade / total) * 100 : 0;
+              return (
+                <Group key={item.local} justify="space-between" wrap="nowrap">
+                  <Group gap={8} wrap="nowrap" miw={0}>
+                    <span className="legend-swatch" style={{ background: colorFor(item.local) }} />
+                    <Text size="sm" truncate>
+                      {item.local}
+                    </Text>
+                  </Group>
+                  <Group gap="md" wrap="nowrap">
+                    <Text size="sm" fw={600} className="num">
+                      {item.quantidade.toLocaleString("pt-BR")}
+                    </Text>
+                    <Text size="xs" c="dimmed" w={44} ta="right" className="num">
+                      {itemShare.toFixed(1)}%
+                    </Text>
+                  </Group>
+                </Group>
+              );
+            })}
+          </Stack>
+        </Stack>
+      )}
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Transferências externas por produto.
+// ---------------------------------------------------------------------------
+export function ExternalTransfersPanel({
+  items,
+  loading,
+  tipo,
+  onTipoChange,
+  subtitle,
+}: {
+  items: ExternalTransferItem[];
+  loading: boolean;
+  tipo: "ENTRADA" | "SAIDA";
+  onTipoChange: (tipo: "ENTRADA" | "SAIDA") => void;
+  subtitle: string;
+}) {
+  const chart = useChartTheme();
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? items : items.slice(0, 8);
+  const max = Math.max(0, ...items.map((item) => item.total_quantidade));
+  const color = tipo === "ENTRADA" ? chart.inflow : chart.outflow;
+
+  return (
+    <Panel
+      flush
+      title="Transferências externas"
+      subtitle={subtitle}
+      actions={
+        <SegmentedControl
+          size="xs"
+          value={tipo}
+          onChange={(value) => onTipoChange(value as "ENTRADA" | "SAIDA")}
+          data={[
+            { value: "SAIDA", label: "Saídas" },
+            { value: "ENTRADA", label: "Entradas" },
+          ]}
+        />
+      }
+    >
+      {loading ? (
+        <div style={{ padding: 16 }}>
+          <PanelSkeleton height={160} />
+        </div>
+      ) : items.length === 0 ? (
+        <EmptyState message="Sem transferências externas no período" />
+      ) : (
+        <>
+          <Table.ScrollContainer minWidth={640}>
+            <Table>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Produto</Table.Th>
+                  <Table.Th w={220}>Quantidade</Table.Th>
+                  <Table.Th w={130} ta="right">
+                    Movimentações
+                  </Table.Th>
+                  <Table.Th w={160}>Última</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {visible.map((item) => (
+                  <Table.Tr key={`${tipo}-${item.produto_id}`}>
+                    <Table.Td>
+                      <Text size="sm" fw={500} lineClamp={1}>
+                        {item.nome}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Group gap="sm" wrap="nowrap">
+                        <Text size="sm" fw={600} w={36} className="num">
+                          {item.total_quantidade}
+                        </Text>
+                        <div className="inline-bar" style={{ flex: 1 }}>
+                          <span
+                            style={{
+                              width: `${max > 0 ? Math.max((item.total_quantidade / max) * 100, 2) : 0}%`,
+                              background: color,
+                            }}
+                          />
+                        </div>
+                      </Group>
+                    </Table.Td>
+                    <Table.Td ta="right" className="num">
+                      {item.total_movimentacoes}
+                    </Table.Td>
+                    <Table.Td c="dimmed" className="num">
+                      {item.ultima_transferencia
+                        ? dayjs(item.ultima_transferencia).format("DD/MM/YYYY HH:mm")
+                        : "—"}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+          {items.length > 8 ? (
+            <Group justify="space-between" px="lg" py="sm">
+              <Text size="xs" c="dimmed">
+                Mostrando {visible.length} de {items.length}
+              </Text>
+              <Button variant="subtle" color="gray" size="xs" onClick={() => setShowAll((v) => !v)}>
+                {showAll ? "Ver menos" : "Ver todos"}
+              </Button>
+            </Group>
+          ) : null}
+        </>
       )}
     </Panel>
   );

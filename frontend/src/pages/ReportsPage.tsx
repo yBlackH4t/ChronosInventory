@@ -3,6 +3,7 @@ import { Button, Grid, Group, Loader, Stack, Tabs, Text } from "@mantine/core";
 import {
   IconBuildingWarehouse,
   IconCash,
+  IconChartBar,
   IconHourglassEmpty,
   IconListCheck,
 } from "@tabler/icons-react";
@@ -24,6 +25,9 @@ const ReportsSalesSection = lazy(
 const ReportsInactiveSection = lazy(
   () => import("../components/reports/ReportsInactiveSection"),
 );
+const ReportsAnalysisSection = lazy(
+  () => import("../components/reports/ReportsAnalysisSection"),
+);
 import { downloadBlob } from "../lib/download";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
 import type { DownloadResponse, Product, SuccessResponse } from "../lib/api";
@@ -37,7 +41,7 @@ type SelectedReportProduct = Pick<
 >;
 
 const REPORT_TYPES: {
-  value: "estoque" | "selecionados" | "vendas" | "parados";
+  value: ReportsTabState["activeSection"];
   label: string;
   hint: string;
   icon: typeof IconCash;
@@ -46,10 +50,11 @@ const REPORT_TYPES: {
   { value: "vendas", label: "Vendas reais", hint: "Saídas de operação normal", icon: IconCash },
   { value: "parados", label: "Estoque parado", hint: "Itens sem giro no período", icon: IconHourglassEmpty },
   { value: "selecionados", label: "Lista personalizada", hint: "Itens escolhidos por você", icon: IconListCheck },
+  { value: "analises", label: "Análises", hint: "Gráficos que saíram do Painel", icon: IconChartBar },
 ];
 
 type ReportsTabState = {
-  activeSection: "estoque" | "selecionados" | "vendas" | "parados";
+  activeSection: "estoque" | "selecionados" | "vendas" | "parados" | "analises";
   salesDateFrom: string | null;
   salesDateTo: string | null;
   salesScope: number | null;
@@ -441,6 +446,12 @@ export default function ReportsPage() {
               loading={inactiveReportMutation.isPending}
               onGenerate={() => inactiveReportMutation.mutate()}
             />
+          </Suspense>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="analises">
+          <Suspense fallback={<ReportSectionFallback />}>
+            {activeSection === "analises" ? <ReportsAnalysisSection /> : null}
           </Suspense>
         </Tabs.Panel>
       </Tabs>
