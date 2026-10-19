@@ -25,6 +25,11 @@ Formato recomendado:
 
 
 
+## [2.6.2] - 2026-10-19
+
+### Fixed
+- **Publicação:** a 2.6.1 não chegou a ser publicada porque o autoteste do instalador era barrado pela trava de segurança da 2.5.5. O autoteste agora se apresenta como o próprio computador. Esta versão traz tudo o que veio na 2.5.5, na 2.6.0 e na 2.6.1.
+
 ## [2.6.1] - 2026-10-19
 
 ### Changed

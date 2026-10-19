@@ -96,7 +96,8 @@ def _api(app: Any) -> None:
     if not folder or not os.path.abspath(database).startswith(os.path.abspath(tempfile.gettempdir())):
         raise RuntimeError(f"recusado: o banco nao esta numa pasta temporaria ({database})")
     # Como o proprio computador (127.0.0.1): a API so aceita pedidos locais.
-    with TestClient(app, client=("127.0.0.1", 50000)) as client:
+    # base_url local: o middleware recusa o Host "testserver" padrao do TestClient.
+    with TestClient(app, base_url="http://127.0.0.1", client=("127.0.0.1", 50000)) as client:
         if client.get("/health").status_code != 200:
             raise RuntimeError("/health nao respondeu")
         answer = client.post("/assistente/chat", json={"mensagem": "temos turbina do scania 440?"})
