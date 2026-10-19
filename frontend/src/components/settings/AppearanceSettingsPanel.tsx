@@ -13,16 +13,29 @@ import { IconPalette } from "@tabler/icons-react";
 import Panel from "../ui/Panel";
 import {
   ACCENT_OPTIONS,
+  MOTION_OPTIONS,
   type AppAccent,
   useAppAccent,
   useAppDensity,
+  useAppMotion,
 } from "../../lib/appearance";
+import { isMotionLevel, type MotionLevel } from "../../lib/motion";
+import { useMotionLevel } from "../../lib/motionContext";
 import { VERSION_COLORS } from "../../lib/semantic";
 
-// Aparência desta máquina: cor principal, tema claro/escuro e tabelas compactas.
+const MOTION_HINT: Record<MotionLevel, string> = {
+  completo: "Fundo que se move, telas que deslizam e números que rolam.",
+  suave: "Só esmaece ao trocar de tela. Nada se desloca.",
+  nenhum: "Sem animação e sem desfoque. Para computadores mais lentos.",
+};
+
+// Aparência desta máquina: cor principal, tema claro/escuro, animações e tabelas compactas.
 export default function AppearanceSettingsPanel() {
   const [accent, setAccent] = useAppAccent();
   const [density, setDensity] = useAppDensity();
+  const [motion, setMotion] = useAppMotion();
+  const effectiveMotion = useMotionLevel();
+  const motionChoice: MotionLevel = isMotionLevel(motion) ? motion : "completo";
   const { colorScheme, setColorScheme } = useMantineColorScheme();
 
   return (
@@ -35,7 +48,7 @@ export default function AppearanceSettingsPanel() {
       }
       subtitle="Vale só para este computador."
     >
-      <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+      <SimpleGrid cols={{ base: 1, md: 2, xl: 4 }} spacing="lg">
         <Stack gap={6}>
           <Text size="sm" fw={600}>
             Cor principal
@@ -64,6 +77,25 @@ export default function AppearanceSettingsPanel() {
               { value: "dark", label: "Escuro" },
             ]}
           />
+        </Stack>
+
+        <Stack gap={6}>
+          <Text size="sm" fw={600}>
+            Animações
+          </Text>
+          <SegmentedControl
+            fullWidth
+            value={motionChoice}
+            onChange={(value) => {
+              if (isMotionLevel(value)) setMotion(value);
+            }}
+            data={MOTION_OPTIONS}
+          />
+          <Text size="xs" c="dimmed">
+            {MOTION_HINT[motionChoice]}
+            {effectiveMotion !== motionChoice &&
+              " O Windows está com “Efeitos de animação” desligado, então fica no Suave."}
+          </Text>
         </Stack>
 
         <Stack gap={6}>

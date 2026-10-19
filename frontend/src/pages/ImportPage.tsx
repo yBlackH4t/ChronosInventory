@@ -195,7 +195,7 @@ export default function ImportPage() {
 
         <Stepper.Step label="Mapeamento" description="Indique as colunas">
           {analysisData && (
-            <Grid gutter="lg" mt="lg">
+            <Grid gap="lg" mt="lg">
               <Grid.Col span={{ base: 12, lg: 5 }}>
                 <Stack gap="md">
                   <Panel title="Objetivo">

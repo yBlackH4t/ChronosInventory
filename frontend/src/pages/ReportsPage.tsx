@@ -321,7 +321,7 @@ export default function ReportsPage() {
         }
       />
 
-      <Grid gutter="lg">
+      <Grid gap="lg">
         <Grid.Col span={{ base: 12, md: 4, lg: 3 }}>
           <div className="surface-panel" style={{ overflow: "hidden" }}>
             {REPORT_TYPES.map((report) => (

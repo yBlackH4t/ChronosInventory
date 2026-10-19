@@ -422,6 +422,25 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-18 — Claude Code — 2.6.0, passo "base nova" (estilo Vidro suave)
+- Branch: `claude/vidro-suave-base` (a partir da `claude/project-thread-vw3djm`, 2.5.5; versão,
+  CHANGELOG e Python sem mudar). Só a base do app; o redesenho de cada tela vem depois.
+- Tema (`theme/theme.ts`, `styles/global.css`): azul-petróleo #0E7490 (escala `petrol`, padrão de
+  "Cor principal") com degradê até o céu #38BDF8, Sora embutida (`@fontsource/sora`), fundo #EEF3F6
+  com três manchas que se movem (14 s), vidro (rgba branco .62 + blur 18px saturate 1.4, raio 16)
+  em Card/Paper/Modal/Drawer/Menu/Popover/barra do topo pelo CSS global, tema escuro equivalente,
+  números tabulares. Contraste de texto conferido (>= 4,5:1 sobre fundo, vidro e manchas).
+- Movimento: `framer-motion` -> `motion` 12.43 (`motion/react`, `LazyMotion` + `domAnimation`),
+  troca de tela com esmaecer e deslizar (~250 ms), pílula da aba ativa deslizando
+  (`components/shell/NavIndicator.tsx`), cartões entram com desfoque em sequência, cartão de número
+  sobe no mouse, ponto de status pulsando, números dos cartões com `@number-flow/react`.
+- Configurações > Aparência > Animações: Completo, Suave, Nenhum (`chronos.appearance.motion`;
+  `lib/motion.ts` + testes). Nenhum também tira o desfoque. "Efeitos de animação" desligado no
+  Windows faz o Completo virar Suave.
+- Mantine 9.6.3 em commit separado (só `Grid gutter`->`gap` e `Collapse in`->`expanded`).
+- Capturas antes/depois: `/mnt/project-files/visual/2.6.0/`.
+- Verificações: build ok / lint ok (5 avisos antigos) / vitest 40 ok.
+
 ### 2026-10-18 — Claude Code — Versão 2.5.5 (correções da avaliação completa)
 - Branch: `claude/project-thread-vw3djm`, juntando `claude/frontend-correcoes-a11y-copy` e
   `claude/seguranca-backend`. Tela do PIN do WhatsApp (`components/assistant/WhatsAppPinButton.tsx`,
