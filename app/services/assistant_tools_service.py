@@ -331,7 +331,7 @@ class AssistantToolsService:
             if ref["fabricante"] not in names:
                 names.append(ref["fabricante"])
         for item in catalog_items:
-            if canonical_code(item["ficha"]) in family:
+            if canonical_code(item["ficha"]) in family and not item["ficha_propria"]:
                 item["e_o_codigo_da_ficha"] = True  # o proprio codigo Master Power
             item["codigo_pesquisado_e"] = brands.get(item["id"], [])
         applications = self._group_applications(self.repository.get_applications(catalog_ids))

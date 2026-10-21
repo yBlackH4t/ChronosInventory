@@ -97,6 +97,9 @@ def test_import_adds_missing_products_and_teaches_applications(client, tools):  
     by_similar = tools.search_by_code("4047413")["texto_pronto"].splitlines()
     assert by_similar[1] == "É código Holset; no cadastro da empresa é a *53299887201* (turbo K29)."
     assert "não achei" in tools.catalog_code("766595")["texto_pronto"]  # nao e ficha Master Power
+    # O codigo da ficha do cadastro nao e "codigo Master Power".
+    assert "Master Power" not in tools.search_by_code("766595")["texto_pronto"]
+    assert "Master Power" not in tools.search_by_code("53299887201")["texto_pronto"]
 
     # Importar de novo nao duplica produtos.
     assert service.apply(CSV)["produtos_criados"] == 0
@@ -140,6 +143,9 @@ def test_api_preview_and_import(client, tools, monkeypatch):  # noqa: F811
         assert done.json()["data"]["produtos_criados"] == 0
         assert done.json()["data"]["status"]["fichas_cadastro"] == 3
         assert client.get("/catalogo/cadastro").json()["data"]["fichas"] == 3
+        # Sem produto cadastrado: o codigo da ficha do cadastro nao vira "codigo Master Power".
+        answer = tools.search_by_code("766595")["texto_pronto"]
+        assert "Master Power" not in answer and "no cadastro da empresa" in answer
 
         empty = client.post("/catalogo/cadastro/previa", files={"file": ("x.csv", b"", "text/csv")})
         assert empty.status_code == 400
