@@ -84,6 +84,7 @@ export function CatalogUpdateSection() {
               <Text fw={600}>
                 {status?.fichas_master_power ?? 0}
                 {status?.fichas_proprias ? ` + ${status.fichas_proprias} próprias` : ""}
+                {status?.fichas_cadastro ? ` + ${status.fichas_cadastro} do cadastro` : ""}
               </Text>
             </Stack>
             <Stack gap={2}>

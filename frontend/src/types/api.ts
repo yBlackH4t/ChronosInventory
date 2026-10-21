@@ -197,7 +197,39 @@ export type CatalogStatus = {
   origem: "pacote" | "importado" | "local";
   fichas_master_power: number;
   fichas_proprias: number;
+  fichas_cadastro?: number;
   produtos_vinculados: number;
+};
+
+// Cadastro da empresa: arquivo de produtos da loja (.csv) -> produtos que faltam + aplicações.
+export type CompanyRegisterStatus = {
+  fichas: number;
+  importado_em?: string | null;
+  pode_editar: boolean;
+  motivo?: string | null;
+};
+
+export type CompanyRegisterPreview = {
+  itens_no_arquivo: number;
+  itens_ja_cadastrados: number;
+  produtos_novos: number;
+  exemplos_produtos_novos: string[];
+  fichas: number;
+  fichas_atuais: number;
+  aplicacoes: number;
+  codigos: number;
+  ignorados: {
+    outras_pecas: number;
+    sem_codigo: number;
+    no_catalogo_master_power: number;
+    sem_aplicacao: number;
+  };
+};
+
+export type CompanyRegisterImportOut = CompanyRegisterPreview & {
+  produtos_criados: number;
+  backup: string;
+  status: CatalogStatus;
 };
 
 export type CatalogImportOut = {

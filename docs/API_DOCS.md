@@ -198,6 +198,14 @@ Todas (admin): o QR code conecta o WhatsApp da empresa ao Chronos.
 - `POST /assistente/whatsapp/parar` - desliga a ponte (a conexao do aparelho continua salva).
 - `POST /assistente/whatsapp/desconectar` - tira o Chronos dos aparelhos conectados e apaga a sessao (precisa de QR de novo).
 
+### Cadastro da empresa (arquivo de produtos da loja)
+Importa o produtos_completos.csv do sistema da loja (cp1252, `;`, CD_MATERIAL;DS_MATERIAL;CD_IDENTIFICACAO;...;DS_PRODUCAO). Regras em `core/catalog/company_register.py`.
+- `GET /catalogo/cadastro` - `{ fichas, importado_em, pode_editar, motivo }`.
+- `POST /catalogo/cadastro/previa` (multipart `file`) - so le: itens, ja cadastrados, produtos novos (+ exemplos), fichas, aplicacoes, codigos e o que ficou sem ficha (`ignorados`).
+- `POST /catalogo/cadastro/importar?criar_produtos=true` (multipart `file`) - backup `backup_pre_cadastro_*`, cadastra os produtos que faltam (saldo zero), troca as fichas do cadastro e religa o catalogo. 403 `somente_leitura` na maquina que recebe a base.
+- `DELETE /catalogo/cadastro` - tira as fichas do cadastro (os produtos cadastrados ficam).
+- `GET /catalogo/status` ganhou `fichas_cadastro`.
+
 ## Indices SQLite relevantes
 - `idx_produtos_nome`
 - `idx_mov_produto`

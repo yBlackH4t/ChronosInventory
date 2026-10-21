@@ -1104,3 +1104,10 @@ npm run lint
 ### 2026-10-19 — Claude Code — 2.6.2, correção da publicação
 - A tag v2.6.1 falhou no `build_backend.ps1`: o autodiagnóstico do executável (`app/services/assistant_packaging_check.py`) usava o Host padrão `testserver` do TestClient, que a trava de Host da 2.5.5 recusa fora de `APP_ENV=test`. Agora usa `base_url="http://127.0.0.1"`. Teste novo em `backend/tests/test_packaging_check.py` roda o autodiagnóstico sem `APP_ENV`.
 - A v2.6.1 nunca foi publicada; a 2.6.2 leva tudo (2.5.5, 2.6.0 e 2.6.1). Não recriar a tag v2.6.1.
+
+### 2026-10-21 — Claude Code — 2.7.0, cadastro da empresa (CSV da loja)
+- Branch: `claude/project-thread-7n35k7`.
+- O que foi feito: Backup > Catálogo > "Cadastro da empresa" importa o `produtos_completos.csv` do sistema da loja. Prévia antes de gravar; depois cadastra os produtos que faltam (saldo zero, observação "material N") e guarda as aplicações e similares de turbos e conjuntos que o catálogo Master Power não tem na tabela `cadastro_fichas`, copiada para `catalogo_*` com a fonte `CADASTRO` ("Cadastro da empresa"), como as fichas próprias.
+- Arquivos principais: `core/catalog/company_register.py` (leitura do texto livre, fichas, cópia para o catálogo, casamento com produtos), `app/services/company_register_service.py`, rotas em `backend/app/api/routers/catalog.py`, tela `frontend/src/components/backup/CompanyRegisterSection.tsx`.
+- Verificações: pytest ok (269) / ruff ok / build ok / lint ok / vitest ok.
+- Observações: nova, reman e montada só casam com a mesma versão (senão viram produto novo). Não sincroniza pelo conhecimento do assistente: as outras máquinas recebem com "Aplicar base oficial". O pacote do catálogo ignora a fonte CADASTRO ao decidir se o catálogo é local.
