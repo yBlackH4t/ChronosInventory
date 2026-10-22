@@ -92,11 +92,16 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
-0. **2.7.1, etiqueta da NF depois da baixa** (branch `claude/project-thread-j2dl6e`, PR para a
-   `main`, depois da 2.7.0 do PR #31): botão "Imprimir etiqueta" ao fim da saída por NF-e (e ao
-   bipar uma nota já baixada), modelo "meia folha" em Etiquetas > Expedição (NF-e) > Layout, e
-   a impressão do designer saindo no mesmo lugar do desenho. Falta o dono revisar, juntar e criar
-   a tag.
+- **2.7.1, etiqueta da NF depois da baixa** (branch `claude/project-thread-j2dl6e`, PR #32 para a
+   `main`): botão "Imprimir etiqueta" ao fim da saída por NF-e (e ao bipar uma nota já baixada),
+   modelo "meia folha" em Etiquetas > Expedição (NF-e) > Layout, e a impressão do designer saindo
+   no mesmo lugar do desenho. A 2.7.0 (PR #31) já está na `main` sem tag: a tag `v2.7.1` leva as
+   duas, e a `v2.7.0` não deve ser criada.
+- **2.7.0, cadastro da empresa** (2026-10-21, branch `claude/project-thread-7n35k7`, PR para a `main`):
+   importa o `produtos_completos.csv` do sistema da loja em Backup > Catálogo (produtos que faltam com
+   saldo zero + aplicações e similares como fichas "Cadastro da empresa") e deixa id e nome de cada
+   produto iguais aos do sistema da loja (CD_MATERIAL), com lista "Para conferir" do que parece outra peça. Depois do merge: importar na
+   máquina que publica a base e "Publicar base".
 0. **2.5.5, correções da avaliação** (branch `claude/project-thread-vw3djm`, PR para a `main`):
    segurança do backend (Host/Origin na API, servidor da base oficial só com senha e bloqueio por
    IP, senhas e chaves de API protegidas com DPAPI, PIN para `/aprovar` com tela em Assistente >

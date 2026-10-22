@@ -1105,6 +1105,14 @@ npm run lint
 - A tag v2.6.1 falhou no `build_backend.ps1`: o autodiagnóstico do executável (`app/services/assistant_packaging_check.py`) usava o Host padrão `testserver` do TestClient, que a trava de Host da 2.5.5 recusa fora de `APP_ENV=test`. Agora usa `base_url="http://127.0.0.1"`. Teste novo em `backend/tests/test_packaging_check.py` roda o autodiagnóstico sem `APP_ENV`.
 - A v2.6.1 nunca foi publicada; a 2.6.2 leva tudo (2.5.5, 2.6.0 e 2.6.1). Não recriar a tag v2.6.1.
 
+### 2026-10-21 — Claude Code — 2.7.0, cadastro da empresa (CSV da loja)
+- Branch: `claude/project-thread-7n35k7`.
+- O que foi feito: Backup > Catálogo > "Cadastro da empresa" importa o `produtos_completos.csv` do sistema da loja. Prévia antes de gravar; depois cadastra os produtos que faltam (saldo zero, observação "material N") e guarda as aplicações e similares de turbos e conjuntos que o catálogo Master Power não tem na tabela `cadastro_fichas`, copiada para `catalogo_*` com a fonte `CADASTRO` ("Cadastro da empresa"), como as fichas próprias.
+- Arquivos principais: `core/catalog/company_register.py` (leitura do texto livre, fichas, cópia para o catálogo, casamento com produtos), `app/services/company_register_service.py`, rotas em `backend/app/api/routers/catalog.py`, tela `frontend/src/components/backup/CompanyRegisterSection.tsx`.
+- Verificações: pytest ok (269) / ruff ok / build ok / lint ok / vitest ok.
+- 2026-10-22: o id do produto passa a seguir o CD_MATERIAL (o cadastro do Chronos veio desse sistema: #866 = material 866). `plan_ids`/`apply_ids` em `company_register.py`: mesmo id → nome do arquivo (se o código bate, ou se o produto nunca teve saldo nem movimentação); mesmo nome (ou mesmo código, tipo e versão) num id que o arquivo não usa ou usa para outra peça → muda para o id do arquivo em todas as tabelas (`PRAGMA defer_foreign_keys`); novos com o id do arquivo; o resto vai para "Para conferir". Nome antigo anotado na observação e códigos dele em `produto_codigos` (origem `NOME_ANTIGO`).
+- Observações: nova, reman e montada só casam com a mesma versão (senão viram produto novo). Não sincroniza pelo conhecimento do assistente: as outras máquinas recebem com "Aplicar base oficial". O pacote do catálogo ignora a fonte CADASTRO ao decidir se o catálogo é local.
+
 ### 2026-10-22 — Claude Code — 2.7.1, etiqueta da NF depois da baixa
 - `GET /nfe/{chave}/xml` (`NfeService.xml`) devolve o XML da nota; `NfeMovementModal` fica aberto depois de uma saída e oferece "Imprimir etiqueta" (`printNfeShippingLabels` em `components/labels/nfeDesignerUtils.ts`, com o layout salvo no localStorage). Nota já baixada de saída também mostra o botão.
 - Modelo `halfSheetShippingLabelLayout` (190 x 135 mm) em `lib/labelsPrint.ts`; tokens novos `endereco`, `cep`, `cidadeUf`, `remetente`, `remetenteLocal`; blocos com `frame` (moldura) e `inverted` (fundo preto). O layout anterior fica em `chronos.nfe.designer_layout.anterior`.

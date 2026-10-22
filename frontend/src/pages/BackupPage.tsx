@@ -12,6 +12,7 @@ import { IconDatabasePlus } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
 import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
+import { CompanyRegisterSection } from "../components/backup/CompanyRegisterSection";
 import { SecondFolderSection } from "../components/backup/SecondFolderSection";
 import { useBackupAutoConfig } from "../hooks/useBackupAutoConfig";
 import { useBackupOfficialBasePanel } from "../hooks/useBackupOfficialBasePanel";
@@ -455,7 +456,10 @@ export default function BackupPage() {
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="catalogo" pt="md">
-          <CatalogUpdateSection />
+          <Stack gap="md">
+            <CatalogUpdateSection />
+            <CompanyRegisterSection />
+          </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="diagnostico" pt="md">
           <BackupDiagnosticsSection
