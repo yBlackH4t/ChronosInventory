@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 
+from app.services.company_register_service import CompanyRegisterService
 from app.services.own_ficha_service import READ_ONLY_REASON, OwnFichaReadOnlyError, OwnFichaService
 from backend.app.api.responses import fail, ok
 from core.catalog.bundle import catalog_status, import_catalog_file
@@ -20,10 +21,15 @@ from core.database.connection import DatabaseConnection
 router = APIRouter(prefix="/catalogo", tags=["catalogo"])
 
 MAX_CATALOG_FILE = 200 * 1024 * 1024  # o arquivo da Master Power tem uns 8 MB
+MAX_REGISTER_FILE = 30 * 1024 * 1024  # o cadastro de produtos da loja tem 1 MB
 
 
 def get_own_ficha_service() -> OwnFichaService:
     return OwnFichaService()
+
+
+def get_company_register_service() -> CompanyRegisterService:
+    return CompanyRegisterService()
 
 
 class OwnApplicationIn(BaseModel):
@@ -158,3 +164,62 @@ def _save(service: OwnFichaService, data: Dict[str, Any], ficha_id: Optional[int
     except OwnFichaReadOnlyError as exc:
         return fail(403, "somente_leitura", str(exc), None, _request_id(request))
     return ok(ficha, status_code=status)
+
+
+# ---------------------------------------------------------------------------
+# Cadastro da empresa (arquivo de produtos da loja, .csv)
+# ---------------------------------------------------------------------------
+
+
+async def _register_file(request: Request, file: UploadFile) -> Any:
+    data = await file.read()
+    if not data:
+        return fail(400, "arquivo_vazio", "O arquivo está vazio.", None, _request_id(request))
+    if len(data) > MAX_REGISTER_FILE:
+        return fail(400, "arquivo_grande", "O arquivo é grande demais para ser o cadastro.", None, _request_id(request))
+    return data
+
+
+@router.get("/cadastro")
+def get_company_register(service: CompanyRegisterService = Depends(get_company_register_service)) -> Any:
+    return ok(service.status())
+
+
+@router.post("/cadastro/previa")
+async def preview_company_register(
+    request: Request,
+    file: UploadFile = File(...),
+    service: CompanyRegisterService = Depends(get_company_register_service),
+) -> Any:
+    """Le o arquivo e diz o que a importacao faria, sem gravar nada."""
+    data = await _register_file(request, file)
+    if not isinstance(data, bytes):
+        return data
+    return ok(service.preview(data))
+
+
+@router.post("/cadastro/importar")
+async def import_company_register(
+    request: Request,
+    file: UploadFile = File(...),
+    criar_produtos: bool = Query(default=True),
+    service: CompanyRegisterService = Depends(get_company_register_service),
+) -> Any:
+    data = await _register_file(request, file)
+    if not isinstance(data, bytes):
+        return data
+    try:
+        result = service.apply(data, criar_produtos=criar_produtos)
+    except OwnFichaReadOnlyError as exc:
+        return fail(403, "somente_leitura", str(exc), None, _request_id(request))
+    return ok({**result, "status": catalog_status(DatabaseConnection())})
+
+
+@router.delete("/cadastro")
+def remove_company_register(
+    request: Request, service: CompanyRegisterService = Depends(get_company_register_service)
+) -> Any:
+    try:
+        return ok(service.remove())
+    except OwnFichaReadOnlyError as exc:
+        return fail(403, "somente_leitura", str(exc), None, _request_id(request))

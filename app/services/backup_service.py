@@ -32,6 +32,7 @@ SAFETY_COPY_PREFIXES = (
     "backup_pre_restore",
     "backup_pre_base_oficial",
     "backup_pre_recuperar_fotos",
+    "backup_pre_cadastro",
 )
 SAFETY_COPIES_KEPT = 3
 

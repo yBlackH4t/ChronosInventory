@@ -177,11 +177,12 @@ def apply_catalog_bundle(db_connection, bundle_path: Optional[str] = None) -> Di
             if installed_hash == bundle_hash:
                 return {"status": "atualizado", "hash": bundle_hash}
 
-            # As fichas proprias nao contam: elas sao recopiadas depois (core/catalog/own_fichas.py).
+            # As fichas proprias e as do cadastro da empresa nao contam: elas sao recopiadas depois
+            # (core/catalog/own_fichas.py e core/catalog/company_register.py).
             local_count = conn.execute(
                 """
                 SELECT COUNT(*) FROM catalogo_produtos cp JOIN catalogo_fontes f ON f.id = cp.fonte_id
-                WHERE f.codigo <> 'PROPRIA'
+                WHERE f.codigo NOT IN ('PROPRIA', 'CADASTRO')
                 """
             ).fetchone()[0]
             if local_count and not installed_hash:
@@ -370,6 +371,7 @@ def import_catalog_file(db_connection, source_path: str, original_name: Optional
     aqui, para o pacote embutido de uma versao do app nao voltar o catalogo para tras.
     """
     from app.services.catalog_import_service import CatalogImportService
+    from core.catalog import company_register
     from core.catalog.own_fichas import materialize
     from core.exceptions import ValidationException
 
@@ -402,6 +404,7 @@ def import_catalog_file(db_connection, source_path: str, original_name: Optional
         _set_system(conn, KEY_BUNDLE_HASH, f"{LOCAL_IMPORT_PREFIX}{version}")
         conn.commit()
         materialize(conn)
+        company_register.materialize(conn)
     finally:
         conn.close()
     links = relink_catalog(db_connection, force=True)
@@ -442,6 +445,7 @@ def catalog_status(db_connection) -> Dict[str, Any]:
         "origem": "importado" if installed.startswith(LOCAL_IMPORT_PREFIX) else ("pacote" if installed else "local"),
         "fichas_master_power": int(counts.get("MASTER_POWER") or 0),
         "fichas_proprias": int(counts.get("PROPRIA") or 0),
+        "fichas_cadastro": int(counts.get("CADASTRO") or 0),
         "produtos_vinculados": int(linked or 0),
     }
 
@@ -467,6 +471,20 @@ def run_catalog_startup(db_connection) -> None:
             conn.close()
     except Exception:
         logger.exception("catalog: falha ao copiar as fichas proprias")
+    try:
+        from core.catalog import company_register
+        from core.database.migration_v2_4_0_knowledge import ensure_knowledge_schema
+
+        conn = db_connection.get_connection()
+        try:
+            ensure_knowledge_schema(conn)
+            conn.commit()
+            if company_register.materialize(conn):
+                logger.info("catalog: fichas do cadastro da empresa copiadas para o catalogo")
+        finally:
+            conn.close()
+    except Exception:
+        logger.exception("catalog: falha ao copiar as fichas do cadastro da empresa")
     try:
         result = relink_catalog(db_connection)
         logger.info("catalog links: %s", result)

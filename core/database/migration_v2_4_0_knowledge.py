@@ -68,6 +68,25 @@ KNOWLEDGE_SCHEMA_SQL = (
         criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """,
+    # Cadastro da empresa (2.7.0): turbos e conjuntos do arquivo de produtos da loja que o
+    # catalogo Master Power nao tem, com as aplicacoes. Copiado para catalogo_* por
+    # core/catalog/company_register.py.
+    """
+    CREATE TABLE IF NOT EXISTS cadastro_fichas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        codigo TEXT NOT NULL,
+        codigo_norm TEXT NOT NULL UNIQUE,
+        marca TEXT NOT NULL,
+        tipo TEXT NOT NULL DEFAULT 'TURBO',
+        modelo TEXT,
+        descricao TEXT,
+        observacao TEXT,
+        aplicacoes_json TEXT NOT NULL DEFAULT '[]',
+        codigos_json TEXT NOT NULL DEFAULT '[]',
+        materiais TEXT,
+        importado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """,
 )
 
 
