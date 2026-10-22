@@ -1093,6 +1093,13 @@ export type NfeBaixaOut = {
   movimentacoes: number[];
 };
 
+export type NfeXmlOut = {
+  chave: string;
+  numero: number;
+  arquivo: string;
+  xml: string;
+};
+
 export type NfeConfig = {
   pastas_xml: string[];
   cnpj_loja?: string | null;

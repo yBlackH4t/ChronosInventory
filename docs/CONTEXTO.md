@@ -92,6 +92,11 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
+- **2.7.1, etiqueta da NF depois da baixa** (branch `claude/project-thread-j2dl6e`, PR #32 para a
+   `main`): botão "Imprimir etiqueta" ao fim da saída por NF-e (e ao bipar uma nota já baixada),
+   modelo "meia folha" em Etiquetas > Expedição (NF-e) > Layout, e a impressão do designer saindo
+   no mesmo lugar do desenho. A 2.7.0 (PR #31) já está na `main` sem tag: a tag `v2.7.1` leva as
+   duas, e a `v2.7.0` não deve ser criada.
 - **2.7.0, cadastro da empresa** (2026-10-21, branch `claude/project-thread-7n35k7`, PR para a `main`):
    importa o `produtos_completos.csv` do sistema da loja em Backup > Catálogo (produtos que faltam com
    saldo zero + aplicações e similares como fichas "Cadastro da empresa") e deixa id e nome de cada

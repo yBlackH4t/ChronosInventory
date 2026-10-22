@@ -431,3 +431,15 @@ def test_certificate_key_is_never_written_in_clear_and_temp_files_are_removed(tm
     with pytest.raises(nfe_sefaz.SefazError, match="SEFAZ"):
         nfe_sefaz.download_nfe(CHAVE, pfx=pfx, senha="segredo1", cnpj="03897158000102")
     assert created and not os.path.exists(created[0])
+
+
+def test_xml_of_the_note_is_returned_for_the_shipping_label(client, tmp_path):
+    _setup(client, tmp_path)
+    response = client.get(f"/nfe/{CHAVE}/xml")
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["numero"] == 14560 and data["arquivo"] == f"{CHAVE}-nfe.xml"
+    assert "<xNome>B2PECAS LTDA</xNome>" in data["xml"]
+
+    outra = "43261003897158000285550020000145611821211029"
+    assert client.get(f"/nfe/{outra}/xml").status_code in (400, 404)

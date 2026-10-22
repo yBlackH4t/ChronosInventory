@@ -77,6 +77,12 @@ def preview(chave: str, service: NfeService = Depends(get_nfe_service)):
     return ok(service.preview(chave))
 
 
+@router.get("/{chave}/xml")
+def xml(chave: str, service: NfeService = Depends(get_nfe_service)):
+    """XML da nota, para imprimir a etiqueta de expedicao depois da baixa."""
+    return ok(service.xml(chave))
+
+
 @router.post("/{chave}/baixa", status_code=201)
 def baixar(chave: str, payload: NfeBaixaIn, service: NfeService = Depends(get_nfe_service)):
     result = service.baixar(

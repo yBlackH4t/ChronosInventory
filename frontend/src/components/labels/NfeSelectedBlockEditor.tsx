@@ -1,6 +1,7 @@
 import {
   ActionIcon,
   Button,
+  Checkbox,
   FileButton,
   Group,
   NumberInput,
@@ -254,6 +255,23 @@ export default function NfeSelectedBlockEditor({
             Ajustar altura ao texto
           </Button>
         </>
+      )}
+
+      {selectedItem.kind !== "image" && (
+        <Group gap="md">
+          <Checkbox
+            size="xs"
+            label="Moldura"
+            checked={Boolean(selectedItem.frame)}
+            onChange={(event) => onUpdate({ frame: event.currentTarget.checked })}
+          />
+          <Checkbox
+            size="xs"
+            label="Fundo preto"
+            checked={Boolean(selectedItem.inverted)}
+            onChange={(event) => onUpdate({ inverted: event.currentTarget.checked })}
+          />
+        </Group>
       )}
 
       <SimpleGrid cols={4} spacing={6}>

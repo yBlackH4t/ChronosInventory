@@ -20,7 +20,7 @@ _NS = "{http://www.portalfiscal.inf.br/nfe}"
 # Ate onde ler cada arquivo quando o nome nao traz a chave: no nfeProc o
 # atributo Id="NFe<chave>" aparece logo no comeco.
 _HEAD_BYTES = 4096
-_MAX_XML_BYTES = 20 * 1024 * 1024
+MAX_XML_BYTES = 20 * 1024 * 1024
 
 
 def chave_from_code(code: Optional[str]) -> Optional[str]:
@@ -171,7 +171,7 @@ def _xml_files(folders: Iterable[str]) -> List[str]:
     return files
 
 
-def _read(path: str, limit: int = _MAX_XML_BYTES) -> bytes:
+def _read(path: str, limit: int = MAX_XML_BYTES) -> bytes:
     with open(path, "rb") as fh:
         return fh.read(limit)
 
