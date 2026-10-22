@@ -14,19 +14,19 @@ from test_assistant_tools import CANOAS, _create_product, tools  # noqa: F401  (
 CSV = (
     "CD_MATERIAL;DS_MATERIAL;CD_IDENTIFICACAO;VL_VENDA;DS_OBS;DS_PRODUCAO;;;;\r\n"
     "-----------;-----------;----------------;--------;------;-----------;;;;\r\n"
-    "1;TURBO BORG K29 53299887201;53299887201;23.040.000.000;NULL;CAMINHAO VOLKS 19320 CONSTELLATION - MOTOR: CUMMINS ISC 8.3;;;;\r\n"
+    "101;TURBO BORG K29 53299887201;53299887201;23.040.000.000;NULL;CAMINHAO VOLKS 19320 CONSTELLATION - MOTOR: CUMMINS ISC 8.3;;;;\r\n"
     " SIMILAR HOLSET: 4047413 / 4044509 / SIMILAR GARRETT: 806589-5001S;;;;;;;;;\r\n"
     ";;;;;;;;;\r\n"
-    "4;TURBO BORG S2EL 766595;766595;26.630.000.000;NULL; CASE TRATOR CS120 / 130 / 150;;;;\r\n"
+    "104;TURBO BORG S2EL 766595;766595;26.630.000.000;NULL; CASE TRATOR CS120 / 130 / 150;;;;\r\n"
     "MOTOR: 620DS;;;;;;;;;\r\n"
     "OE 162000110700;;;;;;;;;\r\n"
     "MASSEY FERGUSON MF7350 / 7370 /;;;;;;;;;\r\n"
     "7415 MOTOR: 620DS / 620DSA;;;;;;;;;\r\n"
     "EIXO: 42/49,95 / ROTOR: 39,4/56;;;;;;;;;\r\n"
-    "5;TURBO HOLSET HX55W 4031196 MONTADA;4031196;1.000.000.000;NULL;VOLVO FH 440;;;;\r\n"
-    "6;EMBREAGEM VISCOSA S710 - 15.07ED00034.A;15.07ED00034.A;.0000000;NULL;FORD CARGO 2631;;;;\r\n"
-    "7;CONJUNTO CENTRAL VW VOLARE W8;NULL;.0000000;NULL;VOLARE W8 W9 ELETRÔNICO;;;;\r\n"
-    "8;TURBO GARRETT GT42 723117-5001S;723117-5001S;.0000000;NULL;SCANIA 113 - MOTOR: DSC11;;;;\r\n"
+    "105;TURBO HOLSET HX55W 4031196 MONTADA;4031196;1.000.000.000;NULL;VOLVO FH 440;;;;\r\n"
+    "106;EMBREAGEM VISCOSA S710 - 15.07ED00034.A;15.07ED00034.A;.0000000;NULL;FORD CARGO 2631;;;;\r\n"
+    "107;CONJUNTO CENTRAL VW VOLARE W8;NULL;.0000000;NULL;VOLARE W8 W9 ELETRÔNICO;;;;\r\n"
+    "108;TURBO GARRETT GT42 723117-5001S;723117-5001S;.0000000;NULL;SCANIA 113 - MOTOR: DSC11;;;;\r\n"
 ).encode("cp1252")
 
 
@@ -41,7 +41,7 @@ def _service(can_edit=True):
 
 def test_reads_the_free_text_applications():
     items = register.read_items(CSV)
-    assert [i["cd_material"] for i in items] == [1, 4, 5, 6, 7, 8]
+    assert [i["cd_material"] for i in items] == [101, 104, 105, 106, 107, 108]
     assert items[4]["codigo"] == ""  # NULL
 
     details = register.parse_details(items[1]["linhas"])
@@ -86,7 +86,7 @@ def test_import_adds_missing_products_and_teaches_applications(client, tools):  
 
     products = {p["nome"]: p for p in client.get("/produtos", params={"page_size": 100}).json()["data"]}
     novo = products["TURBO BORG S2EL 766595"]
-    assert novo["total_stock"] == 0 and "material 4" in (novo.get("observacao") or "")
+    assert novo["total_stock"] == 0 and "material 104" in (novo.get("observacao") or "")
 
     # O assistente acha pelo veiculo e pelo codigo similar.
     by_vehicle = tools.search_by_application("massey 620ds")
@@ -152,3 +152,77 @@ def test_api_preview_and_import(client, tools, monkeypatch):  # noqa: F811
     finally:
         client.app.dependency_overrides.clear()
     _create_product(client, "TURBO TESTE 1234567", {CANOAS: 1})  # o app segue normal depois
+
+
+# Ids iguais aos do sistema da loja: o cadastro do Chronos veio dele (#866 = material 866).
+ID_CSV = (
+    "CD_MATERIAL;DS_MATERIAL;CD_IDENTIFICACAO;VL_VENDA;DS_OBS;DS_PRODUCAO;;;;\r\n"
+    "-----------;-----------;----------------;--------;------;-----------;;;;\r\n"
+    "1;TURBO HOLSET HX55W - 3797851/4031196/5452349;3797851;.0000000;NULL;VOLVO FH 440;;;;\r\n"
+    "2;TURBO HX40 - 4036420;4036420;.0000000;NULL; ;;;;\r\n"
+    "3;GASOLINA C ADITIVADA;NULL;.0000000;NULL; ;;;;\r\n"
+    "4;JUNTA COLETOR ESCAPE VOLVO VM330;NULL;.0000000;NULL; ;;;;\r\n"
+    "50;TURBO HX35W - 4047313;4047313;.0000000;NULL; ;;;;\r\n"
+    "60;TURBO HE200WG 5455135;5455135;.0000000;NULL; ;;;;\r\n"
+).encode("cp1252")
+
+
+def test_ids_and_names_follow_the_store_system(client):
+    from test_assistant_tools import _create_product as create
+
+    hx55 = create(client, "TURBO HX55W - 4031196/3797851", {CANOAS: 2})
+    hx40 = create(client, "TURBO HX40 - 4036420/3596989", {})
+    b3 = create(client, "TURBO B3 - 13919880060", {CANOAS: 1})
+    junta = create(client, "JUNTA COLETOR ESCAPE CUMMINS", {})
+    hx35 = create(client, "TURBO HX35W - 4047313", {CANOAS: 1})
+    antigo = create(client, "TURBO ANTIGO 1234567", {})
+    assert [hx55, hx40, b3, junta, hx35, antigo] == [1, 2, 3, 4, 5, 6]
+    conn = DatabaseConnection().get_connection()
+    try:
+        conn.execute("INSERT INTO product_images (product_id, image_data, is_primary) VALUES (5, x'00', 1)")
+        conn.commit()
+    finally:
+        conn.close()
+
+    service, _ = _service()
+    preview = service.preview(ID_CSV)
+    assert preview["iguais"] == 0
+    assert preview["nomes_trocados"] == 3  # HX55 e HX40 (mesmo codigo) e a junta (zerada, sem movimentacao)
+    assert preview["exemplos_ids"] == [{"de": 5, "para": 50, "nome": "TURBO HX35W - 4047313"}]
+    assert preview["produtos_novos"] == 1
+    # Mesmo id, outra peca com saldo: nao vira gasolina sozinho.
+    assert [(c["cd_material"], c["nome_chronos"]) for c in preview["para_conferir"]] == [(3, "TURBO B3 - 13919880060")]
+    assert preview["fora_do_arquivo"] == 1
+
+    result = service.apply(ID_CSV)
+    assert (result["nomes_trocados"], result["ids_trocados"], result["produtos_criados"]) == (3, 1, 1)
+
+    def product(pid):
+        response = client.get(f"/produtos/{pid}")
+        return response.json()["data"] if response.status_code == 200 else None
+
+    assert product(1)["nome"] == "TURBO HOLSET HX55W - 3797851/4031196/5452349" and product(1)["total_stock"] == 2
+    assert "TURBO HX55W - 4031196/3797851" in product(1)["observacao"]  # o nome antigo fica anotado
+    assert product(3)["nome"] == "TURBO B3 - 13919880060"
+    assert product(4)["nome"] == "JUNTA COLETOR ESCAPE VOLVO VM330"
+    # O HX35W foi para o id 50 com saldo, movimentacao e foto.
+    assert product(5) is None and product(50)["total_stock"] == 1
+    assert product(60)["nome"] == "TURBO HE200WG 5455135" and product(60)["total_stock"] == 0
+    conn = DatabaseConnection().get_connection()
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM movimentacoes WHERE produto_id = 50").fetchone()[0] >= 1
+        assert conn.execute("SELECT COUNT(*) FROM movimentacoes WHERE produto_id = 5").fetchone()[0] == 0
+        assert conn.execute("SELECT product_id FROM product_images").fetchone()[0] == 50
+        assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
+    finally:
+        conn.close()
+    # O codigo que so estava no nome antigo continua achando o produto.
+    found = client.get("/produtos", params={"query": "3596989"}).json()["data"]
+    assert [p["id"] for p in found] == [2]
+    # O proximo produto do Chronos vem depois dos ids do arquivo.
+    assert create(client, "TURBO TESTE 7654321", {}) == 61
+
+    # Rodar de novo nao muda nada.
+    again = service.apply(ID_CSV)
+    assert (again["nomes_trocados"], again["ids_trocados"], again["produtos_criados"]) == (0, 0, 0)
+    assert again["iguais"] == 5

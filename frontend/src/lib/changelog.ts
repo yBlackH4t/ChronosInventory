@@ -14,7 +14,7 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     "date": "2026-10-21",
     "title": "Novas funcionalidades",
     "highlights": [
-      "Novo: Cadastro da empresa: em Backup > Catálogo, importe o arquivo de produtos do sistema da loja (produtos_completos.csv). Antes de gravar, o Chronos mostra o que vai mudar. Depois cadastra os produtos que ainda não existem, com saldo zero, e guarda as aplicações (veículo e motor) e os códigos similares dos turbos e conjuntos que o catálogo Master Power não tem. O assistente passa a achar essas peças pelo veículo, pelo motor e pelos similares. Saldo e nome dos produtos que já existem não mudam, e uma cópia de segurança do banco é feita antes."
+      "Novo: Cadastro da empresa: em Backup > Catálogo, importe o arquivo de produtos do sistema da loja (produtos_completos.csv). Antes de gravar, o Chronos mostra o que vai mudar. Depois cadastra os produtos que ainda não existem, com saldo zero, e guarda as aplicações (veículo e motor) e os códigos similares dos turbos e conjuntos que o catálogo Master Power não tem. O assistente passa a achar essas peças pelo veículo, pelo motor e pelos similares. O saldo não muda, e uma cópia de segurança do banco é feita antes. Também deixa o número (#) e o nome de cada produto iguais aos do sistema da loja: quem tem o mesmo número fica com o nome do arquivo (o nome antigo fica anotado e os códigos dele continuam na busca), quem tem o mesmo nome passa para o número do arquivo com movimentações, saldo, fotos e NFs, e os novos entram com o número do arquivo. O que parece outra peça não muda e aparece numa lista para conferir."
     ]
   },
   {

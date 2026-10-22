@@ -94,7 +94,8 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 - **2.7.0, cadastro da empresa** (2026-10-21, branch `claude/project-thread-7n35k7`, PR para a `main`):
    importa o `produtos_completos.csv` do sistema da loja em Backup > Catálogo (produtos que faltam com
-   saldo zero + aplicações e similares como fichas "Cadastro da empresa"). Depois do merge: importar na
+   saldo zero + aplicações e similares como fichas "Cadastro da empresa") e deixa id e nome de cada
+   produto iguais aos do sistema da loja (CD_MATERIAL), com lista "Para conferir" do que parece outra peça. Depois do merge: importar na
    máquina que publica a base e "Publicar base".
 0. **2.5.5, correções da avaliação** (branch `claude/project-thread-vw3djm`, PR para a `main`):
    segurança do backend (Host/Origin na API, servidor da base oficial só com senha e bloqueio por

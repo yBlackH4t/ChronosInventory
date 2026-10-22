@@ -209,11 +209,29 @@ export type CompanyRegisterStatus = {
   motivo?: string | null;
 };
 
+export type CompanyRegisterReview = {
+  cd_material: number;
+  nome_arquivo: string;
+  produto_id: number;
+  nome_chronos: string;
+  saldo: number;
+  movimentacoes: number;
+  motivo: "OUTRA_PECA" | "PARECIDO";
+};
+
 export type CompanyRegisterPreview = {
   itens_no_arquivo: number;
   itens_ja_cadastrados: number;
+  iguais: number;
   produtos_novos: number;
   exemplos_produtos_novos: string[];
+  nomes_trocados: number;
+  exemplos_nomes: { id: number; de: string; para: string }[];
+  ids_trocados: number;
+  exemplos_ids: { de: number; para: number; nome: string }[];
+  para_conferir: CompanyRegisterReview[];
+  fora_do_arquivo: number;
+  fora_do_arquivo_com_saldo: { produto_id: number; nome: string; saldo: number }[];
   fichas: number;
   fichas_atuais: number;
   aplicacoes: number;

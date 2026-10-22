@@ -4,7 +4,9 @@ mostra o que vai mudar e, quando o usuario confirma, cadastra os produtos que fa
 zero) e guarda as aplicacoes como fichas "Cadastro da empresa". As regras de leitura ficam em
 core/catalog/company_register.py.
 
-Nunca mexe em saldo nem no nome dos produtos que ja existem. Antes de gravar faz uma copia de
+Deixa o id de cada produto igual ao CD_MATERIAL do arquivo e o nome igual ao do arquivo (as regras
+ficam em company_register.plan_ids). Nunca mexe em saldo; o que parece outra peca vai para
+"Para conferir" e nao muda. Antes de gravar faz uma copia de
 seguranca do banco (backup_pre_cadastro_*).
 
 Quem importa: a maquina que publica a base, ou uma que nao recebe de ninguem (como as fichas
@@ -81,9 +83,8 @@ class CompanyRegisterService:
             )
         }
         built = register.build_fichas(items, mp_codes)
-        matches = register.match_products(conn, items)
         return {"items": items, "fichas": built["fichas"], "ignorados": built["ignorados"],
-                "matches": matches, "novos": register.new_products(items, matches)}
+                "ids": register.plan_ids(conn, items)}
 
     def preview(self, data: bytes) -> Dict[str, Any]:
         """O que a importacao faria, sem gravar nada."""
@@ -99,12 +100,21 @@ class CompanyRegisterService:
     @staticmethod
     def _summary(plan: Dict[str, Any], current_fichas: int) -> Dict[str, Any]:
         fichas: List[Dict[str, Any]] = plan["fichas"]
-        found = sum(1 for pid in plan["matches"].values() if pid is not None)
+        ids = plan["ids"]
+        outside = ids["fora_do_arquivo"]
         return {
             "itens_no_arquivo": len(plan["items"]),
-            "itens_ja_cadastrados": found,
-            "produtos_novos": len(plan["novos"]),
-            "exemplos_produtos_novos": [i["nome"] for i in plan["novos"][:PREVIEW_EXAMPLES]],
+            "itens_ja_cadastrados": len(plan["items"]) - len(ids["criar"]),
+            "iguais": ids["iguais"],
+            "produtos_novos": len(ids["criar"]),
+            "exemplos_produtos_novos": [i["nome"] for i in ids["criar"][:PREVIEW_EXAMPLES]],
+            "nomes_trocados": len(ids["renomear"]),
+            "exemplos_nomes": ids["renomear"][:PREVIEW_EXAMPLES],
+            "ids_trocados": len(ids["mudar_id"]),
+            "exemplos_ids": ids["mudar_id"][:PREVIEW_EXAMPLES],
+            "para_conferir": ids["conferir"],
+            "fora_do_arquivo": len(outside),
+            "fora_do_arquivo_com_saldo": [p for p in outside if p["saldo"]],
             "fichas": len(fichas),
             "fichas_atuais": int(current_fichas),
             "aplicacoes": sum(len(f["aplicacoes"]) for f in fichas),
@@ -128,25 +138,12 @@ class CompanyRegisterService:
             conn.close()
         backup_path = self._make_backup()
 
-        created = 0
         conn = self.db.get_connection()
         try:
             conn.execute("BEGIN IMMEDIATE")
-            if criar_produtos and plan["novos"]:
-                locations = [r[0] for r in conn.execute("SELECT id FROM locais WHERE ativo = 1")]
-                for item in plan["novos"]:
-                    cursor = conn.execute(
-                        "INSERT INTO produtos (nome, observacao, ativo) VALUES (?, ?, 1)",
-                        (item["nome"], NEW_PRODUCT_NOTE.format(cd=item["cd_material"])),
-                    )
-                    conn.executemany(
-                        """
-                        INSERT INTO produto_estoque (produto_id, local_id, quantidade, atualizado_em)
-                        VALUES (?, ?, 0, datetime('now'))
-                        """,
-                        [(cursor.lastrowid, loc) for loc in locations],
-                    )
-                    created += 1
+            plan = self._plan(conn, data)  # de novo, ja com o banco travado
+            ids_plan = plan["ids"] if criar_produtos else {**plan["ids"], "criar": []}
+            done = register.apply_ids(conn, ids_plan, NEW_PRODUCT_NOTE)
             register.replace_all(conn, plan["fichas"])
             conn.commit()
         except Exception:
@@ -156,7 +153,7 @@ class CompanyRegisterService:
             conn.close()
         self._refresh()
         summary = self._summary(plan, current)
-        summary.update(produtos_criados=created, backup=backup_path)
+        summary.update(**done, backup=backup_path)
         return summary
 
     def remove(self) -> Dict[str, Any]:
