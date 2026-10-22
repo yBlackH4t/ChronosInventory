@@ -534,41 +534,6 @@ def _versions(nome: str) -> Tuple[bool, bool]:
     return "MONTAD" in upper, "REMAN" in upper
 
 
-def match_products(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[int, Optional[int]]:
-    """
-    {cd_material: id do nosso produto ou None}. Primeiro pelo nome igual (sem pontuacao), depois
-    pelo codigo da peca, preferindo a mesma versao (montada / reman) e o nome mais parecido.
-    Produtos inativos contam: um item que ja existe inativo nao e cadastrado de novo.
-    """
-    by_name: Dict[str, int] = {}
-    by_code: Dict[str, Set[int]] = {}
-    names: Dict[int, str] = {}
-    for pid, nome in conn.execute("SELECT id, nome FROM produtos ORDER BY id"):
-        names[pid] = nome
-        by_name.setdefault(name_key(nome), pid)
-        for code in extract_codes_from_name(nome, expand_family=False):
-            by_code.setdefault(code, set()).add(pid)
-
-    def words(text: str) -> Set[str]:
-        return set(name_key(text).split())
-
-    result: Dict[int, Optional[int]] = {}
-    for item in items:
-        pid = by_name.get(name_key(item["nome"]))
-        if pid is None:
-            candidates: Set[int] = set()
-            for _, code in own_codes(item):
-                candidates |= by_code.get(code, set())
-            if candidates:
-                # Nova, reman e montada sao produtos diferentes no Chronos: so casa a mesma versao.
-                same = [c for c in candidates if _versions(names[c]) == _versions(item["nome"])]
-                wanted = words(item["nome"])
-                if same:
-                    pid = max(sorted(same), key=lambda c: len(wanted & words(names[c])) / max(1, len(wanted | words(names[c]))))
-        result[item["cd_material"]] = pid
-    return result
-
-
 # ----------------------------------------------------------------------
 # Ids iguais aos do sistema da loja
 # ----------------------------------------------------------------------
@@ -578,7 +543,6 @@ def match_products(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dic
 
 PRODUCT_ID_COLUMNS = ("produto_id", "product_id", "produto_vinculado_id")
 REVIEW_OTHER_PART = "OUTRA_PECA"  # mesmo id, nome e codigo diferentes, com saldo ou movimentacao
-REVIEW_SIMILAR = "PARECIDO"  # o arquivo tem um id que o Chronos nao tem, mas o codigo bate com outro produto
 OLD_NAME_NOTE = "Nome antes da importação do cadastro da empresa: {nome}"
 
 
@@ -607,16 +571,17 @@ def plan_ids(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[str,
     for pid in sorted(products):
         by_name.setdefault(name_key(products[pid]), []).append(pid)
     by_id = {item["cd_material"]: item for item in items}
-    by_code = match_products(conn, items)
 
     def codes(text: str) -> Set[str]:
-        return set(extract_codes_from_name(text, expand_family=False))
+        """So numeros de peca (5+ digitos): modelo como GT1749V ou T04E66 nao diz que e a mesma peca."""
+        return {c for c in extract_codes_from_name(text, expand_family=False) if sum(ch.isdigit() for ch in c) >= 5}
+
+    def item_codes(item: Dict[str, Any]) -> Set[str]:
+        return codes(item["nome"]) | {c for _, c in own_codes(item) if sum(ch.isdigit() for ch in c) >= 5}
 
     def same_part(item: Dict[str, Any], pid: int) -> bool:
         current = products[pid]
-        return name_key(current) == name_key(item["nome"]) or bool(
-            codes(current) & (codes(item["nome"]) | {c for _, c in own_codes(item)})
-        )
+        return name_key(current) == name_key(item["nome"]) or bool(codes(current) & item_codes(item))
 
     def can_leave(pid: int) -> bool:
         """O produto pode sair do id atual: o arquivo nao usa esse numero, ou usa para outra peca."""
@@ -628,21 +593,31 @@ def plan_ids(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[str,
                 "movimentacoes": int(moves.get(pid, 0) or 0), "motivo": reason}
 
     plan: Dict[str, Any] = {"iguais": 0, "renomear": [], "mudar_id": [], "criar": [], "conferir": []}
+    # Indice por codigo so dos produtos que podem mudar de numero.
+    leaving = [pid for pid in sorted(products) if can_leave(pid)]
+    by_code: Dict[str, List[int]] = {}
+    for pid in leaving:
+        for code in codes(products[pid]):
+            by_code.setdefault(code, []).append(pid)
+
+    def similar_to(item: Dict[str, Any]) -> Optional[int]:
+        """Produto que pode mudar de numero com o mesmo codigo, tipo e versao (nova/reman/montada)."""
+        found = sorted({p for code in item_codes(item) for p in by_code.get(code, [])})
+        for pid in found:
+            if pid not in moved and item_kind(products[pid]) == item_kind(item["nome"]) and _versions(products[pid]) == _versions(item["nome"]):
+                return pid
+        return None
+
     moved: Set[int] = set()
     targets: Set[int] = set()
-    similar_review: Dict[int, int] = {}
     for item in items:
         cd, nome = item["cd_material"], item["nome"]
         if cd in products:
             continue
         free = [p for p in by_name.get(name_key(nome), []) if p not in moved and can_leave(p)]
         if not free:
-            similar = by_code.get(cd)
-            if (similar is not None and similar not in moved and name_key(products[similar]) != name_key(nome)
-                    and item_kind(products[similar]) == item_kind(nome) and can_leave(similar)):
-                free = [similar]
-            elif similar is not None and similar not in moved and name_key(products[similar]) != name_key(nome):
-                similar_review[cd] = similar
+            similar = similar_to(item)
+            free = [similar] if similar is not None else []
         if free:
             moved.add(free[0])
             targets.add(cd)
@@ -660,8 +635,6 @@ def plan_ids(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[str,
                 plan["renomear"].append({"id": cd, "de": current, "para": nome})
             else:
                 plan["conferir"].append(review(item, cd, REVIEW_OTHER_PART))
-        elif cd in similar_review:
-            plan["conferir"].append(review(item, similar_review[cd], REVIEW_SIMILAR))
         else:
             plan["criar"].append(item)
     plan["fora_do_arquivo"] = [

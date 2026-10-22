@@ -168,6 +168,9 @@ ID_CSV = (
     "7;TURBO GTA2056V - BC.0053T;NULL;.0000000;NULL; ;;;;\r\n"
     "70;TURBO HX27W 3779951;3779951;.0000000;NULL; ;;;;\r\n"
     "80;TURBO HOLSET HX40W - 3597761;3597761;.0000000;NULL; ;;;;\r\n"
+    "9;TURBO HX82 -4033487/2840258;4033487;.0000000;NULL; ;;;;\r\n"
+    "90;TURBO HX52 -4042228/4031125;4042228;.0000000;NULL; ;;;;\r\n"
+    "100;IMP CONJUNTO CENTRAL - 7100-001-3038 T04E66;7100-001-3038;.0000000;NULL; ;;;;\r\n"
 ).encode("cp1252")
 
 
@@ -183,7 +186,10 @@ def test_ids_and_names_follow_the_store_system(client):
     # O Chronos criou o HX27W no 7, que na loja e outra peca; o HX40W no 8, que a loja nao usa.
     hx27 = create(client, "TURBO HX27W 3779951", {CANOAS: 1})
     hx40w = create(client, "TURBO HX40W - 3597761", {CANOAS: 1})
-    assert [hx55, hx40, b3, junta, hx35, antigo, hx27, hx40w] == [1, 2, 3, 4, 5, 6, 7, 8]
+    # O 9 e a mesma peca do arquivo (4033487) e fica la; o 10 so tem o modelo (T04E66) em comum com o 100.
+    hx82 = create(client, "TURBO HX55 - 4042228D / 4031125/4033487", {})
+    t04 = create(client, "CONJUNTO CENTRAL T04E66 - 7100-001-0148", {})
+    assert [hx55, hx40, b3, junta, hx35, antigo, hx27, hx40w, hx82, t04] == list(range(1, 11))
     conn = DatabaseConnection().get_connection()
     try:
         conn.execute("INSERT INTO product_images (product_id, image_data, is_primary) VALUES (5, x'00', 1)")
@@ -194,15 +200,16 @@ def test_ids_and_names_follow_the_store_system(client):
     service, _ = _service()
     preview = service.preview(ID_CSV)
     assert preview["iguais"] == 0
-    assert preview["nomes_trocados"] == 3  # HX55 e HX40 (mesmo codigo) e a junta (zerada, sem movimentacao)
+    assert preview["nomes_trocados"] == 4  # HX55, HX40 e HX82 (mesmo codigo) e a junta (zerada, sem movimentacao)
     assert [(m["de"], m["para"]) for m in preview["exemplos_ids"]] == [(5, 50), (7, 70), (8, 80)]
-    assert preview["produtos_novos"] == 2  # o HE200WG e a GTA2056V no 7, que ficou livre
+    # O HE200WG, a GTA2056V no 7 (que ficou livre), o HX52 e o conjunto 100.
+    assert preview["produtos_novos"] == 4
     # Mesmo id, outra peca com saldo: nao vira gasolina sozinho.
     assert [(c["cd_material"], c["nome_chronos"]) for c in preview["para_conferir"]] == [(3, "TURBO B3 - 13919880060")]
-    assert preview["fora_do_arquivo"] == 1
+    assert preview["fora_do_arquivo"] == 2
 
     result = service.apply(ID_CSV)
-    assert (result["nomes_trocados"], result["ids_trocados"], result["produtos_criados"]) == (3, 3, 2)
+    assert (result["nomes_trocados"], result["ids_trocados"], result["produtos_criados"]) == (4, 3, 4)
 
     def product(pid):
         response = client.get(f"/produtos/{pid}")
@@ -232,9 +239,9 @@ def test_ids_and_names_follow_the_store_system(client):
     found = client.get("/produtos", params={"query": "3596989"}).json()["data"]
     assert [p["id"] for p in found] == [2]
     # O proximo produto do Chronos vem depois dos ids do arquivo.
-    assert create(client, "TURBO TESTE 7654321", {}) == 81
+    assert create(client, "TURBO TESTE 7654321", {}) == 101
 
     # Rodar de novo nao muda nada.
     again = service.apply(ID_CSV)
     assert (again["nomes_trocados"], again["ids_trocados"], again["produtos_criados"]) == (0, 0, 0)
-    assert again["iguais"] == 8
+    assert again["iguais"] == 11

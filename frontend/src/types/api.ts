@@ -216,7 +216,7 @@ export type CompanyRegisterReview = {
   nome_chronos: string;
   saldo: number;
   movimentacoes: number;
-  motivo: "OUTRA_PECA" | "PARECIDO";
+  motivo: "OUTRA_PECA";
 };
 
 export type CompanyRegisterPreview = {

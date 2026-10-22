@@ -37,7 +37,6 @@ function Figure({ label, value }: { label: string; value: number | string }) {
 
 const REVIEW_REASON: Record<CompanyRegisterReview["motivo"], string> = {
   OUTRA_PECA: "Mesmo número, outra peça",
-  PARECIDO: "Mesmo código, outro número",
 };
 
 /** Lista "Para conferir" como planilha (abre no Excel com ; e acentos). */
