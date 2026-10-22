@@ -1104,3 +1104,8 @@ npm run lint
 ### 2026-10-19 — Claude Code — 2.6.2, correção da publicação
 - A tag v2.6.1 falhou no `build_backend.ps1`: o autodiagnóstico do executável (`app/services/assistant_packaging_check.py`) usava o Host padrão `testserver` do TestClient, que a trava de Host da 2.5.5 recusa fora de `APP_ENV=test`. Agora usa `base_url="http://127.0.0.1"`. Teste novo em `backend/tests/test_packaging_check.py` roda o autodiagnóstico sem `APP_ENV`.
 - A v2.6.1 nunca foi publicada; a 2.6.2 leva tudo (2.5.5, 2.6.0 e 2.6.1). Não recriar a tag v2.6.1.
+
+### 2026-10-22 — Claude Code — 2.7.1, etiqueta da NF depois da baixa
+- `GET /nfe/{chave}/xml` (`NfeService.xml`) devolve o XML da nota; `NfeMovementModal` fica aberto depois de uma saída e oferece "Imprimir etiqueta" (`printNfeShippingLabels` em `components/labels/nfeDesignerUtils.ts`, com o layout salvo no localStorage). Nota já baixada de saída também mostra o botão.
+- Modelo `halfSheetShippingLabelLayout` (190 x 135 mm) em `lib/labelsPrint.ts`; tokens novos `endereco`, `cep`, `cidadeUf`, `remetente`, `remetenteLocal`; blocos com `frame` (moldura) e `inverted` (fundo preto). O layout anterior fica em `chronos.nfe.designer_layout.anterior`.
+- Correção: o HTML de impressão tinha quebra de linha e recuo dentro de cada bloco com `white-space: pre-wrap`, e o texto saía uma linha abaixo do desenho. Peso agora com vírgula e " kg".

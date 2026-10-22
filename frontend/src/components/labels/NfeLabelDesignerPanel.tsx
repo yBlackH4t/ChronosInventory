@@ -23,10 +23,12 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowBackUp,
   IconDownload,
   IconFileImport,
   IconFileTypeXml,
   IconKeyboard,
+  IconLayoutBoard,
   IconPhoto,
   IconPrinter,
   IconRestore,
@@ -40,6 +42,7 @@ import EmptyState from "../ui/EmptyState";
 import {
   buildShippingLabelsDesignerPrintHtml,
   DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT,
+  halfSheetShippingLabelLayout,
   normalizeShippingLabelDesignerLayout,
   resolveShippingLabelDesignerItemText,
   SHIPPING_LABEL_FIELD_TOKEN_OPTIONS,
@@ -50,6 +53,7 @@ import {
 } from "../../lib/labelsPrint";
 import {
   type NfeShippingData,
+  nfeShippingPrintItems,
   parseNfeShippingData,
 } from "../../lib/nfeShippingLabel";
 import { notifyError, notifySuccess } from "../../lib/notify";
@@ -58,6 +62,7 @@ import {
   COMMON_WINDOWS_FONTS,
   GRID_SIZE,
   MAX_NFE_LABELS_PER_PRINT,
+  PREVIOUS_LAYOUT_KEY,
   SAMPLE_DATA,
   STORAGE_KEY,
   clamp,
@@ -112,23 +117,10 @@ export default function NfeLabelDesignerPanel() {
     };
   }, []);
 
-  const nfePrintItems = useMemo<ShippingLabelPrintableItem[]>(() => {
-    if (!nfeData) return [];
-    const cappedTotal = Math.max(
-      1,
-      Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT),
-    );
-    return Array.from({ length: cappedTotal }, (_, index) => ({
-      cliente: nfeData.cliente,
-      cidade: nfeData.cidade,
-      estado: nfeData.estado,
-      transportadora: nfeData.transportadora,
-      numeroNota: nfeData.numeroNota,
-      pesoKg: nfeData.pesoKg,
-      volumeIndex: index + 1,
-      volumeTotal: cappedTotal,
-    }));
-  }, [nfeData]);
+  const nfePrintItems = useMemo<ShippingLabelPrintableItem[]>(
+    () => (nfeData ? nfeShippingPrintItems(nfeData, MAX_NFE_LABELS_PER_PRINT) : []),
+    [nfeData],
+  );
 
   const previewData = nfePrintItems[0] ?? SAMPLE_DATA;
 
@@ -398,6 +390,39 @@ export default function NfeLabelDesignerPanel() {
     notifySuccess("Altura do bloco ajustada ao texto.");
   };
 
+  const applyHalfSheetModel = () => {
+    const logo = layout.items.find((item) => item.kind === "image" && item.src)?.src;
+    try {
+      window.localStorage.setItem(PREVIOUS_LAYOUT_KEY, JSON.stringify(layout));
+    } catch {
+      // Sem storage: o modelo entra mesmo assim.
+    }
+    setLayout(halfSheetShippingLabelLayout(logo));
+    setSelectedId(null);
+    setImportedLayoutName("");
+    notifySuccess(
+      logo
+        ? "Modelo meia folha aplicado com o seu logo. O layout anterior ficou guardado."
+        : "Modelo meia folha aplicado. Coloque o logo no bloco de imagem. O layout anterior ficou guardado.",
+    );
+  };
+
+  const restorePreviousLayout = () => {
+    try {
+      const raw = window.localStorage.getItem(PREVIOUS_LAYOUT_KEY);
+      if (!raw) {
+        notifyError(new Error("Não há layout anterior guardado nesta máquina."));
+        return;
+      }
+      window.localStorage.setItem(PREVIOUS_LAYOUT_KEY, JSON.stringify(layout));
+      setLayout(normalizeShippingLabelDesignerLayout(JSON.parse(raw) as unknown));
+      setSelectedId(null);
+      notifySuccess("Layout anterior de volta.");
+    } catch (error) {
+      notifyError(error, "Não foi possível voltar ao layout anterior.");
+    }
+  };
+
   const resetLayout = () => {
     setLayout(DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT);
     setSelectedId(null);
@@ -639,6 +664,19 @@ export default function NfeLabelDesignerPanel() {
                 </Menu.Item>
                 <Menu.Divider />
                 <Menu.Item
+                  leftSection={<IconLayoutBoard size={16} stroke={1.5} />}
+                  onClick={applyHalfSheetModel}
+                >
+                  Usar modelo meia folha
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconArrowBackUp size={16} stroke={1.5} />}
+                  onClick={restorePreviousLayout}
+                >
+                  Voltar ao layout anterior
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
                   leftSection={<IconRestore size={16} stroke={1.5} />}
                   onClick={resetLayout}
                 >
@@ -746,9 +784,13 @@ export default function NfeLabelDesignerPanel() {
                             : "grabbing"
                           : "grab",
                         userSelect: "none",
-                        backgroundColor: isSelected
-                          ? "rgba(79,70,229,0.06)"
-                          : "transparent",
+                        backgroundColor: item.inverted
+                          ? "#000"
+                          : isSelected
+                            ? "rgba(79,70,229,0.06)"
+                            : "transparent",
+                        color: item.inverted ? "#fff" : undefined,
+                        boxShadow: item.frame ? "inset 0 0 0 1.5px #000" : undefined,
                       }}
                     >
                       {item.kind === "image" ? (

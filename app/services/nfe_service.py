@@ -23,7 +23,7 @@ from core.exceptions import (
     ProductNotFoundException,
     ValidationException,
 )
-from core.nfe_xml import NfeDocumento, chave_from_code, find_nfe_by_chave
+from core.nfe_xml import MAX_XML_BYTES, NfeDocumento, chave_from_code, find_nfe_by_chave
 from core.utils.file_utils import FileUtils
 
 # Pastas onde o Questor salva os XMLs (vendas e simples remessa).
@@ -389,6 +389,25 @@ class NfeService:
             ),
             "arquivo": documento.arquivo,
             "itens": itens,
+        }
+
+    def xml(self, code: str) -> Dict[str, Any]:
+        """XML da nota como texto, para a etiqueta de expedicao (destinatario, transportadora, volumes)."""
+        documento = self._load(code)
+        try:
+            with open(documento.arquivo, "rb") as fh:
+                content = fh.read(MAX_XML_BYTES)
+        except OSError as exc:
+            raise ProductNotFoundException("Nao foi possivel abrir o XML desta nota.") from exc
+        try:
+            texto = content.decode("utf-8")
+        except UnicodeDecodeError:
+            texto = content.decode("latin-1")
+        return {
+            "chave": documento.chave,
+            "numero": documento.numero,
+            "arquivo": os.path.basename(documento.arquivo),
+            "xml": texto,
         }
 
     def _products(self, conn, ids: List[int]) -> Dict[int, Dict[str, Any]]:

@@ -1,14 +1,19 @@
 import {
+  buildShippingLabelsDesignerPrintHtml,
   DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT,
   normalizeShippingLabelDesignerLayout,
   type ShippingLabelDesignerItem,
   type ShippingLabelDesignerLayout,
   type ShippingLabelPrintableItem,
 } from "../../lib/labelsPrint";
+import { printHtml } from "../../lib/printHtml";
+import { nfeShippingPrintItems, type NfeShippingData } from "../../lib/nfeShippingLabel";
 
 // Constantes e funcoes puras do designer de etiquetas de NF-e.
 export const MAX_NFE_LABELS_PER_PRINT = 400;
 export const STORAGE_KEY = "chronos.nfe.designer_layout.v2";
+/** Layout que estava em uso antes de aplicar um modelo pronto ("Voltar ao layout anterior"). */
+export const PREVIOUS_LAYOUT_KEY = "chronos.nfe.designer_layout.anterior";
 export const GRID_SIZE = 4;
 export const COMMON_WINDOWS_FONTS = [
   "Segoe UI",
@@ -71,6 +76,19 @@ export function loadLayoutFromStorage(): ShippingLabelDesignerLayout {
 }
 
 export { printHtml } from "../../lib/printHtml";
+
+/**
+ * Imprime as etiquetas de expedição de uma nota com o layout salvo nesta máquina
+ * (Etiquetas > NF-e). Devolve quantas etiquetas foram para a impressão.
+ */
+export function printNfeShippingLabels(
+  data: NfeShippingData,
+  onError?: (message: string) => void,
+): number {
+  const items = nfeShippingPrintItems(data, MAX_NFE_LABELS_PER_PRINT);
+  printHtml(buildShippingLabelsDesignerPrintHtml(items, loadLayoutFromStorage()), onError);
+  return items.length;
+}
 
 export function isEditableElement(element: Element | null): boolean {
   if (!(element instanceof HTMLElement)) return false;
@@ -171,4 +189,8 @@ export const SAMPLE_DATA: ShippingLabelPrintableItem = {
   pesoKg: "10",
   volumeIndex: 1,
   volumeTotal: 1,
+  endereco: "RUA EXEMPLO, 100 · CENTRO",
+  cep: "95000-000",
+  remetente: "MONTREAL COMERCIO DE PECAS",
+  remetenteLocal: "CANOAS / RS · CNPJ 03.897.158/0002-85",
 };

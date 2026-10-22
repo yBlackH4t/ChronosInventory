@@ -25,6 +25,16 @@ Formato recomendado:
 
 
 
+## [2.7.1] - 2026-10-22
+
+### Added
+- **Etiqueta da NF depois da baixa:** ao dar saída de uma NF (pela foto da DANFE ou pela chave), aparece o botão "Imprimir etiqueta". Ele usa o XML que o Chronos já leu e o layout salvo em Etiquetas > Expedição (NF-e), uma etiqueta por volume da nota. Ao bipar de novo uma nota já baixada, o botão também aparece para reimprimir.
+- **Modelo de etiqueta meia folha:** em Etiquetas > Expedição (NF-e) > Layout > "Usar modelo meia folha". Duas etiquetas por A4 com remetente e logo, destinatário com endereço e CEP, cidade em letra grande, e nota, volume (em destaque) e peso em caixas. O logo que já estava no layout é aproveitado, e "Voltar ao layout anterior" desfaz.
+- Campos novos para a etiqueta: endereço, CEP, cidade/UF e remetente. Blocos podem ter moldura e fundo preto.
+
+### Fixed
+- **Impressão da etiqueta de NF:** o texto de cada bloco saía uma linha abaixo e um pouco à direita do que aparecia no desenho. Agora sai no mesmo lugar. Peso com vírgula (18,4 kg).
+
 ## [2.6.2] - 2026-10-19
 
 ### Fixed

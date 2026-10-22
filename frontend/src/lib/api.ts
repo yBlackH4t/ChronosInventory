@@ -9,6 +9,7 @@ import type {
   NfePreview,
   NfeBaixaIn,
   NfeBaixaOut,
+  NfeXmlOut,
   NfeConfig,
   NfeConfigIn,
   NfeCertificadoIn,
@@ -214,6 +215,15 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<NfeBaixaOut>(
         `/nfe/${encodeURIComponent(chave)}/baixa`,
         { method: "POST", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
+    // XML da nota, para a etiqueta de expedicao depois da baixa.
+    async getNfeXml(chave: string, options: RequestInit = {}) {
+      return request<NfeXmlOut>(
+        `/nfe/${encodeURIComponent(chave)}/xml`,
+        { method: "GET", ...options },
         baseUrl,
       );
     },
