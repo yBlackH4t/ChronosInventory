@@ -71,7 +71,7 @@ def test_import_adds_missing_products_and_teaches_applications(client, tools):  
     gt42 = _create_product(client, "TURBO GT42 - 723117-5001", {CANOAS: 1})
     service, backups = _service()
     preview = service.preview(CSV)
-    # O GT42 ja existe (com outro nome, mesmo codigo); 4031196 MONTADA e novo (o normal e outra versao).
+    # O GT42 ja existe (com outro nome, mesmo codigo): muda de numero; 4031196 MONTADA e novo (o normal e outra versao).
     assert preview["itens_no_arquivo"] == 6
     assert preview["produtos_novos"] == 5
     assert "TURBO GARRETT GT42 723117-5001S" not in preview["exemplos_produtos_novos"]
@@ -92,8 +92,9 @@ def test_import_adds_missing_products_and_teaches_applications(client, tools):  
     by_vehicle = tools.search_by_application("massey 620ds")
     assert by_vehicle["fichas_catalogo"][0]["nossos_produtos"][0]["nome"] == "TURBO BORG S2EL 766595"
     assert "turbo S2EL" in by_vehicle["texto_pronto"]  # zerado: "não temos (cadastrado, sem estoque)"
-    assert "TURBO GT42 - 723117-5001" in tools.search_by_application("scania 113 dsc11")["texto_pronto"]
-    assert gt42
+    # O GT42 do Chronos (mesmo codigo, numero fora do arquivo) foi para o numero da loja, com o nome dela.
+    assert "TURBO GARRETT GT42 723117-5001S* — 1 em Canoas" in tools.search_by_application("scania 113 dsc11")["texto_pronto"]
+    assert client.get(f"/produtos/{gt42}").status_code == 404
     by_similar = tools.search_by_code("4047413")["texto_pronto"].splitlines()
     assert by_similar[1] == "É código Holset; no cadastro da empresa é a *53299887201* (turbo K29)."
     assert "não achei" in tools.catalog_code("766595")["texto_pronto"]  # nao e ficha Master Power
@@ -164,6 +165,9 @@ ID_CSV = (
     "4;JUNTA COLETOR ESCAPE VOLVO VM330;NULL;.0000000;NULL; ;;;;\r\n"
     "50;TURBO HX35W - 4047313;4047313;.0000000;NULL; ;;;;\r\n"
     "60;TURBO HE200WG 5455135;5455135;.0000000;NULL; ;;;;\r\n"
+    "7;TURBO GTA2056V - BC.0053T;NULL;.0000000;NULL; ;;;;\r\n"
+    "70;TURBO HX27W 3779951;3779951;.0000000;NULL; ;;;;\r\n"
+    "80;TURBO HOLSET HX40W - 3597761;3597761;.0000000;NULL; ;;;;\r\n"
 ).encode("cp1252")
 
 
@@ -176,7 +180,10 @@ def test_ids_and_names_follow_the_store_system(client):
     junta = create(client, "JUNTA COLETOR ESCAPE CUMMINS", {})
     hx35 = create(client, "TURBO HX35W - 4047313", {CANOAS: 1})
     antigo = create(client, "TURBO ANTIGO 1234567", {})
-    assert [hx55, hx40, b3, junta, hx35, antigo] == [1, 2, 3, 4, 5, 6]
+    # O Chronos criou o HX27W no 7, que na loja e outra peca; o HX40W no 8, que a loja nao usa.
+    hx27 = create(client, "TURBO HX27W 3779951", {CANOAS: 1})
+    hx40w = create(client, "TURBO HX40W - 3597761", {CANOAS: 1})
+    assert [hx55, hx40, b3, junta, hx35, antigo, hx27, hx40w] == [1, 2, 3, 4, 5, 6, 7, 8]
     conn = DatabaseConnection().get_connection()
     try:
         conn.execute("INSERT INTO product_images (product_id, image_data, is_primary) VALUES (5, x'00', 1)")
@@ -188,14 +195,14 @@ def test_ids_and_names_follow_the_store_system(client):
     preview = service.preview(ID_CSV)
     assert preview["iguais"] == 0
     assert preview["nomes_trocados"] == 3  # HX55 e HX40 (mesmo codigo) e a junta (zerada, sem movimentacao)
-    assert preview["exemplos_ids"] == [{"de": 5, "para": 50, "nome": "TURBO HX35W - 4047313"}]
-    assert preview["produtos_novos"] == 1
+    assert [(m["de"], m["para"]) for m in preview["exemplos_ids"]] == [(5, 50), (7, 70), (8, 80)]
+    assert preview["produtos_novos"] == 2  # o HE200WG e a GTA2056V no 7, que ficou livre
     # Mesmo id, outra peca com saldo: nao vira gasolina sozinho.
     assert [(c["cd_material"], c["nome_chronos"]) for c in preview["para_conferir"]] == [(3, "TURBO B3 - 13919880060")]
     assert preview["fora_do_arquivo"] == 1
 
     result = service.apply(ID_CSV)
-    assert (result["nomes_trocados"], result["ids_trocados"], result["produtos_criados"]) == (3, 1, 1)
+    assert (result["nomes_trocados"], result["ids_trocados"], result["produtos_criados"]) == (3, 3, 2)
 
     def product(pid):
         response = client.get(f"/produtos/{pid}")
@@ -208,6 +215,11 @@ def test_ids_and_names_follow_the_store_system(client):
     # O HX35W foi para o id 50 com saldo, movimentacao e foto.
     assert product(5) is None and product(50)["total_stock"] == 1
     assert product(60)["nome"] == "TURBO HE200WG 5455135" and product(60)["total_stock"] == 0
+    assert product(70)["nome"] == "TURBO HX27W 3779951" and product(70)["total_stock"] == 1
+    assert product(7)["nome"] == "TURBO GTA2056V - BC.0053T" and product(7)["total_stock"] == 0
+    # Mesmo codigo, outro nome e outro numero: vai para o numero da loja com o nome dela.
+    assert product(80)["nome"] == "TURBO HOLSET HX40W - 3597761" and product(80)["total_stock"] == 1
+    assert product(8) is None
     conn = DatabaseConnection().get_connection()
     try:
         assert conn.execute("SELECT COUNT(*) FROM movimentacoes WHERE produto_id = 50").fetchone()[0] >= 1
@@ -220,9 +232,9 @@ def test_ids_and_names_follow_the_store_system(client):
     found = client.get("/produtos", params={"query": "3596989"}).json()["data"]
     assert [p["id"] for p in found] == [2]
     # O proximo produto do Chronos vem depois dos ids do arquivo.
-    assert create(client, "TURBO TESTE 7654321", {}) == 61
+    assert create(client, "TURBO TESTE 7654321", {}) == 81
 
     # Rodar de novo nao muda nada.
     again = service.apply(ID_CSV)
     assert (again["nomes_trocados"], again["ids_trocados"], again["produtos_criados"]) == (0, 0, 0)
-    assert again["iguais"] == 5
+    assert again["iguais"] == 8

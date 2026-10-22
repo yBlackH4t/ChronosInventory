@@ -584,15 +584,21 @@ OLD_NAME_NOTE = "Nome antes da importação do cadastro da empresa: {nome}"
 
 def plan_ids(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Compara o id de cada produto com o CD_MATERIAL do arquivo:
+    Compara o id de cada produto com o CD_MATERIAL do arquivo.
+
+    Primeiro as trocas de id: um produto do Chronos com o nome de um item cujo numero o Chronos
+    ainda nao usa passa para esse numero, quando o id atual dele nao esta no arquivo ou, no
+    arquivo, e outra peca (o Chronos criou o produto num numero que a loja deu para outra coisa).
+    Vale tambem para o mesmo codigo com outro nome, se for o mesmo tipo e a mesma versao; ai o
+    nome tambem passa a ser o do arquivo.
+
+    Depois, item por item:
     - mesmo id e mesmo nome: nada muda (iguais);
     - mesmo id e mesmo codigo, nome diferente: fica o nome do arquivo (renomear);
     - mesmo id e outra peca: fica o nome do arquivo so se o produto nunca teve saldo nem
       movimentacao; senao vai para conferir;
-    - id que o Chronos nao tem, com o nome de um produto do Chronos que nao esta no arquivo:
-      o produto passa para o id do arquivo (mudar_id);
-    - id que o Chronos nao tem e codigo de um produto que nao esta no arquivo: conferir;
-    - o resto e produto novo, cadastrado com o id do arquivo (criar).
+    - o resto e produto novo, cadastrado com o id do arquivo (criar), inclusive no numero que
+      ficou livre com uma troca.
     """
     products = {pid: nome for pid, nome in conn.execute("SELECT id, nome FROM produtos")}
     stock = dict(conn.execute("SELECT produto_id, COALESCE(SUM(quantidade), 0) FROM produto_estoque GROUP BY produto_id"))
@@ -600,11 +606,21 @@ def plan_ids(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[str,
     by_name: Dict[str, List[int]] = {}
     for pid in sorted(products):
         by_name.setdefault(name_key(products[pid]), []).append(pid)
-    file_ids = {item["cd_material"] for item in items}
+    by_id = {item["cd_material"]: item for item in items}
     by_code = match_products(conn, items)
 
     def codes(text: str) -> Set[str]:
         return set(extract_codes_from_name(text, expand_family=False))
+
+    def same_part(item: Dict[str, Any], pid: int) -> bool:
+        current = products[pid]
+        return name_key(current) == name_key(item["nome"]) or bool(
+            codes(current) & (codes(item["nome"]) | {c for _, c in own_codes(item)})
+        )
+
+    def can_leave(pid: int) -> bool:
+        """O produto pode sair do id atual: o arquivo nao usa esse numero, ou usa para outra peca."""
+        return pid not in by_id or not same_part(by_id[pid], pid)
 
     def review(item: Dict[str, Any], pid: int, reason: str) -> Dict[str, Any]:
         return {"cd_material": item["cd_material"], "nome_arquivo": item["nome"], "produto_id": pid,
@@ -613,32 +629,44 @@ def plan_ids(conn: sqlite3.Connection, items: List[Dict[str, Any]]) -> Dict[str,
 
     plan: Dict[str, Any] = {"iguais": 0, "renomear": [], "mudar_id": [], "criar": [], "conferir": []}
     moved: Set[int] = set()
+    targets: Set[int] = set()
+    similar_review: Dict[int, int] = {}
     for item in items:
         cd, nome = item["cd_material"], item["nome"]
         if cd in products:
+            continue
+        free = [p for p in by_name.get(name_key(nome), []) if p not in moved and can_leave(p)]
+        if not free:
+            similar = by_code.get(cd)
+            if (similar is not None and similar not in moved and name_key(products[similar]) != name_key(nome)
+                    and item_kind(products[similar]) == item_kind(nome) and can_leave(similar)):
+                free = [similar]
+            elif similar is not None and similar not in moved and name_key(products[similar]) != name_key(nome):
+                similar_review[cd] = similar
+        if free:
+            moved.add(free[0])
+            targets.add(cd)
+            plan["mudar_id"].append({"de": free[0], "para": cd, "nome": nome, "nome_antigo": products[free[0]]})
+
+    for item in items:
+        cd, nome = item["cd_material"], item["nome"]
+        if cd in targets:
+            continue
+        if cd in products and cd not in moved:
             current = products[cd]
             if name_key(current) == name_key(nome):
                 plan["iguais"] += 1
-            elif codes(current) & (codes(nome) | {c for _, c in own_codes(item)}):
-                plan["renomear"].append({"id": cd, "de": current, "para": nome})
-            elif not stock.get(cd) and not moves.get(cd):
+            elif same_part(item, cd) or (not stock.get(cd) and not moves.get(cd)):
                 plan["renomear"].append({"id": cd, "de": current, "para": nome})
             else:
                 plan["conferir"].append(review(item, cd, REVIEW_OTHER_PART))
-            continue
-        free = [p for p in by_name.get(name_key(nome), []) if p not in file_ids and p not in moved]
-        if free:
-            moved.add(free[0])
-            plan["mudar_id"].append({"de": free[0], "para": cd, "nome": nome})
-            continue
-        similar = by_code.get(cd)
-        if similar is not None and similar not in file_ids and name_key(products[similar]) != name_key(nome):
-            plan["conferir"].append(review(item, similar, REVIEW_SIMILAR))
-            continue
-        plan["criar"].append(item)
+        elif cd in similar_review:
+            plan["conferir"].append(review(item, similar_review[cd], REVIEW_SIMILAR))
+        else:
+            plan["criar"].append(item)
     plan["fora_do_arquivo"] = [
         {"produto_id": pid, "nome": products[pid], "saldo": int(stock.get(pid, 0) or 0)}
-        for pid in sorted(products) if pid not in file_ids and pid not in moved
+        for pid in sorted(products) if pid not in by_id and pid not in moved
     ]
     return plan
 
@@ -661,10 +689,13 @@ def apply_ids(conn: sqlite3.Connection, plan: Dict[str, Any], note: str) -> Dict
     """
     conn.execute("PRAGMA defer_foreign_keys = ON")
     columns = product_id_columns(conn)
+    renames = list(plan["renomear"])
     for move in plan["mudar_id"]:
         conn.execute("UPDATE produtos SET id = ? WHERE id = ?", (move["para"], move["de"]))
         for table, column in columns:
             conn.execute(f'UPDATE "{table}" SET "{column}" = ? WHERE "{column}" = ?', (move["para"], move["de"]))
+        if name_key(move["nome_antigo"]) != name_key(move["nome"]):
+            renames.append({"id": move["para"], "de": move["nome_antigo"], "para": move["nome"]})
 
     locations = [r[0] for r in conn.execute("SELECT id FROM locais WHERE ativo = 1")]
     for item in plan["criar"]:
@@ -677,7 +708,7 @@ def apply_ids(conn: sqlite3.Connection, plan: Dict[str, Any], note: str) -> Dict
             [(item["cd_material"], loc) for loc in locations],
         )
 
-    for change in plan["renomear"]:
+    for change in renames:
         old_note = conn.execute("SELECT observacao FROM produtos WHERE id = ?", (change["id"],)).fetchone()[0]
         extra = OLD_NAME_NOTE.format(nome=change["de"])
         conn.execute(
