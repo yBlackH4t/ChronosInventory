@@ -31,6 +31,8 @@ DEFAULT_XML_FOLDERS = [
     r"C:\nQuestorEmp\NFe\Geradas",
     r"C:\nQuestorEmp\NFe\Distribuicao",
 ]
+# Raiz do Questor: se a nota nao estiver nas pastas configuradas, procura aqui pelo nome do arquivo.
+QUESTOR_ROOT = r"C:\nQuestorEmp\NFe"
 CONFIG_FILENAME = "nfe_config.json"
 CERTIFICATE_FILENAME = "nfe_certificado.pfx"
 DEFAULT_UF = "43"  # RS: UF de quem consulta na SEFAZ
@@ -267,6 +269,13 @@ def _other_party(documento: NfeDocumento, tipo: str) -> tuple[str, str]:
     return documento.emitente_nome or "", documento.emitente_cnpj or ""
 
 
+def _format_cnpj(cnpj: str) -> str:
+    d = _only_digits(cnpj)
+    if len(d) != 14:
+        return cnpj
+    return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:]}"
+
+
 def _same_company(cnpj_a: str, cnpj_b: Optional[str]) -> bool:
     """Matriz e filiais tem a mesma raiz (8 primeiros digitos) do CNPJ."""
     a, b = _only_digits(cnpj_a), _only_digits(cnpj_b)
@@ -313,8 +322,20 @@ class NfeService:
         config = load_config()
         folders = [*config["pastas_xml"], xml_download_dir()]
         documento = find_nfe_by_chave(chave, folders)
+        if documento is None and os.path.isdir(QUESTOR_ROOT):
+            documento = find_nfe_by_chave(chave, [QUESTOR_ROOT], by_content=False)
         if documento is not None:
             return documento
+        loja = config["cnpj_loja"] or _only_digits((config["certificado"] or {}).get("cnpj"))
+        if loja and chave[6:20] == loja:
+            # Nota emitida por esta loja: a SEFAZ so devolve o resumo para quem emitiu,
+            # entao o XML tem que vir das pastas do emissor (Questor).
+            raise ProductNotFoundException(
+                f"Esta nota foi emitida por esta loja (CNPJ {_format_cnpj(loja)}), mas o XML "
+                "dela nao esta nas pastas: " + "; ".join(config["pastas_xml"] or ["nenhuma pasta"])
+                + ". Confira no emissor se ela foi autorizada e em qual pasta o XML foi salvo, "
+                "e adicione essa pasta em 'Configurar'."
+            )
         if config["certificado"]:
             return self._download(chave, config)
         if not any(os.path.isdir(f) for f in config["pastas_xml"]):

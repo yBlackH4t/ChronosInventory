@@ -422,6 +422,14 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-26 — Claude Code — NF-e emitida pela própria loja (2.7.2)
+- Branch: `claude/project-thread-dcq6wk`. NF 14597 (emitida por Canoas): o XML não estava nas
+  pastas configuradas, o app foi à SEFAZ e mostrou "falta a ciência da operação" (a SEFAZ só
+  devolve o resumo para quem emitiu).
+- Agora `_load` também procura pelo nome do arquivo em `C:\nQuestorEmp\NFe` (`QUESTOR_ROOT`,
+  todas as subpastas) e, se a chave for do CNPJ desta loja, não consulta a SEFAZ: o aviso diz que a
+  nota é desta loja e lista as pastas. Nota da matriz para Canoas continua vindo da SEFAZ.
+
 ### 2026-10-19 — Claude Code — 2.6.3, NF-e, Assistente e leitura de código (Vidro suave)
 - Branch: `claude/nf-assistente` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e regras
   do backend sem mudar). Arquivos compartilhados (`global.css`, `theme.ts`, `AppLayout.tsx`) intactos:

@@ -29,7 +29,7 @@
   },
   "productName": "Chronos Inventory",
   "mainBinaryName": "Chronos Inventory",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "identifier": "com.yblackh4t.chronosinventory",
   "plugins": {
     "updater": {

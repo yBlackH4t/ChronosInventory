@@ -25,6 +25,11 @@ Formato recomendado:
 
 
 
+## [2.7.2] - 2026-10-26
+
+### Fixed
+- **NF-e emitida por esta loja:** quando o XML não estava nas pastas configuradas, o Chronos ia à SEFAZ e mostrava um aviso errado de "ciência da operação". Agora ele também procura o XML em todas as subpastas de `C:\nQuestorEmp\NFe` e, se não achar, avisa que a nota é desta loja e em quais pastas procurou.
+
 ## [2.7.1] - 2026-10-22
 
 ### Added

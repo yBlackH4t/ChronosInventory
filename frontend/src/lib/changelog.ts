@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.2",
+    "date": "2026-10-26",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: NF-e emitida por esta loja: quando o XML não estava nas pastas configuradas, o Chronos ia à SEFAZ e mostrava um aviso errado de \"ciência da operação\". Agora ele também procura o XML em todas as subpastas de C:\\nQuestorEmp\\NFe e, se não achar, avisa que a nota é desta loja e em quais pastas procurou."
+    ]
+  },
+  {
     "version": "2.7.1",
     "date": "2026-10-22",
     "title": "Melhorias e correcoes",

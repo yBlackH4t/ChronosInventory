@@ -229,6 +229,8 @@ def test_sefaz_answers_are_explained(client, tmp_path, monkeypatch):
 
     _setup(client, tmp_path)
     client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    config = client.get("/nfe/config").json()["data"]
+    client.put("/nfe/config", json={"pastas_xml": config["pastas_xml"], "cnpj_loja": EMIT_CNPJ})
     answers = iter([
         nfe_sefaz.SefazResult(c_stat="138", motivo="ok", so_resumo=True),
         nfe_sefaz.SefazResult(c_stat="656", motivo="Consumo Indevido"),
@@ -443,3 +445,32 @@ def test_xml_of_the_note_is_returned_for_the_shipping_label(client, tmp_path):
 
     outra = "43261003897158000285550020000145611821211029"
     assert client.get(f"/nfe/{outra}/xml").status_code in (400, 404)
+
+
+def test_note_issued_by_this_store_is_read_from_the_questor_root_not_from_sefaz(client, tmp_path, monkeypatch):
+    from app.services import nfe_service
+    from core import nfe_sefaz
+
+    calls = []
+    monkeypatch.setattr(nfe_sefaz, "download_nfe", lambda *a, **k: calls.append(a))
+    _setup(client, tmp_path, xml=_xml(), filename="outra-nota.xml")
+    saved = client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    assert saved.status_code == 200, saved.text
+    client.put("/nfe/config", json={"pastas_xml": [str(tmp_path / "Geradas")], "cnpj_loja": EMIT_CNPJ})
+    other = _fix_dv("43261003897158000285550020000145971475712081")
+
+    # Nao esta nas pastas: explica que a nota e desta loja, sem pedir "ciencia" nem chamar a SEFAZ.
+    missing = client.get(f"/nfe/{other}")
+    assert missing.status_code == 404
+    message = missing.json()["error"]["message"]
+    assert "emitida por esta loja" in message and "Geradas" in message and "ciencia" not in message
+    assert calls == []
+
+    # Salva em outra subpasta do Questor: acha pelo nome do arquivo.
+    root = tmp_path / "nQuestorEmp" / "NFe"
+    (root / "Autorizadas" / "2026").mkdir(parents=True)
+    (root / "Autorizadas" / "2026" / f"{other}-procNFe.xml").write_bytes(_xml(chave=other))
+    monkeypatch.setattr(nfe_service, "QUESTOR_ROOT", str(root))
+    found = client.get(f"/nfe/{other}")
+    assert found.status_code == 200, found.text
+    assert found.json()["data"]["autorizada"] is True and calls == []

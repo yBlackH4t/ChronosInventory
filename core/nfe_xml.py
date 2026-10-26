@@ -176,7 +176,9 @@ def _read(path: str, limit: int = MAX_XML_BYTES) -> bytes:
         return fh.read(limit)
 
 
-def find_nfe_by_chave(chave: str, folders: Iterable[str]) -> Optional[NfeDocumento]:
+def find_nfe_by_chave(
+    chave: str, folders: Iterable[str], by_content: bool = True
+) -> Optional[NfeDocumento]:
     """
     Procura nas pastas o XML autorizado da chave.
     Primeiro pelo nome do arquivo; se nao achar, pelo comeco do conteudo.
@@ -212,7 +214,7 @@ def find_nfe_by_chave(chave: str, folders: Iterable[str]) -> Optional[NfeDocumen
         except OSError:
             continue
 
-    if documento is None or not documento.autorizada:
+    if by_content and (documento is None or not documento.autorizada):
         needle = chave.encode()
         named_set = set(named)
         others = [path for path in files if path not in named_set]
