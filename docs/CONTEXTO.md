@@ -92,6 +92,10 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
+- **2.7.2, nota fiscal e etiquetas** (branch `claude/project-thread-dcq6wk`, PR para a `main`): a nota
+   acha produtos desativados e reativa na tela, cadastra produto novo sem sair da nota, sugere pelo
+   código da empresa (CD_MATERIAL = id), vários CNPJs salvos escolhidos sozinhos pela nota, e perfis
+   de etiqueta de expedição com o perfil "Crua (sem marca)". A tag `v2.7.2` cobre a 2.7.1.
 - **2.7.1, etiqueta da NF depois da baixa** (branch `claude/project-thread-j2dl6e`, PR #32 para a
    `main`): botão "Imprimir etiqueta" ao fim da saída por NF-e (e ao bipar uma nota já baixada),
    modelo "meia folha" em Etiquetas > Expedição (NF-e) > Layout, e a impressão do designer saindo

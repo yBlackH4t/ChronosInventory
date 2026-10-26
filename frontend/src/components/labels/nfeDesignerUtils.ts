@@ -84,9 +84,10 @@ export { printHtml } from "../../lib/printHtml";
 export function printNfeShippingLabels(
   data: NfeShippingData,
   onError?: (message: string) => void,
+  layout: ShippingLabelDesignerLayout = loadLayoutFromStorage(),
 ): number {
   const items = nfeShippingPrintItems(data, MAX_NFE_LABELS_PER_PRINT);
-  printHtml(buildShippingLabelsDesignerPrintHtml(items, loadLayoutFromStorage()), onError);
+  printHtml(buildShippingLabelsDesignerPrintHtml(items, layout), onError);
   return items.length;
 }
 

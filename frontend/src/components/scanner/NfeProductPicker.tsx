@@ -76,6 +76,7 @@ export default function NfeProductPicker({
           {selected ? (
             <Text size="xs" fw={500} lineClamp={2} className="nfe-picker-name">
               {selected.nome}
+              {selected.ativo === false && " (desativado)"}
             </Text>
           ) : (
             <Text size="xs" c={error ? "danger" : "dimmed"}>
@@ -111,6 +112,12 @@ export default function NfeProductPicker({
                   <Group gap="xs" wrap="nowrap" justify="space-between" align="flex-start">
                     <Text size="xs" style={{ whiteSpace: "normal", wordBreak: "break-word" }}>
                       {option.nome}
+                      {option.ativo === false && (
+                        <Text span size="xs" c="warning">
+                          {" "}
+                          · desativado
+                        </Text>
+                      )}
                     </Text>
                     {stock !== null && (
                       <Text size="xs" c="dimmed" className="num" style={{ flexShrink: 0 }}>
