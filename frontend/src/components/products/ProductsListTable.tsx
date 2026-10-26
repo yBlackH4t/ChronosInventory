@@ -184,6 +184,9 @@ export function ProductsListTable({
       : 0;
 
   const totalLabel = shownLocations.length > 0 ? "Total" : "Saldo";
+  // Colunas de largura fixa + 280px garantidos para o nome do produto.
+  const tableMinWidth =
+    (compact ? 0 : 60) + 164 + shownLocations.length * 120 + (onlyLocation ? 150 : 96) + 140 + 200 + 280;
 
   return (
     <Stack gap="sm">
@@ -196,7 +199,7 @@ export function ProductsListTable({
           overflow: "auto",
         }}
       >
-        <Table layout="fixed" stickyHeader verticalSpacing={0} miw={900}>
+        <Table layout="fixed" stickyHeader verticalSpacing={0} miw={tableMinWidth}>
           <Table.Thead>
             <Table.Tr>
               {!compact && (
