@@ -3,7 +3,7 @@ import { Group, Stack, Text, Title } from "@mantine/core";
 
 type PageHeaderProps = {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 };
 

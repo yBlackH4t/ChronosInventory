@@ -13,6 +13,7 @@ import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
 import PageHeader from "../components/ui/PageHeader";
+import "../styles/vidro-telas.css";
 const ReportsStockSection = lazy(
   () => import("../components/reports/ReportsStockSection"),
 );
@@ -32,6 +33,7 @@ import { downloadBlob } from "../lib/download";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
 import type { DownloadResponse, Product, SuccessResponse } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { notifyUndo } from "../lib/notifyUndo";
 
 import { useLocations } from "../hooks/useLocations";
 
@@ -277,9 +279,25 @@ export default function ReportsPage() {
   };
 
   const removeSelectedItem = (productId: number) => {
+    const before = selectedItems;
+    const removed = before.find((item) => item.id === productId);
     setSelectedItems((current) =>
       current.filter((item) => item.id !== productId),
     );
+    if (removed) {
+      notifyUndo(`${removed.nome} saiu da lista.`, () => setSelectedItems(before));
+    }
+  };
+
+  const clearSelectedItems = () => {
+    const before = selectedItems;
+    setSelectedItems([]);
+    if (before.length > 0) {
+      notifyUndo(
+        `Lista limpa (${before.length} ${before.length === 1 ? "item" : "itens"}).`,
+        () => setSelectedItems(before),
+      );
+    }
   };
 
   const moveSelectedItem = (itemId: number, direction: "up" | "down") => {
@@ -328,7 +346,7 @@ export default function ReportsPage() {
 
       <Grid gap="lg">
         <Grid.Col span={{ base: 12, md: 4, lg: 3 }}>
-          <div className="surface-panel" style={{ overflow: "hidden" }}>
+          <div className="surface-panel vt-report-nav" style={{ overflow: "hidden" }}>
             {REPORT_TYPES.map((report) => (
               <button
                 key={report.value}
@@ -367,6 +385,7 @@ export default function ReportsPage() {
             <ReportsStockSection
               onGenerate={() => stockReportMutation.mutate()}
               loading={stockReportMutation.isPending}
+              failed={stockReportMutation.isError}
             />
           </Suspense>
         </Tabs.Panel>
@@ -387,11 +406,12 @@ export default function ReportsPage() {
               addSelectedItem={addSelectedItem}
               removeSelectedItem={removeSelectedItem}
               moveSelectedItem={moveSelectedItem}
-              clearSelectedItems={() => setSelectedItems([])}
+              clearSelectedItems={clearSelectedItems}
               locationLabel={(inv) =>
                 locationLabel(inv as Record<number, number>, locations)
               }
               loadingGenerate={selectedStockReportMutation.isPending}
+              failed={selectedStockReportMutation.isError}
               generateSelectedReport={() =>
                 selectedStockReportMutation.mutate()
               }
@@ -418,6 +438,7 @@ export default function ReportsPage() {
                 })),
               ]}
               loading={salesReportMutation.isPending}
+              failed={salesReportMutation.isError}
               onGenerate={() => salesReportMutation.mutate()}
             />
           </Suspense>
@@ -444,6 +465,7 @@ export default function ReportsPage() {
                 })),
               ]}
               loading={inactiveReportMutation.isPending}
+              failed={inactiveReportMutation.isError}
               onGenerate={() => inactiveReportMutation.mutate()}
             />
           </Suspense>

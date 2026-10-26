@@ -8,6 +8,8 @@ import {
   flashKindFor,
   locationColumns,
   monthTicks,
+  nameAroundCode,
+  productMonogram,
   splitProductCode,
   versionTitle,
 } from "./productView";
@@ -115,5 +117,37 @@ describe("monthTicks", () => {
   it("intervalo inválido não gera rótulos", () => {
     expect(monthTicks(10, 5)).toEqual([]);
     expect(monthTicks(Number.NaN, 5)).toEqual([]);
+  });
+});
+
+describe("nameAroundCode", () => {
+  it("parte o nome em volta do código sem mudar o texto", () => {
+    expect(nameAroundCode("TURBO HOLSET HX40 - 4089878")).toEqual({
+      before: "TURBO HOLSET HX40 - ",
+      code: "4089878",
+      after: "",
+    });
+    expect(nameAroundCode("1000-010-467 GTB1749V FORD")).toEqual({
+      before: "",
+      code: "1000-010-467",
+      after: " GTB1749V FORD",
+    });
+  });
+
+  it("sem código, o nome inteiro fica antes", () => {
+    expect(nameAroundCode("ABRACADEIRA")).toEqual({ before: "ABRACADEIRA", code: null, after: "" });
+  });
+});
+
+describe("productMonogram", () => {
+  it("usa a marca quando há", () => {
+    expect(productMonogram("TURBO HOLSET HX40", detectBrand("TURBO HOLSET HX40"))).toBe("HOL");
+  });
+
+  it("sem marca, usa o tipo da peça; sem tipo conhecido, nada", () => {
+    expect(productMonogram("CONJUNTO CENTRAL GTA3576", null)).toBe("CC");
+    expect(productMonogram("TURBO HE500WG - 3782537", null)).toBe("TB");
+    expect(productMonogram("1000-020-108 CONJ CENTRAL HX55", null)).toBe("CC");
+    expect(productMonogram("06335008077 ABRACADEIRA", null)).toBeNull();
   });
 });

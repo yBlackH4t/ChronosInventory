@@ -18,6 +18,9 @@ import type {
   InventorySessionSummaryOut,
   InventoryStatusFilter,
 } from "../../lib/api";
+import { sessionLocalLabel, sessionProgress } from "../../lib/inventoryView";
+import ProgressRing from "../ui/ProgressRing";
+import "../../styles/vidro-telas.css";
 import { InventoryCollectorPanel } from "./InventoryCollectorPanel";
 import { InventoryCountsTable } from "./InventoryCountsTable";
 import { InventorySummaryCards } from "./InventorySummaryCards";
@@ -145,14 +148,26 @@ export function InventorySessionDetailSection({
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="flex-end" wrap="wrap" mt="sm">
-        <Stack gap={2}>
-          <Text size="xs" c="dimmed" className="num">
-            Sessão #{session.id} ·{" "}
-            {session.local_label ?? `Local #${session.location_id}`} · {statusLabel}
-          </Text>
-          <Text fw={650} size="lg">
+      <div className="vt-session-hero surface-panel">
+        <ProgressRing
+          value={sessionProgress(session)}
+          caption="contado"
+        />
+        <Stack gap={4} miw={0} style={{ flex: 1 }}>
+          <Group gap={8} wrap="wrap">
+            <span className="vt-chip num">Sessão #{session.id}</span>
+            <span className="vt-chip">{sessionLocalLabel(session)}</span>
+            <span className="vt-chip" data-tone={sessionOpen ? "live" : undefined}>
+              {sessionOpen && <span className="vt-live-dot" aria-hidden />}
+              {statusLabel}
+            </span>
+          </Group>
+          <Text fw={650} size="xl" lh={1.25} truncate="end">
             {session.nome}
+          </Text>
+          <Text size="sm" c="dimmed" className="num">
+            {session.counted_items.toLocaleString("pt-BR")} de {session.total_items.toLocaleString("pt-BR")} itens
+            contados · {session.divergent_items.toLocaleString("pt-BR")} com diferença
           </Text>
           <Group gap={6} mt={2}>
             <Kbd size="xs">Ctrl F</Kbd>
@@ -169,7 +184,7 @@ export function InventorySessionDetailSection({
             </Text>
           </Group>
         </Stack>
-        <Group gap="xs">
+        <Group gap="xs" className="vt-session-actions">
           <Button
             variant="default"
             onClick={onSaveCounts}
@@ -186,7 +201,7 @@ export function InventorySessionDetailSection({
             Aplicar ajustes
           </Button>
         </Group>
-      </Group>
+      </div>
 
       {summary && (
         <InventorySummaryCards

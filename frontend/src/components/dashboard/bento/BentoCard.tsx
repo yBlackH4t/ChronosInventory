@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { trackCursorGlow } from "../../../lib/cursorGlow";
+
 type BentoCardProps = {
   area: "acao" | "saude" | "assist" | "mov" | "top" | "ativ";
   title: string;
@@ -12,7 +14,12 @@ type BentoCardProps = {
 export default function BentoCard({ area, title, subtitle, actions, children }: BentoCardProps) {
   const headingId = `bento-${area}`;
   return (
-    <section className="bento-card surface-panel" data-area={area} aria-labelledby={headingId}>
+    <section
+      className="bento-card surface-panel mi-glow"
+      data-area={area}
+      aria-labelledby={headingId}
+      onPointerMove={trackCursorGlow}
+    >
       <div className="bento-card-head">
         <div style={{ minWidth: 0 }}>
           <h2 className="bento-title" id={headingId}>

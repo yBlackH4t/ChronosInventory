@@ -35,6 +35,7 @@ import EmptyState from "../ui/EmptyState";
 import { OfficialBaseHistoryTable } from "./OfficialBaseHistoryTable";
 import Panel from "../ui/Panel";
 import StatusDot from "../ui/StatusDot";
+import ProgressButton from "../ui/ProgressButton";
 
 type OfficialBaseSectionProps = {
   loading: boolean;
@@ -68,6 +69,8 @@ type OfficialBaseSectionProps = {
   onNotesChange: (value: string) => void;
   onPublish: () => void;
   publishLoading: boolean;
+  /** A última publicação deu erro (o botão não mostra o ✓). */
+  publishFailed?: boolean;
   onApply: () => void;
   applyLoading: boolean;
   formatBytes: (size: number) => string;
@@ -111,6 +114,7 @@ export function OfficialBaseSection({
   onNotesChange,
   onPublish,
   publishLoading,
+  publishFailed = false,
   onApply,
   applyLoading,
   formatBytes,
@@ -327,14 +331,17 @@ export function OfficialBaseSection({
           )}
           <Group gap="xs" wrap="wrap">
             {isPublisher && (
-              <Button
+              <ProgressButton
                 leftSection={<IconUpload size={16} stroke={1.5} />}
                 onClick={onPublish}
-                loading={publishLoading}
+                busy={publishLoading}
+                failed={publishFailed}
+                busyLabel="Publicando…"
+                doneLabel="Base publicada"
                 disabled={emptyDatabase}
               >
                 Publicar base oficial
-              </Button>
+              </ProgressButton>
             )}
             <Button
               variant="default"

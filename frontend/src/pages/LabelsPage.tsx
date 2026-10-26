@@ -7,7 +7,6 @@ import {
   NumberInput,
   SegmentedControl,
   Stack,
-  Tabs,
   Text,
 } from "@mantine/core";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -343,19 +342,31 @@ export default function LabelsPage() {
         }
       />
 
-      <Tabs
+      <SegmentedControl
+        className="vt-mode-switch"
         value={labelMode}
         onChange={(value) => setLabelMode((value as LabelMode) || "INTERNAL")}
-      >
-        <Tabs.List>
-          <Tabs.Tab value="INTERNAL" leftSection={<IconBarcode size={16} stroke={1.5} />}>
-            Estoque
-          </Tabs.Tab>
-          <Tabs.Tab value="NFE" leftSection={<IconTruckDelivery size={16} stroke={1.5} />}>
-            Expedição (NF-e)
-          </Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+        data={[
+          {
+            value: "INTERNAL",
+            label: (
+              <Group gap={8} wrap="nowrap">
+                <IconBarcode size={16} stroke={1.6} />
+                <span>Estoque</span>
+              </Group>
+            ),
+          },
+          {
+            value: "NFE",
+            label: (
+              <Group gap={8} wrap="nowrap">
+                <IconTruckDelivery size={16} stroke={1.6} />
+                <span>Expedição (NF-e)</span>
+              </Group>
+            ),
+          },
+        ]}
+      />
 
       {labelMode === "INTERNAL" ? (
         <>

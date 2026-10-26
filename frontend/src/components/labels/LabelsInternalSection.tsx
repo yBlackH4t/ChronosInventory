@@ -22,12 +22,34 @@ import {
 } from "@tabler/icons-react";
 
 import EmptyState from "../ui/EmptyState";
+import StockNumber from "../products/StockNumber";
+import { detectBrand } from "../../lib/brands";
+import { splitProductCode } from "../../lib/productView";
 import type {
   Product,
   ProductStatusFilter,
   SuccessResponse,
 } from "../../lib/api";
 import { useLocations } from "../../hooks/useLocations";
+import "../../styles/products-movements.css";
+
+// Código da peça em destaque e o resto do nome ao lado, como em Produtos.
+function ProductNameCell({ nome, id }: { nome: string; id: number }) {
+  const { code, rest } = splitProductCode(nome, detectBrand(nome));
+  return (
+    <Stack gap={2} miw={0}>
+      <Group gap={10} wrap="nowrap" miw={0}>
+        {code && <span className="pm-code-cell">{code}</span>}
+        <Text size="sm" fw={600} truncate="end" title={nome}>
+          {(code ? rest : "") || nome}
+        </Text>
+      </Group>
+      <Text size="xs" c="dimmed" className="mono">
+        #{id}
+      </Text>
+    </Stack>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: "ATIVO", label: "Ativos" },
@@ -229,7 +251,7 @@ export default function LabelsInternalSection({
                 </Table.Th>
                 <Table.Th>Produto</Table.Th>
                 {locations.map((loc) => (
-                  <Table.Th key={loc.id} w={100} ta="right">
+                  <Table.Th key={loc.id} w={120} ta="right" className="pm-th">
                     {loc.label || loc.name}
                   </Table.Th>
                 ))}
@@ -263,30 +285,20 @@ export default function LabelsInternalSection({
                       />
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm" fw={500} lineClamp={1}>
-                        {product.nome}
-                      </Text>
-                      <Text size="xs" c="dimmed" className="mono">
-                        #{product.id}
-                      </Text>
+                      <ProductNameCell nome={product.nome} id={product.id} />
                     </Table.Td>
                     {locations.map((loc) => {
                       const qty = product.inventories?.[loc.id] ?? 0;
                       return (
                         <Table.Td key={loc.id} ta="right">
-                          <Text
-                            size="sm"
-                            className="num"
-                            fw={qty > 0 ? 600 : 400}
-                            c={qty > 0 ? "var(--success)" : "var(--text-subtle)"}
-                          >
-                            {qty > 0 ? qty : "—"}
-                          </Text>
+                          <span className="pm-stock-branch" data-zero={qty === 0 || undefined}>
+                            {qty > 0 ? qty.toLocaleString("pt-BR") : "—"}
+                          </span>
                         </Table.Td>
                       );
                     })}
-                    <Table.Td ta="right" fw={600} className="num">
-                      {product.total_stock}
+                    <Table.Td ta="right">
+                      <StockNumber value={product.total_stock} />
                     </Table.Td>
                     <Table.Td ta="right" onClick={(event) => event.stopPropagation()}>
                       {copiesMode === "MANUAL" ? (

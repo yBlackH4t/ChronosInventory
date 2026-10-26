@@ -718,6 +718,7 @@ export default function InventoryPage() {
         selectedSession?.nome || sessionName.trim() || "Sessão manual",
       local:
         selectedSession?.local_label ||
+        selectedSession?.local ||
         locations.find((l) => l.id === effectiveSessionLocationId)?.name ||
         "N/A",
       totalRows: 56,

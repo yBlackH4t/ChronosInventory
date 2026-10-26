@@ -25,6 +25,7 @@ import {
 } from "@mantine/core";
 import {
   IconArrowBackUp,
+  IconArrowsSort,
   IconCopy,
   IconDownload,
   IconEraser,
@@ -61,6 +62,8 @@ import {
   parseNfeShippingData,
 } from "../../lib/nfeShippingLabel";
 import { notifyError, notifySuccess } from "../../lib/notify";
+import { notifyUndo } from "../../lib/notifyUndo";
+import SortableList from "../ui/SortableList";
 import NfeSelectedBlockEditor from "./NfeSelectedBlockEditor";
 import {
   MAX_PROFILES,
@@ -105,6 +108,7 @@ export default function NfeLabelDesignerPanel() {
   );
   const [profileNameModal, setProfileNameModal] = useState<"novo" | "renomear" | null>(null);
   const [profileName, setProfileName] = useState("");
+  const [sortProfilesOpen, setSortProfilesOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(
     null,
@@ -179,6 +183,8 @@ export default function NfeLabelDesignerPanel() {
 
   const deleteProfile = () => {
     if (profiles.length <= 1) return;
+    const before = profiles;
+    const removed = activeProfile;
     const next = profiles.filter((p) => p.id !== activeProfile.id);
     setProfiles(next);
     saveProfiles(next);
@@ -186,7 +192,18 @@ export default function NfeLabelDesignerPanel() {
     saveActiveProfileId(next[0].id);
     setLayout(next[0].layout);
     setSelectedId(null);
-    notifySuccess(`Perfil ${activeProfile.nome} excluído.`);
+    notifyUndo(`Perfil ${removed.nome} excluído.`, () => {
+      setProfiles(before);
+      saveProfiles(before);
+      setActiveProfileId(removed.id);
+      saveActiveProfileId(removed.id);
+      setLayout(removed.layout);
+    });
+  };
+
+  const reorderProfiles = (next: NfeLabelProfile[]) => {
+    setProfiles(next);
+    saveProfiles(next);
   };
 
   const addRawProfile = () => {
@@ -760,6 +777,13 @@ export default function NfeLabelDesignerPanel() {
                   Novo perfil cru (sem marca)
                 </Menu.Item>
                 <Menu.Item
+                  leftSection={<IconArrowsSort size={16} stroke={1.5} />}
+                  disabled={profiles.length <= 1}
+                  onClick={() => setSortProfilesOpen(true)}
+                >
+                  Ordenar perfis
+                </Menu.Item>
+                <Menu.Item
                   color="danger"
                   leftSection={<IconTrash size={16} stroke={1.5} />}
                   disabled={profiles.length <= 1}
@@ -1210,6 +1234,29 @@ export default function NfeLabelDesignerPanel() {
             <Button onClick={confirmProfileName} disabled={!profileName.trim()}>
               Salvar
             </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={sortProfilesOpen}
+        onClose={() => setSortProfilesOpen(false)}
+        title="Ordenar perfis"
+        centered
+        size="sm"
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            Arraste pela alça (ou use as setas). A lista de perfis segue esta ordem.
+          </Text>
+          <SortableList
+            items={profiles}
+            getKey={(p) => p.id}
+            renderLabel={(p) => p.nome}
+            onChange={reorderProfiles}
+          />
+          <Group justify="flex-end">
+            <Button onClick={() => setSortProfilesOpen(false)}>Pronto</Button>
           </Group>
         </Stack>
       </Modal>

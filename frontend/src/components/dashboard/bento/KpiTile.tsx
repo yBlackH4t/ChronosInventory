@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Badge, Skeleton } from "@mantine/core";
 import AnimatedNumber from "../../ui/AnimatedNumber";
+import dayjs from "dayjs";
+import { trackCursorGlow } from "../../../lib/cursorGlow";
 import DrawnSparkline from "./DrawnSparkline";
 
 export type KpiDelta = {
@@ -53,7 +55,7 @@ export default function KpiTile({
   index,
 }: KpiTileProps) {
   return (
-    <div className="stat-tile bento-kpi">
+    <div className="stat-tile bento-kpi mi-glow" onPointerMove={trackCursorGlow}>
       <span className="bento-kpi-label">{label}</span>
       {loading ? (
         <Skeleton h={34} w="55%" mt={4} radius="sm" />
@@ -70,7 +72,17 @@ export default function KpiTile({
       {hint && !loading ? <span className="bento-kpi-hint">{hint}</span> : null}
       <div className="bento-kpi-trend">
         {trend && trend.length > 1 && !loading ? (
-          <DrawnSparkline values={trend} color={trendColor} label={trendLabel} delay={0.1 + index * 0.08} />
+          <DrawnSparkline
+            values={trend}
+            color={trendColor}
+            label={trendLabel}
+            delay={0.1 + index * 0.08}
+            pointLabel={(point, pointValue) =>
+              `${dayjs()
+                .subtract(trend.length - 1 - point, "day")
+                .format("DD/MM")}: ${pointValue.toLocaleString("pt-BR")}`
+            }
+          />
         ) : (
           <div style={{ height: 36 }} />
         )}

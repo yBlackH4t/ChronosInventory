@@ -76,6 +76,17 @@ export default function BatchMovementModal({
     if (on) playBeep(true);
   };
 
+  const scanPanelRef = useRef<HTMLDivElement>(null);
+  // Código não encontrado: o quadro de leitura treme de leve (fora do nível "Nenhum").
+  const shakePanel = () => {
+    const panel = scanPanelRef.current;
+    if (!panel) return;
+    panel.classList.remove("mi-shake");
+    void panel.offsetWidth;
+    panel.classList.add("mi-shake");
+    window.setTimeout(() => panel.classList.remove("mi-shake"), 500);
+  };
+
   const markFound = (product: Product) => {
     setFlash((current) => ({ id: product.id, n: (current?.n ?? 0) + 1 }));
     setAnnouncement(`${product.nome} adicionado ao lote.`);
@@ -118,6 +129,7 @@ export default function BatchMovementModal({
 
         if (!product) {
           if (beepRef.current) playBeep(false);
+          shakePanel();
           notifyError(new Error(`Produto não encontrado para o código: ${code}`));
           return;
         }
@@ -133,16 +145,13 @@ export default function BatchMovementModal({
   }, [opened, listen]);
 
   const addProductToBatch = (product: Product) => {
+    // O item lido sobe para o topo da lista (novo ou de novo), onde a moldura acende.
     setItems((current) => {
       const existing = current.find((i) => i.product.id === product.id);
-      if (existing) {
-        return current.map((i) =>
-          i.product.id === product.id
-            ? { ...i, quantidade: i.quantidade + 1 }
-            : i
-        );
-      }
-      return [...current, { product, quantidade: 1 }];
+      const rest = current.filter((i) => i.product.id !== product.id);
+      return existing
+        ? [{ ...existing, quantidade: existing.quantidade + 1 }, ...rest]
+        : [{ product, quantidade: 1 }, ...rest];
     });
   };
 
@@ -319,7 +328,7 @@ export default function BatchMovementModal({
           />
         </Group>
 
-        <Box className="scan-panel">
+        <Box className="scan-panel" ref={scanPanelRef}>
           <Stack gap="xs">
             <Group justify="space-between" align="center" gap="xs">
               <Text size="sm" fw={500}>Adicionar Itens ao Lote</Text>

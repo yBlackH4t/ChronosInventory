@@ -157,6 +157,7 @@ export function ProductDetailsDrawer({
 }: ProductDetailsDrawerProps) {
   const [galleryOpened, setGalleryOpened] = useState(false);
   const [gallerySlide, setGallerySlide] = useState(0);
+  const [galleryOrigin, setGalleryOrigin] = useState<DOMRect | null>(null);
 
   // Modais dedicados para reduzir a sobrecarga visual
   const [movementModalOpened, setMovementModalOpened] = useState(false);
@@ -206,6 +207,9 @@ export function ProductDetailsDrawer({
   const openPhotos = () => {
     if (imageItems.length > 0) {
       setGallerySlide(0);
+      setGalleryOrigin(
+        document.querySelector<HTMLElement>('[data-shared-target="thumb"]')?.getBoundingClientRect() ?? null,
+      );
       setGalleryOpened(true);
     } else {
       setPhotosModalOpened(true);
@@ -609,8 +613,9 @@ export function ProductDetailsDrawer({
                     h={140}
                     radius="sm"
                     className="photo-thumb"
-                    onClick={() => {
+                    onClick={(event) => {
                       setGallerySlide(idx);
+                      setGalleryOrigin(event.currentTarget.getBoundingClientRect());
                       setGalleryOpened(true);
                     }}
                   />
@@ -732,6 +737,7 @@ export function ProductDetailsDrawer({
         onClose={() => setGalleryOpened(false)}
         images={imageItems}
         initialSlide={gallerySlide}
+        originRect={galleryOrigin}
       />
     </>
   );

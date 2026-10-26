@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 import { m } from "motion/react";
 import { useMotionLevel } from "../../../lib/motionContext";
 import { revealFor } from "../../../lib/dashboardMotion";
@@ -10,14 +10,24 @@ type DrawnSparklineProps = {
   /** Lido por leitores de tela; sem ele o gráfico é decorativo. */
   label?: string;
   delay?: number;
+  /** Texto do ponto sob o mouse (ex.: "12/10: 318 un"). Sem ele, só o valor. */
+  pointLabel?: (index: number, value: number) => string;
 };
 
 // Mini linha de tendência que se desenha ao abrir (Completo), só esmaece (Suave) ou já
 // aparece pronta (Nenhum). Sem "non-scaling-stroke": com ele o pathLength do motion corta
 // a linha no meio.
-export default function DrawnSparkline({ values, color, height = 36, label, delay = 0 }: DrawnSparklineProps) {
+export default function DrawnSparkline({
+  values,
+  color,
+  height = 36,
+  label,
+  delay = 0,
+  pointLabel,
+}: DrawnSparklineProps) {
   const gradientId = useId();
   const level = useMotionLevel();
+  const [hover, setHover] = useState<number | null>(null);
   if (values.length < 2) return <div style={{ height }} />;
 
   const width = 160;
@@ -36,8 +46,26 @@ export default function DrawnSparkline({ values, color, height = 36, label, dela
   const draw = revealFor(level, "draw", 0, delay);
   const fade = revealFor(level, "fade", 0, delay + (level === "completo" ? 0.5 : 0));
 
+  const hovered = hover !== null ? points[hover] : null;
+  const onMove = (event: React.PointerEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    setHover(Math.round(ratio * (values.length - 1)));
+  };
+
   return (
+    <div className="mi-spark" onPointerLeave={() => setHover(null)}>
+    {hovered && hover !== null ? (
+      <span
+        className="mi-spark-tip num"
+        style={{ left: `${(hovered[0] / width) * 100}%` }}
+        role="status"
+      >
+        {pointLabel ? pointLabel(hover, values[hover]) : values[hover].toLocaleString("pt-BR")}
+      </span>
+    ) : null}
     <svg
+      onPointerMove={onMove}
       viewBox={`0 0 ${width} ${height}`}
       width="100%"
       height={height}
@@ -81,6 +109,13 @@ export default function DrawnSparkline({ values, color, height = 36, label, dela
         animate={{ opacity: 1 }}
         transition={fade.transition}
       />
+      {hovered ? (
+        <g className="mi-spark-hover" aria-hidden>
+          <line x1={hovered[0]} x2={hovered[0]} y1={0} y2={height} stroke={color} strokeOpacity={0.35} strokeDasharray="2 2" />
+          <circle cx={hovered[0]} cy={hovered[1]} r={3.4} fill="var(--surface-solid)" stroke={color} strokeWidth={2} />
+        </g>
+      ) : null}
     </svg>
+    </div>
   );
 }

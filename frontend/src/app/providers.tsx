@@ -9,6 +9,7 @@ import "@fontsource/sora/latin-500.css";
 import "@fontsource/sora/latin-600.css";
 import "@fontsource/sora/latin-700.css";
 import "../styles/global.css";
+import "../styles/microinteracoes.css";
 import "dayjs/locale/pt-br";
 
 import { useLayoutEffect, useMemo, type ReactNode } from "react";
@@ -105,7 +106,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         >
           <DatesProvider settings={{ locale: "pt-br", firstDayOfWeek: 1 }}>
             <ModalsProvider>
-              <Notifications position="top-right" />
+              <Notifications position="top-right" limit={4} autoClose={4500} containerWidth={380} />
               <MotionLevelContext.Provider value={motionLevel}>
                 {/* "suave" e "nenhum": a biblioteca não desloca nada, só esmaece. */}
                 <MotionConfig

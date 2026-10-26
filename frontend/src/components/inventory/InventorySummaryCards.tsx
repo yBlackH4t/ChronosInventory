@@ -47,14 +47,27 @@ export function InventorySummaryCards({
     },
   ];
 
+  const total = summary.total_items;
+
   return (
     <div className="stat-grid">
       {tiles.map((tile) => (
         <StatTile
           key={tile.key}
           label={tile.label}
-          value={tile.value.toLocaleString("pt-BR")}
+          value={tile.value}
           accent={tile.accent}
+          footer={
+            <div className="vt-share" aria-hidden>
+              <span
+                style={{
+                  width: `${total > 0 ? Math.round((tile.value / total) * 100) : 0}%`,
+                  background: tile.accent ?? "var(--text-muted)",
+                }}
+              />
+            </div>
+          }
+          hint={total > 0 ? `${Math.round((tile.value / total) * 100)}% dos itens` : undefined}
           active={activeFilter === tile.key}
           onClick={() => onSelectFilter(tile.key)}
         />

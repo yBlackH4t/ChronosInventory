@@ -92,6 +92,12 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
+- **2.7.4, Vidro suave em Inventário, Etiquetas, Relatórios e tabela de Produtos** (branch
+   `claude/project-thread-oq7mai`, PR para a `main`): coluna "Código" em Produtos, anel de progresso
+   e selos no Inventário, pílula e código em destaque nas Etiquetas, miniatura da folha nos
+   Relatórios, correção do "Local #null" e do botão claro no Grafite escuro. Inclui também as
+   microinterações (itens 2 a 22) no mesmo PR #36. A 2.7.3 (estornos, PR #35) já está na `main`;
+   a tag `v2.7.4` cobre a 2.7.3 e a 2.7.2.
 - **2.7.3, movimentações mais limpas** (branch `claude/project-thread-mswsxd`, PR para a `main`): a
    movimentação estornada e o estorno dela saem juntos da lista de Movimentações (chave "Mostrar
    estornados" mostra de novo). Nada é apagado; saldo, relatórios e histórico do produto iguais.

@@ -44,6 +44,36 @@
   padding: 0 6px;
 }
 
+/* Coluna "Código" da lista de Produtos (2.7.4): o código numa coluna própria, alinhado,
+   como no sistema da empresa; o nome vem depois, em destaque. */
+.pm-code-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-code-cell[data-empty] {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Cabeçalhos curtos numa linha só ("Saldo · Canoas" não quebra). */
+.pm-th {
+  white-space: nowrap;
+}
+
+.pm-sales-cell {
+  opacity: 0.92;
+}
+
 /* Marca · versão em texto, com a cor da versão num ponto. */
 .pm-meta {
   display: flex;
@@ -495,4 +525,251 @@
 .mv-table-row[data-reversed] td:nth-child(4) .mantine-Text-root {
   text-decoration: line-through;
   color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Lista de Produtos refeita (2.7.4): Cód. da empresa, descrição como está no
+   cadastro com o código da peça destacado, zerados discretos.
+   ========================================================================== */
+
+/* Título que ordena: clique alterna crescente/decrescente. */
+.pm-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.pm-sort[data-align="right"] {
+  flex-direction: row-reverse;
+}
+
+.pm-sort svg {
+  opacity: 0.35;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.pm-sort:hover {
+  background: var(--pill-track);
+  color: var(--text);
+}
+
+.pm-sort:hover svg,
+.pm-sort[data-active] svg {
+  opacity: 1;
+}
+
+.pm-sort[data-active] {
+  color: var(--accent-text);
+}
+
+.pm-sort:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Cód. da empresa (o mesmo número do sistema). */
+.pm-id {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-row:hover .pm-id,
+.pm-row.row-selected .pm-id {
+  color: var(--text);
+}
+
+/* Descrição numa linha, igual ao cadastro; o código da peça dentro dela em destaque. */
+.pm-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.mi-copy.pm-name-code {
+  display: inline;
+  margin: 0 1px;
+  padding: 1px 4px;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-copy.pm-name-code:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Sem foto: sigla da marca ou do tipo, na cor da marca. */
+.product-monogram {
+  border-color: color-mix(in srgb, var(--mono-color) 28%, transparent);
+  background: color-mix(in srgb, var(--mono-color) 13%, var(--surface-solid));
+  color: color-mix(in srgb, var(--mono-color) 70%, var(--text));
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.product-monogram[data-len="3"] {
+  font-size: 0.62rem;
+}
+
+/* Com estoque: um traço verde à esquerda. Zerado: a linha fica mais apagada. */
+.pm-row:not([data-zero]) > td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--success) 60%, transparent);
+}
+
+.pm-row[data-zero] .pm-name {
+  color: var(--text-muted);
+  font-weight: 550;
+}
+
+.pm-row[data-zero] .product-thumb {
+  opacity: 0.6;
+}
+
+.pm-row[data-zero] .mi-copy.pm-name-code {
+  background: transparent;
+}
+
+.pm-table .pm-stock[data-level="ZERADO"] {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.pm-table .pm-stock-branch[data-zero] {
+  opacity: 0.55;
+}
+
+/* Saídas em 90 dias: número + barrinhas por semana; sem saída, só um traço. */
+.pm-sales {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.pm-sales[data-empty] {
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.pm-sales-total {
+  min-width: 18px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--text);
+  text-align: right;
+}
+
+.pm-footer {
+  padding: 0 4px;
+}
+
+/* Resumo do estoque no lugar do subtítulo. */
+.pm-header-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  color: var(--text-muted);
+}
+
+.pm-header-stats strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.pm-header-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Filtro de estoque com a contagem de cada opção. */
+.pm-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.pm-filter-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--pill-track);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.pm-stock-filter [data-active] .pm-filter-count,
+.pm-stock-filter .mantine-SegmentedControl-label[data-active] .pm-filter-count {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Ações da linha flutuando à direita (só no hover/seleção): não ocupam uma coluna vazia. */
+.pm-table .pm-actions-cell {
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+
+.pm-actions.pm-actions-float {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 2;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  box-shadow: 0 6px 18px rgba(15, 40, 60, 0.14);
+  pointer-events: none;
+}
+
+:root[data-mantine-color-scheme="dark"] .pm-actions.pm-actions-float {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.clickable-row:hover .pm-actions.pm-actions-float,
+.clickable-row:focus-within .pm-actions.pm-actions-float,
+.clickable-row.row-selected .pm-actions.pm-actions-float,
+.pm-actions.pm-actions-float:has([aria-expanded="true"]) {
+  pointer-events: auto;
 }

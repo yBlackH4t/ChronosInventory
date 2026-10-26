@@ -40,6 +40,9 @@ import { SyncStatusBadge } from "./SyncStatusBadge";
 import chronosIcon from "../../assets/chronos-icon.svg";
 import ShortcutsModal from "../common/ShortcutsModal";
 import NavIndicator from "./NavIndicator";
+import ApiStatusDot from "./ApiStatusDot";
+import { revealThemeChange } from "../../lib/themeReveal";
+import { useMotionLevel } from "../../lib/motionContext";
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -60,6 +63,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
     backendSupportsProfiles,
   } = useProfileScope();
   const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const motionLevel = useMotionLevel();
   const location = useLocation();
   const prefetch = usePrefetchRoute();
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -316,11 +320,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
 
             <SyncStatusBadge />
 
-            <Tooltip label={`API conectada · v${appVersion}`}>
-              <span className="status-dot-wrap" aria-label="API conectada">
-                <span className="status-dot" data-pulse />
-              </span>
-            </Tooltip>
+            <ApiStatusDot version={appVersion} />
 
             <Tooltip label="Usar celular como leitor de código de barras">
               <ActionIcon
@@ -349,7 +349,9 @@ export default function TopBar({ health }: { health: HealthOut }) {
                 size="lg"
                 color="gray"
                 aria-label="Alternar tema"
-                onClick={() => setColorScheme(isDark ? "light" : "dark")}
+                onClick={(event) =>
+                  revealThemeChange(event, () => setColorScheme(isDark ? "light" : "dark"), motionLevel)
+                }
               >
                 {isDark ? (
                   <IconSun size={18} stroke={1.5} />
