@@ -183,6 +183,16 @@ export function useMovementsPageState() {
     staleTime: 30_000,
   });
 
+  // Um estorno tira duas linhas da lista: se a página atual ficou vazia, volta para a última.
+  const loadedTotalPages = listQuery.data?.meta?.total_pages;
+  if (
+    loadedTotalPages !== undefined &&
+    !listQuery.isPlaceholderData &&
+    page > Math.max(loadedTotalPages, 1)
+  ) {
+    setPage(Math.max(loadedTotalPages, 1));
+  }
+
   const totalItems = listQuery.data?.meta?.total_items ?? 0;
   const totalPages = Math.max(listQuery.data?.meta?.total_pages ?? 1, 1);
   const listErrorMessage =
