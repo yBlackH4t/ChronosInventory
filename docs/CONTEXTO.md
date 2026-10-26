@@ -92,6 +92,10 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
 
+- **2.7.3, movimentações mais limpas** (branch `claude/project-thread-mswsxd`, PR para a `main`): a
+   movimentação estornada e o estorno dela saem juntos da lista de Movimentações (chave "Mostrar
+   estornados" mostra de novo). Nada é apagado; saldo, relatórios e histórico do produto iguais.
+   A tag `v2.7.3` cobre a 2.7.2.
 - **2.7.2, nota fiscal e etiquetas** (branch `claude/project-thread-dcq6wk`, PR para a `main`): a nota
    acha produtos desativados e reativa na tela, cadastra produto novo sem sair da nota, sugere pelo
    código da empresa (CD_MATERIAL = id), vários CNPJs salvos escolhidos sozinhos pela nota, e perfis

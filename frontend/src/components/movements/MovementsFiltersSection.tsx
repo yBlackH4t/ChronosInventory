@@ -62,6 +62,8 @@ type Props = {
   ) => void;
   showProductId: boolean;
   setShowProductId: (value: boolean) => void;
+  showReversed: boolean;
+  setShowReversed: (value: boolean) => void;
   tablePreferences: MovementsTablePreferences;
   setTablePreferences: (
     updater: (current: MovementsTablePreferences) => MovementsTablePreferences,
@@ -98,6 +100,8 @@ export default function MovementsFiltersSection({
   setShowAdvancedFilters,
   showProductId,
   setShowProductId,
+  showReversed,
+  setShowReversed,
   tablePreferences,
   setTablePreferences,
   activeViewCount,
@@ -351,6 +355,19 @@ export default function MovementsFiltersSection({
             <IconSortAscending size={18} stroke={1.5} />
           )}
         </ActionIcon>
+      </Tooltip>
+
+      <Tooltip
+        multiline
+        w={260}
+        label="Um lançamento errado e o estorno que o desfez ficam fora da lista. Eles continuam guardados e o saldo não muda."
+      >
+        <Switch
+          size="sm"
+          label="Mostrar estornados"
+          checked={showReversed}
+          onChange={(event) => setShowReversed(event.currentTarget.checked)}
+        />
       </Tooltip>
 
       {activeViewCount > 0 && (

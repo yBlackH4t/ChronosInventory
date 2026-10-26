@@ -192,6 +192,20 @@ class MovementRepository(BaseRepository):
 
 
 
+    # Esconde o lancamento desfeito e o estorno que o desfez, sempre os dois juntos. So muda o que
+    # a lista mostra: saldo, relatorios e o historico do produto continuam com tudo.
+    _OCULTAR_ESTORNADOS = """
+        AND m.id NOT IN (
+            SELECT movimento_ref_id FROM movimentacoes
+            WHERE natureza = 'ESTORNO' AND movimento_ref_id IS NOT NULL
+        )
+        AND NOT (
+            m.natureza = 'ESTORNO'
+            AND m.movimento_ref_id IS NOT NULL
+            AND m.movimento_ref_id IN (SELECT id FROM movimentacoes)
+        )
+    """
+
     @staticmethod
     def _like_contains(term: str) -> str:
         escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -211,6 +225,7 @@ class MovementRepository(BaseRepository):
         sort_direction: str = "DESC",
         limit: int = 20,
         offset: int = 0,
+        ocultar_estornados: bool = False,
     ) -> List[Dict[str, Any]]:
         sort_col = self._ALLOWED_SORT_COLUMNS.get(sort_column, "data_hora")
         sort_dir = "DESC" if str(sort_direction).upper() == "DESC" else "ASC"
@@ -260,6 +275,8 @@ class MovementRepository(BaseRepository):
         if documento:
             query += " AND m.documento LIKE ? ESCAPE '\\'"
             params.append(self._like_contains(documento))
+        if ocultar_estornados:
+            query += self._OCULTAR_ESTORNADOS
 
         query += f" ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -276,10 +293,11 @@ class MovementRepository(BaseRepository):
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         documento: Optional[str] = None,
+        ocultar_estornados: bool = False,
     ) -> int:
         query = """
             SELECT COUNT(*) as total
-            FROM movimentacoes
+            FROM movimentacoes m
             WHERE 1=1
         """
         params: List[Any] = []
@@ -308,6 +326,8 @@ class MovementRepository(BaseRepository):
         if documento:
             query += " AND documento LIKE ? ESCAPE '\\'"
             params.append(self._like_contains(documento))
+        if ocultar_estornados:
+            query += self._OCULTAR_ESTORNADOS
 
         result = self._execute_query(query, tuple(params))
         return result[0]["total"] if result else 0

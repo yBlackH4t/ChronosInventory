@@ -74,7 +74,7 @@ Validacoes:
 
 ## Movimentacoes
 - `POST /movimentacoes`
-- `GET /movimentacoes`
+- `GET /movimentacoes`: `ocultar_estornados=true` tira da lista cada movimentacao estornada junto com o estorno dela (`natureza=ESTORNO` com `movimento_ref_id`). Nada e apagado; ignorado quando o filtro e `natureza=ESTORNO`. A tela Movimentacoes manda `true` ate o usuario ligar "Mostrar estornados".
 
 Regras:
 - `ENTRADA`: exige `destino`

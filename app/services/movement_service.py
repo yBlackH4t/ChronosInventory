@@ -293,10 +293,14 @@ class MovementService:
         limit: int,
         offset: int,
         documento: Optional[str] = None,
+        ocultar_estornados: bool = False,
     ) -> Tuple[List[MovementRecord], int]:
         df = date_from.strftime(DATE_FORMAT_DB) if date_from else None
         dt = date_to.strftime(DATE_FORMAT_DB) if date_to else None
         documento = (documento or "").strip() or None
+        # Quem filtra pela natureza Estorno quer ver os estornos.
+        if natureza == "ESTORNO":
+            ocultar_estornados = False
 
         rows = self.repo.list_movements(
             produto_id=produto_id,
@@ -311,6 +315,7 @@ class MovementService:
             sort_direction=sort_direction,
             limit=limit,
             offset=offset,
+            ocultar_estornados=ocultar_estornados,
         )
         total = self.repo.count_movements(
             produto_id=produto_id,
@@ -321,6 +326,7 @@ class MovementService:
             date_from=df,
             date_to=dt,
             documento=documento,
+            ocultar_estornados=ocultar_estornados,
         )
 
         return [

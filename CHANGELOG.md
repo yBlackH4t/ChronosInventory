@@ -25,6 +25,11 @@ Formato recomendado:
 
 
 
+## [2.7.3] - 2026-10-26
+
+### Changed
+- Movimentações mais limpas: uma movimentação lançada errado e o estorno que a desfez saem juntos da lista de Movimentações. Eles não são apagados: continuam guardados, aparecem no histórico do produto, e o saldo e os relatórios não mudam. Para vê-los, ligue "Mostrar estornados" ao lado dos filtros. Filtrar pela natureza "Estorno" também mostra os estornos.
+
 ## [2.7.2] - 2026-10-26
 
 ### Added
