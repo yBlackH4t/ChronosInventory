@@ -445,6 +445,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     remoteOfficialStatus,
     saveConfigLoading: officialBaseConfigMutation.isPending,
     publishLoading: officialBasePublishMutation.isPending,
+    publishFailed: officialBasePublishMutation.isError,
     applyLoading: officialBaseApplyMutation.isPending,
     deletePending: officialBaseDeleteMutation.isPending,
     testRemoteLoading: officialBaseTestDirectoryMutation.isPending,

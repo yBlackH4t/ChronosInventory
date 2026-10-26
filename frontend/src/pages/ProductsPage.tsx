@@ -43,6 +43,7 @@ import { useLocations } from "../hooks/useLocations";
 import { MAX_PRODUCT_IMAGES, useProductImages } from "../hooks/useProductImages";
 import { useScanner } from "../lib/useScanner";
 import { useMotionLevel } from "../lib/motionContext";
+import { animateRowOut } from "../lib/rowExit";
 import { applyMovementToProduct, flashKindFor } from "../lib/productView";
 import { captureFlight, clearFlight } from "../lib/sharedFlight";
 import type { StockFlash } from "../components/products/StockNumber";
@@ -288,7 +289,8 @@ export default function ProductsPage() {
   >({
     mutationFn: (productId: number) =>
       api.bulkUpdateProductStatus({ ids: [productId], ativo: false }),
-    onSuccess: () => {
+    onSuccess: async (_data, productId) => {
+      await animateRowOut(`[data-flip-key="${productId}"]`, motionLevel);
       notifySuccess("Produto inativado");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
@@ -305,7 +307,8 @@ export default function ProductsPage() {
     number
   >({
     mutationFn: (id: number) => api.deleteProduct(id),
-    onSuccess: () => {
+    onSuccess: async (_data, id) => {
+      await animateRowOut(`[data-flip-key="${id}"]`, motionLevel);
       notifySuccess("Produto excluído");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
@@ -361,10 +364,10 @@ export default function ProductsPage() {
     },
   });
 
-  const openCreate = () => {
+  const openCreate = (nome = "") => {
     setEditing(null);
     createForm.setValues({ 
-      nome: "", 
+      nome: nome.toUpperCase(), 
       inventories: {},
       documento_movimento: "",
       observacao_movimento: "",
@@ -780,7 +783,7 @@ export default function ProductsPage() {
         title="Produtos"
         subtitle="Consulta de estoque por filial, equivalências e aplicações."
         actions={
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => openCreate()}>
             Novo produto
           </Button>
         }
@@ -914,6 +917,7 @@ export default function ProductsPage() {
           setQuery("");
           setPage(1);
         }}
+        onCreateFromSearch={(text) => openCreate(text)}
         onOpenDetails={openDetails}
         onOpenSingleLabel={openSingleLabel}
         onOpenEdit={openEdit}

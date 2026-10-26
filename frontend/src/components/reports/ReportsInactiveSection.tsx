@@ -1,12 +1,15 @@
-import { Button, NumberInput, Select, SimpleGrid } from "@mantine/core";
+import { NumberInput, Select, SimpleGrid } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { IconFileTypePdf } from "@tabler/icons-react";
 import ReportPaperPreview from "./ReportPaperPreview";
+import ProgressButton from "../ui/ProgressButton";
 import ReportShell from "./ReportShell";
 
 type Scope = string;
 
 type Props = {
+  /** A última geração deu erro (sem o ✓ no botão). */
+  failed?: boolean;
   inactiveDays: number;
   setInactiveDays: (value: number) => void;
   inactiveDateTo: Date | null;
@@ -28,6 +31,7 @@ export default function ReportsInactiveSection({
   scopeOptions,
   loading,
   onGenerate,
+  failed = false,
 }: Props) {
   const scopeLabel = scopeOptions.find((option) => option.value === inactiveScope)?.label ?? "Todas as filiais";
   return (
@@ -46,14 +50,17 @@ export default function ReportsInactiveSection({
       description="Itens com saldo positivo que não tiveram nenhuma entrada ou saída no período. Útil para promoções ou para descontinuar o que não gira."
       footerHint={!inactiveDateTo ? "Informe a data de referência." : undefined}
       action={
-        <Button
+        <ProgressButton
           onClick={onGenerate}
-          loading={loading}
+          busy={loading}
+          failed={failed}
+          busyLabel="Gerando PDF…"
+          doneLabel="PDF pronto"
           disabled={!inactiveDateTo}
           leftSection={<IconFileTypePdf size={16} stroke={1.5} />}
         >
           Gerar PDF
-        </Button>
+        </ProgressButton>
       }
     >
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">

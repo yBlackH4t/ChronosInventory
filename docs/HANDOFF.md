@@ -428,7 +428,8 @@ npm run lint
 - CSS novo `styles/vidro-telas.css` (classes `vt-*`): `ProgressRing` (`components/ui`), herói da sessão do Inventário, selos de diferença, miniatura da folha (`ReportPaperPreview`) e faixa do relatório ativo. Animações só fora do nível "Nenhum".
 - Etiquetas: as abas viraram `SegmentedControl`; lista com código em destaque e `StockNumber` no total.
 - Correções: `sessionLocalLabel` (`lib/inventoryView.ts`) usa `local` do backend (antes "Local #null"); botão `light` no Grafite escuro (global.css).
-- Fotos: `/mnt/project-files/visual/2.7.4/`.
+- Microinterações (mesmo PR): `styles/microinteracoes.css` (classes `mi-*`), `ProgressButton`, `CopyCode`, `SortableList`, `ApiStatusDot`, `SpotlightPreview` (prévia do Ctrl+K), `MovementsMinimap`, `notifyUndo`, `themeReveal` (View Transitions), `rowExit`, `cursorGlow`. Tudo gated por `data-motion`.
+- Fotos: `/mnt/project-files/visual/2.7.4/` (animações em `animacoes/`, com o clipe `animacoes-2.7.4.mp4`).
 - Verificações: pytest ok / build ok / lint ok (só avisos antigos) / vitest ok.
 
 ### 2026-10-19 — Claude Code — 2.6.3, NF-e, Assistente e leitura de código (Vidro suave)

@@ -1,17 +1,19 @@
-import { Button } from "@mantine/core";
 import { IconFileTypePdf } from "@tabler/icons-react";
 
 import { useStockTotals } from "../../hooks/useStockTotals";
 import AnimatedNumber from "../ui/AnimatedNumber";
 import ReportPaperPreview from "./ReportPaperPreview";
+import ProgressButton from "../ui/ProgressButton";
 import ReportShell from "./ReportShell";
 
 type Props = {
+  /** A última geração deu erro (sem o ✓ no botão). */
+  failed?: boolean;
   loading: boolean;
   onGenerate: () => void;
 };
 
-export default function ReportsStockSection({ loading, onGenerate }: Props) {
+export default function ReportsStockSection({ loading, onGenerate, failed = false }: Props) {
   const totals = useStockTotals().data?.data;
   const locations = totals?.locations ?? [];
   const facts = totals
@@ -38,13 +40,16 @@ export default function ReportsStockSection({ loading, onGenerate }: Props) {
         />
       }
       action={
-        <Button
+        <ProgressButton
           onClick={onGenerate}
-          loading={loading}
+          busy={loading}
+          failed={failed}
+          busyLabel="Gerando PDF…"
+          doneLabel="PDF pronto"
           leftSection={<IconFileTypePdf size={16} stroke={1.5} />}
         >
           Gerar PDF
-        </Button>
+        </ProgressButton>
       }
     />
   );

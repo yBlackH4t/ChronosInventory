@@ -12,8 +12,13 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
     "version": "2.7.4",
     "date": "2026-10-26",
-    "title": "Correcao e estabilidade",
+    "title": "Melhorias e correcoes",
     "highlights": [
+      "Novo: Busca rápida (Ctrl+K) com prévia: à direita aparecem a foto, o código, a marca e o saldo por filial do produto escolhido.",
+      "Novo: Minimapa nas Movimentações por dia: um traço por dia (verde entradas, laranja saídas). Passar o mouse mostra os totais; clicar pula para o dia.",
+      "Novo: Botões com progresso: \"Publicar base oficial\", \"Buscar\" da nota fiscal e \"Gerar PDF\" mostram o progresso dentro do botão e terminam com um ✓. Clicar no código da peça em Produtos copia o código (\"✓ Copiado\"); os botões da linha só aparecem ao passar o mouse. Busca sem resultado tem \"Cadastrar esta peça\".",
+      "Novo: Desfazer e arrastar: tirar item da Lista personalizada, limpar a lista ou excluir um perfil de etiqueta tem \"Desfazer\" no aviso. Perfis de etiqueta (Layout > Ordenar perfis) e as colunas das filiais em Produtos (pelo título) mudam de ordem arrastando.",
+      "Novo: Animações (Completo e Suave; no \"Nenhum\" nada se mexe): avisos que deslizam e somem sozinhos, brilho no carregamento, item lido no lote sobe para o topo (código não achado faz o quadro tremer), valor do dia ao passar o mouse nas linhas do Painel e brilho que segue o mouse nos cartões, foto que cresce da miniatura, produto excluído que sai encolhendo, etapas da nota com o traço enchendo, troca claro/escuro com um círculo, e o ponto do serviço no topo âmbar quando lento e vermelho quando cai.",
       "Mudanca: Produtos com tabela mais clara: o código da peça ganhou uma coluna própria (\"Código\"), alinhada, como no sistema da empresa. O nome vem em destaque logo depois, os saldos por filial e o total ficam em seguida e as saídas dos últimos 90 dias foram para o fim da linha. Os títulos das colunas não quebram mais em duas linhas.",
       "Mudanca: Inventário no visual novo: a sessão aberta mostra um anel com quanto já foi contado, o local e o status em selos (\"Em contagem\" pulsa). Os números do resumo sobem ao abrir e têm uma barrinha com a parte de cada um no total. Na contagem, o código aparece em destaque e a diferença vira um selo (\"+1 sobrando\", \"−2 faltando\", \"OK\"), com um traço nas linhas com diferença.",
       "Mudanca: Etiquetas: Estoque e Expedição (NF-e) viraram a pílula deslizante das outras telas. A lista mostra o código em destaque e o total na cor do saldo (verde, âmbar ou vermelho).",

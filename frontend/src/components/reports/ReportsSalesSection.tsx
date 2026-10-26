@@ -1,14 +1,17 @@
-import { Button, Select, SimpleGrid } from "@mantine/core";
+import { Select, SimpleGrid } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { IconFileTypePdf } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import ReportPaperPreview from "./ReportPaperPreview";
+import ProgressButton from "../ui/ProgressButton";
 import ReportShell from "./ReportShell";
 
 type Scope = string;
 
 type Props = {
+  /** A última geração deu erro (sem o ✓ no botão). */
+  failed?: boolean;
   salesDateFrom: Date | null;
   setSalesDateFrom: (value: Date | null) => void;
   salesDateTo: Date | null;
@@ -30,6 +33,7 @@ export default function ReportsSalesSection({
   scopeOptions,
   loading,
   onGenerate,
+  failed = false,
 }: Props) {
   const days =
     salesDateFrom && salesDateTo ? dayjs(salesDateTo).diff(dayjs(salesDateFrom), "day") + 1 : null;
@@ -52,14 +56,17 @@ export default function ReportsSalesSection({
         !salesDateFrom || !salesDateTo ? "Informe o período para gerar." : undefined
       }
       action={
-        <Button
+        <ProgressButton
           onClick={onGenerate}
-          loading={loading}
+          busy={loading}
+          failed={failed}
+          busyLabel="Gerando PDF…"
+          doneLabel="PDF pronto"
           disabled={!salesDateFrom || !salesDateTo}
           leftSection={<IconFileTypePdf size={16} stroke={1.5} />}
         >
           Gerar PDF
-        </Button>
+        </ProgressButton>
       }
     >
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">

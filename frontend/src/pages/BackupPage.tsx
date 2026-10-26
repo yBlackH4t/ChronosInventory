@@ -390,6 +390,7 @@ export default function BackupPage() {
             onNotesChange={officialBasePanel.setOfficialNotesInput}
             onPublish={officialBasePanel.confirmPublishOfficialBase}
             publishLoading={officialBasePanel.publishLoading}
+            publishFailed={officialBasePanel.publishFailed}
             onApply={officialBasePanel.confirmApplyOfficialBase}
             applyLoading={officialBasePanel.applyLoading}
             formatBytes={bytesToHuman}

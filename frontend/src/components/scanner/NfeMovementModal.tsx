@@ -45,6 +45,7 @@ import { loadActiveProfileId, loadProfiles, type NfeLabelProfile } from "../labe
 import NfeNewProductModal from "./NfeNewProductModal";
 import NfeProductPicker from "./NfeProductPicker";
 import NfeSettingsPanel from "./NfeSettingsPanel";
+import ProgressButton from "../ui/ProgressButton";
 import NfeStepper from "./NfeStepper";
 import "./scanner.css";
 
@@ -457,9 +458,16 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                     classNames={{ input: "num" }}
                     data-autofocus
                   />
-                  <Button leftSection={<IconSearch size={16} />} onClick={() => void load(input)} loading={loading}>
+                  <ProgressButton
+                    leftSection={<IconSearch size={16} />}
+                    onClick={() => void load(input)}
+                    busy={loading}
+                    failed={Boolean(loadError)}
+                    busyLabel="Buscando…"
+                    doneLabel="Nota lida"
+                  >
                     Buscar
-                  </Button>
+                  </ProgressButton>
                   <Button variant="subtle" leftSection={<IconSettings size={16} />} onClick={() => setShowFolders((v) => !v)}>
                     Configurar
                   </Button>

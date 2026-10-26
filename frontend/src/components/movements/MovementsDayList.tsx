@@ -16,6 +16,8 @@ import { movementNote, movementPlace, reversedMovementIds } from "../../lib/move
 import { splitProductCode, versionTitle } from "../../lib/productView";
 import { movementTone } from "../../lib/semantic";
 import { useFlipList } from "../../hooks/useFlipList";
+import { dayAnchorId } from "../../lib/movementMinimap";
+import MovementsMinimap from "./MovementsMinimap";
 import "../../styles/products-movements.css";
 
 const TYPE_LABELS: Record<MovementOut["tipo"], string> = {
@@ -50,8 +52,14 @@ export default function MovementsDayList({ rows, locationName, openHistory, onEs
 
   return (
     <div ref={listRef}>
+      <MovementsMinimap rows={rows} />
       {groupByDay(rows).map((group) => (
-        <section key={group.day} aria-label={dayHeading(group.day)} data-flip-key={`dia-${group.day}`}>
+        <section
+          key={group.day}
+          id={dayAnchorId(group.day)}
+          aria-label={dayHeading(group.day)}
+          data-flip-key={`dia-${group.day}`}
+        >
           <div className="day-heading">{dayHeading(group.day)}</div>
           <div className="mv-day" role="list">
             {group.rows.map((mov) => {

@@ -20,7 +20,8 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useLocalStorage } from "@mantine/hooks";
 
 import type { InventoryLocation, Product } from "../../lib/api";
 import { useRowHeight } from "../../lib/appearance";
@@ -31,6 +32,8 @@ import { useProductsVisual } from "../../hooks/useProductsVisual";
 import { useFlipList } from "../../hooks/useFlipList";
 import { useStockTotals } from "../../hooks/useStockTotals";
 import EmptyState from "../ui/EmptyState";
+import CopyCode from "../ui/CopyCode";
+import { applySavedOrder, moveItem } from "../../lib/reorder";
 import ProductThumb from "./ProductThumb";
 import SalesMiniBars from "./SalesMiniBars";
 import StockNumber, { type StockFlash } from "./StockNumber";
@@ -49,6 +52,8 @@ type ProductsListTableProps = {
   flash?: StockFlash | null;
   onRetry: () => void;
   onClearSearch: () => void;
+  /** "Cadastrar esta peça" quando a busca não acha nada: abre o cadastro com o texto buscado. */
+  onCreateFromSearch?: (text: string) => void;
   onOpenDetails: (product: Product, row: HTMLElement | null) => void;
   onOpenSingleLabel: (productId: number) => void;
   onOpenEdit: (product: Product) => void;
@@ -87,6 +92,7 @@ export function ProductsListTable({
   flash,
   onRetry,
   onClearSearch,
+  onCreateFromSearch,
   onOpenDetails,
   onOpenSingleLabel,
   onOpenEdit,
@@ -112,7 +118,22 @@ export function ProductsListTable({
       ),
     [locations, totalsQuery.data?.data?.locations, rows],
   );
-  const shownLocations = locations.filter((loc) => columns.ids.includes(loc.id));
+  // Ordem das colunas das filiais: arrastando o título da coluna (fica salva nesta máquina).
+  const [columnOrder, setColumnOrder] = useLocalStorage<number[]>({
+    key: "chronos.produtos.ordem_filiais",
+    defaultValue: [],
+  });
+  const [dragColumn, setDragColumn] = useState<number | null>(null);
+  const shownLocations = applySavedOrder(
+    locations.filter((loc) => columns.ids.includes(loc.id)).map((loc) => loc.id),
+    columnOrder,
+  ).map((id) => locations.find((loc) => loc.id === id)!);
+  const dropColumn = (targetId: number) => {
+    if (dragColumn === null || dragColumn === targetId) return setDragColumn(null);
+    const ids = shownLocations.map((loc) => loc.id);
+    setColumnOrder(moveItem(ids, ids.indexOf(dragColumn), ids.indexOf(targetId)));
+    setDragColumn(null);
+  };
   const onlyLocation = locations.find((loc) => loc.id === columns.onlyLocationId);
 
   const rowVirtualizer = useVirtualizer({
@@ -183,10 +204,22 @@ export function ProductsListTable({
                   <VisuallyHidden>Foto</VisuallyHidden>
                 </Table.Th>
               )}
-              <Table.Th w={150}>Código</Table.Th>
+              <Table.Th w={164}>Código</Table.Th>
               <Table.Th>Produto</Table.Th>
               {shownLocations.map((loc) => (
-                <Table.Th key={loc.id} w={120} ta="right" className="pm-th">
+                <Table.Th
+                  key={loc.id}
+                  w={120}
+                  ta="right"
+                  className="pm-th mi-drag-col"
+                  draggable={shownLocations.length > 1}
+                  data-dragging={dragColumn === loc.id || undefined}
+                  title={shownLocations.length > 1 ? "Arraste para mudar a ordem das filiais" : undefined}
+                  onDragStart={() => setDragColumn(loc.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => dropColumn(loc.id)}
+                  onDragEnd={() => setDragColumn(null)}
+                >
                   {loc.label || loc.name}
                 </Table.Th>
               ))}
@@ -254,9 +287,7 @@ export function ProductsListTable({
 
                   <Table.Td>
                     {code ? (
-                      <span className="pm-code-cell" data-shared="code" title={product.nome}>
-                        {code}
-                      </span>
+                      <CopyCode code={code} className="pm-code-cell" data-shared="code" title="Clique para copiar o código" />
                     ) : (
                       <span className="pm-code-cell" data-empty aria-label="Sem código no nome">
                         —
@@ -326,7 +357,7 @@ export function ProductsListTable({
                       gap={4}
                       justify="flex-end"
                       wrap="nowrap"
-                      className="pm-actions"
+                      className="pm-actions pm-actions-hover"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <Tooltip label="Movimentar estoque (tecla N)" openDelay={400}>
@@ -394,12 +425,15 @@ export function ProductsListTable({
               <Table.Tr>
                 <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
                   <EmptyState
+                    illustrated={Boolean(query.trim())}
                     message="Nenhum produto encontrado"
                     description={
                       query.trim()
-                        ? "Tente outro código, modelo ou equivalência."
+                        ? `Nada com "${query.trim()}". Tente outro código, modelo ou equivalência, ou cadastre a peça.`
                         : undefined
                     }
+                    primaryLabel={query.trim() && onCreateFromSearch ? "Cadastrar esta peça" : undefined}
+                    onPrimary={query.trim() && onCreateFromSearch ? () => onCreateFromSearch(query.trim()) : undefined}
                     actionLabel={query.trim() ? "Limpar busca" : undefined}
                     onAction={query.trim() ? onClearSearch : undefined}
                   />
