@@ -3,10 +3,10 @@ import {
   ActionIcon,
   Badge,
   Button,
-  Chip,
   Group,
   Kbd,
   Popover,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -40,6 +40,7 @@ import ProductLinkModal from "../components/products/ProductLinkModal";
 import { QuickMovementModal } from "../components/products/QuickMovementModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
+import { useStockTotals } from "../hooks/useStockTotals";
 import { MAX_PRODUCT_IMAGES, useProductImages } from "../hooks/useProductImages";
 import { useScanner } from "../lib/useScanner";
 import { useMotionLevel } from "../lib/motionContext";
@@ -237,6 +238,25 @@ export default function ProductsPage() {
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
+
+  // Quantos produtos com e sem estoque (na busca atual): números ao lado dos filtros.
+  const stockCountsQuery = useQuery({
+    queryKey: ["produtos", profileScopeKey, "contagens", debounced],
+    queryFn: async ({ signal }) => {
+      const [withStock, zeroed] = await Promise.all([
+        api.listProducts({ query: debounced, page: 1, page_size: 1, has_stock: true }, { signal }),
+        api.listProducts({ query: debounced, page: 1, page_size: 1, has_stock: false }, { signal }),
+      ]);
+      const comEstoque = withStock.meta?.total_items ?? 0;
+      const zerados = zeroed.meta?.total_items ?? 0;
+      return { TODOS: comEstoque + zerados, COM_ESTOQUE: comEstoque, ZERADOS: zerados } as Record<StockFilter, number>;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+  const stockCounts = stockCountsQuery.data;
+  const totalsQuery = useStockTotals();
+  const stockTotals = totalsQuery.data?.data;
 
   const createMutation = useMutation<
     SuccessResponse<Product>,
@@ -781,7 +801,23 @@ export default function ProductsPage() {
     <Stack gap="md">
       <PageHeader
         title="Produtos"
-        subtitle="Consulta de estoque por filial, equivalências e aplicações."
+        subtitle={
+          stockTotals ? (
+            <span className="pm-header-stats num">
+              <strong>{stockTotals.total_geral.toLocaleString("pt-BR")}</strong> peças em estoque
+              {stockTotals.locations
+                .filter((loc) => loc.total > 0)
+                .map((loc) => (
+                  <span key={loc.location_id}>
+                    <span className="pm-header-dot" style={{ background: loc.color || "var(--accent)" }} aria-hidden />
+                    {loc.location_label || loc.location_name} <strong>{loc.total.toLocaleString("pt-BR")}</strong>
+                  </span>
+                ))}
+            </span>
+          ) : (
+            "Consulta de estoque por filial, equivalências e aplicações."
+          )
+        }
         actions={
           <Button leftSection={<IconPlus size={16} />} onClick={() => openCreate()}>
             Novo produto
@@ -822,23 +858,27 @@ export default function ProductsPage() {
             }}
             style={{ flex: 1, minWidth: 260 }}
           />
-          <Chip.Group
-            multiple={false}
+          <SegmentedControl
+            className="pm-stock-filter"
+            aria-label="Filtrar por estoque"
             value={stockFilter}
             onChange={(val) => {
               if (!isStockFilter(val)) return;
               setStockFilter(val);
               setPage(1);
             }}
-          >
-            <Group gap={6} role="group" aria-label="Filtrar por estoque">
-              {STOCK_FILTERS.map((item) => (
-                <Chip key={item.value} value={item.value} size="sm" variant="light">
+            data={STOCK_FILTERS.map((item) => ({
+              value: item.value,
+              label: (
+                <span className="pm-filter-label">
                   {item.label}
-                </Chip>
-              ))}
-            </Group>
-          </Chip.Group>
+                  {stockCounts ? (
+                    <span className="pm-filter-count num">{stockCounts[item.value].toLocaleString("pt-BR")}</span>
+                  ) : null}
+                </span>
+              ),
+            }))}
+          />
           <Popover position="bottom-end" width={260}>
             <Popover.Target>
               <Button
@@ -869,18 +909,6 @@ export default function ProductsPage() {
                   }}
                   comboboxProps={{ withinPortal: false }}
                 />
-                <Select
-                  label="Itens por página"
-                  data={PAGE_SIZES}
-                  value={pageSize}
-                  allowDeselect={false}
-                  onChange={(value) => {
-                    if (!value) return;
-                    setPageSize(value);
-                    setPage(1);
-                  }}
-                  comboboxProps={{ withinPortal: false }}
-                />
                 <Button
                   variant="subtle"
                   color="gray"
@@ -894,10 +922,6 @@ export default function ProductsPage() {
               </Stack>
             </Popover.Dropdown>
           </Popover>
-          <Text size="sm" c="dimmed" className="num" ml="auto">
-            {totalItems.toLocaleString("pt-BR")}{" "}
-            {totalItems === 1 ? "produto" : "produtos"}
-          </Text>
         </Group>
       </FilterToolbar>
 
@@ -929,6 +953,16 @@ export default function ProductsPage() {
         onQuickMove={handleOpenQuickMove}
         onHoverProduct={setHoveredProduct}
         onPageChange={setPage}
+        sort={sort}
+        onSortChange={(value) => {
+          setSort(value);
+          setPage(1);
+        }}
+        pageSizes={PAGE_SIZES}
+        onPageSizeChange={(value) => {
+          setPageSize(value);
+          setPage(1);
+        }}
         locations={locations}
       />
 

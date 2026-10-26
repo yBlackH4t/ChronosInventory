@@ -14,7 +14,7 @@ export type ProductNameParts = {
 // Formatos de código vistos no banco da empresa. Vale o que aparece primeiro no nome.
 const CODE_PATTERNS: RegExp[] = [
   /\b\d{6}-\d{4}[A-Z]?\b/, // Garrett: 452308-5002, 754127-0003S
-  /\b\d{4}-\d{3}-\d{3}\b/, // Master Power: 1000-010-114
+  /\b\d{4}-\d{3}-\d{3}[A-Z]?\b/, // Master Power: 1000-010-114, 1000-030-278T
   /\b\d{4} \d{3} \d{4}\b/, // BorgWarner com espaços: 5439 710 0522
   /\b\d{5,}(?:\/\d{3,})?\b/, // 11559880005, 4031196, 53279907101/7210
 ];
@@ -40,8 +40,9 @@ function tidy(text: string): string {
     .trim();
 }
 
-export function splitProductCode(nome: string, brand?: BrandInfo | null): ProductNameParts {
-  const text = (nome ?? "").trim();
+/** Onde está o código da peça no nome: o que aparece primeiro (o mais longo, se empatar). */
+export function findProductCode(nome: string): { index: number; value: string } | null {
+  const text = nome ?? "";
   let best: { index: number; value: string } | null = null;
   for (const pattern of CODE_PATTERNS) {
     const match = pattern.exec(text);
@@ -54,6 +55,51 @@ export function splitProductCode(nome: string, brand?: BrandInfo | null): Produc
       best = { index: match.index, value: match[0] };
     }
   }
+  return best;
+}
+
+export type NameWithCode = { before: string; code: string | null; after: string };
+
+/** O nome exatamente como está no cadastro, partido em volta do código (para destacá-lo). */
+export function nameAroundCode(nome: string): NameWithCode {
+  const text = (nome ?? "").trim();
+  const found = findProductCode(text);
+  if (!found) return { before: text, code: null, after: "" };
+  return {
+    before: text.slice(0, found.index),
+    code: found.value,
+    after: text.slice(found.index + found.value.length),
+  };
+}
+
+const BRAND_MONOGRAMS: Record<string, string> = {
+  HOLSET: "HOL",
+  BORGWARNER: "BW",
+  GARRETT: "GT",
+  "MASTER POWER": "MP",
+  MAHLE: "MA",
+  MITSUBISHI: "MHI",
+  IHI: "IHI",
+};
+
+const KIND_MONOGRAMS: [RegExp, string][] = [
+  [/\bCONJ(UNTO)?\b/, "CC"],
+  [/\bTURB(O|INA)\b/, "TB"],
+  [/\bIMP\b/, "IMP"],
+  [/\bWASTEGATE\b/, "WG"],
+];
+
+/** Sigla no lugar da foto: a marca (HOL, BW, GT...) ou o tipo da peça (TB, CC...); null se não souber. */
+export function productMonogram(nome: string, brand: BrandInfo | null): string | null {
+  if (brand && BRAND_MONOGRAMS[brand.label]) return BRAND_MONOGRAMS[brand.label];
+  const upper = (nome ?? "").toUpperCase();
+  for (const [pattern, label] of KIND_MONOGRAMS) if (pattern.test(upper)) return label;
+  return null;
+}
+
+export function splitProductCode(nome: string, brand?: BrandInfo | null): ProductNameParts {
+  const text = (nome ?? "").trim();
+  const best = findProductCode(text);
   let rest = text;
   if (best) rest = text.slice(0, best.index) + " " + text.slice(best.index + best.value.length);
   const brandWord = brand ? BRAND_WORDS[brand.label] : undefined;
