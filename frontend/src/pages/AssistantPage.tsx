@@ -98,6 +98,7 @@ export default function AssistantPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const generation = useRef(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handlePhotoSelect = (file: File | null) => {
@@ -119,14 +120,15 @@ export default function AssistantPage() {
   };
 
   const mutation = useMutation({
-    mutationFn: async ({ msg, photo }: { msg: string; photo: File | null }) => {
-      const history = messages.map((m) => ({ papel: m.papel, texto: m.texto }));
+    mutationFn: async ({ msg, photo, history }: { msg: string; photo: File | null;
+      history: { papel: "usuario" | "assistente"; texto: string }[]; generation: number }) => {
       if (photo) {
         return sendAssistantPhotoMessage(photo, msg, history);
       }
       return sendAssistantMessage({ mensagem: msg, historico: history });
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      if (variables.generation !== generation.current) return;
       setMessages((prev) => [
         ...prev,
         {
@@ -141,7 +143,8 @@ export default function AssistantPage() {
       ]);
       setErrorMsg(null);
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      if (variables.generation !== generation.current) return;
       if (error instanceof AssistantApiError) {
         setErrorMsg(error.message);
       } else {
@@ -154,8 +157,8 @@ export default function AssistantPage() {
     const trimmed = input.trim();
     if ((!trimmed && !selectedPhoto) || mutation.isPending) return;
 
-    if (trimmed.length > 1000) {
-      setErrorMsg("A mensagem não pode ter mais que 1000 caracteres.");
+    if (trimmed.length > 8000) {
+      setErrorMsg("A mensagem não pode ter mais que 8000 caracteres.");
       return;
     }
 
@@ -176,7 +179,8 @@ export default function AssistantPage() {
     setPhotoPreview(null);
     setErrorMsg(null);
 
-    mutation.mutate({ msg: trimmed, photo: currentPhoto });
+    mutation.mutate({ msg: trimmed, photo: currentPhoto,
+      history: messages.slice(-20).map(message => ({ papel: message.papel, texto: message.texto.slice(-4000) })), generation: generation.current });
   };
 
   // "Igual / Similar / Diferente" depois de um "não sei": ensina como se a pessoa tivesse digitado.
@@ -184,7 +188,8 @@ export default function AssistantPage() {
     if (mutation.isPending) return;
     setMessages((prev) => [...prev, { papel: "usuario", texto: word }]);
     setErrorMsg(null);
-    mutation.mutate({ msg: word, photo: null });
+    mutation.mutate({ msg: word, photo: null,
+      history: messages.slice(-20).map(message => ({ papel: message.papel, texto: message.texto.slice(-4000) })), generation: generation.current });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -195,6 +200,7 @@ export default function AssistantPage() {
   };
 
   const clearChat = () => {
+    generation.current += 1;
     handleRemovePhoto();
     setMessages([]);
     setErrorMsg(null);
@@ -207,9 +213,10 @@ export default function AssistantPage() {
   ];
 
   const handleSuggestionClick = (suggestion: string) => {
+    generation.current += 1;
     setMessages([{ papel: "usuario", texto: suggestion }]);
     setErrorMsg(null);
-    mutation.mutate({ msg: suggestion, photo: null });
+    mutation.mutate({ msg: suggestion, photo: null, history: [], generation: generation.current });
   };
 
   useEffect(() => {

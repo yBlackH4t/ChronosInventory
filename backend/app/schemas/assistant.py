@@ -9,7 +9,7 @@ class ChatHistoryItemIn(BaseModel):
 
 
 class ChatIn(BaseModel):
-    mensagem: str = Field(min_length=1, max_length=1000)
+    mensagem: str = Field(min_length=1, max_length=8000)
     historico: list[ChatHistoryItemIn] = Field(default_factory=list, max_length=40)
     canal: Literal["app", "whatsapp"] = "app"
     autor: str | None = Field(default=None, max_length=80)
@@ -29,6 +29,8 @@ class ChatOut(BaseModel):
     ferramentas_usadas: list[str]
     modo: Literal["ia", "busca_direta"]
     aviso: str | None = None
+    pedidos: list[dict[str, Any]] = Field(default_factory=list)
+    pendencias: list[dict[str, Any]] = Field(default_factory=list)
     # So em POST /assistente/chat/foto: o que foi lido na foto ("Foto da plaqueta: 466646-5041S").
     leitura_foto: str | None = None
     # A IA nao soube se os dois codigos sao a mesma peca: o app mostra os botoes Igual/Similar/Diferente.
@@ -115,6 +117,7 @@ class KnowledgeSyncOut(BaseModel):
     maquina: str | None = None
     total_regras: int = 0
     total_fichas: int = 0
+    total_exemplos: int = 0
     atualizado_em: str | None = None
     verificado_em: str | None = None
     erro: str | None = None
@@ -198,5 +201,6 @@ class WhatsAppStatusOut(BaseModel):
     erro: str | None = None
     ativo: bool
     revisar: bool = True  # revisar antes de enviar (a resposta do 🤖 vira rascunho)
+    contexto_minutos: int = 20
     papel_robo: Literal["principal", "reserva"] = "principal"
     principal_respondendo: bool | None = None  # so na reserva: o PC principal esta com o robo ligado?

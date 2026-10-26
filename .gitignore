@@ -28,6 +28,7 @@ nfe_config.json
 nfe_certificado.pfx
 nfe_xml/
 assistente_conhecimento.json
+assistente_exemplos.json
 stock_profiles.json
 backups/
 exports/

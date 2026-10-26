@@ -166,7 +166,7 @@ def test_reaction_answers_the_pasted_code_plus_audio(setup):
     (call,) = s.chat.calls
     assert call["mensagem"] == "805314\ntemos essa daí?"
     assert call["canal"] == "whatsapp" and call["autor"] == BOSS
-    assert call["historico"] == [{"papel": "assistente", "texto": "Bom dia chefe"}]
+    assert call["historico"] == []
     assert s.transport.replies == [("m3", "Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas")]
     assert s.transport.reactions == [("m3", "")]  # tira o 🤖
 
@@ -175,7 +175,7 @@ def test_reaction_answers_the_pasted_code_plus_audio(setup):
     _react(s, BOSS, "m4")
     second = s.chat.calls[1]
     assert second["mensagem"] == "e a 4031195?"
-    assert second["historico"][-1] == {"papel": "assistente", "texto": "Sim. *TURBINA HOLSET HX55W 4031196* — 2 em Canoas"}
+    assert second["historico"] == []
     assert s.transcriber.calls == 1
 
 
@@ -223,7 +223,7 @@ def test_old_messages_are_not_glued_to_the_question(setup):
     _msg(s, BOSS, "m2", BOSS, text="tem a 805314?", dt=600)  # 10 min depois
     _react(s, BOSS, "m2")
     assert s.chat.calls[0]["mensagem"] == "tem a 805314?"
-    assert s.chat.calls[0]["historico"] == [{"papel": "usuario", "texto": "4031195"}]
+    assert s.chat.calls[0]["historico"] == []
 
 
 def test_test_alone_in_the_self_chat(setup):
@@ -390,7 +390,7 @@ def test_whatsapp_service_lifecycle(tmp_path):
     service, created = _service(tmp_path)
     assert service.status() == {
         "estado": "parado", "qr": None, "numero": None, "erro": None, "ativo": False, "revisar": True,
-        "papel_robo": "principal", "principal_respondendo": None,
+        "papel_robo": "principal", "principal_respondendo": None, "contexto_minutos": 20,
     }
 
     service.start()

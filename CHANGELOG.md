@@ -25,6 +25,18 @@ Formato recomendado:
 
 
 
+## [2.5.5] - 2026-10-26
+
+### Added
+- **Pedidos completos:** consultas com quatro ou mais peças, alternativas por “ou” e códigos falados em partes. Cada item mantém sua condição e filial; alternativas não são somadas como se fossem a mesma peça.
+- **Contexto no WhatsApp:** atendimentos e rascunhos persistidos, pendências somente após envio aprovado, prazo configurável e encerramento pelo app ou `/encerrar`. Respostas citadas priorizam o atendimento correspondente.
+- **Exemplos aprovados:** nova aba do administrador para ensinar como interpretar perguntas, com sincronização entre máquinas e sem reinstalar para cada exemplo. Quantidades continuam vindo do banco.
+
+### Fixed
+- **Saldo Garrett:** sufixos diferentes não são equivalentes apenas por compartilharem o prefixo. A atualização refaz os vínculos automáticos antigos, preservando vínculos manuais e sem alterar estoque ou movimentações.
+- **Envio seguro:** falhas não apagam o rascunho; consultas de estoque são conferidas novamente antes de enviar. Saldo alterado, atendimento expirado ou revisão antiga exigem nova conferência.
+- **Conversas separadas:** novo código/assunto não herda motor ou ano de outro atendimento. Limites e falhas de consulta são explícitos, sem tratar erro como estoque zero.
+
 ## [2.5.4] - 2026-10-15
 
 ### Fixed

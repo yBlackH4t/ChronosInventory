@@ -17,6 +17,87 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 
 ## 1. Princípios
 
+### Pedidos completos e conhecimento atualizável (decisão de 2026-10-23)
+
+Foco do dono: a IA como um todo, inclusive áudio de um minuto com várias peças; evitar
+correções de frases isoladas e atualização do app para cada ensinamento. Implementação local na
+2.5.5 em validação desde 26/10; detalhes atuais em `docs/ASSISTENTE_IA.md`. O diagnóstico abaixo
+descreve o comportamento anterior à correção.
+
+Diagnóstico reproduzido sem API externa: a mensagem "tem a 5644540 5644541 4031196 770472?"
+executa somente três buscas, descartando `770472`. Tanto o interpretador quanto a busca direta
+limitam a lista a três códigos. Em "796155 5005 ou 5006", a extração direta encontra só o
+prefixo `796155`; o validador atual aceita `7961555005`, mas rejeita a segunda alternativa
+`7961555006` porque não representa a herança de prefixo.
+
+Evolução necessária:
+- Transcrever a mensagem completa e produzir uma lista estruturada de pedidos independentes,
+  com alternativas, tipo de peça, condição, local e contexto próprios por pedido.
+- Representar "796155 5005 ou 5006" como alternativas `796155-5005` e `796155-5006` dentro
+  do mesmo pedido. Pedidos ligados por "e" continuam independentes; alternativas não viram
+  equivalência técnica nem têm seus saldos somados automaticamente.
+- Validar cada código pelos trechos da transcrição que o sustentam, permitindo prefixo e
+  sufixos explicitamente associados. Não juntar dígitos de pedidos diferentes. Ambiguidade
+  não resolvida exige pergunta, não escolha baseada apenas em encontrar estoque.
+- Executar e rastrear todos os pedidos. Se um limite de segurança for excedido, informar
+  explicitamente; nunca descartar silenciosamente o quarto item ou o restante da mensagem.
+- Montar cada quantidade pelos produtos e locais consultados no banco atual. Registrar os
+  IDs e a consulta que sustentam a resposta; não aprender quantidades como fatos permanentes.
+- Separar motor de execução de conhecimento aprovado. Equivalências e fichas já são dados
+  editáveis e sincronizáveis. Ampliar, com validação e versionamento, o conhecimento de termos
+  e exemplos consultados pelo interpretador; implementados como dados aprovados na 2.5.5.
+  Correção de histórico não equivale a treinar automaticamente o modelo ou aprovar uma regra.
+- Avaliar pedidos completos: lista com quatro ou mais códigos, alternativas abreviadas,
+  condições diferentes por item, mudança de assunto, repetição de referências para a mesma
+  peça e transcrições ambíguas. Conferir itens atendidos, produto, saldo e ressalvas.
+
+Uma atualização inicial é necessária para instalar essas capacidades gerais. Depois,
+conhecimento aprovado deve poder evoluir sem reinstalar o app; bugs e capacidades novas
+continuam exigindo atualização do software.
+
+### WhatsApp: contexto por atendimento e envio aprovado (2026-10-23)
+
+Requisito do dono: manter a revisão privada e o `/enviar`, inclusive quando o rascunho é
+uma pergunta ao cliente, como "qual motor?". O contexto precisa sobreviver à continuação
+correta e deixar de influenciar outro pedido. Implementada localmente na 2.5.5, em validação.
+
+Estado anterior à 2.5.5: `_remember_bot` registra a resposta no chat de destino
+depois do envio, inclusive o texto editado. Rascunhos não enviados não entram como resposta
+da empresa nesse chat. A ponte usa até dez mensagens anteriores numa janela de vinte minutos;
+rascunhos têm retenção de seis horas e ficam em memória. O recebimento de uma mensagem do
+cliente não dispara uma resposta: é necessária a reação da equipe com 🤖. O transporte lê
+o identificador da mensagem citada para o log, mas não o expõe como campo de `WaMessage`.
+
+Plano:
+- Criar atendimento identificado por estoque/conta, conversa, participante e pedido, com
+  itens, dados confirmados, dúvidas pendentes e mensagens de origem. Não compartilhar
+  contexto entre clientes ou aplicar uma resposta curta a todos os itens do mesmo pedido.
+- Separar os estados: em revisão, aguardando cliente, resposta recebida, concluído,
+  cancelado e expirado. Um rascunho de pergunta só vira "aguardando cliente" após confirmar
+  o envio efetivo ao destinatário. Falha de envio preserva o rascunho; descarte não cria
+  uma pergunta que o cliente supostamente recebeu. Editar a pergunta exige reconciliar a
+  pendência com o texto realmente enviado, sem conservar silenciosamente a pergunta antiga.
+- Manter a política atual de acionamento por 🤖 e aprovação de cada rascunho também nas
+  continuações. Receber "D13, 2015" armazena a mensagem; a reação da equipe solicita nova
+  análise usando somente o atendimento compatível e produz outro rascunho para revisão.
+- Preservar IDs de mensagens citadas no transporte e dar prioridade ao vínculo explícito
+  entre resposta e pergunta enviada. Sem citação, usar uma única pendência compatível;
+  havendo vários itens possíveis, pedir qual peça está sendo complementada.
+- Expirar contexto ativo após inatividade relevante, com prazo configurável contado a
+  partir do envio aprovado ou da última interação relevante. O prazo proposto precisa
+  ser validado no uso; vinte minutos é a janela atual, não uma política nova aprovada.
+- Encerrar ou suspender o vínculo ativo quando o pedido terminar, houver cancelamento,
+  expiração ou mudança de assunto. Códigos ou veículos novos não herdam motor/ano de um
+  pedido anterior automaticamente. Permitir retomada explícita, com confirmação quando
+  o contexto estiver expirado ou houver ambiguidade.
+- Acrescentar comando administrativo de encerramento por atendimento (por exemplo,
+  `/encerrar <id>`, ainda inexistente) e indicação do atendimento/item/contexto no rascunho.
+  Encerrar retira o contexto ativo; não apaga histórico nem conhecimento aprovado.
+- Persistir o atendimento e as pendências em armazenamento próprio do assistente para
+  reinício do processo, com retenção definida e separação do banco operacional de estoque.
+- Testar: pergunta em revisão, envio, edição, descarte, falha de envio, resposta citada,
+  dois clientes, vários itens pendentes, resposta tardia, novo assunto, encerramento e reinício.
+
 1. **A IA não procura nada sozinha e nunca inventa estoque.** Quem busca é o backend, com
    SQL determinístico. O modelo de linguagem só interpreta a pergunta, escolhe a
    ferramenta e escreve a resposta com o que a ferramenta devolveu.

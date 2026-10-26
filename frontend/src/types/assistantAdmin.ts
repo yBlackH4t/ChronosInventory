@@ -108,6 +108,7 @@ export interface WhatsAppStatus {
   erro: string | null;
   ativo: boolean;
   revisar?: boolean;
+  contexto_minutos?: number;
   /** "reserva": este PC só responde quando o principal (publicadora) não está respondendo. */
   papel_robo?: "principal" | "reserva";
   principal_respondendo?: boolean | null;
@@ -120,6 +121,8 @@ export interface WhatsAppDraft {
   pergunta: string;
   texto: string;
   criado_em: number;
+  atendimento_id?: number;
+  pendencias?: { pedido_id: string; campos: string[] }[];
 }
 
 export interface KnowledgeSyncStatus {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, Button, Card, Group, Paper, Stack, Switch, Text, Textarea } from "@mantine/core";
+import { Badge, Button, Card, Group, NumberInput, Paper, Stack, Switch, Text, Textarea } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { IconPencilCheck, IconSend, IconTrash } from "@tabler/icons-react";
 import dayjs from "dayjs";
@@ -9,6 +9,9 @@ import {
   listWhatsAppDrafts,
   sendWhatsAppDraft,
   setWhatsAppReview,
+  listWhatsAppAttendances,
+  closeWhatsAppAttendance,
+  setWhatsAppContextMinutes,
 } from "../../lib/assistantAdminApi";
 import type { WhatsAppDraft } from "../../types/assistantAdmin";
 
@@ -45,6 +48,7 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
         <Group justify="space-between">
           <Group gap="xs">
             <Badge variant="light">#{draft.id}</Badge>
+            {draft.atendimento_id && <Badge variant="outline">Atendimento #{draft.atendimento_id}</Badge>}
             <Text size="xs" c="dimmed">
               Cliente {clientLabel(draft.cliente)} · {dayjs.unix(draft.criado_em).format("DD/MM HH:mm")}
             </Text>
@@ -58,6 +62,8 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
         <Text size="xs" c="dimmed">
           Pergunta: {draft.pergunta}
         </Text>
+        {!!draft.pendencias?.length && <Text size="xs" c="orange">Só aguardará o cliente após o envio:
+          {draft.pendencias.map(item => ` pedido ${item.pedido_id}: ${item.campos.join(", ")}`).join("; ")}</Text>}
         <Textarea autosize minRows={3} maxRows={14} value={text} onChange={(e) => setText(e.currentTarget.value)} />
         <Group justify="flex-end" gap="xs">
           <Button
@@ -90,8 +96,13 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
  * "Revisar antes de enviar": com o modo ligado, a resposta do 🤖 não vai direto para o cliente;
  * fica aqui (e na "Mensagem para mim") para o admin editar, enviar ou descartar.
  */
-export default function WhatsAppDraftsCard({ review }: { review: boolean }) {
+export default function WhatsAppDraftsCard({ review, contextMinutes = 20 }: { review: boolean; contextMinutes?: number }) {
   const queryClient = useQueryClient();
+  const [minutes, setMinutes] = useState<number | string>(contextMinutes);
+  const contextMutation = useMutation({ mutationFn: () => setWhatsAppContextMinutes(review, Number(minutes)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assistant-admin-whatsapp"] }),
+    onError: (error: Error) => notifications.show({ title: "Não foi possível salvar", message: error.message, color: "red" }),
+  });
   const draftsQuery = useQuery({
     queryKey: ["assistant-admin-whatsapp-drafts"],
     queryFn: listWhatsAppDrafts,
@@ -103,6 +114,11 @@ export default function WhatsAppDraftsCard({ review }: { review: boolean }) {
     onError: (err: Error) => notifications.show({ title: "Erro", message: err.message, color: "red" }),
   });
   const drafts = draftsQuery.data ?? [];
+  const attendances = useQuery({ queryKey: ["assistant-whatsapp-attendances"], queryFn: listWhatsAppAttendances, refetchInterval: 5000 });
+  const close = useMutation({ mutationFn: closeWhatsAppAttendance,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assistant-whatsapp-attendances"] }),
+    onError: (error: Error) => notifications.show({ title: "Não foi possível encerrar", message: error.message, color: "red" }),
+  });
 
   return (
     <Card withBorder p="md" radius="md" shadow="xs">
@@ -138,6 +154,19 @@ export default function WhatsAppDraftsCard({ review }: { review: boolean }) {
           ))}
         </Stack>
       )}
+      <Stack gap="xs" mt="md">
+        <Text fw={600} size="sm">Atendimentos e contexto</Text>
+        <Group align="end"><NumberInput label="Expirar contexto após inatividade (minutos)" min={1} max={1440}
+          value={minutes} onChange={setMinutes} /><Button size="xs" loading={contextMutation.isPending}
+          disabled={!Number.isInteger(Number(minutes)) || Number(minutes) < 1 || Number(minutes) > 1440}
+          onClick={() => contextMutation.mutate()}>Salvar prazo</Button></Group>
+        <Text size="xs" c="dimmed">Contexto por cliente; encerramento mantém o histórico. No celular: /atendimentos e /encerrar número.</Text>
+        {attendances.data?.slice(0, 10).map(item => <Group key={item.id} justify="space-between">
+          <Text size="xs">#{item.id} · {clientLabel(item.cliente)} · {item.estado} · {item.origem.slice(0, 70)}</Text>
+          {!["cancelado", "concluido", "expirado"].includes(item.estado) && <Button size="compact-xs" variant="subtle"
+            disabled={close.isPending} onClick={() => close.mutate(item.id)}>Encerrar contexto</Button>}
+        </Group>)}
+      </Stack>
     </Card>
   );
 }

@@ -10,6 +10,19 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.5.5",
+    "date": "2026-10-26",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Pedidos completos: consultas com quatro ou mais peças, alternativas por “ou” e códigos falados em partes. Cada item mantém sua condição e filial; alternativas não são somadas como se fossem a mesma peça.",
+      "Novo: Contexto no WhatsApp: atendimentos e rascunhos persistidos, pendências somente após envio aprovado, prazo configurável e encerramento pelo app ou /encerrar. Respostas citadas priorizam o atendimento correspondente.",
+      "Novo: Exemplos aprovados: nova aba do administrador para ensinar como interpretar perguntas, com sincronização entre máquinas e sem reinstalar para cada exemplo. Quantidades continuam vindo do banco.",
+      "Correcao: Saldo Garrett: sufixos diferentes não são equivalentes apenas por compartilharem o prefixo. A atualização refaz os vínculos automáticos antigos, preservando vínculos manuais e sem alterar estoque ou movimentações.",
+      "Correcao: Envio seguro: falhas não apagam o rascunho; consultas de estoque são conferidas novamente antes de enviar. Saldo alterado, atendimento expirado ou revisão antiga exigem nova conferência.",
+      "Correcao: Conversas separadas: novo código/assunto não herda motor ou ano de outro atendimento. Limites e falhas de consulta são explícitos, sem tratar erro como estoque zero."
+    ]
+  },
+  {
     "version": "2.5.4",
     "date": "2026-10-15",
     "title": "Correcao e estabilidade",

@@ -1,7 +1,7 @@
 # Chronos Inventory — comece por aqui
 
 Contexto completo para retomar o trabalho numa conversa nova (Projeto no Claude Desktop ou
-Claude Code), em qualquer máquina. Atualizado em 2026-10-10. Os detalhes do assistente de IA
+Claude Code), em qualquer máquina. Atualizado em 2026-10-26. Os detalhes do assistente de IA
 estão em `docs/ASSISTENTE_IA.md`.
 
 ---
@@ -26,11 +26,13 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 
 ## 2. Como trabalhamos
 
-- **Só o Claude**, desde 2026-10-10. O Antigravity, que fazia as telas, está pausado; o Claude
+- **O Codex cuida do backend e das telas.** O Antigravity, que fazia as telas, está pausado; o Codex
   agora faz backend e telas. O `docs/HANDOFF.md` virou histórico.
 - O dono fala português do Brasil, **não quer custos** (o assistente usa o plano gratuito do
   Groq) e prefere passos curtos com os comandos prontos para colar.
 - Trabalho na branch **`feature/assistente-ia`**. **O merge na `main` é só do dono.**
+- Correção de precisão do estoque da IA em `codex/ia-estoque-garrett`, criada a partir de
+  `claude/project-thread-bwu9lo` (descendente da `feature/assistente-ia`). Foco atual: somente IA.
 
 ## 3. Branches
 
@@ -91,6 +93,43 @@ tira mais o código da lista. Respostas por veículo em duas linhas por opção 
 banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 
 ## 5. O que vamos fazer
+
+- **2.5.5 em preparação local (26/10):** evolução da IA na branch `codex/ia-estoque-garrett`,
+  preservando a base do Claude. Pedidos estruturados (até 30 itens/60 consultas), alternativas
+  sem somar saldos, versões e filial por item, exemplos aprovados e sincronizados pelo admin.
+  WhatsApp mantém 🤖 e `/enviar`: atendimentos/rascunhos persistem em banco próprio, perguntas
+  só aguardam cliente depois do envio, respostas citadas priorizam o atendimento, envio com falha
+  preserva rascunho e saldo alterado exige nova revisão. Prazo configurável (20 min por padrão),
+  `/atendimentos`, `/encerrar` e controles no app. Áudio não transcrito bloqueia resposta parcial.
+  Na cópia isolada: `796155-5005` = 01; os quatro códigos são consultados; totais 3628 produtos,
+  saldo 383 e 728 movimentos preservados, integridade OK/FK 0. Registro em
+  `_comparacao/resultado/ia_2_5_5.txt`; reprodução com `python -m scripts.test_assistant_release`.
+  Validação concluída: 291 testes na bateria completa, 35 regressões específicas atuais e 31
+  testes do frontend; Ruff/versões/build OK, lint sem erros (5 avisos existentes).
+  MSI local gerado em `frontend/src-tauri/target/release/bundle/msi/Chronos Inventory_2.5.5_x64_en-US.msi`.
+  Executável/autodiagnóstico OK; os 16 módulos alterados da IA foram comparados com o fonte,
+  inclusive o backend usado pelo empacotador. `estoque_backend.spec` local foi restaurado.
+  O backend também foi extraído do MSI: 16 módulos conferidos e SHA-256 igual ao artefato aprovado.
+  Próximo passo: homologar áudio real e continuidade no WhatsApp; usar primeiro
+  `scripts/testar_ia_2_5_5.ps1` (cópia e configuração isoladas, porta 8000 livre).
+  Sem instalação automática, commit, push, merge, tag ou publicação.
+
+- **Prioridade de IA (2026-10-23):** validar a correção do saldo Garrett no app instalado.
+  Na cópia de 21/10, a consulta de `796155-5005` somava 1 unidade dela com 1 da `796155-5011`
+  e mostrava 02. A expansão de família usava o prefixo `796155` como equivalência entre
+  sufixos diferentes. Corrigido no código; a mesma cópia passou a responder 01, sem alterar
+  saldos ou movimentações. A assinatura dos vínculos foi versionada para recalcular os índices
+  e vínculos automáticos antigos na abertura, preservando vínculos manuais.
+  Próximo passo: validar no app atualizado e evoluir a IA para interpretar pedidos completos,
+  com vários itens, alternativas por "ou", códigos falados em partes e versões por item.
+  Diagnóstico de 23/10: os limites atuais de três códigos descartam o quarto pedido;
+  "796155 5005 ou 5006" não preserva as duas alternativas. O plano está em `docs/PLANO_IA.md`,
+  seção "Pedidos completos e conhecimento atualizável". A implementação local está em validação na 2.5.5.
+  No WhatsApp, planejar também contexto por atendimento/item: uma pergunta só passa a aguardar
+  o cliente após `/enviar`; continuações mantêm 🤖 e revisão. Encerramento, expiração e mudança
+  de assunto deixam de aplicar o contexto antigo, preservando histórico e conhecimento.
+  Detalhes na seção "WhatsApp: contexto por atendimento e envio aprovado" do mesmo plano.
+  O banco original não foi usado.
 
 0. **2.5.0, novo visual** (branch `claude/project-thread-8wdsu2`, PR para a `main`): as 11 ideias
    do mockup que o dono aprovou. Falta o dono revisar, juntar e criar a tag. Conferir na cópia do

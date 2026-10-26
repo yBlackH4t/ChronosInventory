@@ -414,7 +414,7 @@ export default function AdminWhatsAppTab() {
         </Alert>
       )}
 
-      <WhatsAppDraftsCard review={status?.revisar ?? true} />
+      <WhatsAppDraftsCard key={status?.contexto_minutos ?? 20} review={status?.revisar ?? true} contextMinutes={status?.contexto_minutos ?? 20} />
 
       {/* Bloco Resumo Diário */}
       <Card withBorder p="md" radius="md" shadow="xs">

@@ -519,7 +519,8 @@ def test_chat_endpoint(client, tools):  # noqa: F811
 
     assert client.post("/assistente/chat", json={"mensagem": ""}).status_code == 422
     assert client.post("/assistente/chat", json={"mensagem": "   "}).status_code == 422
-    assert client.post("/assistente/chat", json={"mensagem": "x" * 1001}).status_code == 422
+    assert client.post("/assistente/chat", json={"mensagem": "x" * 1001}).status_code == 200
+    assert client.post("/assistente/chat", json={"mensagem": "x" * 8001}).status_code == 422
 
     client.put("/assistente/config", json={"api_key": GROQ_KEY})
     fake = FakePost(

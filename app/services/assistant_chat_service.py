@@ -18,6 +18,7 @@ assistente (AssistantHistoryService), usado na revisao do admin e exportavel em 
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.assistant_common import (
@@ -35,6 +36,7 @@ from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_interpreter_service import AssistantInterpreter
+from app.services.assistant_requests import execute_plan, literal_plan, needs_plan, pending_fields
 from app.services.assistant_teach_service import (
     TEACH_HINT,
     AssistantTeachService,
@@ -68,7 +70,8 @@ def _summarize_call(name: str, arguments: Any, output: Dict[str, Any]) -> Dict[s
         products.extend(item.get("nossos_produtos") or [])
     if products:
         summary["produtos"] = [
-            {k: p[k] for k in ("id", "nome", "estoque_total", "correspondencia") if k in p} for p in products[:10]
+            {k: p[k] for k in ("id", "nome", "estoque_total", "estoque_por_local", "correspondencia", "condicao") if k in p}
+            for p in products
         ]
     return summary
 
@@ -119,6 +122,9 @@ class AssistantChatService:
         self.web_search = web_search
         self.tools = tools or AssistantToolsService()
         self.history = history or AssistantHistoryService()
+        from app.services.assistant_examples_service import AssistantExamplesService
+
+        self.examples = AssistantExamplesService(os.path.join(os.path.dirname(self.history.db_path), "assistente_exemplos.json"))
         self.config_store = config_store or AssistantConfigStore()
         self.client_factory = client_factory  # Claude (testes injetam um cliente falso)
         self.http_post = http_post  # Groq/Gemini/Ollama (testes injetam um POST falso)
@@ -220,6 +226,10 @@ class AssistantChatService:
                 )
             result["ensinar"] = pair_in_answer(result["resposta"])
         try:
+            result["consultas_estoque"] = [call for call in calls if call.get("ferramenta") in
+                                           ("buscar_por_codigo", "buscar_por_aplicacao", "detalhe_produto")]
+            result.setdefault("pendencias", [{"pedido_id": "1", "campos": pending_fields(result["resposta"]),
+                                               "trecho": mensagem}] if pending_fields(result["resposta"]) else [])
             self.history.record(
                 canal=canal, autor=autor, pergunta=mensagem, historico=historico, result=result, consultas=calls
             )
@@ -235,8 +245,21 @@ class AssistantChatService:
     def _answer(self, mensagem: str, historico: List[Dict[str, str]], tools: Any, canal: str = "app") -> Dict[str, Any]:
         config = self.config_store.load()
         provider = config["provedor"]
+        try:
+            approved = self.examples.resolve(mensagem)
+        except Exception:
+            LOG.exception("assistente: exemplos indisponíveis; mantendo a mensagem original")
+            approved = None
+        if approved:
+            tools.calls.append({"ferramenta": "exemplo_aprovado", "consulta": approved})
+            mensagem = approved
         # WhatsApp: estoque no formato curto do chefe; no app, a resposta completa.
         direct = AssistantDirectService(tools, compact=canal == "whatsapp")
+        literal = literal_plan(mensagem)
+        if PROVIDERS[provider]["tipo"] == "nenhum" and needs_plan(literal, mensagem):
+            result = execute_plan(literal, tools, compact=canal == "whatsapp")
+            result["resposta"] = with_price_note(mensagem, result["resposta"])
+            return result
         if PROVIDERS[provider]["tipo"] == "nenhum":
             result = direct.answer(mensagem, historico)
             result["resposta"] = with_price_note(mensagem, result["resposta"])
@@ -250,6 +273,10 @@ class AssistantChatService:
                 tools.calls.append(
                     {"ferramenta": "entender", "pergunta": understood["pergunta"], "entendido": understood["entendido"]}
                 )
+            if understood.get("pedidos"):
+                return execute_plan(understood["pedidos"], tools, compact=canal == "whatsapp")
+            if needs_plan(literal, mensagem):
+                return execute_plan(literal, tools, compact=canal == "whatsapp")
             quick = direct.try_answer(understood["pergunta"], historico)
             if quick is not None:
                 quick["resposta"] = with_price_note(mensagem, quick["resposta"])

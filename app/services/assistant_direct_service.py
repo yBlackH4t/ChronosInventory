@@ -29,7 +29,7 @@ from app.services.assistant_common import MODE_DIRECT, cited_products, collect_p
 from app.services.assistant_tools_service import AssistantToolsService
 from core.catalog.normalization import canonical_code, extract_codes_from_name, search_words
 
-MAX_CODES_PER_MESSAGE = 3
+MAX_CODES_PER_MESSAGE = 30
 # "403-1195, montada ou reman": a resposta diz de cada versao, mesmo que seja "nao temos".
 VERSION_WORDS = {
     "REMAN": "reman", "REMANUFATURADA": "reman", "REMANUFATURADO": "reman", "RECONDICIONADA": "reman",
@@ -110,10 +110,15 @@ class AssistantDirectService:
         return result if understood else None
 
     def _answer(self, mensagem: str, historico: Optional[List[Dict[str, str]]]) -> Tuple[Dict[str, Any], bool]:
+        from app.services.assistant_requests import execute_plan, literal_plan, needs_plan
+
+        items = literal_plan(mensagem)
+        if needs_plan(items, mensagem):
+            return execute_plan(items, self.tools, compact=self.compact), True
         found: Dict[int, Dict[str, Any]] = {}
         tools_used: List[str] = []
 
-        codes = extract_codes_from_name(mensagem, expand_family=False)[:MAX_CODES_PER_MESSAGE]
+        codes = extract_codes_from_name(mensagem, expand_family=False)
         code_source = mensagem
         search_text = mensagem
         # Chassi so vale como codigo se o admin ensinou algo sobre ele; senao a busca vai pelo veiculo.
@@ -126,7 +131,7 @@ class AssistantDirectService:
             # "temos essa daí?" logo depois de colar um código: usa o código da mensagem anterior.
             previous = self._previous_user_text(historico or [])
             if previous:
-                codes = extract_codes_from_name(previous, expand_family=False)[:MAX_CODES_PER_MESSAGE]
+                codes = extract_codes_from_name(previous, expand_family=False)
                 code_source = previous
             if not codes:
                 # "qual o código master dessa?" depois de uma busca por veículo: a turbina que a
@@ -136,6 +141,9 @@ class AssistantDirectService:
             spaced = self._spaced_codes(search_text, tools_used)
             if spaced:
                 codes, code_source = spaced, " ".join(spaced)
+        if len(codes) > MAX_CODES_PER_MESSAGE:
+            return make_result(f"Divida o pedido em até {MAX_CODES_PER_MESSAGE} códigos. Nenhum item foi descartado ou consultado.",
+                               [], [], MODE_DIRECT, "limite_de_pedidos"), True
         topic_tool = self._topic_tool(mensagem)
         if topic_tool and not codes and not chassis:
             # Pergunta de movimentacao ou de codigo Master Power sem codigo: nao e busca por veiculo
@@ -226,7 +234,7 @@ class AssistantDirectService:
                 continue
             if self._known_code(joined, tools_used):
                 codes.append(joined)
-        return codes[:MAX_CODES_PER_MESSAGE]
+        return codes
 
     @staticmethod
     def _topic_tool(mensagem: str) -> Optional[str]:
@@ -260,14 +268,14 @@ class AssistantDirectService:
             subjects = _ANSWER_SUBJECT.findall(text)
             if subjects:  # resposta por codigo ("*4031196*: temos.", um bloco por codigo): "essa" sao eles
                 codes = [c for s in subjects for c in extract_codes_from_name(s, expand_family=False)[:1]]
-                return list(dict.fromkeys(codes))[:MAX_CODES_PER_MESSAGE], "\n".join(subjects)
+                return list(dict.fromkeys(codes)), "\n".join(subjects)
             codes: List[str] = []
             names = _BOLD.findall(text)
             for name in names:
                 found = extract_codes_from_name(name, expand_family=False)
                 if found and found[0] not in codes:
                     codes.append(found[0])
-            return codes[:MAX_CODES_PER_MESSAGE], "\n".join(names)
+            return codes, "\n".join(names)
         return [], ""
 
     def _comparison_pairs(

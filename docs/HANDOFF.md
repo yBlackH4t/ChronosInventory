@@ -420,6 +420,41 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-26 — Codex — IA e atendimentos, preparação local da 2.5.5
+- Branch `codex/ia-estoque-garrett`, preservando o trabalho do Claude, sem commit/push/tag.
+- Pedidos estruturados, alternativas abreviadas, condições/filial por item e evidência dos
+  saldos. Limites explícitos, sem descartar o quarto item; erro de consulta não vira saldo zero.
+- Atendimentos e rascunhos em armazenamento separado, com conta/perfil/cliente, perguntas após
+  envio aprovado, texto editado como contexto real e encerramento/expiração sem apagar histórico.
+- Reconsulta antes do envio impede aprovação de saldo antigo. Falha mantém o rascunho; áudio
+  com falha bloqueia resposta parcial. Novos códigos não herdam motor/ano de conversa anterior.
+- Aba de exemplos aprovados e sincronização de dados com hash, mantendo permissões existentes.
+- Versões 2.5.5 consistentes, novas regressões e roteiro reproduzível na cópia em
+  `scripts/test_assistant_release.py`. Na cópia: 5005 responde 01; 3628 produtos, saldo 383,
+  728 movimentos preservados, integridade OK/FK 0. Homologação com WhatsApp real permanece pendente.
+- Concluído: 291 testes na bateria geral, 35 regressões atuais da IA e 31 testes de frontend;
+  Ruff/versões/build/autodiagnóstico aprovados, lint com 0 erros/5 avisos anteriores.
+- MSI local gerado em `frontend/src-tauri/target/release/bundle/msi/Chronos Inventory_2.5.5_x64_en-US.msi`.
+  Verificados 16 módulos do backend empacotado contra o código atual. Spec reescrito pelo
+  PyInstaller restaurado, sem alterações de máquina no patch. Não houve instalação/publicação.
+- Extraído o backend de dentro do MSI com WiX/dark (sem instalar): os 16 módulos correspondem
+  ao fonte e o SHA-256 é idêntico ao backend verificado pelo autodiagnóstico.
+- Homologação segura: `scripts/testar_ia_2_5_5.ps1`; orientação em `docs/TESTE_ASSISTENTE.md`.
+
+### 2026-10-23 — Codex — Precisão do saldo Garrett no assistente
+- Branch: `codex/ia-estoque-garrett`, descendente da `feature/assistente-ia`.
+- Reproduzido na cópia de 21/10: `796155-5005` respondia 02, somando o saldo 1 da peça
+  com o saldo 1 da `796155-5011`. A família Garrett compartilhava o prefixo de seis dígitos.
+- Removido o prefixo da equivalência, preservando a busca por prefixo e a separação nova/reman/montada.
+- Versionada a assinatura de vínculos para atualizar códigos e vínculos automáticos antigos;
+  vínculos manuais, produtos, estoque e movimentações são preservados.
+- Arquivos: `core/catalog/normalization.py`, `core/catalog/bundle.py`,
+  `backend/tests/test_assistant_stock_accuracy.py`.
+- Na cópia, a consulta corrigida retorna 01; integridade OK e sem violações de chaves estrangeiras.
+- Verificações: 254 testes passaram, incluindo 11 regressões novas; Ruff e versões consistentes.
+  Build do frontend concluído; lint sem erros (5 avisos em arquivos não alterados).
+- Pendente: validar no app atualizado. Sem publicação, commit ou alteração do banco original.
+
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
 ### 2026-10-15 — Claude Code — Disco e backups (2.5.3)
