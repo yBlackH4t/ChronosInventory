@@ -26,6 +26,12 @@ Formato recomendado:
 
 
 
+
+## [2.7.6] - 2026-10-26
+
+### Fixed
+- **Chronos não abria na 2.7.5 com o WhatsApp ligado:** a nova separação dos atendimentos perguntava o número do WhatsApp antes de ele conectar, e a biblioteca do WhatsApp derrubava o sistema inteiro. Agora ela só pergunta depois de conectar e guarda o último número conhecido.
+
 ## [2.7.5] - 2026-10-26
 
 ### Added
