@@ -21,7 +21,7 @@ do app e depois pelo WhatsApp. Exemplo do uso principal:
 
 Foco do dono: a IA como um todo, inclusive áudio de um minuto com várias peças; evitar
 correções de frases isoladas e atualização do app para cada ensinamento. Implementação local na
-2.5.5 em validação desde 26/10; detalhes atuais em `docs/ASSISTENTE_IA.md`. O diagnóstico abaixo
+2.7.5 em validação desde 26/10, sobre a main 2.7.4; detalhes atuais em `docs/ASSISTENTE_IA.md`. O diagnóstico abaixo
 descreve o comportamento anterior à correção.
 
 Diagnóstico reproduzido sem API externa: a mensagem "tem a 5644540 5644541 4031196 770472?"
@@ -45,7 +45,7 @@ Evolução necessária:
   IDs e a consulta que sustentam a resposta; não aprender quantidades como fatos permanentes.
 - Separar motor de execução de conhecimento aprovado. Equivalências e fichas já são dados
   editáveis e sincronizáveis. Ampliar, com validação e versionamento, o conhecimento de termos
-  e exemplos consultados pelo interpretador; implementados como dados aprovados na 2.5.5.
+  e exemplos consultados pelo interpretador; implementados como dados aprovados na 2.7.5.
   Correção de histórico não equivale a treinar automaticamente o modelo ou aprovar uma regra.
 - Avaliar pedidos completos: lista com quatro ou mais códigos, alternativas abreviadas,
   condições diferentes por item, mudança de assunto, repetição de referências para a mesma
@@ -59,9 +59,9 @@ continuam exigindo atualização do software.
 
 Requisito do dono: manter a revisão privada e o `/enviar`, inclusive quando o rascunho é
 uma pergunta ao cliente, como "qual motor?". O contexto precisa sobreviver à continuação
-correta e deixar de influenciar outro pedido. Implementada localmente na 2.5.5, em validação.
+correta e deixar de influenciar outro pedido. Implementada na 2.7.5, em validação.
 
-Estado anterior à 2.5.5: `_remember_bot` registra a resposta no chat de destino
+Estado anterior à evolução de atendimentos da 2.7.5: `_remember_bot` registra a resposta no chat de destino
 depois do envio, inclusive o texto editado. Rascunhos não enviados não entram como resposta
 da empresa nesse chat. A ponte usa até dez mensagens anteriores numa janela de vinte minutos;
 rascunhos têm retenção de seis horas e ficam em memória. O recebimento de uma mensagem do

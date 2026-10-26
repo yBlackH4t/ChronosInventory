@@ -8,7 +8,11 @@ $project = Split-Path -Parent $PSScriptRoot
 if (-not $Exe) {
     $Exe = Join-Path $project "frontend\src-tauri\target\release\Chronos Inventory.exe"
 }
-if (-not (Test-Path -LiteralPath $Exe)) { throw "Executavel nao encontrado. Informe -Exe com o caminho do Chronos 2.5.5." }
+if (-not (Test-Path -LiteralPath $Exe)) { throw "Executavel nao encontrado. Informe -Exe com o caminho do Chronos 2.7.5." }
+$productVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Resolve-Path -LiteralPath $Exe).Path).ProductVersion
+if ($productVersion -notin @("2.7.5", "2.7.5.0")) {
+    throw "Executavel nao corresponde a 2.7.5 (versao: $productVersion). Compile a nova versao antes de testar."
+}
 if (-not (Test-Path -LiteralPath $PythonExe)) { throw "Informe -PythonExe com o Python 3.12 usado pelo projeto." }
 if (Get-Process -Name "Chronos Inventory" -ErrorAction SilentlyContinue) {
     throw "Feche o Chronos anterior antes de abrir a copia de teste."
@@ -18,7 +22,7 @@ if (Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyCont
 }
 $source = Join-Path $project "_comparacao\estoque_copia.db"
 if (-not (Test-Path -LiteralPath $source)) { throw "Copia ausente: _comparacao\estoque_copia.db. O banco original nao sera usado." }
-$testRoot = Join-Path $env:TEMP ("chronos-teste-ia-255-" + [Guid]::NewGuid().ToString("N"))
+$testRoot = Join-Path $env:TEMP ("chronos-teste-ia-275-" + [Guid]::NewGuid().ToString("N"))
 $data = Join-Path $testRoot "dados"
 $appdata = Join-Path $testRoot "appdata"
 $localAppdata = Join-Path $testRoot "localappdata"

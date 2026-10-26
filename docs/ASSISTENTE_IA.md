@@ -1,8 +1,9 @@
 # Assistente de IA do Chronos — comece por aqui
 
-## Atualização local 2.5.5 — 26/10/2026
+## Atualização 2.7.5 — 26/10/2026
 
-- Branch `codex/ia-estoque-garrett`, sem merge/publicação. Base existente do Claude preservada.
+- Branch `codex/ia-estoque-garrett`, main 2.7.4 integrada. Sem merge do PR, tag ou publicação.
+  Base existente do Claude, PIN de aprovação e restrições de ferramentas no WhatsApp preservados.
 - `assistant_requests.py`: lista de pedidos, evidência dos códigos no texto, alternativas por
   “ou” (incluindo sufixo abreviado), versões/filial por item e limites explícitos. Modelo + ano
   como “Scania 440 2015” não são concatenados como código. Resultado por item inclui produtos,
@@ -27,11 +28,11 @@
   Chat aceita mensagem até 8000 caracteres e retorna `pedidos`/`pendencias` opcionais.
 - Cópia de 21/10: saldo 01 para 5005, alternativas 5005/5006 separadas e quatro pedidos
   executados. Produtos/saldo/movimentos = 3628/383/728 antes e depois; integridade OK/FK 0.
-- Verificações: 291 testes na bateria completa, 35 regressões específicas atuais, 31 testes
+- Verificações anteriores à integração: 291 testes na bateria completa, 35 regressões específicas, 31 testes
   de frontend, Ruff/versões/build OK. Lint sem erros, 5 avisos existentes. Autodiagnóstico do
   backend aprovado; `scripts/check_assistant_bundle.py` confere 16 módulos contra o fonte.
-  MSI local 2.5.5 gerado, sem assinatura de atualização, instalação automática ou publicação.
-  Roteiro isolado em `docs/TESTE_ASSISTENTE.md` e `scripts/testar_ia_2_5_5.ps1`.
+  MSI local 2.5.5 antigo não corresponde à 2.7.5 e não deve ser publicado como esta versão.
+  Roteiro isolado em `docs/TESTE_ASSISTENTE.md` e `scripts/testar_ia_2_7_5.ps1`, após gerar o executável 2.7.5.
 - Falta homologação com áudio real do chefe e envio/continuação reais no WhatsApp. Nenhuma
   garantia de 100% de acerto: transcrição, catálogo e cadastros precisam continuar sendo revisados.
 

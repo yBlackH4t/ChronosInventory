@@ -152,20 +152,21 @@ configurar em Backup > Base oficial.
   completo sai com `npm run build:app` (precisa do Rust/Tauri na máquina do build).
 - **Instalador**: para gerar o `.msi` com o assistente, o backend precisa ser empacotado de
   novo (`npm run build:app`), com `anthropic` e `neonize` instalados no venv do build.
-# Homologação local da IA 2.5.5 (26/10/2026)
+# Homologação local da IA 2.7.5 (26/10/2026)
 
 Não publicar tag nem testar no banco original. O script abaixo copia exclusivamente
 `_comparacao/estoque_copia.db` para uma pasta temporária nova e separa a configuração:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\testar_ia_2_5_5.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\testar_ia_2_7_5.ps1
 ```
 
 Ele exige porta 8000 livre e o executável local já compilado. Para usar outro executável
-da 2.5.5, passe `-Exe "caminho completo do executável"`. Nada é apagado. A configuração
+da 2.7.5, passe `-Exe "caminho completo do executável"`. Nada é apagado. A configuração
 do teste começa separada, sem copiar chaves, sessão do WhatsApp ou dados do app da empresa.
 Prefira esse teste **antes de instalar o MSI**: abrir o aplicativo normalmente pelo atalho
-usa o estoque habitual. O MSI foi gerado, não instalado nem publicado automaticamente.
+usa o estoque habitual. O MSI local antigo 2.5.5 não corresponde à 2.7.5; gere novamente
+o executável/instalador antes desta homologação. Não instalar nem publicar automaticamente.
 
 Conferir antes de homologar:
 - `tem 796155-5005?`: na cópia de 21/10, Canoas = **01**, não somar a 5011.

@@ -13,7 +13,7 @@ def main() -> None:
     source = Path(__file__).resolve().parents[1] / "_comparacao" / "estoque_copia.db"
     if not source.is_file():
         raise SystemExit("Cópia de teste ausente: _comparacao/estoque_copia.db")
-    destination = Path(tempfile.mkdtemp(prefix="chronos_ia_255_"))
+    destination = Path(tempfile.mkdtemp(prefix="chronos_ia_release_"))
     database = destination / "estoque.db"
     with sqlite3.connect(source.as_uri() + "?mode=ro", uri=True) as original, sqlite3.connect(database) as copy:
         original.backup(copy)

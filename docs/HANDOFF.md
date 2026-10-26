@@ -420,6 +420,15 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-26 — Codex — Integração da IA com a main 2.7.4 e preparação da 2.7.5
+- Branch `codex/ia-estoque-garrett`. Trabalho de IA registrado em `5683696`; main 2.7.4
+  integrada em `ef326ac`, preservando telas, cadastro da empresa, PIN e restrições do WhatsApp.
+- Versão atualizada pelo `npm run release:bump -- 2.7.5`; changelog com notas concretas da IA.
+- A entrega anterior abaixo é histórica: seu MSI 2.5.5 não representa esta versão.
+- Roteiro atualizado: `scripts/testar_ia_2_7_5.ps1`, somente após recompilar o executável.
+- Próximo passo: validação completa, commit/push e PR para a main, sem merge do PR nem tag.
+- NF-e particular e script local de certificado não fazem parte do trabalho de IA e ficaram fora dos commits.
+
 ### 2026-10-26 — Codex — IA e atendimentos, preparação local da 2.5.5
 - Branch `codex/ia-estoque-garrett`, preservando o trabalho do Claude, sem commit/push/tag.
 - Pedidos estruturados, alternativas abreviadas, condições/filial por item e evidência dos
@@ -439,7 +448,7 @@ npm run lint
   PyInstaller restaurado, sem alterações de máquina no patch. Não houve instalação/publicação.
 - Extraído o backend de dentro do MSI com WiX/dark (sem instalar): os 16 módulos correspondem
   ao fonte e o SHA-256 é idêntico ao backend verificado pelo autodiagnóstico.
-- Homologação segura: `scripts/testar_ia_2_5_5.ps1`; orientação em `docs/TESTE_ASSISTENTE.md`.
+- Homologação segura atualizada para a 2.7.5: `scripts/testar_ia_2_7_5.ps1`; orientação em `docs/TESTE_ASSISTENTE.md`.
 
 ### 2026-10-23 — Codex — Precisão do saldo Garrett no assistente
 - Branch: `codex/ia-estoque-garrett`, descendente da `feature/assistente-ia`.
