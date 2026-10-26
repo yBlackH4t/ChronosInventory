@@ -1,5 +1,54 @@
 # Assistente de IA do Chronos — comece por aqui
 
+## Atualização 2.7.5 — 26/10/2026
+
+- Branch `codex/ia-estoque-garrett`, main 2.7.4 integrada. Sem merge do PR, tag ou publicação.
+  Base existente do Claude, PIN de aprovação e restrições de ferramentas no WhatsApp preservados.
+- `assistant_requests.py`: lista de pedidos, evidência dos códigos no texto, alternativas por
+  “ou” (incluindo sufixo abreviado), versões/filial por item e limites explícitos. Modelo + ano
+  como “Scania 440 2015” não são concatenados como código. Resultado por item inclui produtos,
+  IDs, saldos por filial e erros separados de ausência de estoque. Estoque de alternativa do
+  catálogo não equivale a saldo confirmado do código pedido.
+- `assistant_examples_service.py` e Admin > Exemplos de interpretação: exemplos são aprovados
+  pelo admin publicador e sincronizados com hash. Não aprendem saldo, não retreinam o modelo
+  automaticamente e não convertem correções do histórico em regras. Novos termos e exemplos
+  não exigem reinstalação depois desta atualização inicial.
+- `assistant_attendance_service.py`: SQLite `assistente_atendimentos.db`, ao lado do histórico
+  do assistente, fora do banco de estoque/base oficial. Isolamento por perfil, conta, conversa
+  e participante. Guarda histórico confirmado, perguntas pendentes e rascunhos restauráveis.
+- WhatsApp: uma pergunta só vale após o envio confirmado. `/descartar` não inventa histórico;
+  o texto editado determina a pendência. Falhas preservam rascunhos e o saldo é reconsultado
+  antes de `/enviar`. Se mudou, gerar novo rascunho com 🤖. Áudio com falha não gera resposta
+  parcial. Respostas curtas não são aplicadas a vários itens; nesse caso pergunta qual peça.
+- Prazo de contexto configurável em Admin > WhatsApp (20 min por padrão). `/atendimentos` lista
+  e `/encerrar <id>` encerra contexto sem apagar histórico/conhecimento. Novo código inicia
+  outro atendimento; resposta citada a atendimento expirado exige confirmar a peça novamente.
+- Novas rotas de admin: GET/PUT `/assistente/exemplos`, GET `/assistente/whatsapp/atendimentos`,
+  POST `/assistente/whatsapp/atendimentos/{id}/encerrar`; PUT revisão aceita `contexto_minutos`.
+  Chat aceita mensagem até 8000 caracteres e retorna `pedidos`/`pendencias` opcionais.
+- Cópia de 21/10: saldo 01 para 5005, alternativas 5005/5006 separadas e quatro pedidos
+  executados. Produtos/saldo/movimentos = 3628/383/728 antes e depois; integridade OK/FK 0.
+- Verificações anteriores à integração: 291 testes na bateria completa, 35 regressões específicas, 31 testes
+  de frontend, Ruff/versões/build OK. Lint sem erros, 5 avisos existentes. Autodiagnóstico do
+  backend aprovado; `scripts/check_assistant_bundle.py` confere 16 módulos contra o fonte.
+  MSI local 2.5.5 antigo não corresponde à 2.7.5 e não deve ser publicado como esta versão.
+  Roteiro isolado em `docs/TESTE_ASSISTENTE.md` e `scripts/testar_ia_2_7_5.ps1`, após gerar o executável 2.7.5.
+- Falta homologação com áudio real do chefe e envio/continuação reais no WhatsApp. Nenhuma
+  garantia de 100% de acerto: transcrição, catálogo e cadastros precisam continuar sendo revisados.
+
+---
+
+Correção de precisão em 2026-10-23, branch `codex/ia-estoque-garrett`: reproduzido na cópia
+do banco de 21/10 o saldo 02 para `796155-5005`, composto por 1 dessa peça e 1 da
+`796155-5011`. A expansão de família Garrett incluía o prefixo de seis dígitos e tratava
+sufixos diferentes como nova/reman da mesma peça. O prefixo foi removido da equivalência;
+a busca digitada pelo prefixo continua disponível. A consulta corrigida devolve 01, mantendo
+reman e montada em linhas separadas. A versão da assinatura de vínculos força a atualização
+dos códigos e vínculos automáticos legados, preservando os vínculos manuais. Falta validar
+a correção no app instalado. O atendimento original do WhatsApp não foi auditado pelo histórico.
+Verificações: 254 testes passaram, com 11 regressões novas de precisão do saldo e equivalência
+Garrett, preservação de nova/reman/montada e atualização dos vínculos legados.
+
 Resumo de tudo o que foi feito no assistente até 2026-10-10, para retomar o trabalho em
 outra máquina (por exemplo, na empresa) sem precisar explicar de novo. Para os detalhes,
 veja `docs/PLANO_IA.md` (plano e decisões), `docs/TESTE_ASSISTENTE.md` (roteiro de teste),

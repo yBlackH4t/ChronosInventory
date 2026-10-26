@@ -152,3 +152,40 @@ configurar em Backup > Base oficial.
   completo sai com `npm run build:app` (precisa do Rust/Tauri na máquina do build).
 - **Instalador**: para gerar o `.msi` com o assistente, o backend precisa ser empacotado de
   novo (`npm run build:app`), com `anthropic` e `neonize` instalados no venv do build.
+# Homologação local da IA 2.7.5 (26/10/2026)
+
+Não publicar tag nem testar no banco original. O script abaixo copia exclusivamente
+`_comparacao/estoque_copia.db` para uma pasta temporária nova e separa a configuração:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\testar_ia_2_7_5.ps1
+```
+
+Ele exige porta 8000 livre e o executável local já compilado. Para usar outro executável
+da 2.7.5, passe `-Exe "caminho completo do executável"`. Nada é apagado. A configuração
+do teste começa separada, sem copiar chaves, sessão do WhatsApp ou dados do app da empresa.
+Prefira esse teste **antes de instalar o MSI**: abrir o aplicativo normalmente pelo atalho
+usa o estoque habitual. O MSI local antigo 2.5.5 não corresponde à 2.7.5; gere novamente
+o executável/instalador antes desta homologação. Não instalar nem publicar automaticamente.
+
+Conferir antes de homologar:
+- `tem 796155-5005?`: na cópia de 21/10, Canoas = **01**, não somar a 5011.
+- `796155 5005 ou 5006`: alternativas separadas, sem equivalência criada pela palavra “ou”.
+- `tem a 5644540 5644541 4031196 770472?`: quatro pedidos presentes, sem truncar o último.
+- `4031196 reman e 5452349 nova`: condição por item; `Scania 440 2015` não é código 4402015.
+- `tem 796155?`: se há peças distintas com esse prefixo, pedir código completo, sem somar.
+- WhatsApp: gerar “qual motor?”, descartar e verificar que não vira pergunta enviada.
+  Repetir enviando; responder citando a pergunta, reagir com 🤖 e conferir a continuidade.
+- Editar a pergunta para “qual ano?”: a pendência deve passar a ano, não motor.
+- Reiniciar o teste com a **mesma pasta de dados** e conferir rascunho/atendimento persistidos
+  (o script padrão cria pasta nova; para este caso, reutilize as variáveis da pasta anterior).
+- Mudar saldo na cópia depois de gerar rascunho: `/enviar` deve bloquear e exigir novo 🤖.
+- Dois clientes, dois itens pendentes, outro código, expiração e `/encerrar`: não misturar contexto.
+- Aprovar exemplo no admin, perguntar novamente, sincronizar com segunda máquina e remover:
+  aprendizado é dado aprovado, nunca quantidade permanente nem retreinamento automático.
+- Áudio real de um minuto com várias peças: conferir transcrição completa, códigos e condições.
+  Áudio com erro deve bloquear resposta parcial. Esta etapa real continua obrigatória.
+
+Para repetir somente a avaliação determinística, sem conectar ao WhatsApp nem usar API de IA:
+`python -m scripts.test_assistant_release`. Ela cria outra cópia e confere produtos, saldo,
+movimentos, integridade e chaves estrangeiras. O teste não prova 100% de precisão em áudio real.

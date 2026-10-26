@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from app.services.assistant_knowledge_service import MAX_NOTE_LENGTH, VALID_TYPES
+from app.services.assistant_examples_service import AssistantExamplesService, examples_hash, validate_examples
 from core.catalog import hidden_applications, own_fichas
 from core.catalog.normalization import canonical_code, is_searchable_code
 from core.constants import APP_VERSION
@@ -116,6 +117,8 @@ class AssistantKnowledgeSyncService:
         self.config_reader = config_reader or _official_base_config
         self._local_share = local_share
         self.state_path = state_path or FileUtils.get_assistant_knowledge_state_path()
+        examples_folder = os.path.dirname(state_path) if state_path else FileUtils.get_app_directory()
+        self.examples = AssistantExamplesService(os.path.join(examples_folder, "assistente_exemplos.json"))
         self.run_async = run_async or (
             lambda fn: threading.Thread(target=fn, name="assistente-conhecimento", daemon=True).start()
         )
@@ -186,6 +189,7 @@ class AssistantKnowledgeSyncService:
             "maquina": state.get("maquina"),
             "total_regras": int(state.get("total_regras") or 0),
             "total_fichas": int(state.get("total_fichas") or 0),
+            "total_exemplos": int(state.get("total_exemplos") or 0),
             "atualizado_em": state.get("atualizado_em"),
             "verificado_em": state.get("verificado_em"),
             "erro": state.get("erro"),
@@ -217,12 +221,15 @@ class AssistantKnowledgeSyncService:
         fichas_digest = own_fichas.fichas_hash(fichas)
         hidden = self._export_hidden()
         hidden_digest = hidden_applications.items_hash(hidden)
+        examples = self.examples.list()
+        examples_digest = examples_hash(examples)
         previous = self._state()
         # Mesmas regras e fichas de antes (ex.: backend reaberto): mantem a data da versao.
         same = (
             previous.get("sha256") == digest
             and previous.get("fichas_sha256") == fichas_digest
             and previous.get("ocultas_sha256") == hidden_digest
+            and previous.get("exemplos_sha256") == examples_digest
         )
         published_at = previous.get("publicado_em") if same else None
         payload = {
@@ -240,6 +247,8 @@ class AssistantKnowledgeSyncService:
             # "Não se aplica" (2.4.6). Quem e mais antigo ignora.
             "aplicacoes_ocultas": hidden,
             "ocultas_sha256": hidden_digest,
+            "exemplos": examples,
+            "exemplos_sha256": examples_digest,
         }
 
         reached, errors = [], []
@@ -265,6 +274,8 @@ class AssistantKnowledgeSyncService:
                 "sha256": digest,
                 "fichas_sha256": fichas_digest,
                 "ocultas_sha256": hidden_digest,
+                "exemplos_sha256": examples_digest,
+                "total_exemplos": len(examples),
                 "total_fichas": len(fichas),
                 "publicado_em": payload["publicado_em"],
                 "maquina": payload["maquina"],
@@ -309,6 +320,9 @@ class AssistantKnowledgeSyncService:
             rules, digest = self._validated(payload)
             fichas = self._validated_fichas(payload)
             hidden = self._validated_hidden(payload)
+            examples = validate_examples(payload["exemplos"]) if "exemplos" in payload else None
+            if examples is not None and examples_hash(examples) != payload.get("exemplos_sha256"):
+                raise ValidationException("Exemplos incompletos ou alterados; nada foi aplicado.")
         except ValidationException as exc:
             self._save_state({**state, "erro": str(exc)})
             return
@@ -316,6 +330,11 @@ class AssistantKnowledgeSyncService:
         if rules_hash(self.repository.export_rules()) != digest:
             self.repository.replace_all(rules)
             state["atualizado_em"] = state["verificado_em"]
+        if examples is not None:
+            if examples_hash(self.examples.list()) != examples_hash(examples):
+                self.examples.replace(examples)
+                state["atualizado_em"] = state["verificado_em"]
+            state["total_exemplos"] = len(examples)
         if fichas is not None and own_fichas.fichas_hash(self._export_fichas()) != own_fichas.fichas_hash(fichas):
             self._replace_fichas(fichas)
             state["atualizado_em"] = state["verificado_em"]

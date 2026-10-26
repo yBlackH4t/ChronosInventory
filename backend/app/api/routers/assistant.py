@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.assistant_admin_service import AssistantAdminService
 from app.services.assistant_chat_service import AssistantChatService
@@ -68,6 +68,29 @@ def _admin_token(request: Request) -> Optional[str]:
     return request.headers.get(ADMIN_TOKEN_HEADER)
 
 
+class InterpretationExampleIn(BaseModel):
+    pergunta: str = Field(min_length=1, max_length=1000)
+    consulta: str = Field(min_length=1, max_length=1000)
+
+
+@router.get("/exemplos")
+def list_interpretation_examples(request: Request,
+                                 admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                                 sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service)):
+    admin.require(_admin_token(request))
+    return ok(sync.examples.list())
+
+
+@router.put("/exemplos")
+def replace_interpretation_examples(payload: list[InterpretationExampleIn], request: Request,
+                                    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                                    sync: AssistantKnowledgeSyncService = Depends(get_assistant_knowledge_sync_service)):
+    admin.require(_admin_token(request))
+    values = sync.examples.replace([item.model_dump() for item in payload])
+    sync.publish_in_background()
+    return ok(values)
+
+
 # ----------------------------------------------------------------------
 # Conversa e configuracao da IA
 # ----------------------------------------------------------------------
@@ -99,7 +122,7 @@ def chat(
 def chat_photo(
     request: Request,
     foto: UploadFile = File(...),
-    mensagem: str = Form(default="", max_length=1000),
+    mensagem: str = Form(default="", max_length=8000),
     historico: str = Form(default="[]", max_length=200_000),
     service: AssistantChatService = Depends(get_assistant_chat_service),
     vision: AssistantVisionService = Depends(get_assistant_vision_service),
@@ -441,6 +464,7 @@ def whatsapp_status(
 
 class WhatsAppReviewIn(BaseModel):
     revisar: bool
+    contexto_minutos: int | None = Field(default=None, ge=1, le=1440)
 
 
 class WhatsAppDraftSendIn(BaseModel):
@@ -456,7 +480,9 @@ def whatsapp_set_review(
 ):
     """Liga/desliga "revisar antes de enviar"."""
     admin.require_local(_admin_token(request))
-    return ok(WhatsAppStatusOut(**whatsapp.set_review(payload.revisar)))
+    result = (whatsapp.set_review(payload.revisar) if payload.contexto_minutos is None
+              else whatsapp.set_review(payload.revisar, payload.contexto_minutos))
+    return ok(WhatsAppStatusOut(**result))
 
 
 @router.get("/whatsapp/rascunhos")
@@ -478,9 +504,30 @@ def whatsapp_send_draft(
     whatsapp: WhatsAppService = Depends(get_whatsapp_service),
 ):
     admin.require_local(_admin_token(request))
-    if not whatsapp.send_draft(draft_id, payload.texto):
+    try:
+        sent = whatsapp.send_draft(draft_id, payload.texto)
+    except (ValueError, RuntimeError) as exc:
+        return fail(409, "envio_nao_confirmado", str(exc), None, _request_id(request))
+    if not sent:
         return fail(404, "not_found", "Esse rascunho não existe mais (já foi enviado, descartado ou o WhatsApp reiniciou).", None, _request_id(request))
     return ok({"enviado": True})
+
+
+@router.get("/whatsapp/atendimentos")
+def whatsapp_sessions(request: Request, admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                      whatsapp: WhatsAppService = Depends(get_whatsapp_service)):
+    admin.require_local(_admin_token(request))
+    return ok(whatsapp.list_sessions())
+
+
+@router.post("/whatsapp/atendimentos/{session_id}/encerrar")
+def whatsapp_close_session(session_id: int, request: Request,
+                           admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                           whatsapp: WhatsAppService = Depends(get_whatsapp_service)):
+    admin.require_local(_admin_token(request))
+    if not whatsapp.close_session(session_id):
+        return fail(404, "not_found", "Atendimento não encontrado.", None, _request_id(request))
+    return ok({"encerrado": True})
 
 
 @router.delete("/whatsapp/rascunhos/{draft_id}")

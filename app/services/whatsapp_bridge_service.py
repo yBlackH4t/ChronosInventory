@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import os
 import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -84,6 +85,7 @@ class WaMessage:
     bot: bool = False  # mensagem enviada pela propria ponte
     raw: Any = None  # evento original da biblioteca (para citar, reagir, baixar)
     transcript: Optional[str] = None
+    quoted_message_id: Optional[str] = None
 
 
 @dataclass
@@ -96,6 +98,10 @@ class Draft:
     question: str
     answer: str
     created_at: float
+    session_id: int = 0
+    revision: int = 0
+    pending: Any = None
+    evidence: Any = None
 
 
 class WhatsAppTransport(Protocol):
@@ -124,6 +130,7 @@ class WhatsAppBridge:
         vision: Any = None,
         summary: Any = None,
         review_enabled: Optional[Callable[[], bool]] = None,
+        context_minutes: Optional[Callable[[], int]] = None,
     ) -> None:
         self.summary = summary  # resumo diario (/resumo); criado so quando usado
         if chat_service is None:
@@ -149,6 +156,10 @@ class WhatsAppBridge:
         self.history = history
         self.clock = clock
         self.review_enabled = review_enabled or (lambda: False)
+        self.context_minutes = context_minutes or (lambda: 20)
+        from app.services.assistant_attendance_service import AssistantAttendanceService
+
+        self.attendance = AssistantAttendanceService(os.path.join(os.path.dirname(self.history.db_path), "assistente_atendimentos.db"))
         # PC reserva: so responde quando o principal nao esta respondendo (WhatsAppService decide).
         self.should_answer: Callable[[], bool] = lambda: True
         self._chats: Dict[str, Deque[WaMessage]] = {}
@@ -159,6 +170,15 @@ class WhatsAppBridge:
         self.teacher: Any = None
         self.admin: Any = None  # AssistantAdminService (testes trocam por um de mentira)
         self._lock = threading.Lock()
+        self._work_lock = threading.RLock()
+        self._buffer_account = self._account()
+        self._handled = {(session["chat"], message_id): session["id"] for session in self.attendance.all("atendimentos")
+                         for message_id in session.get("mensagens_recebidas", [])}
+        for saved in self.attendance.all("rascunhos"):
+            target = WaMessage(**saved["target"])
+            self._drafts[saved["id"]] = Draft(saved["id"], saved["chat"], target, saved["question"],
+                saved["answer"], saved["created_at"], saved["session_id"], saved["revision"], saved["pending"], saved.get("evidence", []))
+            self._draft_seq = max(self._draft_seq, saved["id"])
         if run_async is None:
             executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="whatsapp-assistente")
             run_async = executor.submit
@@ -169,6 +189,15 @@ class WhatsAppBridge:
     # ------------------------------------------------------------------
 
     def handle(self, message: WaMessage) -> None:
+        account = self._account()
+        with self._lock:
+            if account != self._buffer_account:
+                self._chats.clear()
+                self._private.clear()
+                self._buffer_account = account
+                self._handled = {(session["chat"], message_id): session["id"]
+                                 for session in self.attendance.all("atendimentos") if session.get("conta", "") == account
+                                 for message_id in session.get("mensagens_recebidas", [])}
         if message.reaction_to is not None:
             if message.from_me and message.reaction == TRIGGER_REACTION:
                 self._run(lambda: self.answer(message.chat, message.reaction_to) if self.should_answer() else None)
@@ -185,6 +214,10 @@ class WhatsAppBridge:
     # ------------------------------------------------------------------
 
     def answer(self, chat: str, target_id: str) -> None:
+        with self._work_lock:
+            self._answer_locked(chat, target_id)
+
+    def _answer_locked(self, chat: str, target_id: str) -> None:
         target, group, earlier = self._conversation_around(chat, target_id)
         if target is None:
             self._note_to_self(
@@ -198,24 +231,32 @@ class WhatsAppBridge:
                 text = self._text_of(message, transcribe=True, problems=problems)
                 if text:
                     parts.append(text)
-            if not parts:
+            if problems or not parts:
                 self.transport.react(target, ERROR_REACTION)
                 self._note_to_self("Não consegui ler a mensagem: " + ("; ".join(problems) or "sem texto."))
                 return
-            historico = []
-            for message in earlier:
-                text = self._text_of(message, transcribe=False, problems=[])
-                if text:
-                    papel = "assistente" if self._is_company_side(message) else "usuario"
-                    historico.append({"papel": papel, "texto": text})
-            result = self.chat_service.chat(
+            account = self._account()
+            session, clarification = self.attendance.resolve(chat, target.sender, "\n".join(parts),
+                target.quoted_message_id, self.clock(), self.context_minutes() * 60, account)
+            historico = session["historico"][-20:]
+            result = ({"resposta": clarification} if clarification else self.chat_service.chat(
                 "\n".join(parts), historico, canal="whatsapp", autor=None if target.from_me else target.sender
-            )
+            ))
+            session["mensagens_recebidas"] = list(dict.fromkeys(session.get("mensagens_recebidas", []) + [message.id for message in group]))
+            session["atualizado_em"] = self.clock()
+            session["estado"] = "em_revisao"
+            self.attendance.save("atendimentos", session)
+            self._handled.update({(chat, message.id): session["id"] for message in group})
             if self.review_enabled():
                 # Revisar antes de enviar: vira rascunho; o admin manda (ou edita) pelo app ou /enviar.
-                self._make_draft(chat, target, "\n".join(parts), result["resposta"])
+                self._make_draft(chat, target, "\n".join(parts), result["resposta"], session,
+                                 result.get("pendencias", []), result.get("consultas_estoque", []))
                 return
             sent_id = self.transport.reply(target, result["resposta"])
+            if not sent_id:
+                raise RuntimeError("O WhatsApp não confirmou o envio")
+            self.attendance.confirm_sent(session["id"], "\n".join(parts), result["resposta"], sent_id,
+                                         result.get("pendencias", []), self.clock())
             self._remember_bot(chat, sent_id, result["resposta"])
             self.transport.react(target, "")
         except Exception:
@@ -229,15 +270,24 @@ class WhatsAppBridge:
     # Rascunhos (revisar antes de enviar)
     # ------------------------------------------------------------------
 
-    def _make_draft(self, chat: str, target: WaMessage, question: str, answer: str) -> Draft:
+    def _make_draft(self, chat: str, target: WaMessage, question: str, answer: str,
+                    session: Dict[str, Any], pending: Any, evidence: Any) -> Draft:
         with self._lock:
             self._expire_drafts()
-            self._draft_seq += 1
-            draft = Draft(self._draft_seq, chat, target, question, answer, self.clock())
+            for old in list(self._drafts.values()):
+                if old.session_id == session["id"] or (old.chat == chat and old.target.id == target.id):
+                    self._drafts.pop(old.id, None)
+                    self.attendance.delete_draft(old.id)
+            target_data = {key: getattr(target, key) for key in ("chat", "id", "sender", "from_me", "timestamp", "text", "quoted_message_id")}
+            saved = self.attendance.save("rascunhos", {"chat": chat, "target": target_data,
+                "question": question, "answer": answer, "created_at": self.clock(), "session_id": session["id"],
+                "revision": session["revisao"], "pending": pending, "evidence": evidence})
+            draft = Draft(saved["id"], chat, target, question, answer, self.clock(), session["id"], session["revisao"], pending, evidence)
             self._drafts[draft.id] = draft
         self.transport.react(target, DRAFT_REACTION)
         self._note_to_self(
             f"📝 *Rascunho #{draft.id}* (ainda não foi para o cliente)\n"
+            f"Atendimento #{draft.session_id} · cliente …{target.sender.split('@')[0][-4:]}\n"
             f"Pergunta: {question[:300]}\n\n{answer}\n\n"
             f"Para mandar: /enviar {draft.id}  •  Para descartar: /descartar {draft.id}\n"
             "Para editar: Chronos > Assistente > Admin > WhatsApp."
@@ -248,13 +298,17 @@ class WhatsAppBridge:
         now = self.clock()
         for draft_id in [d.id for d in self._drafts.values() if now - d.created_at > DRAFT_MAX_AGE_SECONDS]:
             self._drafts.pop(draft_id, None)
+            self.attendance.delete_draft(draft_id)
         while len(self._drafts) > MAX_DRAFTS:
-            self._drafts.pop(min(self._drafts), None)
+            draft_id = min(self._drafts)
+            self._drafts.pop(draft_id, None)
+            self.attendance.delete_draft(draft_id)
 
     def list_drafts(self) -> List[Dict[str, Any]]:
         with self._lock:
             self._expire_drafts()
-            drafts = sorted(self._drafts.values(), key=lambda d: d.id)
+            allowed = {item["id"] for item in self.attendance.all("atendimentos") if item.get("conta", "") == self._account()}
+            drafts = sorted((draft for draft in self._drafts.values() if draft.session_id in allowed), key=lambda d: d.id)
         return [
             {
                 "id": d.id,
@@ -262,27 +316,62 @@ class WhatsAppBridge:
                 "pergunta": d.question,
                 "texto": d.answer,
                 "criado_em": d.created_at,
+                "atendimento_id": d.session_id,
+                "pendencias": d.pending or [],
             }
             for d in drafts
         ]
 
     def send_draft(self, draft_id: int, text: Optional[str] = None) -> bool:
+        with self._work_lock:
+            return self._send_draft_locked(draft_id, text)
+
+    def _send_draft_locked(self, draft_id: int, text: Optional[str] = None) -> bool:
         """Manda o rascunho (ou o texto editado) para o cliente, citando a mensagem. False se nao existe."""
         with self._lock:
-            draft = self._drafts.pop(int(draft_id), None)
+            self._expire_drafts()
+            draft = self._drafts.get(int(draft_id))
         if draft is None:
             return False
         final = (text or "").strip() or draft.answer
+        self.attendance.expire(self.clock(), self.context_minutes() * 60)
+        session = next((item for item in self.attendance.all("atendimentos") if item["id"] == draft.session_id), None)
+        if not session or session["revisao"] != draft.revision or session["estado"] in ("cancelado", "concluido", "expirado"):
+            raise ValueError("Este atendimento mudou ou expirou. Reaja novamente com 🤖 para gerar um rascunho atualizado.")
+        if session.get("conta", "") != self._account():
+            raise ValueError("O rascunho pertence a outra conta do WhatsApp.")
+        if draft.evidence:
+            from app.services.assistant_chat_service import _summarize_call
+
+            for evidence in draft.evidence:
+                output = self.chat_service.tools.run_tool(evidence["ferramenta"], evidence["entrada"])
+                if _summarize_call(evidence["ferramenta"], evidence["entrada"], output) != evidence:
+                    raise ValueError("O estoque mudou desde a consulta. Reaja novamente com 🤖 e revise o novo saldo antes de enviar.")
         sent_id = self.transport.reply(draft.target, final)
+        if not sent_id:
+            raise RuntimeError("Envio não confirmado. O rascunho foi preservado; confira o WhatsApp antes de tentar novamente.")
+        self.attendance.confirm_sent(draft.session_id, draft.question, final, sent_id, draft.pending or [], self.clock())
+        with self._lock:
+            self._drafts.pop(draft.id, None)
+            self.attendance.delete_draft(draft.id)
         self._remember_bot(draft.chat, sent_id, final)
         self.transport.react(draft.target, "")
         return True
 
     def discard_draft(self, draft_id: int) -> bool:
+        with self._work_lock:
+            return self._discard_draft_locked(draft_id)
+
+    def _discard_draft_locked(self, draft_id: int) -> bool:
         with self._lock:
             draft = self._drafts.pop(int(draft_id), None)
         if draft is None:
             return False
+        self.attendance.delete_draft(draft.id)
+        session = next((item for item in self.attendance.all("atendimentos") if item["id"] == draft.session_id), None)
+        if session and session["estado"] not in ("cancelado", "concluido", "expirado"):
+            session["estado"] = "aguardando_cliente" if session.get("mensagens_enviadas") and session.get("pendencias") else "cancelado"
+            self.attendance.save("atendimentos", session)
         self.transport.react(draft.target, "")
         return True
 
@@ -296,6 +385,11 @@ class WhatsAppBridge:
         try:
             if name in ("/enviar", "/descartar"):
                 reply = self._draft_command(name, parts[1:])
+            elif name == "/encerrar":
+                reply = ("Atendimento encerrado; histórico preservado." if len(parts) == 2 and parts[1].lstrip("#").isdigit()
+                         and self.close_session(int(parts[1].lstrip("#"))) else "Use /encerrar <número do atendimento>.")
+            elif name == "/atendimentos":
+                reply = "\n".join(f"#{item['id']}: {item['estado']} · {item['origem'][:100]}" for item in self.list_sessions()) or "Nenhum atendimento."
             elif name in ("/ensinar", "/ensina"):
                 reply = self._teach(parts[1:])
             elif name in ("/perguntar", "/pergunta", "/p"):
@@ -321,6 +415,20 @@ class WhatsAppBridge:
 
             self.summary = AssistantDailySummaryService(history=self.history)
         return self.summary
+
+    def list_sessions(self) -> List[Dict[str, Any]]:
+        self.attendance.expire(self.clock(), self.context_minutes() * 60)
+        return [item for item in reversed(self.attendance.all("atendimentos")) if item.get("conta", "") == self._account()][:50]
+
+    def _account(self) -> str:
+        phone = getattr(self.transport, "phone_number", None)
+        return str(phone() or "") if callable(phone) else ""
+
+    def close_session(self, session_id: int) -> bool:
+        with self._work_lock:
+            if not any(item["id"] == session_id for item in self.list_sessions()):
+                return False
+            return self.attendance.close(session_id)
 
     def _draft_command(self, name: str, args: List[str]) -> str:
         drafts = self.list_drafts()
@@ -453,6 +561,13 @@ class WhatsAppBridge:
     def _is_question_part(self, message: WaMessage, target: WaMessage) -> bool:
         if self._is_company_side(message) or message.sender != target.sender:
             return False
+        if message.quoted_message_id != target.quoted_message_id:
+            return False
+        handled = self._handled.get((message.chat, message.id))
+        if handled is not None and handled != self._handled.get((target.chat, target.id)):
+            return False
+        if any(draft.target.id == message.id and draft.target.id != target.id for draft in self._drafts.values()):
+            return False
         return not (message.text or "").strip().startswith("/")
 
     def _conversation_around(
@@ -481,6 +596,7 @@ class WhatsAppBridge:
             m
             for m in messages[max(0, start - CONTEXT_MESSAGES) : start]
             if not (m.text or "").startswith("/")
+            and (m.sender == target.sender or m.bot)
             and messages[start].timestamp - m.timestamp <= CONTEXT_WINDOW_SECONDS
         ]
         return target, messages[start : end + 1], earlier

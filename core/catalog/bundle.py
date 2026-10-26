@@ -48,6 +48,7 @@ BUNDLE_TABLES = (
 
 KEY_BUNDLE_HASH = "catalog_bundle_hash"
 KEY_LINK_SIGNATURE = "catalog_link_signature"
+LINK_RULES_VERSION = 2
 LINK_STATUS_AUTO = "AUTO"
 # KEY_BUNDLE_HASH depois de importar o arquivo da Master Power pela tela: "local:<versao>".
 LOCAL_IMPORT_PREFIX = "local:"
@@ -238,6 +239,7 @@ def apply_catalog_bundle(db_connection, bundle_path: Optional[str] = None) -> Di
 
 def _link_signature(conn: sqlite3.Connection) -> str:
     digest = hashlib.sha256()
+    digest.update(f"{LINK_RULES_VERSION}\n".encode())
     marker = conn.execute(
         "SELECT COUNT(*), COALESCE(MAX(id), 0) FROM catalogo_produtos"
     ).fetchone()

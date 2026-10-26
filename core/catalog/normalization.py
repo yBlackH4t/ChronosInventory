@@ -118,9 +118,6 @@ def expand_family_codes(codes: Iterable[str]) -> List[str]:
         m_gt = re.match(r"^(\d{6})([059])(\d{3})$", clean)
         if m_gt:
             base, type_digit, suffix = m_gt.groups()
-            if base not in seen:
-                seen.add(base)
-                result.append(base)
             if type_digit == "9":
                 variants = [f"{base}5{suffix}", f"{base}0{suffix}"]
             else:

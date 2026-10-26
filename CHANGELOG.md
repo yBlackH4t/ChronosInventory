@@ -25,6 +25,24 @@ Formato recomendado:
 
 
 
+
+## [2.7.5] - 2026-10-26
+
+### Added
+- Pedidos de estoque com vários itens, alternativas por "ou", códigos falados em partes e condição/filial por peça, com limites explícitos para não descartar pedidos silenciosamente.
+- Atendimentos e rascunhos persistentes no WhatsApp, continuidade por resposta citada, prazo de contexto configurável e encerramento pelo app ou pelos comandos /atendimentos e /encerrar.
+- Exemplos de interpretação aprovados pelo admin e sincronizados como conhecimento, sem reinstalar o app a cada novo ensinamento.
+
+### Changed
+- Perguntas ao cliente só abrem contexto após o envio confirmado; mudar de assunto, encerrar ou expirar deixa de aplicar o contexto anterior.
+- O envio aprovado reconsulta o estoque: alterações exigem novo rascunho e revisão. Falhas de envio preservam o rascunho; falhas de transcrição impedem respostas parciais.
+- Integração com a main 2.7.4 preservando suas telas, cadastro da empresa e proteções, incluindo PIN de aprovação e restrições de ferramentas internas no WhatsApp.
+
+### Fixed
+- Códigos Garrett com sufixos diferentes não somam estoque apenas por compartilharem o prefixo. Vínculos automáticos antigos são recalculados, preservando vínculos manuais, saldos e movimentações.
+- Alternativas não viram equivalências técnicas nem somam quantidades automaticamente; cada resultado mantém a evidência dos produtos e saldos consultados.
+- Pedidos com quatro ou mais códigos são consultados integralmente dentro dos limites informados; erros de consulta são distintos de estoque zero e respostas ambíguas pedem esclarecimento.
+
 ## [2.7.4] - 2026-10-26
 
 ### Added

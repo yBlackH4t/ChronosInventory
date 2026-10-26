@@ -13,6 +13,7 @@ from app.services.assistant_chat_service import AssistantChatService
 from app.services.assistant_common import MAX_TOOL_ROUNDS, NO_ANSWER_TEXT, REFUSAL_TEXT
 from app.services.assistant_config_store import AssistantConfigStore
 from app.services.assistant_direct_service import HELP_TEXT, AssistantDirectService
+from app.services.assistant_requests import RequestItem
 from app.services.assistant_tools_service import COMPACT_LIMITS
 from backend.app.api.deps import get_assistant_chat_service
 from test_assistant_tools import tools  # noqa: F401  (fixture: catalogo + produtos de teste)
@@ -519,7 +520,8 @@ def test_chat_endpoint(client, tools):  # noqa: F811
 
     assert client.post("/assistente/chat", json={"mensagem": ""}).status_code == 422
     assert client.post("/assistente/chat", json={"mensagem": "   "}).status_code == 422
-    assert client.post("/assistente/chat", json={"mensagem": "x" * 1001}).status_code == 422
+    assert client.post("/assistente/chat", json={"mensagem": "x" * 1001}).status_code == 200
+    assert client.post("/assistente/chat", json={"mensagem": "x" * 8001}).status_code == 422
 
     client.put("/assistente/config", json={"api_key": GROQ_KEY})
     fake = FakePost(
@@ -593,3 +595,19 @@ def test_whatsapp_customers_never_get_product_movements(tools, store):  # noqa: 
     tool_turn = fake.calls[1]["json"]["messages"][-1]
     assert "indispon" in tool_turn["content"]
     assert "Última saída" not in result["resposta"]
+
+
+@pytest.mark.parametrize("canal,allowed", [("app", True), ("particular", True), ("whatsapp", False)])
+def test_structured_requests_keep_channel_movement_restrictions(tools, store, canal, allowed):  # noqa: F811
+    question = "qual foi a ultima vez que ela saiu? 53279887116"
+    store.update(provedor="groq")
+    plan = [RequestItem(id="1", intencao="movimentacao", trecho=question, codigos=["53279887116"])]
+    interpreter = SimpleNamespace(interpret=lambda message, history: {
+        "pergunta": question, "entendido": {}, "pedidos": plan,
+    })
+    service = AssistantChatService(tools=tools, config_store=store, interpreter=interpreter)
+    result = service.chat(question, canal=canal)
+    assert ("movimentacoes_produto" in result["ferramentas_usadas"]) is allowed
+    assert len(result["pedidos"]) == 1
+    if not allowed:
+        assert "Última saída" not in result["resposta"]

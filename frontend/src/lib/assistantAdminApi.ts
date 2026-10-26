@@ -59,6 +59,18 @@ async function adminRequest<T>(path: string, options?: RequestOptions): Promise<
   }
 }
 
+export type InterpretationExample = { pergunta: string; consulta: string };
+export const listInterpretationExamples = () => adminRequest<InterpretationExample[]>("/exemplos");
+export const saveInterpretationExamples = (examples: InterpretationExample[]) =>
+  adminRequest<InterpretationExample[]>("/exemplos", { method: "PUT", body: examples });
+export type WhatsAppAttendance = {
+  id: number; cliente: string; estado: string; origem: string;
+  pendencias: { pedido_id: string; campos: string[] }[];
+};
+export const listWhatsAppAttendances = () => adminRequest<WhatsAppAttendance[]>("/whatsapp/atendimentos");
+export const closeWhatsAppAttendance = (id: number) =>
+  adminRequest(`/whatsapp/atendimentos/${id}/encerrar`, { method: "POST" });
+
 // ---------------------------------------------------------------------------
 // Mock (VITE_ASSISTENTE_MOCK=1)
 // ---------------------------------------------------------------------------
@@ -513,6 +525,9 @@ export async function updateDailySummary(body: DailySummaryUpdate): Promise<Dail
 export async function setWhatsAppReview(revisar: boolean): Promise<WhatsAppStatus> {
   return adminRequest<WhatsAppStatus>("/whatsapp/revisao", { method: "PUT", body: { revisar } });
 }
+
+export const setWhatsAppContextMinutes = (revisar: boolean, contexto_minutos: number) =>
+  adminRequest<WhatsAppStatus>("/whatsapp/revisao", { method: "PUT", body: { revisar, contexto_minutos } });
 
 export async function listWhatsAppDrafts(): Promise<WhatsAppDraft[]> {
   if (isMockEnabled()) return [];

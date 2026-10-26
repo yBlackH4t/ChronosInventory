@@ -163,3 +163,25 @@ def test_photo_without_caption_is_kept_for_the_plate_reader(transport):
     photo.imageMessage.caption = "essa aqui"
     transport._message(None, event("FOTO2", jid(BOSS_LID, "lid"), jid(BOSS_LID, "lid"), False, photo))
     assert (transport.received[-1].is_image, transport.received[-1].text) == (True, "essa aqui")
+
+
+@pytest.mark.parametrize("field", ["extendedTextMessage", "audioMessage", "imageMessage"])
+def test_quoted_message_id_reaches_the_bridge(transport, field):
+    message = E2E.Message()
+    getattr(message, field).contextInfo.stanzaID = "QUESTION1"
+    if field == "extendedTextMessage":
+        message.extendedTextMessage.text = "DC13"
+    transport._message(None, event("ANSWER1", jid(BOSS_LID, "lid"), jid(BOSS_LID, "lid"), False, message))
+    assert transport.received[-1].quoted_message_id == "QUESTION1"
+
+
+def test_restored_draft_still_quotes_without_original_neonize_event(transport):
+    from app.services.whatsapp_bridge_service import WaMessage
+
+    target = WaMessage(chat=f"{BOSS_LID}@lid", id="OLD1", sender=f"{BOSS_NUMBER}@s.whatsapp.net",
+                       from_me=False, timestamp=1, text="tem 4031196?")
+    assert transport.reply(target, "Sim.") == "ENVIADA1"
+    to, message = transport.client.sent[-1]
+    assert to.Server == "lid"
+    assert message.extendedTextMessage.contextInfo.stanzaID == "OLD1"
+    assert message.extendedTextMessage.contextInfo.participant == f"{BOSS_LID}@lid"

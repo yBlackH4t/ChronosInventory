@@ -240,6 +240,11 @@ class NeonizeTransport:
             raw=event,
         )
         msg = event.Message
+        for field in ("extendedTextMessage", "audioMessage", "imageMessage"):
+            if msg.HasField(field):
+                context = getattr(getattr(msg, field), "contextInfo", None)
+                wa.quoted_message_id = getattr(context, "stanzaID", None) or None
+                break
         if msg.HasField("reactionMessage"):
             wa.reaction_to = msg.reactionMessage.key.ID
             wa.reaction = msg.reactionMessage.text
@@ -287,6 +292,19 @@ class NeonizeTransport:
     def reply(self, target: WaMessage, text: str) -> Optional[str]:
         from neonize.proto.waE2E.WAWebProtobufsE2E_pb2 import ContextInfo, ExtendedTextMessage, Message
 
+        if target.raw is None:
+            from neonize.utils.jid import build_jid
+
+            user, server = target.chat.split("@", 1)
+            participant = target.chat
+            if target.from_me and not self.is_self_chat(target.chat):
+                me = self.client.get_me()
+                participant = _jid_str(me.LID if server == "lid" else me.JID)
+            context = ContextInfo(stanzaID=target.id, participant=participant,
+                                  quotedMessage=Message(conversation=target.text or "Mensagem recebida antes do reinício do Chronos"))
+            message = Message(extendedTextMessage=ExtendedTextMessage(text=text, contextInfo=context))
+            response = self.client.send_message(build_jid(user, server), message)
+            return response.ID or None
         info = target.raw.Info
         context = ContextInfo(
             stanzaID=info.ID,

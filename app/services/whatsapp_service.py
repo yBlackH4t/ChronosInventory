@@ -56,7 +56,8 @@ def review_before_sending(config_store: Optional[AssistantConfigStore] = None) -
 def _default_bridge_factory(transport: Any) -> Any:
     from app.services.whatsapp_bridge_service import WhatsAppBridge
 
-    return WhatsAppBridge(transport, review_enabled=review_before_sending)
+    return WhatsAppBridge(transport, review_enabled=review_before_sending,
+                          context_minutes=lambda: int(AssistantConfigStore().load_section(REVIEW_SECTION).get("contexto_minutos", 20)))
 
 
 def _official_base_config() -> Dict[str, Any]:
@@ -246,6 +247,7 @@ class WhatsAppService:
             "erro": self.error,
             "ativo": bool(self.config_store.load_section("whatsapp").get("ativo")),
             "revisar": review_before_sending(self.config_store),
+            "contexto_minutos": int(self.config_store.load_section(REVIEW_SECTION).get("contexto_minutos", 20)),
             **self._robot_role(),
         }
 
@@ -306,9 +308,19 @@ class WhatsAppService:
     # Revisar antes de enviar
     # ------------------------------------------------------------------
 
-    def set_review(self, enabled: bool) -> Dict[str, Any]:
-        self.config_store.save_section(REVIEW_SECTION, {"revisar": bool(enabled)})
+    def set_review(self, enabled: bool, context_minutes: Optional[int] = None) -> Dict[str, Any]:
+        section = self.config_store.load_section(REVIEW_SECTION)
+        section["revisar"] = bool(enabled)
+        if context_minutes is not None:
+            section["contexto_minutos"] = max(1, min(1440, context_minutes))
+        self.config_store.save_section(REVIEW_SECTION, section)
         return self.status()
+
+    def list_sessions(self) -> list:
+        return self._bridge.list_sessions() if self._bridge is not None else []
+
+    def close_session(self, session_id: int) -> bool:
+        return bool(self._bridge is not None and self._bridge.close_session(session_id))
 
     def list_drafts(self) -> list:
         bridge = self._bridge

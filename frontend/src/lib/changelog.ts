@@ -10,6 +10,22 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.5",
+    "date": "2026-10-26",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Pedidos de estoque com vários itens, alternativas por \"ou\", códigos falados em partes e condição/filial por peça, com limites explícitos para não descartar pedidos silenciosamente.",
+      "Novo: Atendimentos e rascunhos persistentes no WhatsApp, continuidade por resposta citada, prazo de contexto configurável e encerramento pelo app ou pelos comandos /atendimentos e /encerrar.",
+      "Novo: Exemplos de interpretação aprovados pelo admin e sincronizados como conhecimento, sem reinstalar o app a cada novo ensinamento.",
+      "Mudanca: Perguntas ao cliente só abrem contexto após o envio confirmado; mudar de assunto, encerrar ou expirar deixa de aplicar o contexto anterior.",
+      "Mudanca: O envio aprovado reconsulta o estoque: alterações exigem novo rascunho e revisão. Falhas de envio preservam o rascunho; falhas de transcrição impedem respostas parciais.",
+      "Mudanca: Integração com a main 2.7.4 preservando suas telas, cadastro da empresa e proteções, incluindo PIN de aprovação e restrições de ferramentas internas no WhatsApp.",
+      "Correcao: Códigos Garrett com sufixos diferentes não somam estoque apenas por compartilharem o prefixo. Vínculos automáticos antigos são recalculados, preservando vínculos manuais, saldos e movimentações.",
+      "Correcao: Alternativas não viram equivalências técnicas nem somam quantidades automaticamente; cada resultado mantém a evidência dos produtos e saldos consultados.",
+      "Correcao: Pedidos com quatro ou mais códigos são consultados integralmente dentro dos limites informados; erros de consulta são distintos de estoque zero e respostas ambíguas pedem esclarecimento."
+    ]
+  },
+  {
     "version": "2.7.4",
     "date": "2026-10-26",
     "title": "Melhorias e correcoes",

@@ -267,7 +267,7 @@ class AssistantToolsService:
     # ------------------------------------------------------------------
 
     def search_by_code(
-        self, codigo: str, complete: bool = True, versions: Optional[List[str]] = None
+        self, codigo: str, complete: bool = True, versions: Optional[List[str]] = None, location: Optional[str] = None
     ) -> Dict[str, Any]:
         """`versions`: o que a pessoa perguntou ("tem reman? montada?"); a resposta diz de cada uma."""
         typed = " ".join(str(codigo or "").split()).upper()
@@ -284,6 +284,10 @@ class AssistantToolsService:
             )
 
         locations = self.repository.get_location_labels()
+        if location:
+            locations = {key: label for key, label in locations.items() if search_words(label) == search_words(location)}
+            if not locations:
+                raise ValidationException("Filial não identificada. Confirme o nome do local antes de consultar o saldo.")
         knowledge = self.knowledge.relations(code)
         blocked = knowledge["diferentes"]
         by_id: Dict[int, Dict[str, Any]] = {}
@@ -376,7 +380,7 @@ class AssistantToolsService:
                 if len(known) == 1:
                     chosen, alternatives = known[0], [c for c in full_codes if c != known[0]]
             if chosen:
-                resolved = self.search_by_code(chosen, complete=False, versions=versions)
+                resolved = self.search_by_code(chosen, complete=False, versions=versions, location=location)
                 resolved["codigo_digitado"] = typed
                 note = f"(Entendi *{label}* como *{chosen}*"
                 if alternatives:
@@ -407,6 +411,18 @@ class AssistantToolsService:
         compact = format_code_compact(label, result, list(locations.values()))
         if compact:
             result["texto_compacto"] = compact  # formato do chefe no WhatsApp
+        full_codes = sorted({candidate for product in products
+                             for candidate in extract_codes_from_name(product["nome"], expand_family=False)
+                             if candidate.startswith(code) and len(candidate) > len(code)})
+        families = {tuple(sorted(expand_family_codes([candidate]))) for candidate in full_codes}
+        exact = any(code in extract_codes_from_name(product["nome"], expand_family=False) for product in products)
+        if len(families) > 1 and not exact:
+            result["codigo_incompleto"] = True
+            result["codigos_possiveis"] = full_codes[:20]
+            result["texto_pronto"] = (f"*{label}*: encontrei peças diferentes com esse início: "
+                + ", ".join(display_code(candidate) for candidate in full_codes[:20])
+                + ". Qual é o código completo? Não somei os saldos dessas peças.")
+            result.pop("texto_compacto", None)
         return result
 
     def _garrett_lookalikes(self, code: str, locations: Dict[int, str]) -> List[Dict[str, Any]]:
@@ -754,7 +770,7 @@ class AssistantToolsService:
     def run_tool(self, name: str, arguments: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """Executa uma ferramenta pelo nome. Erros voltam como {'erro': ...} para o modelo ler."""
         handlers: Dict[str, Callable[[Dict[str, Any]], Dict[str, Any]]] = {
-            "buscar_por_codigo": lambda a: self.search_by_code(str(a["codigo"]), versions=a.get("versoes")),
+            "buscar_por_codigo": lambda a: self.search_by_code(str(a["codigo"]), versions=a.get("versoes"), location=a.get("local")),
             "buscar_por_aplicacao": lambda a: self.search_by_application(str(a["texto"])),
             "detalhe_produto": lambda a: self.product_details(int(a["produto_id"])),
             "comparar_codigos": lambda a: self.compare_codes(str(a["codigo_a"]), str(a["codigo_b"])),

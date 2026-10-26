@@ -44,6 +44,7 @@ import AdminReviewTab from "./AdminReviewTab";
 import AdminKnowledgeTab from "./AdminKnowledgeTab";
 import AdminHistoryTab from "./AdminHistoryTab";
 import AdminWhatsAppTab from "./AdminWhatsAppTab";
+import AdminExamplesTab from "./AdminExamplesTab";
 import WhatsAppPinButton from "./WhatsAppPinButton";
 import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
@@ -463,6 +464,7 @@ export default function AssistantAdminPanel() {
           <Tabs.Tab value="historico" leftSection={<IconHistory size={16} />}>
             Histórico
           </Tabs.Tab>
+          <Tabs.Tab value="exemplos" leftSection={<IconDatabase size={16} />}>Exemplos de interpretação</Tabs.Tab>
           <Tabs.Tab value="whatsapp" leftSection={<IconBrandWhatsapp size={16} />}>
             WhatsApp
           </Tabs.Tab>
@@ -483,6 +485,7 @@ export default function AssistantAdminPanel() {
         <Tabs.Panel value="whatsapp">
           <AdminWhatsAppTab />
         </Tabs.Panel>
+        <Tabs.Panel value="exemplos"><AdminExamplesTab /></Tabs.Panel>
       </Tabs>
 
       {/* Modal Trocar Senha */}

@@ -233,3 +233,27 @@ def test_sync_endpoints_and_publishing_after_the_admin_teaches(client, tools, tm
         assert json.loads(published.read_text(encoding="utf-8"))["total_regras"] == 0
     finally:
         client.app.dependency_overrides.clear()
+
+
+def test_examples_sync_validates_before_replacing_knowledge(tools, tmp_path):  # noqa: F811
+    from app.services.assistant_examples_service import AssistantExamplesService
+
+    folder = tmp_path / "shared"
+    publisher = _service(tmp_path, "publisher", role="publisher", official_base_dir=str(folder))
+    consumer = _service(tmp_path, "consumer", official_base_dir=str(folder))
+    publisher.examples = AssistantExamplesService(str(tmp_path / "publisher" / "examples.json"))
+    consumer.examples = AssistantExamplesService(str(tmp_path / "consumer" / "examples.json"))
+    values = [{"pergunta": "baleia", "consulta": "Scania 440 DC13"}]
+    publisher.examples.replace(values)
+    tools.knowledge.add_rule(*RULE)
+    publisher.sync()
+    assert consumer.sync()["total_exemplos"] == 1
+    assert consumer.examples.list() == values
+    path = folder / "latest" / KNOWLEDGE_FILENAME
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["exemplos"][0]["consulta"] = "alterado"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    KnowledgeRepository().replace_all([])
+    assert consumer.sync()["erro"]
+    assert consumer.examples.list() == values
+    assert KnowledgeRepository().export_rules() == []
