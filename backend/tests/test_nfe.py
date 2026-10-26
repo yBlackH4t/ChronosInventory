@@ -509,3 +509,17 @@ def test_saved_cnpjs_are_tried_until_the_one_that_received_the_note(client, tmp_
 
     bad = client.put("/nfe/config", json={"pastas_xml": [], "cnpjs": [{"cnpj": "123", "nome": "x"}]})
     assert bad.status_code == 400
+
+
+def test_note_between_saved_cnpjs_keeps_this_store_point_of_view(client, tmp_path):
+    """Canoas (esta loja) mandando para a Matriz (tambem salva) continua sendo saida."""
+    matriz = ("03897158000102", "MONTREAL COMERCIO DE PECAS LTDA")
+    canoas = (EMIT_CNPJ, "MONTREAL COMERCIO DE PECAS - CANOAS")
+    _setup(client, tmp_path, xml=_xml(emit=canoas, dest=matriz))
+    client.put("/nfe/config", json={
+        "pastas_xml": [str(tmp_path / "Geradas")],
+        "cnpjs": [{"cnpj": canoas[0], "nome": "Canoas"}, {"cnpj": matriz[0], "nome": "Matriz"}],
+    })
+    data = client.get(f"/nfe/{CHAVE}").json()["data"]
+    assert data["tipo_sugerido"] == "SAIDA" and data["loja"]["nome"] == "Canoas"
+    assert data["movimento_sugerido"]["SAIDA"]["natureza"] == "TRANSFERENCIA_EXTERNA"

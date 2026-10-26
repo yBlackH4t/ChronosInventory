@@ -332,7 +332,10 @@ def _download_cnpjs(chave: str, config: Dict[str, Any]) -> List[str]:
 
 
 def _store_cnpj(documento: NfeDocumento, config: Dict[str, Any]) -> Optional[str]:
-    """Qual dos CNPJs salvos esta na nota: o destinatario, senao o emitente, senao o desta loja."""
+    """Qual dos CNPJs salvos esta na nota: o desta loja, se estiver; senao o destinatario ou o emitente."""
+    loja = config.get("cnpj_loja")
+    if loja and loja in (documento.destinatario_documento, documento.emitente_cnpj):
+        return loja
     salvos = [e["cnpj"] for e in config.get("cnpjs") or []]
     for cnpj in (documento.destinatario_documento, documento.emitente_cnpj):
         if cnpj and cnpj in salvos:
