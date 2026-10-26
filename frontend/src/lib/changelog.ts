@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.6",
+    "date": "2026-10-26",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Chronos não abria na 2.7.5 com o WhatsApp ligado: a nova separação dos atendimentos perguntava o número do WhatsApp antes de ele conectar, e a biblioteca do WhatsApp derrubava o sistema inteiro. Agora ela só pergunta depois de conectar e guarda o último número conhecido."
+    ]
+  },
+  {
     "version": "2.7.5",
     "date": "2026-10-26",
     "title": "Melhorias e correcoes",

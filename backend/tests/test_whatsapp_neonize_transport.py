@@ -62,6 +62,7 @@ def transport():
     instance._own_chats = None
     instance._thread = None
     instance._reaction_keys = OrderedDict()
+    instance._connected, instance._phone = True, None
     instance.received = received
     return instance
 
@@ -185,3 +186,21 @@ def test_restored_draft_still_quotes_without_original_neonize_event(transport):
     assert to.Server == "lid"
     assert message.extendedTextMessage.contextInfo.stanzaID == "OLD1"
     assert message.extendedTextMessage.contextInfo.participant == f"{BOSS_LID}@lid"
+
+
+def test_never_asks_who_am_i_while_disconnected(transport):
+    # get_me() desconectado e um panic no Go: derrubava o backend inteiro na abertura da 2.7.5.
+    def boom():
+        raise AssertionError("get_me chamado desconectado")
+
+    transport._connected = False
+    real, transport.client.get_me = transport.client.get_me, boom
+    assert transport.phone_number() is None
+    assert transport.is_self_chat(f"{OWN_NUMBER}@s.whatsapp.net") is False
+    assert transport.send_to_self("oi") is None
+    transport.client.get_me = real
+    transport._state("conectado")
+    assert transport.phone_number() == OWN_NUMBER
+    transport._state("reconectando")
+    transport.client.get_me = boom
+    assert transport.phone_number() == OWN_NUMBER  # o ultimo numero conhecido, sem chamar get_me

@@ -94,6 +94,10 @@ class NeonizeTransport:
         self._on_qr = on_qr
         self._on_state = on_state
         self._own_chats: Optional[Set[str]] = None
+        # get_me() com o cliente desconectado derruba o processo inteiro (panic no Go da neonize,
+        # que o Python nao consegue capturar): so chama depois do "conectado" e guarda o numero.
+        self._connected = False
+        self._phone: Optional[str] = None
         self._thread: Optional[threading.Thread] = None
         # id da mensagem -> (chave e conversa da reacao 🤖, como o WhatsApp da equipe mandou)
         self._reaction_keys: "OrderedDict[str, Tuple[Any, Any]]" = OrderedDict()
@@ -140,18 +144,27 @@ class NeonizeTransport:
         except Exception:
             LOG.exception("whatsapp: falha ao sair da conta")
 
-    def phone_number(self) -> Optional[str]:
+    def _me(self) -> Any:
+        """O proprio aparelho, ou None enquanto nao conectou (nunca chama get_me() desconectado)."""
+        if not self._connected:
+            return None
         try:
-            me = self.client.get_me()
-            return me.JID.User or None
+            return self.client.get_me()
         except Exception:
             return None
+
+    def phone_number(self) -> Optional[str]:
+        me = self._me()
+        if me is not None and me.JID.User:
+            self._phone = me.JID.User
+        return self._phone  # reconectando: o ultimo numero conhecido (a conta nao muda)
 
     # ------------------------------------------------------------------
     # Eventos
     # ------------------------------------------------------------------
 
     def _state(self, state: str) -> None:
+        self._connected = state == "conectado"
         if state == "conectado":
             self._own_chats = None  # recarrega o proprio numero
         if self._on_state:
@@ -269,11 +282,10 @@ class NeonizeTransport:
 
     def is_self_chat(self, chat: str) -> bool:
         if self._own_chats is None:
-            try:
-                me = self.client.get_me()
-                self._own_chats = {c for c in (_jid_str(me.JID), _jid_str(me.LID)) if c}
-            except Exception:
+            me = self._me()
+            if me is None:
                 return False
+            self._own_chats = {c for c in (_jid_str(me.JID), _jid_str(me.LID)) if c}
         return chat in self._own_chats
 
     def _quoted_author(self, source: Any) -> str:
@@ -285,7 +297,9 @@ class NeonizeTransport:
         chat = _jid_str(source.Chat)
         if not source.IsFromMe or self.is_self_chat(chat):
             return chat  # conversa 1:1: o autor e o outro lado (ou eu mesmo, na "Mensagem para mim")
-        me = self.client.get_me()
+        me = self._me()
+        if me is None:
+            return chat
         own = _jid_str(me.LID) if source.Chat.Server == "lid" else _jid_str(me.JID)
         return own or chat
 
@@ -298,8 +312,9 @@ class NeonizeTransport:
             user, server = target.chat.split("@", 1)
             participant = target.chat
             if target.from_me and not self.is_self_chat(target.chat):
-                me = self.client.get_me()
-                participant = _jid_str(me.LID if server == "lid" else me.JID)
+                me = self._me()
+                if me is not None:
+                    participant = _jid_str(me.LID if server == "lid" else me.JID)
             context = ContextInfo(stanzaID=target.id, participant=participant,
                                   quotedMessage=Message(conversation=target.text or "Mensagem recebida antes do reinício do Chronos"))
             message = Message(extendedTextMessage=ExtendedTextMessage(text=text, contextInfo=context))
@@ -354,7 +369,9 @@ class NeonizeTransport:
     def send_to_self(self, text: str) -> Optional[str]:
         from neonize.utils.jid import JIDToNonAD
 
-        me = self.client.get_me()
+        me = self._me()
+        if me is None:
+            return None  # desconectado: o aviso fica para depois
         response = self.client.send_message(JIDToNonAD(me.JID), text)  # sem o numero do aparelho
         return response.ID or None
 
