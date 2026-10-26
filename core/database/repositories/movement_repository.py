@@ -14,9 +14,19 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from core.database.repositories.base_repository import BaseRepository
+from core.database.repositories.product_repository import INITIAL_STOCK_DOCUMENT
 from core.exceptions import DatabaseException
 
 logger = logging.getLogger(__name__)
+
+# O estoque inicial do cadastro e uma ENTRADA so para o saldo bater: nao e mercadoria que
+# chegou. Fica fora das metricas de entrada (fluxo, entradas por dia/natureza), e volta
+# separado em `estoque_inicial` para quem precisa reconstruir o saldo.
+_INITIAL_STOCK_SQL = f"COALESCE({{alias}}documento, '') = '{INITIAL_STOCK_DOCUMENT}'"
+
+
+def _is_initial_stock(alias: str = "m") -> str:
+    return _INITIAL_STOCK_SQL.format(alias=f"{alias}." if alias else "")
 
 
 class MovementRepository(BaseRepository):
@@ -182,6 +192,20 @@ class MovementRepository(BaseRepository):
 
 
 
+    # Esconde o lancamento desfeito e o estorno que o desfez, sempre os dois juntos. So muda o que
+    # a lista mostra: saldo, relatorios e o historico do produto continuam com tudo.
+    _OCULTAR_ESTORNADOS = """
+        AND m.id NOT IN (
+            SELECT movimento_ref_id FROM movimentacoes
+            WHERE natureza = 'ESTORNO' AND movimento_ref_id IS NOT NULL
+        )
+        AND NOT (
+            m.natureza = 'ESTORNO'
+            AND m.movimento_ref_id IS NOT NULL
+            AND m.movimento_ref_id IN (SELECT id FROM movimentacoes)
+        )
+    """
+
     @staticmethod
     def _like_contains(term: str) -> str:
         escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
@@ -201,6 +225,7 @@ class MovementRepository(BaseRepository):
         sort_direction: str = "DESC",
         limit: int = 20,
         offset: int = 0,
+        ocultar_estornados: bool = False,
     ) -> List[Dict[str, Any]]:
         sort_col = self._ALLOWED_SORT_COLUMNS.get(sort_column, "data_hora")
         sort_dir = "DESC" if str(sort_direction).upper() == "DESC" else "ASC"
@@ -250,6 +275,8 @@ class MovementRepository(BaseRepository):
         if documento:
             query += " AND m.documento LIKE ? ESCAPE '\\'"
             params.append(self._like_contains(documento))
+        if ocultar_estornados:
+            query += self._OCULTAR_ESTORNADOS
 
         query += f" ORDER BY {sort_col} {sort_dir} LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -266,10 +293,11 @@ class MovementRepository(BaseRepository):
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         documento: Optional[str] = None,
+        ocultar_estornados: bool = False,
     ) -> int:
         query = """
             SELECT COUNT(*) as total
-            FROM movimentacoes
+            FROM movimentacoes m
             WHERE 1=1
         """
         params: List[Any] = []
@@ -298,6 +326,8 @@ class MovementRepository(BaseRepository):
         if documento:
             query += " AND documento LIKE ? ESCAPE '\\'"
             params.append(self._like_contains(documento))
+        if ocultar_estornados:
+            query += self._OCULTAR_ESTORNADOS
 
         result = self._execute_query(query, tuple(params))
         return result[0]["total"] if result else 0
@@ -507,16 +537,24 @@ class MovementRepository(BaseRepository):
 
         params.extend([date_from, date_to])
 
+        initial = _is_initial_stock("m")
+        if location_id is not None:
+            params = [location_id, location_id, location_id, date_from, date_to]
+
         query = f"""
             SELECT {expr} as periodo,
                    SUM(CASE
-                        WHEN m.tipo = 'ENTRADA' {dest_filter}
+                        WHEN m.tipo = 'ENTRADA' {dest_filter} AND NOT ({initial})
                         THEN m.quantidade ELSE 0 END
                    ) as entradas,
                    SUM(CASE
                         WHEN m.tipo = 'SAIDA' {orig_filter}
                         THEN {saida_liquida} ELSE 0 END
-                   ) as saidas
+                   ) as saidas,
+                   SUM(CASE
+                        WHEN m.tipo = 'ENTRADA' {dest_filter} AND {initial}
+                        THEN m.quantidade ELSE 0 END
+                   ) as estoque_inicial
             FROM movimentacoes m
             JOIN produtos p ON p.id = m.produto_id
             WHERE m.tipo IN ('ENTRADA', 'SAIDA')
@@ -953,7 +991,7 @@ class MovementRepository(BaseRepository):
         tipo: str,
         location_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        query = """
+        query = f"""
             SELECT m.natureza as natureza,
                    SUM(m.quantidade) as quantidade,
                    COUNT(*) as movimentos
@@ -963,6 +1001,7 @@ class MovementRepository(BaseRepository):
               AND p.ativo = 1
               AND m.data_hora >= ?
               AND m.data_hora <= ?
+              AND NOT (m.tipo = 'ENTRADA' AND {_is_initial_stock("m")})
         """
         params: List[Any] = [tipo, date_from, date_to]
         if location_id is not None:
@@ -1012,6 +1051,64 @@ class MovementRepository(BaseRepository):
             (product_id, since),
         )
 
+    def get_product_stock_levels(self, location_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Saldo de hoje de cada produto ativo (no local ou somando os locais ativos)."""
+        if location_id is not None:
+            return self._execute_query(
+                """
+                SELECT pi.produto_id as produto_id, pi.quantidade as estoque
+                FROM produto_estoque pi
+                JOIN produtos p ON p.id = pi.produto_id
+                JOIN locais l ON l.id = pi.local_id
+                WHERE p.ativo = 1 AND l.ativo = 1 AND pi.local_id = ?
+                """,
+                (location_id,),
+            )
+        return self._execute_query(
+            """
+            SELECT p.id as produto_id,
+                   COALESCE((
+                       SELECT SUM(pi.quantidade)
+                       FROM produto_estoque pi
+                       JOIN locais l ON l.id = pi.local_id
+                       WHERE pi.produto_id = p.id AND l.ativo = 1
+                   ), 0) as estoque
+            FROM produtos p
+            WHERE p.ativo = 1
+            """
+        )
+
+    def get_products_daily_net(self, since: str, location_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """
+        Quanto o saldo de cada produto mudou em cada dia desde `since` (no local ou no total).
+        `cadastro` = 1 no dia do estoque inicial: antes dele o produto nao existia.
+        """
+        if location_id is not None:
+            delta = self._scope_movement_delta_expr(location_id, "m")
+        else:
+            # No total, transferencia entre locais nao muda o saldo.
+            delta = """
+                CASE
+                    WHEN m.tipo = 'ENTRADA' THEN m.quantidade
+                    WHEN m.tipo = 'SAIDA' THEN -m.quantidade
+                    ELSE 0
+                END
+            """
+        return self._execute_query(
+            f"""
+            SELECT m.produto_id as produto_id,
+                   date(m.data_hora) as dia,
+                   SUM({delta}) as delta,
+                   MAX(CASE WHEN {_is_initial_stock("m")} THEN 1 ELSE 0 END) as cadastro
+            FROM movimentacoes m
+            JOIN produtos p ON p.id = m.produto_id
+            WHERE p.ativo = 1
+              AND m.data_hora >= ?
+            GROUP BY m.produto_id, date(m.data_hora)
+            """,
+            (since,),
+        )
+
     def get_product_total_stock(self, product_id: int) -> int:
         row = self._execute_query(
             "SELECT COALESCE(SUM(quantidade), 0) as total FROM produto_estoque WHERE produto_id = ?",
@@ -1025,8 +1122,11 @@ class MovementRepository(BaseRepository):
         return self._execute_query(
             f"""
             SELECT date(data_hora) as dia,
-                   SUM(CASE WHEN tipo = 'ENTRADA' THEN quantidade ELSE 0 END) as entradas,
-                   SUM(CASE WHEN tipo = 'SAIDA' THEN {saida_liquida} ELSE 0 END) as saidas
+                   SUM(CASE WHEN tipo = 'ENTRADA' AND NOT ({_is_initial_stock("m")}) THEN quantidade ELSE 0 END)
+                       as entradas,
+                   SUM(CASE WHEN tipo = 'SAIDA' THEN {saida_liquida} ELSE 0 END) as saidas,
+                   SUM(CASE WHEN tipo = 'ENTRADA' AND {_is_initial_stock("m")} THEN quantidade ELSE 0 END)
+                       as estoque_inicial
             FROM movimentacoes m
             JOIN produtos p ON p.id = m.produto_id
             WHERE p.ativo = 1

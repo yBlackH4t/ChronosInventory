@@ -19,7 +19,7 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
-- **Versão em uso na empresa:** 2.5.1 (2026-10-15). Em PR: 2.5.2 (assistente que pergunta e aprende, passo 1) e 2.5.3 (disco e backups: cópias antigas limitadas, backup em atraso ao abrir, segunda pasta em outro disco, um log só).
+- **Versão em uso na empresa:** 2.5.4 (2026-10-15). Em PR: 2.5.5 (correções da avaliação de 2026-10-18).
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.
@@ -131,6 +131,46 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
   Detalhes na seção "WhatsApp: contexto por atendimento e envio aprovado" do mesmo plano.
   O banco original não foi usado.
 
+- **2.7.4, Vidro suave em Inventário, Etiquetas, Relatórios e tabela de Produtos** (branch
+   `claude/project-thread-oq7mai`, PR para a `main`): coluna "Código" em Produtos, anel de progresso
+   e selos no Inventário, pílula e código em destaque nas Etiquetas, miniatura da folha nos
+   Relatórios, correção do "Local #null" e do botão claro no Grafite escuro. Inclui também as
+   microinterações (itens 2 a 22) no mesmo PR #36. A 2.7.3 (estornos, PR #35) já está na `main`;
+   a tag `v2.7.4` cobre a 2.7.3 e a 2.7.2.
+- **2.7.3, movimentações mais limpas** (branch `claude/project-thread-mswsxd`, PR para a `main`): a
+   movimentação estornada e o estorno dela saem juntos da lista de Movimentações (chave "Mostrar
+   estornados" mostra de novo). Nada é apagado; saldo, relatórios e histórico do produto iguais.
+   A tag `v2.7.3` cobre a 2.7.2.
+- **2.7.2, nota fiscal e etiquetas** (branch `claude/project-thread-dcq6wk`, PR para a `main`): a nota
+   acha produtos desativados e reativa na tela, cadastra produto novo sem sair da nota, sugere pelo
+   código da empresa (CD_MATERIAL = id), vários CNPJs salvos escolhidos sozinhos pela nota, e perfis
+   de etiqueta de expedição com o perfil "Crua (sem marca)". A tag `v2.7.2` cobre a 2.7.1.
+- **2.7.1, etiqueta da NF depois da baixa** (branch `claude/project-thread-j2dl6e`, PR #32 para a
+   `main`): botão "Imprimir etiqueta" ao fim da saída por NF-e (e ao bipar uma nota já baixada),
+   modelo "meia folha" em Etiquetas > Expedição (NF-e) > Layout, e a impressão do designer saindo
+   no mesmo lugar do desenho. A 2.7.0 (PR #31) já está na `main` sem tag: a tag `v2.7.1` leva as
+   duas, e a `v2.7.0` não deve ser criada.
+- **2.7.0, cadastro da empresa** (2026-10-21, branch `claude/project-thread-7n35k7`, PR para a `main`):
+   importa o `produtos_completos.csv` do sistema da loja em Backup > Catálogo (produtos que faltam com
+   saldo zero + aplicações e similares como fichas "Cadastro da empresa") e deixa id e nome de cada
+   produto iguais aos do sistema da loja (CD_MATERIAL), com lista "Para conferir" do que parece outra peça. Depois do merge: importar na
+   máquina que publica a base e "Publicar base".
+0. **2.5.5, correções da avaliação** (branch `claude/project-thread-vw3djm`, PR para a `main`):
+   segurança do backend (Host/Origin na API, servidor da base oficial só com senha e bloqueio por
+   IP, senhas e chaves de API protegidas com DPAPI, PIN para `/aprovar` com tela em Assistente >
+   Admin, chave do A1 cifrada no temp, limites de download/upload), estoque inicial fora das
+   entradas, contraste, acentos e textos, Node 22 e bibliotecas atualizadas. Falta o dono revisar,
+   juntar e criar a tag. **Atenção ao atualizar:** a publicadora sem senha deixa de ligar o servidor
+   até o dono definir uma senha (a mesma nas outras máquinas); `/aprovar` pelo WhatsApp só funciona
+   depois de criar o PIN.
+0. **Visual novo "Vidro suave"** (escolhido em 2026-10-18; plano e amostras no Projeto): 2.6.0,
+   depois da 2.5.5. ✅ Passo "base nova" na branch `claude/vidro-suave-base` (a partir da
+   `claude/project-thread-vw3djm`): tema petróleo, fonte Sora, vidro em todas as telas, fundo com
+   manchas, animações com níveis Completo/Suave/Nenhum em Configurações > Aparência e Mantine 9.
+   Próximo: redesenho tela a tela. Testar num PC fraco da empresa se o vidro pesa (se pesar,
+   "Nenhum").
+   ✅ 2.6.1, Painel em blocos: branch `claude/painel-bento` (a partir da `main` 2.6.0); os gráficos
+   que saíram do Painel estão em Relatórios > Análises. Falta o dono revisar e juntar.
 0. **2.5.0, novo visual** (branch `claude/project-thread-8wdsu2`, PR para a `main`): as 11 ideias
    do mockup que o dono aprovou. Falta o dono revisar, juntar e criar a tag. Conferir na cópia do
    banco real se a "Evolução do estoque" ficou sem saldo negativo.

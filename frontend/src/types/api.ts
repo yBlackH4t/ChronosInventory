@@ -197,7 +197,57 @@ export type CatalogStatus = {
   origem: "pacote" | "importado" | "local";
   fichas_master_power: number;
   fichas_proprias: number;
+  fichas_cadastro?: number;
   produtos_vinculados: number;
+};
+
+// Cadastro da empresa: arquivo de produtos da loja (.csv) -> produtos que faltam + aplicações.
+export type CompanyRegisterStatus = {
+  fichas: number;
+  importado_em?: string | null;
+  pode_editar: boolean;
+  motivo?: string | null;
+};
+
+export type CompanyRegisterReview = {
+  cd_material: number;
+  nome_arquivo: string;
+  produto_id: number;
+  nome_chronos: string;
+  saldo: number;
+  movimentacoes: number;
+  motivo: "OUTRA_PECA";
+};
+
+export type CompanyRegisterPreview = {
+  itens_no_arquivo: number;
+  itens_ja_cadastrados: number;
+  iguais: number;
+  produtos_novos: number;
+  exemplos_produtos_novos: string[];
+  nomes_trocados: number;
+  exemplos_nomes: { id: number; de: string; para: string }[];
+  ids_trocados: number;
+  exemplos_ids: { de: number; para: number; nome: string }[];
+  para_conferir: CompanyRegisterReview[];
+  fora_do_arquivo: number;
+  fora_do_arquivo_com_saldo: { produto_id: number; nome: string; saldo: number }[];
+  fichas: number;
+  fichas_atuais: number;
+  aplicacoes: number;
+  codigos: number;
+  ignorados: {
+    outras_pecas: number;
+    sem_codigo: number;
+    no_catalogo_master_power: number;
+    sem_aplicacao: number;
+  };
+};
+
+export type CompanyRegisterImportOut = CompanyRegisterPreview & {
+  produtos_criados: number;
+  backup: string;
+  status: CatalogStatus;
 };
 
 export type CatalogImportOut = {
@@ -331,6 +381,8 @@ export type ListMovementsParams = {
   date_from?: string;
   date_to?: string;
   documento?: string;
+  /** Esconde o lançamento estornado e o estorno dele (os dois juntos). */
+  ocultar_estornados?: boolean;
   page?: number;
   page_size?: number;
   sort?: string;
@@ -581,7 +633,9 @@ export type InventorySessionCreateIn = {
 export type InventorySessionOut = {
   id: number;
   nome: string;
-  location_id: number;
+  location_id: number | null;
+  /** Nome do local, como o backend manda. */
+  local?: string | null;
   local_label?: string | null;
   status: InventorySessionStatus;
   observacao?: string | null;
@@ -709,8 +763,11 @@ export type SaidasPoint = {
 
 export type FlowPoint = {
   period: string;
+  /** Sem o estoque inicial do cadastro. */
   entradas: number;
   saidas: number;
+  /** Estoque inicial do cadastro: não é entrada, mas conta para reconstruir o saldo. */
+  estoque_inicial?: number;
 };
 
 export type StockEvolutionPoint = {
@@ -980,6 +1037,8 @@ export type SelectedStockReportIn = {
 export type NfeProduto = {
   id: number;
   nome: string;
+  /** false = produto desativado; a tela da nota oferece reativar. */
+  ativo?: boolean;
   estoque: Record<string, number>;
 };
 
@@ -1012,6 +1071,13 @@ export type NfePreview = {
   arquivo: string;
   itens: NfeItemPreview[];
   movimento_sugerido: Record<"SAIDA" | "ENTRADA", NfeMovimentoSugerido>;
+  /** CNPJ salvo em "Configurar" que esta nota usa (escolhido sozinho). */
+  loja?: NfeCnpj | null;
+};
+
+export type NfeCnpj = {
+  cnpj: string;
+  nome: string;
 };
 
 export type NfeNatureza = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "AJUSTE";
@@ -1040,9 +1106,17 @@ export type NfeBaixaOut = {
   movimentacoes: number[];
 };
 
+export type NfeXmlOut = {
+  chave: string;
+  numero: number;
+  arquivo: string;
+  xml: string;
+};
+
 export type NfeConfig = {
   pastas_xml: string[];
   cnpj_loja?: string | null;
+  cnpjs?: NfeCnpj[];
   uf?: string;
   certificado?: { titular: string; cnpj: string | null; validade: string } | null;
 };
@@ -1050,6 +1124,8 @@ export type NfeConfig = {
 export type NfeConfigIn = {
   pastas_xml: string[];
   cnpj_loja?: string | null;
+  /** O primeiro e o desta loja. */
+  cnpjs?: NfeCnpj[];
 };
 
 export type NfeCertificadoIn = {

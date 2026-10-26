@@ -31,14 +31,14 @@ export default function StockCompareOverviewCards({
   return (
     <div className="stat-grid">
       <StatusTile
-        label="Snapshot local"
+        label="Cópia do estoque local"
         value={localLatest ? dayjs(localLatest).format("DD/MM/YYYY HH:mm") : "Não publicado"}
         tone={localLatest ? "success" : "neutral"}
-        status={localLatest ? "Pronto para comparar" : "Sem snapshot"}
+        status={localLatest ? "Pronto para comparar" : "Sem cópia do estoque"}
         hint={`Confirmado em ${localStatusConfirmedAt || "—"}`}
       />
       <StatusTile
-        label="Snapshot remoto"
+        label="Cópia do estoque remota"
         value={remoteLatest ? dayjs(remoteLatest).format("DD/MM/YYYY HH:mm") : "Não publicado"}
         tone={
           remoteSnapshotIsOlder
@@ -53,7 +53,7 @@ export default function StockCompareOverviewCards({
             : remoteServerInfo?.reachable
               ? "Servidor online"
               : remoteServerInfo
-                ? "Sem snapshot"
+                ? "Sem cópia do estoque"
                 : "Não consultado"
         }
         hint={`Consultado em ${remoteStatusCheckedAt || "—"}`}

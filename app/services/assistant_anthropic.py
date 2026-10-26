@@ -20,7 +20,7 @@ from app.services.assistant_common import (
     collect_products,
     tool_output_json,
 )
-from app.services.assistant_tools_service import ASSISTANT_TOOLS, AssistantToolsService
+from app.services.assistant_tools_service import AssistantToolsService, tool_definitions
 
 LOG = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ def run_anthropic(
         client = (client_factory or default_client_factory)(api_key)
         response = None
         for _ in range(MAX_TOOL_ROUNDS):
-            response = _create(client, model, effort, messages)
+            response = _create(client, model, effort, messages, tool_definitions(tools))
             _log_usage(model, response, tools_used)
 
             if response.stop_reason == "refusal":
@@ -109,12 +109,14 @@ def run_anthropic(
     return text or NO_ANSWER_TEXT, found, tools_used
 
 
-def _create(client: Any, model: str, effort: str, messages: List[Dict[str, Any]]) -> Any:
+def _create(
+    client: Any, model: str, effort: str, messages: List[Dict[str, Any]], tool_defs: Optional[List[Dict[str, Any]]] = None
+) -> Any:
     kwargs: Dict[str, Any] = {
         "model": model,
         "max_tokens": MAX_TOKENS,
         "system": SYSTEM_PROMPT,
-        "tools": ASSISTANT_TOOLS,
+        "tools": tool_defs if tool_defs is not None else tool_definitions(),
         "messages": messages,
         "output_config": {"effort": effort},
         # Cacheia system + ferramentas + historico: as rodadas de ferramenta reaproveitam o prefixo.

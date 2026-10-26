@@ -8,8 +8,9 @@ import { SEMANTIC_HEX, type SemanticHex } from "./semantic";
 // surfaces: #ffffff (light) and #0f172a (dark). Assign in this order, never
 // cycle by rank. Red is intentionally absent: it is reserved for errors.
 const SERIES = {
-  light: ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"],
-  dark: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"],
+  // 2ª cor era laranja; laranja agora quer dizer só "Saída".
+  light: ["#2a78d6", "#8b5cf6", "#1baf7a", "#eda100", "#e87ba4"],
+  dark: ["#3987e5", "#9b7bf0", "#199e70", "#c98500", "#d55181"],
 };
 
 export type ChartTheme = {

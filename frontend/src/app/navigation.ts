@@ -38,7 +38,7 @@ export type NavGroup = {
 // Daily-use screens shown as top bar tabs (Alt+1..6).
 export const PRIMARY_NAV: NavItem[] = [
   {
-    label: "Dashboard",
+    label: "Painel",
     to: "/dashboard",
     icon: IconGauge,
     description: "Visão consolidada do estoque",
@@ -152,7 +152,7 @@ export const ADMIN_NAV: NavGroup[] = [
         description: "Índice de configurações do sistema",
       },
       {
-        label: "Setup",
+        label: "Primeira configuração",
         to: "/setup",
         icon: IconTool,
         description: "Configuração inicial do sistema",

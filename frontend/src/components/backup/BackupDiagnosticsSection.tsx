@@ -45,7 +45,7 @@ export function BackupDiagnosticsSection({
         </div>
         <Button
           variant="light"
-          color="orange"
+          color="warning"
           onClick={onRestorePreUpdate}
           loading={restorePreUpdateLoading}
         >

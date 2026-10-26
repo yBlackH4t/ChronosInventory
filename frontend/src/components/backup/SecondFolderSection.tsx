@@ -64,7 +64,7 @@ export function SecondFolderSection() {
         <IconFolderShare size={18} stroke={1.5} />
         <Text fw={600}>Cópia dos backups em outro disco</Text>
         {status?.ativo ? (
-          <Badge size="xs" color="green" variant="light">
+          <Badge size="xs" color="success" variant="light">
             Ligada
           </Badge>
         ) : (
@@ -106,7 +106,7 @@ export function SecondFolderSection() {
           {status?.ativo && (
             <Button
               variant="subtle"
-              color="red"
+              color="danger"
               onClick={() => saveMutation.mutate("")}
               loading={saveMutation.isPending}
             >
@@ -123,7 +123,7 @@ export function SecondFolderSection() {
           </Text>
         )}
         {status?.ativo && status.ultimo_erro && (
-          <Alert color="orange" variant="light" p="xs">
+          <Alert color="warning" variant="light" p="xs">
             A última cópia falhou ({status.ultimo_erro}). Confira se o disco,
             pendrive ou rede está conectado; o Chronos tenta de novo no próximo
             backup.

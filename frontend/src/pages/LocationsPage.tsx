@@ -61,7 +61,7 @@ export default function LocationsPage() {
     if (activeLocations.length >= 5) {
       notifyError(
         new Error("Limite de locais"),
-        "Voce ja atingiu o limite maximo de 5 locais ativos.",
+        "Você já atingiu o limite máximo de 5 locais ativos.",
       );
       return;
     }
@@ -264,7 +264,7 @@ export default function LocationsPage() {
                     Cancelar
                   </Button>
                   <Button
-                    color="red"
+                    color="danger"
                     onClick={() => deleteMutation.mutate({ force: false, hard: true })}
                     loading={deleteMutation.isPending}
                   >
@@ -283,7 +283,7 @@ export default function LocationsPage() {
                     Cancelar
                   </Button>
                   <Button
-                    color="red"
+                    color="danger"
                     onClick={() => deleteMutation.mutate({ force: false, hard: false })}
                     loading={deleteMutation.isPending}
                   >
@@ -296,7 +296,7 @@ export default function LocationsPage() {
                 <Alert
                   icon={<IconAlertTriangle size={16} />}
                   title="Este local ainda tem estoque"
-                  color="orange"
+                  color="warning"
                 >
                   Não é possível excluir permanentemente um local que ainda possui
                   produtos associados.
@@ -311,7 +311,7 @@ export default function LocationsPage() {
                     Cancelar
                   </Button>
                   <Button
-                    color="orange"
+                    color="warning"
                     onClick={() => deleteMutation.mutate({ force: true, hard: false })}
                     loading={deleteMutation.isPending}
                   >

@@ -47,7 +47,7 @@ export function ProductFormModal({
           <Stack>
             <TextInput label="Nome" {...editForm.getInputProps("nome")} />
             <Textarea
-              label="Descricao"
+              label="Descrição"
               minRows={3}
               {...editForm.getInputProps("observacao")}
             />

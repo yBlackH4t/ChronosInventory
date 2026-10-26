@@ -68,8 +68,8 @@ export function SyncStatusBadge() {
     label = "Não configurado";
     hasGlow = false;
   } else if (hasError) {
-    dotColor = "var(--mantine-color-orange-6)";
-    label = "Sync pendente";
+    dotColor = "var(--mantine-color-warning-6)";
+    label = "Sincronização pendente";
     hasGlow = false;
   } else if (!data.verificado_em) {
     dotColor = "var(--mantine-color-gray-5)";
@@ -77,9 +77,9 @@ export function SyncStatusBadge() {
     hasGlow = false;
   } else {
     dotColor = isPublisher
-      ? "var(--mantine-color-blue-6)"
-      : "var(--mantine-color-teal-6)";
-    label = isPublisher ? "Publicadora" : "Sincronizado";
+      ? "var(--mantine-color-info-6)"
+      : "var(--mantine-color-success-6)";
+    label = isPublisher ? "Computador principal" : "Sincronizado";
     hasGlow = true;
   }
 
@@ -111,7 +111,7 @@ export function SyncStatusBadge() {
             style={{
               cursor: "pointer",
               background: "transparent",
-              border: "1px solid var(--border-subtle)",
+              border: "1px solid var(--border)",
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
@@ -142,7 +142,7 @@ export function SyncStatusBadge() {
             <Group gap={6}>
               <IconNetwork size={16} color="var(--accent)" />
               <Text fw={700} size="xs" tt="uppercase" c="dimmed">
-                Conhecimento do Assistente
+                Conhecimento do assistente
               </Text>
             </Group>
             {data && (
@@ -153,15 +153,15 @@ export function SyncStatusBadge() {
                   !isConfigured
                     ? "gray"
                     : isPublisher
-                    ? "blue"
-                    : "teal"
+                    ? "info"
+                    : "success"
                 }
               >
                 {!isConfigured
                   ? "Não configurado"
                   : isPublisher
-                  ? "Publica a base"
-                  : "Cliente"}
+                  ? "Computador principal"
+                  : "Outro computador"}
               </Badge>
             )}
           </Group>
@@ -180,7 +180,7 @@ export function SyncStatusBadge() {
               {data.erro && isConfigured && (
                 <Alert
                   icon={<IconAlertCircle size={14} />}
-                  color="orange"
+                  color="warning"
                   variant="light"
                   p="xs"
                 >
@@ -265,7 +265,6 @@ export function SyncStatusBadge() {
             <Button
               size="xs"
               variant="light"
-              color={isPublisher ? "blue" : "teal"}
               leftSection={<IconRefresh size={14} />}
               loading={syncMutation.isPending}
               onClick={() => {

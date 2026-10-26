@@ -1,0 +1,775 @@
+/* ==========================================================================
+   Produtos, ficha e Movimentações (2.6.2). Só classes novas (pm-*, mv-line*),
+   para não mexer nas outras telas. Contraste de texto >= 4,5:1 nos dois temas.
+   ========================================================================== */
+
+/* Azul de transferência como texto (o "info" do tema fica claro demais no escuro). */
+:root {
+  --pm-transfer-text: #1d4ed8;
+}
+
+:root[data-mantine-color-scheme="dark"] {
+  --pm-transfer-text: #7cb4fb;
+}
+
+/* Código da peça: o "rótulo" da linha. */
+.pm-code {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 100%;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 0 rgba(15, 40, 60, 0.04);
+}
+
+.pm-code[data-size="lg"] {
+  font-size: 1.35rem;
+  padding: 2px 12px;
+  border-radius: 8px;
+}
+
+.pm-code[data-size="sm"] {
+  font-size: 0.8rem;
+  padding: 0 6px;
+}
+
+/* Coluna "Código" da lista de Produtos (2.7.4): o código numa coluna própria, alinhado,
+   como no sistema da empresa; o nome vem depois, em destaque. */
+.pm-code-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-code-cell[data-empty] {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Cabeçalhos curtos numa linha só ("Saldo · Canoas" não quebra). */
+.pm-th {
+  white-space: nowrap;
+}
+
+.pm-sales-cell {
+  opacity: 0.92;
+}
+
+/* Marca · versão em texto, com a cor da versão num ponto. */
+.pm-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.pm-meta > * {
+  flex-shrink: 0;
+}
+
+.pm-meta > .pm-meta-fill {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pm-version-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pm-sep {
+  color: var(--text-muted);
+}
+
+/* Saldo grande à direita: verde com estoque, âmbar baixo (com dica), vermelho zerado. */
+.pm-stock {
+  display: inline-block;
+  min-width: 40px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  text-align: right;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  color: var(--success);
+}
+
+.pm-stock[data-level="BAIXO"] {
+  color: var(--warning);
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+
+.pm-stock[data-level="ZERADO"] {
+  color: var(--danger);
+}
+
+.pm-stock-branch {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-stock-branch[data-zero] {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Depois de movimentar: o saldo pisca na cor do movimento e assenta. */
+.pm-stock[data-flash="entrada"] {
+  animation: pm-flash-entrada 1.6s var(--ease-out);
+}
+
+.pm-stock[data-flash="saida"] {
+  animation: pm-flash-saida 1.6s var(--ease-out);
+}
+
+.pm-stock[data-flash="transferencia"] {
+  animation: pm-flash-transferencia 1.6s var(--ease-out);
+}
+
+@keyframes pm-flash-entrada {
+  0%,
+  35% {
+    background: color-mix(in srgb, var(--mantine-color-success-filled) 16%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mantine-color-success-filled) 45%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+@keyframes pm-flash-saida {
+  0%,
+  35% {
+    background: color-mix(in srgb, var(--mantine-color-orange-filled) 16%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mantine-color-orange-filled) 45%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+@keyframes pm-flash-transferencia {
+  0%,
+  35% {
+    background: color-mix(in srgb, var(--mantine-color-info-filled) 14%, transparent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--mantine-color-info-filled) 40%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+
+/* Ações sempre visíveis (nada apagado) e alvos de 32 px. */
+.pm-actions {
+  opacity: 1;
+}
+
+.pm-actions .mantine-ActionIcon-root {
+  color: var(--text-muted);
+}
+
+.pm-actions .mantine-ActionIcon-root:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.pm-actions .mantine-ActionIcon-root:disabled,
+.pm-actions .mantine-ActionIcon-root[data-disabled] {
+  color: var(--text-muted);
+  opacity: 0.45;
+}
+
+/* ==========================================================================
+   Ficha do produto
+   ========================================================================== */
+
+.pm-hero {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 560px) {
+  .pm-hero {
+    grid-template-columns: 112px minmax(0, 1fr);
+  }
+}
+
+.pm-hero-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 14px;
+  cursor: pointer;
+}
+
+.pm-hero-photo .product-thumb {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 14px;
+}
+
+.pm-hero-photo:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pm-tile-value {
+  font-size: 1.6rem;
+  font-weight: 650;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.pm-tile-value[data-zero] {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.pm-tile-value[data-level="OK"] {
+  color: var(--success);
+}
+
+.pm-tile-value[data-level="BAIXO"] {
+  color: var(--warning);
+}
+
+.pm-tile-value[data-level="ZERADO"] {
+  color: var(--danger);
+}
+
+.pm-recent {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pm-recent-row {
+  display: grid;
+  grid-template-columns: 92px 112px 52px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 7px 12px;
+  font-size: 0.82rem;
+  color: var(--text);
+}
+
+.pm-recent-row + .pm-recent-row {
+  border-top: 1px solid var(--border);
+}
+
+/* ==========================================================================
+   Movimentações: linha do tempo compacta (uma linha por movimento)
+   ========================================================================== */
+
+.mv-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3px 46px minmax(0, 1.25fr) minmax(0, 1fr) minmax(120px, 0.55fr) 56px auto;
+  align-items: center;
+  gap: 0 12px;
+  min-height: 44px;
+  padding-right: 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.mv-line:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.mv-line:last-child {
+  border-bottom: 0;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.mv-day {
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.mv-line:hover {
+  background: var(--surface-hover);
+}
+
+.mv-line-bar {
+  align-self: stretch;
+  margin: 6px 0;
+  border-radius: 0 3px 3px 0;
+}
+
+.mv-line-time {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mv-line-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mv-line-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.mv-line-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mv-line-tags > * {
+  flex-shrink: 0;
+}
+
+.mv-line-obs {
+  flex-shrink: 1 !important;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.mv-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mv-type::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.mv-type[data-tone="success"] {
+  color: var(--success);
+}
+
+.mv-type[data-tone="orange"] {
+  color: var(--warning);
+}
+
+.mv-type[data-tone="info"] {
+  color: var(--pm-transfer-text);
+}
+
+.mv-type[data-tone="gray"] {
+  color: var(--text-muted);
+}
+
+.mv-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.mv-chip[data-kind="cadastro"] {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.mv-line-place {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.mv-line-qty {
+  text-align: right;
+  font-weight: 700;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mv-line-place-inline {
+  display: none;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* Desfeita por um estorno: riscada, sem cor de movimento. */
+.mv-line[data-reversed] .mv-line-name,
+.mv-line[data-reversed] .mv-line-qty,
+.mv-line[data-reversed] .pm-code {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.mv-line[data-reversed] .mv-line-qty {
+  color: var(--text-muted) !important;
+}
+
+.mv-line[data-reversed] .mv-line-bar {
+  background: var(--border-strong) !important;
+}
+
+/* Janela estreita: duas linhas por movimento. */
+@media (max-width: 1100px) {
+  .mv-line {
+    grid-template-columns: 3px 46px minmax(0, 1fr) 56px auto;
+    grid-template-areas:
+      "bar time product qty actions"
+      "bar . tags tags tags";
+    padding-bottom: 4px;
+  }
+
+  .mv-line-bar {
+    grid-area: bar;
+  }
+
+  .mv-line-time {
+    grid-area: time;
+  }
+
+  .mv-line-product {
+    grid-area: product;
+  }
+
+  .mv-line-tags {
+    grid-area: tags;
+  }
+
+  .mv-line-place {
+    display: none;
+  }
+
+  .mv-line-tags .mv-line-place-inline {
+    display: inline;
+  }
+
+  .mv-line-qty {
+    grid-area: qty;
+  }
+
+  .mv-line .pm-actions {
+    grid-area: actions;
+  }
+}
+
+/* Tabela de Movimentações: a estornada também aparece riscada. */
+.mv-table-row[data-reversed] td:nth-child(2) .mantine-Text-root:first-child,
+.mv-table-row[data-reversed] td:nth-child(4) .mantine-Text-root {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Lista de Produtos refeita (2.7.4): Cód. da empresa, descrição como está no
+   cadastro com o código da peça destacado, zerados discretos.
+   ========================================================================== */
+
+/* Título que ordena: clique alterna crescente/decrescente. */
+.pm-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.pm-sort[data-align="right"] {
+  flex-direction: row-reverse;
+}
+
+.pm-sort svg {
+  opacity: 0.35;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.pm-sort:hover {
+  background: var(--pill-track);
+  color: var(--text);
+}
+
+.pm-sort:hover svg,
+.pm-sort[data-active] svg {
+  opacity: 1;
+}
+
+.pm-sort[data-active] {
+  color: var(--accent-text);
+}
+
+.pm-sort:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Cód. da empresa (o mesmo número do sistema). */
+.pm-id {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-row:hover .pm-id,
+.pm-row.row-selected .pm-id {
+  color: var(--text);
+}
+
+/* Descrição numa linha, igual ao cadastro; o código da peça dentro dela em destaque. */
+.pm-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.mi-copy.pm-name-code {
+  display: inline;
+  margin: 0 1px;
+  padding: 1px 4px;
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.mi-copy.pm-name-code:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Sem foto: sigla da marca ou do tipo, na cor da marca. */
+.product-monogram {
+  border-color: color-mix(in srgb, var(--mono-color) 28%, transparent);
+  background: color-mix(in srgb, var(--mono-color) 13%, var(--surface-solid));
+  color: color-mix(in srgb, var(--mono-color) 70%, var(--text));
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.product-monogram[data-len="3"] {
+  font-size: 0.62rem;
+}
+
+/* Com estoque: um traço verde à esquerda. Zerado: a linha fica mais apagada. */
+.pm-row:not([data-zero]) > td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--success) 60%, transparent);
+}
+
+.pm-row[data-zero] .pm-name {
+  color: var(--text-muted);
+  font-weight: 550;
+}
+
+.pm-row[data-zero] .product-thumb {
+  opacity: 0.6;
+}
+
+.pm-row[data-zero] .mi-copy.pm-name-code {
+  background: transparent;
+}
+
+.pm-table .pm-stock[data-level="ZERADO"] {
+  color: var(--text-muted);
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.pm-table .pm-stock-branch[data-zero] {
+  opacity: 0.55;
+}
+
+/* Saídas em 90 dias: número + barrinhas por semana; sem saída, só um traço. */
+.pm-sales {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 8px;
+  min-height: 20px;
+}
+
+.pm-sales[data-empty] {
+  align-items: center;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.pm-sales-total {
+  min-width: 18px;
+  font-size: 0.9rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--text);
+  text-align: right;
+}
+
+.pm-footer {
+  padding: 0 4px;
+}
+
+/* Resumo do estoque no lugar do subtítulo. */
+.pm-header-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
+  color: var(--text-muted);
+}
+
+.pm-header-stats strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.pm-header-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Filtro de estoque com a contagem de cada opção. */
+.pm-filter-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.pm-filter-count {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--pill-track);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.pm-stock-filter [data-active] .pm-filter-count,
+.pm-stock-filter .mantine-SegmentedControl-label[data-active] .pm-filter-count {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* Ações da linha flutuando à direita (só no hover/seleção): não ocupam uma coluna vazia. */
+.pm-table .pm-actions-cell {
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+
+.pm-actions.pm-actions-float {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 2;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  box-shadow: 0 6px 18px rgba(15, 40, 60, 0.14);
+  pointer-events: none;
+}
+
+:root[data-mantine-color-scheme="dark"] .pm-actions.pm-actions-float {
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+}
+
+.clickable-row:hover .pm-actions.pm-actions-float,
+.clickable-row:focus-within .pm-actions.pm-actions-float,
+.clickable-row.row-selected .pm-actions.pm-actions-float,
+.pm-actions.pm-actions-float:has([aria-expanded="true"]) {
+  pointer-events: auto;
+}

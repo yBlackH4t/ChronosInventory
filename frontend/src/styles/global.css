@@ -1,28 +1,55 @@
 /* ==========================================================================
-   Chronos Minimal — design tokens
+   Chronos "Vidro suave" — design tokens (2.6.0)
+   Fundo claro com manchas de cor, cartões de vidro, azul-petróleo -> céu.
+   Contraste de texto conferido (>= 4,5:1) sobre o fundo, o vidro e as manchas.
    ========================================================================== */
 
 :root {
   color-scheme: light;
 
-  --bg: #f8fafc;
-  --surface: #ffffff;
-  --surface-2: #f1f5f9;
-  --surface-hover: #f1f5f9;
-  --border: #e2e8f0;
-  --border-strong: #cbd5e1;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --text-subtle: #94a3b8;
-  --accent: #4f46e5;
-  --accent-soft: rgba(79, 70, 229, 0.08);
-  --success: #059669;
-  --danger: #dc2626;
-  --warning: #d97706;
-  --topbar-bg: rgba(248, 250, 252, 0.82);
-  --shadow-pop: 0 12px 32px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --bg: #eef3f6;
+  /* Vidro: o que fica por cima do fundo. "raised" é o vidro mais opaco de menus,
+     janelas e cabeçalho de tabela, que ficam sobre conteúdo e precisam de leitura. */
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-raised: rgba(255, 255, 255, 0.88);
+  /* Janelas sobre o escurecido: quase opacas, para o texto apagado seguir legível. */
+  --surface-overlay: rgba(255, 255, 255, 0.96);
+  --surface-solid: #ffffff;
+  --surface-2: rgba(16, 34, 46, 0.045);
+  --surface-hover: rgba(14, 116, 144, 0.07);
+  --border: rgba(16, 34, 46, 0.1);
+  --border-strong: rgba(16, 34, 46, 0.2);
+  --text: #10222e;
+  --text-muted: #4f6371;
+  --text-subtle: #4f6371;
+  --accent: #0e7490;
+  /* Texto na cor principal: um tom acima, para ler bem até sobre as manchas. */
+  --accent-text: #0b5f77;
+  --accent-soft: rgba(14, 116, 144, 0.1);
+  --accent-gradient: linear-gradient(135deg, #0e7490 0%, #38bdf8 100%);
+  /* Tons escuros o bastante para texto sobre o fundo claro (>= 4,5:1). */
+  --success: #047857;
+  --danger: #b91c1c;
+  --warning: #a14a06;
 
+  --glass-border: rgba(255, 255, 255, 0.8);
+  --glass-filter: blur(18px) saturate(1.4);
+  --shadow-glass: 0 1px 2px rgba(15, 40, 60, 0.04), 0 8px 28px rgba(15, 40, 60, 0.07);
+  --shadow-lift: 0 2px 4px rgba(15, 40, 60, 0.05), 0 14px 36px rgba(14, 116, 144, 0.14);
+  --shadow-pop: 0 2px 6px rgba(15, 40, 60, 0.06), 0 16px 40px rgba(15, 40, 60, 0.14);
+  --shadow-button: 0 6px 20px rgba(14, 116, 144, 0.3);
+  --pill-track: rgba(16, 34, 46, 0.05);
+  --pill-thumb: #ffffff;
+  --pill-thumb-shadow: 0 1px 2px rgba(15, 40, 60, 0.06), 0 2px 8px rgba(15, 40, 60, 0.06);
+
+  --blob-1: #9fd8e3;
+  --blob-2: #c9d7f5;
+  --blob-3: #f3d9c4;
+  --blob-opacity: 0.45;
+
+  --radius-glass: 16px;
   --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 120ms;
   --dur: 180ms;
 
@@ -35,43 +62,93 @@
 :root[data-mantine-color-scheme="dark"] {
   color-scheme: dark;
 
-  --bg: #0b0f17;
-  --surface: #0f172a;
-  --surface-2: #162235;
-  --surface-hover: #1a2740;
-  --border: rgba(148, 163, 184, 0.14);
-  --border-strong: rgba(148, 163, 184, 0.26);
-  --text: #e2e8f0;
-  --text-muted: #94a3b8;
-  --text-subtle: #64748b;
-  --accent: #818cf8;
-  --accent-soft: rgba(129, 140, 248, 0.12);
+  --bg: #0a141b;
+  --surface: rgba(19, 34, 45, 0.62);
+  --surface-raised: rgba(20, 36, 48, 0.94);
+  --surface-overlay: rgba(20, 36, 48, 0.97);
+  --surface-solid: #13222d;
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(56, 189, 248, 0.08);
+  --border: rgba(155, 176, 190, 0.16);
+  --border-strong: rgba(155, 176, 190, 0.3);
+  --text: #e6eef3;
+  --text-muted: #9bb0be;
+  --text-subtle: #9bb0be;
+  --accent: #38bdf8;
+  --accent-text: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.12);
   --success: #10b981;
   --danger: #f87171;
   --warning: #fbbf24;
-  --topbar-bg: rgba(11, 15, 23, 0.78);
-  --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --shadow-glass: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 28px rgba(0, 0, 0, 0.28);
+  --shadow-lift: 0 2px 4px rgba(0, 0, 0, 0.25), 0 14px 36px rgba(56, 189, 248, 0.14);
+  --shadow-pop: 0 2px 8px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-button: 0 6px 20px rgba(56, 189, 248, 0.22);
+  --pill-track: rgba(255, 255, 255, 0.06);
+  --pill-thumb: rgba(255, 255, 255, 0.1);
+  --pill-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  --blob-1: #0e7490;
+  --blob-2: #1e3a8a;
+  --blob-3: #7c4a2d;
+  --blob-opacity: 0.32;
 }
 
-/* Cor principal escolhida em Configurações > Aparência */
-:root[data-accent="petroleo"] {
-  --accent: #0e7490;
-  --accent-soft: rgba(14, 116, 144, 0.09);
+/* Cor principal escolhida em Configurações > Aparência (padrão: azul-petróleo). */
+:root[data-accent="indigo"] {
+  --accent: #4f46e5;
+  --accent-text: #4338ca;
+  --accent-soft: rgba(79, 70, 229, 0.09);
+  --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+  --shadow-button: 0 6px 20px rgba(79, 70, 229, 0.28);
 }
 
 :root[data-accent="grafite"] {
   --accent: #334155;
+  --accent-text: #334155;
   --accent-soft: rgba(51, 65, 85, 0.08);
+  --accent-gradient: linear-gradient(135deg, #334155 0%, #64748b 100%);
+  --shadow-button: 0 6px 20px rgba(51, 65, 85, 0.24);
 }
 
-:root[data-mantine-color-scheme="dark"][data-accent="petroleo"] {
-  --accent: #22d3ee;
-  --accent-soft: rgba(34, 211, 238, 0.12);
+:root[data-mantine-color-scheme="dark"][data-accent="indigo"] {
+  --accent: #818cf8;
+  --accent-text: #a5b4fc;
+  --accent-soft: rgba(129, 140, 248, 0.12);
 }
 
 :root[data-mantine-color-scheme="dark"][data-accent="grafite"] {
   --accent: #cbd5e1;
+  --accent-text: #cbd5e1;
   --accent-soft: rgba(203, 213, 225, 0.1);
+}
+
+/* Grafite no escuro: o botão "light" do Mantine (cinza a 15% sobre o fundo escuro) ficava
+   preto, como se as cores estivessem invertidas. Aqui ele fica claro e suave como nas
+   outras cores. */
+:root[data-mantine-color-scheme="dark"][data-accent="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]) {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.16);
+}
+
+:root[data-mantine-color-scheme="dark"][data-accent="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]):hover {
+  background: rgba(203, 213, 225, 0.18);
+}
+
+/* "Nenhum" em Configurações > Aparência: sem desfoque (PCs fracos). O vidro vira cartão
+   quase opaco, para o texto continuar legível sem o desfoque por trás. */
+:root[data-motion="nenhum"] {
+  --glass-filter: none;
+  --surface: rgba(255, 255, 255, 0.86);
+  --surface-raised: #ffffff;
+}
+
+:root[data-motion="nenhum"][data-mantine-color-scheme="dark"] {
+  --surface: rgba(19, 34, 45, 0.9);
+  --surface-raised: #142430;
 }
 
 /* ==========================================================================
@@ -88,13 +165,12 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(99, 102, 241, 0.28);
+  background: rgba(14, 116, 144, 0.24);
   color: var(--text);
 }
 
@@ -104,7 +180,7 @@ body {
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  scrollbar-color: rgba(100, 125, 140, 0.35) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -131,20 +207,89 @@ body {
 }
 
 /* ==========================================================================
-   Shell — top bar
+   Fundo com manchas de cor (atrás de tudo)
+   ========================================================================== */
+
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Gradiente radial em vez de filter: blur(60px): o mesmo círculo esfumado, sem custo de
+   desfoque a cada quadro. */
+.app-blob {
+  position: absolute;
+  border-radius: 50%;
+  opacity: var(--blob-opacity);
+  background: radial-gradient(closest-side, var(--blob-color) 0%, var(--blob-color) 35%, transparent 100%);
+}
+
+.app-blob[data-blob="1"] {
+  --blob-color: var(--blob-1);
+  width: 560px;
+  height: 560px;
+  top: -190px;
+  left: -150px;
+}
+
+.app-blob[data-blob="2"] {
+  --blob-color: var(--blob-2);
+  width: 520px;
+  height: 520px;
+  top: 38%;
+  right: -170px;
+}
+
+.app-blob[data-blob="3"] {
+  --blob-color: var(--blob-3);
+  width: 440px;
+  height: 440px;
+  bottom: -150px;
+  left: 30%;
+}
+
+:root[data-motion="completo"] .app-blob {
+  animation: vs-float 14s ease-in-out infinite;
+  will-change: transform;
+}
+
+:root[data-motion="completo"] .app-blob[data-blob="2"] {
+  animation-delay: -5s;
+}
+
+:root[data-motion="completo"] .app-blob[data-blob="3"] {
+  animation-delay: -9s;
+}
+
+/* ==========================================================================
+   Shell — top bar (cartão de vidro flutuando sobre o conteúdo)
    ========================================================================== */
 
 .topbar {
-  background: var(--topbar-bg);
-  backdrop-filter: saturate(160%) blur(14px);
-  -webkit-backdrop-filter: saturate(160%) blur(14px);
-  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border: 0;
+  padding-top: 10px;
+  pointer-events: none;
 }
 
 .topbar-inner {
   max-width: 1680px;
   margin: 0 auto;
   padding: 0 24px;
+}
+
+.topbar-card {
+  pointer-events: auto;
+  padding: 0 14px 6px;
+  border-radius: var(--radius-glass);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .topbar-row {
@@ -166,16 +311,16 @@ body {
 .topbar-brand-mark {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 9px;
   display: grid;
   place-items: center;
   color: #fff;
-  background: linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
+  background: var(--accent-gradient);
 }
 
 .topbar-brand-name {
-  font-weight: 650;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 1.05rem;
   letter-spacing: -0.01em;
 }
 
@@ -183,12 +328,12 @@ body {
   flex: 1;
   max-width: 520px;
   margin: 0 auto;
-  height: 34px;
+  height: 36px;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 8px 0 12px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-subtle);
@@ -243,7 +388,9 @@ body {
   border-color: var(--border-strong);
 }
 
+/* Ponto de status: pulsa devagar (anel que se abre), só no nível "completo". */
 .status-dot {
+  --pulse-color: rgba(4, 120, 87, 0.45);
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -253,8 +400,13 @@ body {
 }
 
 .status-dot[data-variant="warning"] {
+  --pulse-color: rgba(161, 74, 6, 0.45);
   background: var(--warning);
   box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18);
+}
+
+:root[data-motion="completo"] .status-dot[data-pulse] {
+  animation: vs-pulse 2s infinite;
 }
 
 .status-dot-wrap {
@@ -265,69 +417,71 @@ body {
   cursor: default;
 }
 
+/* Abas principais: trilho em pílula; a pílula branca desliza até a aba ativa. */
 .topbar-tabs {
-  height: 44px;
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 2px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--pill-track);
   overflow-x: auto;
   scrollbar-width: none;
-  margin: 0 -8px;
 }
 
 .topbar-tabs::-webkit-scrollbar {
   display: none;
 }
 
-.topnav-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 500;
-  white-space: nowrap;
-  border-radius: 8px;
-  transition: color var(--dur-fast) var(--ease);
+.topnav-indicator {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 0;
+  border-radius: 9px;
+  background: var(--pill-thumb);
+  box-shadow: var(--pill-thumb-shadow);
+  pointer-events: none;
 }
 
-.topnav-tab-inner {
+.topnav-tab {
+  position: relative;
+  z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  transition: background-color var(--dur-fast) var(--ease);
+  height: 34px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border-radius: 9px;
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
 }
 
 .topnav-tab:hover {
   color: var(--text);
 }
 
-.topnav-tab:hover .topnav-tab-inner {
-  background: var(--surface-hover);
+.topnav-tab:not([data-active]):hover {
+  background: var(--surface-2);
 }
 
-.topnav-tab[aria-current="page"] {
-  color: var(--text);
+.topnav-tab[data-active] {
+  color: var(--accent-text);
+  font-weight: 600;
 }
 
 .topnav-tab:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -4px;
-}
-
-.topnav-tab-indicator {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: -1px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--text);
+  outline-offset: -2px;
 }
 
 .restart-banner {
@@ -360,16 +514,12 @@ body {
 }
 
 .table-shell {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-glass);
   overflow: hidden;
 }
 
 .surface-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-glass);
 }
 
 .empty-state {
@@ -386,12 +536,12 @@ body {
   display: block;
   width: 100%;
   min-width: 0;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  padding: 16px 18px;
+  border-radius: var(--radius-glass);
   text-align: left;
   transition:
+    transform 250ms var(--ease-out),
+    box-shadow 250ms var(--ease-out),
     border-color var(--dur-fast) var(--ease),
     background-color var(--dur-fast) var(--ease);
 }
@@ -408,7 +558,7 @@ body {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .toolbar-row {
@@ -549,7 +699,7 @@ body {
 
 /* Movimentações agrupadas por dia */
 .day-heading {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -563,8 +713,8 @@ body {
   align-items: center;
   gap: 0 14px;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
   overflow: hidden;
   min-height: 58px;
 }
@@ -615,10 +765,12 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px 10px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface);
+  border-radius: var(--radius-glass);
+  border: 1px solid var(--glass-border);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-pop);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .legend-swatch {
@@ -632,25 +784,232 @@ body {
    Mantine surface overrides
    ========================================================================== */
 
+/* Vidro: cartões, painéis e blocos da tela. Valem para todas as telas sem mexer em cada
+   uma. */
 .mantine-Card-root,
-.mantine-Paper-root[data-with-border] {
+.mantine-Paper-root,
+.stat-tile,
+.table-shell,
+.surface-panel {
   background-color: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+/* Vidro dentro de vidro: o de fora já desfoca. O de dentro fica só com o contorno (mais
+   leve para a máquina e as divisões continuam visíveis). */
+:is(.mantine-Card-root, .mantine-Paper-root, .stat-tile, .table-shell, .surface-panel)
+  :is(.mantine-Card-root, .mantine-Paper-root, .stat-tile, .table-shell, .surface-panel, .mv-card) {
   border-color: var(--border);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-.mantine-Drawer-content,
-.mantine-Drawer-header,
-.mantine-Modal-content,
-.mantine-Modal-header {
-  background: var(--surface);
-}
-
+/* Janelas, gavetas, menus e listas: vidro mais opaco, porque ficam sobre conteúdo. */
 .mantine-Menu-dropdown,
 .mantine-Popover-dropdown,
 .mantine-Combobox-dropdown,
-.mantine-Spotlight-content {
-  border-color: var(--border);
+.mantine-Notification-root {
+  background-color: var(--surface-raised);
+  border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-pop);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.mantine-Modal-content,
+.mantine-Drawer-content,
+.mantine-Spotlight-content {
+  background-color: var(--surface-overlay);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-pop);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.mantine-Modal-header,
+.mantine-Drawer-header {
+  background: transparent;
+}
+
+/* No escuro, a borda branca do vidro some; as listas suspensas precisam de contorno. */
+:root[data-mantine-color-scheme="dark"] :is(.mantine-Menu-dropdown, .mantine-Popover-dropdown, .mantine-Combobox-dropdown) {
+  border-color: var(--border-strong);
+}
+
+/* Abas em pílula (SegmentedControl): trilho claro e pílula branca deslizando. */
+.mantine-SegmentedControl-root {
+  background: var(--pill-track);
+  padding: 4px;
+  border-radius: 12px;
+}
+
+.mantine-SegmentedControl-indicator {
+  background: var(--pill-thumb);
+  box-shadow: var(--pill-thumb-shadow);
+  border-radius: 9px;
+}
+
+/* Sora é mais larga que a Inter: ícone + texto ficam na mesma linha (antes quebrava,
+   por exemplo, em "Transferência" na movimentação rápida). */
+.mantine-SegmentedControl-label {
+  padding-inline: 8px;
+}
+
+.mantine-SegmentedControl-label .mantine-Group-root {
+  flex-wrap: nowrap;
+}
+
+.mantine-SegmentedControl-label[data-active],
+.mantine-SegmentedControl-label[data-active]:hover {
+  color: var(--accent-text);
+}
+
+/* Botão principal: brilho azul no mouse e "aperta" no clique. */
+.mantine-Button-root[data-variant="filled"]:not([data-disabled]):hover,
+.mantine-Button-root[data-variant="gradient"]:not([data-disabled]):hover {
+  box-shadow: var(--shadow-button);
+}
+
+.mantine-Button-root {
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    box-shadow 200ms ease,
+    transform 150ms ease;
+}
+
+.mantine-Button-root:active:not([data-disabled]) {
+  transform: scale(0.97);
+}
+
+.mantine-Tabs-tab[data-active] {
+  color: var(--accent-text);
+}
+
+.mantine-NumberInput-input,
+.num,
+.stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Movimento (Configurações > Aparência: Completo, Suave, Nenhum)
+   ========================================================================== */
+
+@keyframes vs-blur-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes vs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vs-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(30px, -20px);
+  }
+}
+
+@keyframes vs-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-color);
+  }
+  70% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Cartões da tela entram com desfoque, um depois do outro (Completo) ou só esmaecem
+   (Suave). "backwards": depois de entrar, o cartão volta a poder subir no mouse. */
+:root[data-motion="completo"] .app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):not(:is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel) *) {
+  /* Sem o atalho "animation": ele zeraria o atraso de cada cartão. */
+  animation-name: vs-blur-in;
+  animation-duration: 0.5s;
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: backwards;
+}
+
+:root[data-motion="suave"] .app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):not(:is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel) *) {
+  animation-name: vs-fade-in;
+  animation-duration: 0.2s;
+  animation-timing-function: ease-out;
+  animation-fill-mode: backwards;
+}
+
+.app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):nth-child(4) {
+  animation-delay: 180ms;
+}
+
+.app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):nth-child(5) {
+  animation-delay: 240ms;
+}
+
+.app-content :is(.mantine-Card-root, .stat-tile, .table-shell, .surface-panel):nth-child(n + 6) {
+  animation-delay: 300ms;
+}
+
+/* Cartão de número sobe um pouco no mouse (Completo). */
+:root[data-motion="completo"] .stat-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lift);
+}
+
+:root:not([data-motion="completo"]) .stat-tile:hover {
+  box-shadow: var(--shadow-lift);
+}
+
+/* Nenhum: nada se mexe em lugar nenhum (inclusive as transições do Mantine). */
+:root[data-motion="nenhum"] *,
+:root[data-motion="nenhum"] *::before,
+:root[data-motion="nenhum"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* O escurecido atrás das janelas também perde o desfoque. */
+:root[data-motion="nenhum"] .mantine-Overlay-root {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Suave: sem deslocamento nos efeitos de CSS. */
+:root[data-motion="suave"] .mantine-Button-root:active:not([data-disabled]) {
+  transform: none;
 }
 
 .mantine-Input-input {
@@ -682,14 +1041,14 @@ body {
    ========================================================================== */
 
 .mantine-Table-thead {
-  background: var(--surface);
+  background: transparent;
 }
 
 .mantine-Table-th {
-  background: var(--surface);
+  background: var(--surface-raised);
   border-bottom: 1px solid var(--border);
-  color: var(--text-subtle);
-  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -699,6 +1058,7 @@ body {
   color: var(--text);
   font-size: 0.875rem;
   border-color: var(--border);
+  font-variant-numeric: tabular-nums;
 }
 
 .mantine-Table-tr {
@@ -714,13 +1074,24 @@ body {
 }
 
 .row-actions {
-  opacity: 0.35;
+  opacity: 0.7;
   transition: opacity var(--dur-fast) var(--ease);
 }
 
 tr:hover .row-actions,
 tr:focus-within .row-actions {
   opacity: 1;
+}
+
+/* Linha que abre algo: também pelo teclado (Tab + Enter/Espaço). */
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background-color: var(--surface-hover);
 }
 
 .row-selected,
@@ -866,4 +1237,27 @@ tr:focus-within .row-actions {
     flex: 0 0 auto;
     margin: 0 0 0 auto;
   }
+}
+
+/* Galeria de fotos (ImageGalleryModal): o Mantine 8 ignora seletores
+   aninhados em "styles", então os estados ficam aqui. */
+.gallery-indicator {
+  width: 12px;
+  height: 4px;
+  transition: width 250ms ease;
+}
+
+.gallery-indicator[data-active] {
+  width: 40px;
+}
+
+.gallery-control {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+}
+
+.gallery-control:hover,
+.gallery-control:focus-visible {
+  background-color: rgba(255, 255, 255, 0.2);
 }

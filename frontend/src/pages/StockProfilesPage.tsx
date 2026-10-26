@@ -28,7 +28,7 @@ import type {
   SuccessResponse,
 } from "../lib/api";
 import { api } from "../lib/apiClient";
-import { notifyError, notifySuccess } from "../lib/notify";
+import { OUTDATED_APP_MESSAGE, notifyError, notifySuccess } from "../lib/notify";
 import { isTauri } from "../lib/tauri";
 import { restartApplication } from "../lib/restartApp";
 
@@ -62,7 +62,7 @@ export default function StockProfilesPage() {
       if (error instanceof Error && (error as ApiError).status === 404) {
         notifyError(
           new Error(
-            "Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.",
+            OUTDATED_APP_MESSAGE,
           ),
         );
         return;
@@ -94,7 +94,7 @@ export default function StockProfilesPage() {
       } catch (error) {
         notifyError(
           error,
-          "Nao foi possivel reiniciar automaticamente. Reinicie manualmente.",
+          "Não foi possível reiniciar automaticamente. Reinicie manualmente.",
         );
       }
     },
@@ -102,7 +102,7 @@ export default function StockProfilesPage() {
       if (error instanceof Error && (error as ApiError).status === 404) {
         notifyError(
           new Error(
-            "Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.",
+            OUTDATED_APP_MESSAGE,
           ),
         );
         return;
@@ -110,7 +110,7 @@ export default function StockProfilesPage() {
       if (error instanceof Error && /id reservado/i.test(error.message)) {
         notifyError(
           new Error(
-            "Seu backend atual nao possui a correcao para reativar o estoque Principal/default. Recompile o sidecar e reinicie o app.",
+            OUTDATED_APP_MESSAGE,
           ),
         );
         return;
@@ -134,7 +134,7 @@ export default function StockProfilesPage() {
       if (error instanceof Error && (error as ApiError).status === 404) {
         notifyError(
           new Error(
-            "Backend desatualizado para essa funcionalidade. Atualize/recompile o sidecar e reinicie o app.",
+            OUTDATED_APP_MESSAGE,
           ),
         );
         return;
@@ -161,12 +161,12 @@ export default function StockProfilesPage() {
       title: "Remover estoque",
       children: (
         <Text size="sm">
-          O estoque <b>{profile.name}</b> sera removido da lista junto com a
-          pasta local desse perfil. Essa acao nao pode ser desfeita.
+          O estoque <b>{profile.name}</b> será removido da lista junto com a
+          pasta local desse perfil. Essa ação não pode ser desfeita.
         </Text>
       ),
       labels: { confirm: "Remover estoque", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteMutation.mutate(profile),
     });
   };
@@ -176,7 +176,7 @@ export default function StockProfilesPage() {
   const profilesLoadError =
     profilesQuery.error instanceof Error &&
     (profilesQuery.error as ApiError).status === 404
-      ? "Backend desatualizado para tela de Estoques. Recompile o sidecar e reinicie o app."
+      ? OUTDATED_APP_MESSAGE
       : profilesQuery.error instanceof Error
         ? profilesQuery.error.message
         : null;

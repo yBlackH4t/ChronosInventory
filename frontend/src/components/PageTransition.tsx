@@ -1,15 +1,31 @@
-import { motion } from "framer-motion";
+import { m } from "motion/react";
 import type { ReactNode } from "react";
+import { EASE_OUT, pageTransitionFor } from "../lib/motion";
+import { useMotionLevel } from "../lib/motionContext";
 
+// Troca de tela: esmaece e desliza um pouco (~250 ms) no nível "completo", só esmaece no
+// "suave" e troca seco no "nenhum" (Configurações > Aparência).
 export default function PageTransition({ children }: { children: ReactNode }) {
+  const transition = pageTransitionFor(useMotionLevel());
+
+  if (!transition) {
+    return <div style={{ height: "100%", width: "100%" }}>{children}</div>;
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0, transition: { duration: 0.16, ease: "easeOut" } }}
-      exit={{ opacity: 0, transition: { duration: 0.08 } }}
+    <m.div
+      initial={transition.initial}
+      animate={{
+        ...transition.animate,
+        transition: { duration: transition.enterDuration, ease: EASE_OUT },
+      }}
+      exit={{
+        ...transition.exit,
+        transition: { duration: transition.exitDuration, ease: "easeIn" },
+      }}
       style={{ height: "100%", width: "100%" }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

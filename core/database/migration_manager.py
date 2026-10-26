@@ -183,13 +183,11 @@ class MigrationManager:
 
     def _migration_create_indexes(self, conn: sqlite3.Connection) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome);")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto ON movimentacoes(produto_id);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_data ON movimentacoes(data_hora);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto_data ON movimentacoes(produto_id, data_hora);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_data ON movimentacoes(tipo, data_hora);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_origem_data ON movimentacoes(tipo, origem, data_hora);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_destino_data ON movimentacoes(tipo, destino, data_hora);")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_product_images_primary ON product_images(product_id, is_primary);")
 
     def _migration_inventory_and_backup(self, conn: sqlite3.Connection) -> None:
@@ -241,7 +239,6 @@ class MigrationManager:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_natureza_data ON movimentacoes(natureza, data_hora);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_produtos_ativo_nome ON produtos(ativo, nome);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_sessions_status ON inventory_sessions(status, created_at);")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_session ON inventory_counts(session_id);")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_inventory_counts_divergencia ON inventory_counts(session_id, divergencia);")
 
     def _create_backup(self, db_version: str) -> str:

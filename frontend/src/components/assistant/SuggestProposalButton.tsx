@@ -38,9 +38,9 @@ export default function SuggestProposalButton() {
         title: "Sugestão enviada",
         message:
           result.destino === "publicadora"
-            ? "Chegou na máquina que publica a base. O admin aprova em Assistente > Admin > Para revisar."
+            ? "Chegou no computador principal. O admin aprova em Assistente > Admin > Para revisar."
             : "Ficou nesta máquina, em Assistente > Admin > Para revisar, esperando o admin aprovar.",
-        color: "green",
+        color: "success",
       });
       setOpened(false);
     },
@@ -48,7 +48,7 @@ export default function SuggestProposalButton() {
       notifications.show({
         title: "Não foi possível enviar",
         message: err.message || "Tente de novo.",
-        color: "red",
+        color: "danger",
       }),
   });
 
@@ -123,7 +123,7 @@ export default function SuggestProposalButton() {
               update({ autor: value });
             }}
           />
-          <Alert variant="light" color="blue" p="xs">
+          <Alert variant="light" color="info" p="xs">
             <Text size="xs">
               Nas outras máquinas, a sugestão vai pelo servidor local da base oficial (Backup &gt; Base
               oficial: endereço e senha da máquina que publica).

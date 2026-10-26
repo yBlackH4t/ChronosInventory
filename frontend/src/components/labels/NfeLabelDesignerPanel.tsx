@@ -15,6 +15,7 @@ import {
   Group,
   Kbd,
   Menu,
+  Modal,
   NumberInput,
   Select,
   Stack,
@@ -23,10 +24,16 @@ import {
   Tooltip,
 } from "@mantine/core";
 import {
+  IconArrowBackUp,
+  IconArrowsSort,
+  IconCopy,
   IconDownload,
+  IconEraser,
+  IconPencil,
   IconFileImport,
   IconFileTypeXml,
   IconKeyboard,
+  IconLayoutBoard,
   IconPhoto,
   IconPrinter,
   IconRestore,
@@ -40,6 +47,7 @@ import EmptyState from "../ui/EmptyState";
 import {
   buildShippingLabelsDesignerPrintHtml,
   DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT,
+  halfSheetShippingLabelLayout,
   normalizeShippingLabelDesignerLayout,
   resolveShippingLabelDesignerItemText,
   SHIPPING_LABEL_FIELD_TOKEN_OPTIONS,
@@ -50,14 +58,27 @@ import {
 } from "../../lib/labelsPrint";
 import {
   type NfeShippingData,
+  nfeShippingPrintItems,
   parseNfeShippingData,
 } from "../../lib/nfeShippingLabel";
 import { notifyError, notifySuccess } from "../../lib/notify";
+import { notifyUndo } from "../../lib/notifyUndo";
+import SortableList from "../ui/SortableList";
 import NfeSelectedBlockEditor from "./NfeSelectedBlockEditor";
+import {
+  MAX_PROFILES,
+  loadActiveProfileId,
+  loadProfiles,
+  rawProfile,
+  saveActiveProfileId,
+  saveProfiles,
+  type NfeLabelProfile,
+} from "./nfeLabelProfiles";
 import {
   COMMON_WINDOWS_FONTS,
   GRID_SIZE,
   MAX_NFE_LABELS_PER_PRINT,
+  PREVIOUS_LAYOUT_KEY,
   SAMPLE_DATA,
   STORAGE_KEY,
   clamp,
@@ -77,9 +98,17 @@ export default function NfeLabelDesignerPanel() {
   const [nfeData, setNfeData] = useState<NfeShippingData | null>(null);
   const [nfeFileName, setNfeFileName] = useState("");
   const [printing, setPrinting] = useState(false);
-  const [layout, setLayout] = useState<ShippingLabelDesignerLayout>(() =>
-    loadLayoutFromStorage(),
+  // Perfis (Perfil 1, Perfil 2, Crua...): o escolhido é o layout em edição, salvo sozinho nele.
+  const [profiles, setProfiles] = useState<NfeLabelProfile[]>(() => loadProfiles());
+  const [activeProfileId, setActiveProfileId] = useState<string>(() =>
+    loadActiveProfileId(profiles),
   );
+  const [layout, setLayout] = useState<ShippingLabelDesignerLayout>(
+    () => profiles.find((p) => p.id === activeProfileId)?.layout ?? loadLayoutFromStorage(),
+  );
+  const [profileNameModal, setProfileNameModal] = useState<"novo" | "renomear" | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [sortProfilesOpen, setSortProfilesOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(
     null,
@@ -99,7 +128,87 @@ export default function NfeLabelDesignerPanel() {
     } catch {
       // Ignore storage errors.
     }
-  }, [layout]);
+    setProfiles((current) => {
+      const next = current.map((p) => (p.id === activeProfileId ? { ...p, layout } : p));
+      saveProfiles(next);
+      return next;
+    });
+  }, [layout, activeProfileId]);
+
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
+
+  const selectProfile = (id: string) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    setActiveProfileId(id);
+    saveActiveProfileId(id);
+    setLayout(profile.layout);
+    setSelectedId(null);
+    setImportedLayoutName("");
+  };
+
+  const addProfile = (profile: NfeLabelProfile) => {
+    if (profiles.length >= MAX_PROFILES) {
+      notifyError(new Error(`Limite de ${MAX_PROFILES} perfis. Exclua um antes.`));
+      return false;
+    }
+    const next = [...profiles, profile];
+    setProfiles(next);
+    saveProfiles(next);
+    setActiveProfileId(profile.id);
+    saveActiveProfileId(profile.id);
+    setLayout(profile.layout);
+    setSelectedId(null);
+    return true;
+  };
+
+  const openProfileName = (mode: "novo" | "renomear") => {
+    setProfileName(mode === "renomear" ? activeProfile.nome : `Perfil ${profiles.length + 1}`);
+    setProfileNameModal(mode);
+  };
+
+  const confirmProfileName = () => {
+    const nome = profileName.trim().slice(0, 40);
+    if (!nome) return;
+    if (profileNameModal === "renomear") {
+      const next = profiles.map((p) => (p.id === activeProfile.id ? { ...p, nome } : p));
+      setProfiles(next);
+      saveProfiles(next);
+      notifySuccess(`Perfil renomeado para ${nome}.`);
+    } else if (addProfile({ id: makeId(), nome, layout })) {
+      notifySuccess(`Perfil ${nome} salvo. Escolha o perfil na lista para trocar de layout.`);
+    }
+    setProfileNameModal(null);
+  };
+
+  const deleteProfile = () => {
+    if (profiles.length <= 1) return;
+    const before = profiles;
+    const removed = activeProfile;
+    const next = profiles.filter((p) => p.id !== activeProfile.id);
+    setProfiles(next);
+    saveProfiles(next);
+    setActiveProfileId(next[0].id);
+    saveActiveProfileId(next[0].id);
+    setLayout(next[0].layout);
+    setSelectedId(null);
+    notifyUndo(`Perfil ${removed.nome} excluído.`, () => {
+      setProfiles(before);
+      saveProfiles(before);
+      setActiveProfileId(removed.id);
+      saveActiveProfileId(removed.id);
+      setLayout(removed.layout);
+    });
+  };
+
+  const reorderProfiles = (next: NfeLabelProfile[]) => {
+    setProfiles(next);
+    saveProfiles(next);
+  };
+
+  const addRawProfile = () => {
+    if (addProfile(rawProfile())) notifySuccess("Perfil cru criado: sem logo e sem remetente.");
+  };
 
   useEffect(() => {
     let active = true;
@@ -112,23 +221,10 @@ export default function NfeLabelDesignerPanel() {
     };
   }, []);
 
-  const nfePrintItems = useMemo<ShippingLabelPrintableItem[]>(() => {
-    if (!nfeData) return [];
-    const cappedTotal = Math.max(
-      1,
-      Math.min(nfeData.volumes, MAX_NFE_LABELS_PER_PRINT),
-    );
-    return Array.from({ length: cappedTotal }, (_, index) => ({
-      cliente: nfeData.cliente,
-      cidade: nfeData.cidade,
-      estado: nfeData.estado,
-      transportadora: nfeData.transportadora,
-      numeroNota: nfeData.numeroNota,
-      pesoKg: nfeData.pesoKg,
-      volumeIndex: index + 1,
-      volumeTotal: cappedTotal,
-    }));
-  }, [nfeData]);
+  const nfePrintItems = useMemo<ShippingLabelPrintableItem[]>(
+    () => (nfeData ? nfeShippingPrintItems(nfeData, MAX_NFE_LABELS_PER_PRINT) : []),
+    [nfeData],
+  );
 
   const previewData = nfePrintItems[0] ?? SAMPLE_DATA;
 
@@ -398,11 +494,44 @@ export default function NfeLabelDesignerPanel() {
     notifySuccess("Altura do bloco ajustada ao texto.");
   };
 
+  const applyHalfSheetModel = () => {
+    const logo = layout.items.find((item) => item.kind === "image" && item.src)?.src;
+    try {
+      window.localStorage.setItem(PREVIOUS_LAYOUT_KEY, JSON.stringify(layout));
+    } catch {
+      // Sem storage: o modelo entra mesmo assim.
+    }
+    setLayout(halfSheetShippingLabelLayout(logo));
+    setSelectedId(null);
+    setImportedLayoutName("");
+    notifySuccess(
+      logo
+        ? "Modelo meia folha aplicado com o seu logo. O layout anterior ficou guardado."
+        : "Modelo meia folha aplicado. Coloque o logo no bloco de imagem. O layout anterior ficou guardado.",
+    );
+  };
+
+  const restorePreviousLayout = () => {
+    try {
+      const raw = window.localStorage.getItem(PREVIOUS_LAYOUT_KEY);
+      if (!raw) {
+        notifyError(new Error("Não há layout anterior guardado nesta máquina."));
+        return;
+      }
+      window.localStorage.setItem(PREVIOUS_LAYOUT_KEY, JSON.stringify(layout));
+      setLayout(normalizeShippingLabelDesignerLayout(JSON.parse(raw) as unknown));
+      setSelectedId(null);
+      notifySuccess("Layout anterior de volta.");
+    } catch (error) {
+      notifyError(error, "Não foi possível voltar ao layout anterior.");
+    }
+  };
+
   const resetLayout = () => {
     setLayout(DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT);
     setSelectedId(null);
     setImportedLayoutName("");
-    notifySuccess("Layout visual restaurado para o padrao.");
+    notifySuccess("Layout visual restaurado para o padrão.");
   };
 
   const importLayout = async (file: File | null) => {
@@ -412,10 +541,11 @@ export default function NfeLabelDesignerPanel() {
       const normalized = normalizeShippingLabelDesignerLayout(
         JSON.parse(text) as unknown,
       );
-      setLayout(normalized);
-      setSelectedId(null);
+      // O layout importado vira um perfil novo, sem apagar o que estava em uso.
+      const nome = file.name.replace(/\.json$/i, "").slice(0, 40) || `Perfil ${profiles.length + 1}`;
+      if (!addProfile({ id: makeId(), nome, layout: normalized })) return;
       setImportedLayoutName(file.name);
-      notifySuccess(`Layout importado com sucesso: ${file.name}`);
+      notifySuccess(`Layout importado como o perfil ${nome}.`);
     } catch (error) {
       notifyError(error, "Falha ao importar layout visual.");
     }
@@ -523,7 +653,7 @@ export default function NfeLabelDesignerPanel() {
   const runPrint = () => {
     if (!nfeData || nfePrintItems.length === 0) {
       notifyError(
-        new Error("Carregue um XML valido antes de gerar etiquetas."),
+        new Error("Carregue um XML válido antes de gerar etiquetas."),
       );
       return;
     }
@@ -532,7 +662,7 @@ export default function NfeLabelDesignerPanel() {
       if (nfeData.volumes > MAX_NFE_LABELS_PER_PRINT) {
         notifyError(
           new Error(
-            `XML com ${nfeData.volumes} volumes. Limitado a ${MAX_NFE_LABELS_PER_PRINT} etiquetas por impressao.`,
+            `XML com ${nfeData.volumes} volumes. Limitado a ${MAX_NFE_LABELS_PER_PRINT} etiquetas por impressão.`,
           ),
         );
       }
@@ -574,7 +704,7 @@ export default function NfeLabelDesignerPanel() {
                 <Text size="xs" c="dimmed">
                   {importedLayoutName
                     ? `Layout: ${importedLayoutName}`
-                    : "Layout salvo automaticamente neste computador"}
+                    : `${activeProfile.nome}: salvo sozinho neste computador`}
                 </Text>
               </div>
             )}
@@ -608,7 +738,16 @@ export default function NfeLabelDesignerPanel() {
                 </ActionIcon>
               </Tooltip>
             )}
-            <Menu position="bottom-end" width={220} keepMounted>
+            <Select
+              aria-label="Perfil da etiqueta"
+              w={190}
+              data={profiles.map((p) => ({ value: p.id, label: p.nome }))}
+              value={activeProfile.id}
+              onChange={(v) => v && selectProfile(v)}
+              allowDeselect={false}
+              comboboxProps={{ withinPortal: true }}
+            />
+            <Menu position="bottom-end" width={260} keepMounted>
               <Menu.Target>
                 <Button
                   variant="default"
@@ -618,6 +757,41 @@ export default function NfeLabelDesignerPanel() {
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
+                <Menu.Label>Perfil: {activeProfile.nome}</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconCopy size={16} stroke={1.5} />}
+                  onClick={() => openProfileName("novo")}
+                >
+                  Salvar como novo perfil
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconPencil size={16} stroke={1.5} />}
+                  onClick={() => openProfileName("renomear")}
+                >
+                  Renomear perfil
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconEraser size={16} stroke={1.5} />}
+                  onClick={addRawProfile}
+                >
+                  Novo perfil cru (sem marca)
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconArrowsSort size={16} stroke={1.5} />}
+                  disabled={profiles.length <= 1}
+                  onClick={() => setSortProfilesOpen(true)}
+                >
+                  Ordenar perfis
+                </Menu.Item>
+                <Menu.Item
+                  color="danger"
+                  leftSection={<IconTrash size={16} stroke={1.5} />}
+                  disabled={profiles.length <= 1}
+                  onClick={deleteProfile}
+                >
+                  Excluir este perfil
+                </Menu.Item>
+                <Menu.Divider />
                 <FileButton
                   onChange={(file) => void importLayout(file)}
                   accept=".json,application/json,text/json"
@@ -636,6 +810,19 @@ export default function NfeLabelDesignerPanel() {
                   onClick={exportLayout}
                 >
                   Exportar layout
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  leftSection={<IconLayoutBoard size={16} stroke={1.5} />}
+                  onClick={applyHalfSheetModel}
+                >
+                  Usar modelo meia folha
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconArrowBackUp size={16} stroke={1.5} />}
+                  onClick={restorePreviousLayout}
+                >
+                  Voltar ao layout anterior
                 </Menu.Item>
                 <Menu.Divider />
                 <Menu.Item
@@ -746,9 +933,13 @@ export default function NfeLabelDesignerPanel() {
                             : "grabbing"
                           : "grab",
                         userSelect: "none",
-                        backgroundColor: isSelected
-                          ? "rgba(79,70,229,0.06)"
-                          : "transparent",
+                        backgroundColor: item.inverted
+                          ? "#000"
+                          : isSelected
+                            ? "rgba(79,70,229,0.06)"
+                            : "transparent",
+                        color: item.inverted ? "#fff" : undefined,
+                        boxShadow: item.frame ? "inset 0 0 0 1.5px #000" : undefined,
                       }}
                     >
                       {item.kind === "image" ? (
@@ -1017,6 +1208,58 @@ export default function NfeLabelDesignerPanel() {
           </div>
         </Group>
       )}
+
+      <Modal
+        opened={profileNameModal !== null}
+        onClose={() => setProfileNameModal(null)}
+        title={profileNameModal === "renomear" ? "Renomear perfil" : "Salvar como novo perfil"}
+        centered
+        size="sm"
+      >
+        <Stack gap="sm">
+          <TextInput
+            label="Nome do perfil"
+            value={profileName}
+            maxLength={40}
+            onChange={(e) => setProfileName(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmProfileName();
+            }}
+            data-autofocus
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setProfileNameModal(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmProfileName} disabled={!profileName.trim()}>
+              Salvar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={sortProfilesOpen}
+        onClose={() => setSortProfilesOpen(false)}
+        title="Ordenar perfis"
+        centered
+        size="sm"
+      >
+        <Stack gap="sm">
+          <Text size="sm" c="dimmed">
+            Arraste pela alça (ou use as setas). A lista de perfis segue esta ordem.
+          </Text>
+          <SortableList
+            items={profiles}
+            getKey={(p) => p.id}
+            renderLabel={(p) => p.nome}
+            onChange={reorderProfiles}
+          />
+          <Group justify="flex-end">
+            <Button onClick={() => setSortProfilesOpen(false)}>Pronto</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

@@ -39,6 +39,7 @@ from app.services.assistant_common import (  # noqa: F401  (reexportados para qu
     MATCH_FAMILY,
 )
 from app.services.assistant_knowledge_service import SOURCE_EXPERT, SOURCE_FAMILY, AssistantKnowledgeService
+from core.catalog.company_register import SOURCE_CODE as REGISTER_SOURCE_CODE
 from core.catalog.own_fichas import OWN_SOURCE_CODE
 from core.catalog.normalization import (
     canonical_code,
@@ -54,6 +55,8 @@ from core.exceptions import ValidationException
 # Marcas com que a empresa trabalha. Referencias de outros fabricantes (OEM, Mahle,
 # Master Power...) continuam valendo para a busca, mas nao aparecem nas respostas.
 SERVED_BRANDS = ("GARRETT", "HOLSET", "BORGWARNER")
+# Fichas da propria empresa (nao sao do catalogo Master Power).
+COMPANY_SOURCES = (OWN_SOURCE_CODE, REGISTER_SOURCE_CODE)
 
 
 
@@ -332,7 +335,7 @@ class AssistantToolsService:
             if ref["fabricante"] not in names:
                 names.append(ref["fabricante"])
         for item in catalog_items:
-            if canonical_code(item["ficha"]) in family:
+            if canonical_code(item["ficha"]) in family and not item["ficha_propria"]:
                 item["e_o_codigo_da_ficha"] = True  # o proprio codigo Master Power
             item["codigo_pesquisado_e"] = brands.get(item["id"], [])
         applications = self._group_applications(self.repository.get_applications(catalog_ids))
@@ -592,9 +595,9 @@ class AssistantToolsService:
         for link in self.repository.get_product_catalog_ids([int(p["id"]) for p in products]):
             if int(link["catalogo_produto_id"]) not in ids:
                 ids.append(int(link["catalogo_produto_id"]))
-        # So o catalogo Master Power: a ficha propria da empresa nao tem codigo Master Power.
+        # So o catalogo Master Power: a ficha propria e o cadastro da empresa nao tem codigo Master Power.
         rows = {
-            int(r["id"]): r for r in self.repository.get_catalog_products(ids) if r.get("fonte") != OWN_SOURCE_CODE
+            int(r["id"]): r for r in self.repository.get_catalog_products(ids) if r.get("fonte") not in COMPANY_SOURCES
         }
         fichas = [
             {
@@ -846,7 +849,8 @@ class AssistantToolsService:
                     "tipo": CATEGORY_CORE if "CONJUNTO" in str(row.get("grupo") or "").upper() else CATEGORY_TURBO,
                     "modelo": _turbo_models(row.get("modelo")),
                     "modelo_master_power": str(row.get("modelo") or "").partition("(")[0].strip() or None,
-                    "ficha_propria": row.get("fonte") == OWN_SOURCE_CODE,
+                    "ficha_propria": row.get("fonte") in COMPANY_SOURCES,
+                    "cadastro_empresa": row.get("fonte") == REGISTER_SOURCE_CODE,
                     "atendemos_marca": bool(brand_refs),
                     "referencias": {
                         brand: numbers[:self.limits.refs_per_brand] for brand, numbers in brand_refs.items()
@@ -1000,3 +1004,13 @@ ASSISTANT_TOOLS: List[Dict[str, Any]] = [
         },
     },
 ]
+
+
+# Ferramentas que nao vao para o cliente no WhatsApp: historico de vendas/entradas e interno.
+WHATSAPP_BLOCKED_TOOLS = frozenset({"movimentacoes_produto"})
+
+
+def tool_definitions(tools: Any = None) -> List[Dict[str, Any]]:
+    """As ferramentas que o modelo pode ver, sem as bloqueadas para este canal (`blocked_tools`)."""
+    blocked = getattr(tools, "blocked_tools", None) or ()
+    return [tool for tool in ASSISTANT_TOOLS if tool["name"] not in blocked]

@@ -76,7 +76,7 @@ function remoteServerErrorMessage(serverUrl: string, error: unknown): string {
       ? error.message
       : "Falha ao consultar servidor remoto.";
   if (!serverUrl.trim()) return fallback;
-  return `${fallback} Verifique o endereco, a porta e se o servidor remoto esta ligado.`;
+  return `${fallback} Verifique o endereço, a porta e se o servidor remoto está ligado.`;
 }
 
 function formatBytes(size: number): string {
@@ -221,7 +221,7 @@ export default function StockComparePage() {
       }),
     onSuccess: (response) => {
       setCompareResult(response.data);
-      notifySuccess("Comparativo concluido.");
+      notifySuccess("Comparativo concluído.");
     },
     onError: (error) => notifyError(error),
   });
@@ -229,7 +229,7 @@ export default function StockComparePage() {
   const publishSnapshotMutation = useMutation<SuccessResponse<unknown>, Error>({
     mutationFn: () => api.publishCompareServerSnapshot(),
     onSuccess: async () => {
-      notifySuccess("Snapshot local publicado para comparacao.");
+      notifySuccess("Cópia do estoque publicada para comparação.");
       setCompareStatusRefreshUntil(Date.now() + 15_000);
       await compareServerStatusQuery.refetch();
       await compareServerHistoryQuery.refetch();
@@ -268,7 +268,7 @@ export default function StockComparePage() {
       setRemoteCheckedAt(new Date().toISOString());
       setRemoteCheckError(null);
       setRemoteReachable(true);
-      notifySuccess("Comparativo com servidor remoto concluido.");
+      notifySuccess("Comparativo com servidor remoto concluído.");
     },
     onError: (error) => {
       setRemoteCheckedAt(new Date().toISOString());
@@ -313,7 +313,7 @@ export default function StockComparePage() {
     if (!isTauri()) {
       notifyError(
         new Error(
-          "Selecao de arquivo integrada disponivel apenas no app desktop. Digite o caminho manualmente.",
+          "Seleção de arquivo integrada disponível apenas no app desktop. Digite o caminho manualmente.",
         ),
       );
       return;
@@ -333,7 +333,7 @@ export default function StockComparePage() {
         setRightPath(selected);
       }
     } catch (error) {
-      notifyError(error, "Nao foi possivel selecionar o arquivo.");
+      notifyError(error, "Não foi possível selecionar o arquivo.");
     }
   };
 
@@ -347,7 +347,7 @@ export default function StockComparePage() {
 
   const inspectRemoteServer = () => {
     if (!remoteServerUrl.trim()) {
-      notifyError(new Error("Informe o endereco do servidor remoto."));
+      notifyError(new Error("Informe o endereço do servidor remoto."));
       return;
     }
     inspectRemoteServerMutation.mutate();
@@ -356,7 +356,7 @@ export default function StockComparePage() {
   const startPublishedCompare = () => {
     if (!remoteServerUrl.trim()) {
       notifyError(
-        new Error("Informe o endereco do servidor remoto para comparar."),
+        new Error("Informe o endereço do servidor remoto para comparar."),
       );
       return;
     }
@@ -365,30 +365,30 @@ export default function StockComparePage() {
 
   const confirmDeleteLatestSnapshot = () => {
     modals.openConfirmModal({
-      title: "Excluir snapshot atual",
+      title: "Excluir cópia do estoque atual",
       children: (
         <Text size="sm">
-          Vamos excluir o snapshot de comparacao atualmente publicado nesta
-          maquina. O historico continua preservado.
+          Vamos excluir a cópia do estoque publicada agora nesta máquina para
+          comparação. O histórico continua preservado.
         </Text>
       ),
-      labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      labels: { confirm: "Excluir cópia do estoque", cancel: "Cancelar" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteLatestSnapshotMutation.mutate(),
     });
   };
 
   const confirmDeleteHistorySnapshot = (manifestPath: string) => {
     modals.openConfirmModal({
-      title: "Excluir snapshot do historico",
+      title: "Excluir cópia do estoque do histórico",
       children: (
         <Text size="sm">
-          Esse snapshot historico sera removido do servidor local. A base local
-          atual nao sera alterada.
+          Essa cópia do estoque será removida do histórico no servidor local. A
+          base local atual não será alterada.
         </Text>
       ),
-      labels: { confirm: "Excluir historico", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      labels: { confirm: "Excluir histórico", cancel: "Cancelar" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteHistorySnapshotMutation.mutate(manifestPath),
     });
   };

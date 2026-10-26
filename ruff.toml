@@ -1,7 +1,7 @@
 # Lint minimo do backend: erros de sintaxe e problemas do pyflakes
 # (imports sem uso, nomes indefinidos, variaveis mortas).
 target-version = "py312"
-extend-exclude = ["scratch", "frontend"]
+extend-exclude = ["frontend"]
 
 [lint]
 select = ["E9", "F"]

@@ -9,12 +9,21 @@ export const MOVEMENT_TYPES = [
   { value: "TRANSFERENCIA", label: "Transferência" },
 ];
 
-export const MOVEMENT_NATURES = [
-  { value: "OPERACAO_NORMAL", label: "Operação normal" },
-  { value: "TRANSFERENCIA_EXTERNA", label: "Transferência externa" },
-  { value: "DEVOLUCAO", label: "Devolução" },
-  { value: "AJUSTE", label: "Ajuste" },
-];
+/** Rótulos de natureza: a única lista (productMovement.ts usa esta também). */
+export const MOVEMENT_NATURE_LABELS: Record<
+  NonNullable<MovementCreate["natureza"]>,
+  string
+> = {
+  OPERACAO_NORMAL: "Operação normal",
+  TRANSFERENCIA_EXTERNA: "Transferência externa",
+  DEVOLUCAO: "Devolução",
+  AJUSTE: "Ajuste",
+  ESTORNO: "Estorno",
+};
+
+export const MOVEMENT_NATURES = (
+  ["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE"] as const
+).map((value) => ({ value, label: MOVEMENT_NATURE_LABELS[value] }));
 
 export const ADJUSTMENT_REASON_LABELS: Record<string, string> = {
   AVARIA: "Avaria",
@@ -68,6 +77,8 @@ export type MovementsTabState = {
   historyProductId: number | null;
   historyOpened: boolean;
   scrollY: number;
+  /** Mostra os pares lançamento errado + estorno, que ficam ocultos por padrão. */
+  showReversed?: boolean;
 };
 
 export const MOVEMENTS_TAB_ID = "movements";

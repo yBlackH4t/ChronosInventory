@@ -40,8 +40,14 @@ import ProductLinkModal from "../components/products/ProductLinkModal";
 import { QuickMovementModal } from "../components/products/QuickMovementModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
+import { useStockTotals } from "../hooks/useStockTotals";
 import { MAX_PRODUCT_IMAGES, useProductImages } from "../hooks/useProductImages";
 import { useScanner } from "../lib/useScanner";
+import { useMotionLevel } from "../lib/motionContext";
+import { animateRowOut } from "../lib/rowExit";
+import { applyMovementToProduct, flashKindFor } from "../lib/productView";
+import { captureFlight, clearFlight } from "../lib/sharedFlight";
+import type { StockFlash } from "../components/products/StockNumber";
 import {
   adjustmentReasonLabel,
   movementColor,
@@ -51,6 +57,7 @@ import {
 } from "../lib/productMovement";
 import { useProfileScope } from "../state/profileScope";
 import type {
+  MovementCreate,
   MovementOut,
   Product,
   ProductCreate,
@@ -82,12 +89,24 @@ const SORT_OPTIONS = [
 
 const PRODUCTS_TAB_ID = "products";
 
+type StockFilter = "TODOS" | "COM_ESTOQUE" | "ZERADOS";
+
+const STOCK_FILTERS: { value: StockFilter; label: string }[] = [
+  { value: "TODOS", label: "Todos" },
+  { value: "COM_ESTOQUE", label: "Com estoque" },
+  { value: "ZERADOS", label: "Zerados" },
+];
+
+function isStockFilter(value: unknown): value is StockFilter {
+  return STOCK_FILTERS.some((item) => item.value === value);
+}
+
 type ProductsTabState = {
   query: string;
   page: number;
   pageSize: string;
   sort: string;
-  stockFilter?: "TODOS" | "COM_ESTOQUE";
+  stockFilter?: StockFilter;
   selectedId: number | null;
   drawerOpened: boolean;
   historyPage: number;
@@ -127,8 +146,8 @@ export default function ProductsPage() {
   );
   const [sort, setSort] = useState(persistedState.sort);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
-  const [stockFilter, setStockFilter] = useState<"TODOS" | "COM_ESTOQUE">(
-    persistedState.stockFilter ?? "TODOS",
+  const [stockFilter, setStockFilter] = useState<StockFilter>(
+    isStockFilter(persistedState.stockFilter) ? persistedState.stockFilter : "TODOS",
   );
 
   const [linkModalOpened, { open: openLinkModal, close: closeLinkModal }] = useDisclosure(false);
@@ -142,6 +161,44 @@ export default function ProductsPage() {
   const [hoveredProduct, setHoveredProduct] = useState<Product | null>(null);
   const [quickMoveProduct, setQuickMoveProduct] = useState<Product | null>(null);
   const [quickMoveOpened, setQuickMoveOpened] = useState(false);
+
+  const motionLevel = useMotionLevel();
+  const [stockFlash, setStockFlash] = useState<StockFlash | null>(null);
+  const flashTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+    },
+    [],
+  );
+
+  // Depois de movimentar: o saldo da linha pisca na cor do movimento e rola até o novo valor.
+  // A lista em cache já recebe o saldo novo (a API confirma em seguida, ao recarregar).
+  const handleMoved = (product: Product, movement: MovementCreate) => {
+    if (motionLevel !== "nenhum") {
+      setStockFlash({
+        productId: product.id,
+        kind: flashKindFor(movement.tipo),
+        from: product.total_stock,
+        nonce: Date.now(),
+      });
+      if (flashTimer.current !== null) window.clearTimeout(flashTimer.current);
+      flashTimer.current = window.setTimeout(() => setStockFlash(null), 1900);
+    }
+    queryClient.setQueriesData<SuccessResponse<Product[]>>(
+      { queryKey: ["produtos", profileScopeKey] },
+      (old) =>
+        old?.data
+          ? {
+              ...old,
+              data: old.data.map((item) =>
+                item.id === product.id ? applyMovementToProduct(item, movement) : item,
+              ),
+            }
+          : old,
+    );
+    queryClient.invalidateQueries({ queryKey: ["analytics", profileScopeKey, "stock-summary"] });
+  };
 
   const handleOpenQuickMove = (product: Product) => {
     setQuickMoveProduct(product);
@@ -173,13 +230,33 @@ export default function ProductsPage() {
           page,
           page_size: Number(pageSize),
           sort,
-          has_stock: stockFilter === "COM_ESTOQUE" ? true : undefined,
+          has_stock:
+            stockFilter === "COM_ESTOQUE" ? true : stockFilter === "ZERADOS" ? false : undefined,
         },
         { signal },
       ),
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
+
+  // Quantos produtos com e sem estoque (na busca atual): números ao lado dos filtros.
+  const stockCountsQuery = useQuery({
+    queryKey: ["produtos", profileScopeKey, "contagens", debounced],
+    queryFn: async ({ signal }) => {
+      const [withStock, zeroed] = await Promise.all([
+        api.listProducts({ query: debounced, page: 1, page_size: 1, has_stock: true }, { signal }),
+        api.listProducts({ query: debounced, page: 1, page_size: 1, has_stock: false }, { signal }),
+      ]);
+      const comEstoque = withStock.meta?.total_items ?? 0;
+      const zerados = zeroed.meta?.total_items ?? 0;
+      return { TODOS: comEstoque + zerados, COM_ESTOQUE: comEstoque, ZERADOS: zerados } as Record<StockFilter, number>;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+  const stockCounts = stockCountsQuery.data;
+  const totalsQuery = useStockTotals();
+  const stockTotals = totalsQuery.data?.data;
 
   const createMutation = useMutation<
     SuccessResponse<Product>,
@@ -232,7 +309,8 @@ export default function ProductsPage() {
   >({
     mutationFn: (productId: number) =>
       api.bulkUpdateProductStatus({ ids: [productId], ativo: false }),
-    onSuccess: () => {
+    onSuccess: async (_data, productId) => {
+      await animateRowOut(`[data-flip-key="${productId}"]`, motionLevel);
       notifySuccess("Produto inativado");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
@@ -249,8 +327,9 @@ export default function ProductsPage() {
     number
   >({
     mutationFn: (id: number) => api.deleteProduct(id),
-    onSuccess: () => {
-      notifySuccess("Produto removido");
+    onSuccess: async (_data, id) => {
+      await animateRowOut(`[data-flip-key="${id}"]`, motionLevel);
+      notifySuccess("Produto excluído");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });
@@ -270,8 +349,8 @@ export default function ProductsPage() {
               </Text>
             </Stack>
           ),
-          labels: { confirm: "Inativar produto", cancel: "Fechar" },
-          confirmProps: { color: "orange" },
+          labels: { confirm: "Inativar produto", cancel: "Cancelar" },
+          confirmProps: { color: "warning" },
           onConfirm: () => inactivateMutation.mutate(productId),
         });
       } else {
@@ -291,7 +370,7 @@ export default function ProductsPage() {
       observacao_movimento: "",
     },
     validate: {
-      nome: (value) => (value.trim().length === 0 ? "Nome obrigatorio" : null),
+      nome: (value) => (value.trim().length === 0 ? "Nome obrigatório" : null),
     },
   });
 
@@ -301,14 +380,14 @@ export default function ProductsPage() {
       observacao: "",
     },
     validate: {
-      nome: (value) => (value.trim().length === 0 ? "Nome obrigatorio" : null),
+      nome: (value) => (value.trim().length === 0 ? "Nome obrigatório" : null),
     },
   });
 
-  const openCreate = () => {
+  const openCreate = (nome = "") => {
     setEditing(null);
     createForm.setValues({ 
-      nome: "", 
+      nome: nome.toUpperCase(), 
       inventories: {},
       documento_movimento: "",
       observacao_movimento: "",
@@ -335,7 +414,7 @@ export default function ProductsPage() {
     if (total <= 0) {
       notifyError(
         new Error(
-          "Estoque inicial nao pode ser 0. Use entrada/devolucao para registrar depois.",
+          "Estoque inicial não pode ser 0. Use entrada/devolução para registrar depois.",
         ),
       );
       return;
@@ -368,7 +447,7 @@ export default function ProductsPage() {
         </Stack>
       ),
       labels: { confirm: "Excluir", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => deleteMutation.mutate(product.id),
     });
   };
@@ -397,7 +476,10 @@ export default function ProductsPage() {
     null,
   );
 
-  const openDetails = (product: Product) => {
+  const openDetails = (product: Product, row?: HTMLElement | null) => {
+    // A foto e o código saem da linha e pousam na ficha (só no nível Completo).
+    if (row && !drawerOpened) captureFlight(row, product.id);
+    else clearFlight();
     setSelectedId(product.id);
     setSelectedSnapshot(product);
     setDrawerOpened(true);
@@ -454,7 +536,7 @@ export default function ProductsPage() {
   >({
     mutationFn: ({ id, observacao }) => api.patchProduct(id, { observacao }),
     onSuccess: () => {
-      notifySuccess("Observacao atualizada");
+      notifySuccess("Observação atualizada");
       queryClient.invalidateQueries({
         queryKey: ["produtos", profileScopeKey],
       });
@@ -694,14 +776,14 @@ export default function ProductsPage() {
     }
 
     modals.openConfirmModal({
-      title: "Descartar alteracoes?",
+      title: "Descartar alterações?",
       children: (
         <Text size="sm">
-          Existem alteracoes nao salvas. Deseja fechar e descartar o formulario?
+          Existem alterações não salvas. Deseja fechar e descartar o formulário?
         </Text>
       ),
       labels: { confirm: "Descartar", cancel: "Continuar editando" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => {
         if (editing) {
           editForm.reset();
@@ -719,9 +801,25 @@ export default function ProductsPage() {
     <Stack gap="md">
       <PageHeader
         title="Produtos"
-        subtitle="Consulta de estoque por filial, equivalências e aplicações."
+        subtitle={
+          stockTotals ? (
+            <span className="pm-header-stats num">
+              <strong>{stockTotals.total_geral.toLocaleString("pt-BR")}</strong> peças em estoque
+              {stockTotals.locations
+                .filter((loc) => loc.total > 0)
+                .map((loc) => (
+                  <span key={loc.location_id}>
+                    <span className="pm-header-dot" style={{ background: loc.color || "var(--accent)" }} aria-hidden />
+                    {loc.location_label || loc.location_name} <strong>{loc.total.toLocaleString("pt-BR")}</strong>
+                  </span>
+                ))}
+            </span>
+          ) : (
+            "Consulta de estoque por filial, equivalências e aplicações."
+          )
+        }
         actions={
-          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+          <Button leftSection={<IconPlus size={16} />} onClick={() => openCreate()}>
             Novo produto
           </Button>
         }
@@ -761,16 +859,25 @@ export default function ProductsPage() {
             style={{ flex: 1, minWidth: 260 }}
           />
           <SegmentedControl
-            size="sm"
+            className="pm-stock-filter"
+            aria-label="Filtrar por estoque"
             value={stockFilter}
             onChange={(val) => {
-              setStockFilter(val as "TODOS" | "COM_ESTOQUE");
+              if (!isStockFilter(val)) return;
+              setStockFilter(val);
               setPage(1);
             }}
-            data={[
-              { label: "Todos", value: "TODOS" },
-              { label: "Com estoque", value: "COM_ESTOQUE" },
-            ]}
+            data={STOCK_FILTERS.map((item) => ({
+              value: item.value,
+              label: (
+                <span className="pm-filter-label">
+                  {item.label}
+                  {stockCounts ? (
+                    <span className="pm-filter-count num">{stockCounts[item.value].toLocaleString("pt-BR")}</span>
+                  ) : null}
+                </span>
+              ),
+            }))}
           />
           <Popover position="bottom-end" width={260}>
             <Popover.Target>
@@ -802,18 +909,6 @@ export default function ProductsPage() {
                   }}
                   comboboxProps={{ withinPortal: false }}
                 />
-                <Select
-                  label="Itens por página"
-                  data={PAGE_SIZES}
-                  value={pageSize}
-                  allowDeselect={false}
-                  onChange={(value) => {
-                    if (!value) return;
-                    setPageSize(value);
-                    setPage(1);
-                  }}
-                  comboboxProps={{ withinPortal: false }}
-                />
                 <Button
                   variant="subtle"
                   color="gray"
@@ -827,10 +922,6 @@ export default function ProductsPage() {
               </Stack>
             </Popover.Dropdown>
           </Popover>
-          <Text size="sm" c="dimmed" className="num" ml="auto">
-            {totalItems.toLocaleString("pt-BR")}{" "}
-            {totalItems === 1 ? "produto" : "produtos"}
-          </Text>
         </Group>
       </FilterToolbar>
 
@@ -844,11 +935,13 @@ export default function ProductsPage() {
         loading={productsQuery.isLoading}
         errorMessage={productsErrorMessage}
         query={query}
+        flash={stockFlash}
         onRetry={() => void productsQuery.refetch()}
         onClearSearch={() => {
           setQuery("");
           setPage(1);
         }}
+        onCreateFromSearch={(text) => openCreate(text)}
         onOpenDetails={openDetails}
         onOpenSingleLabel={openSingleLabel}
         onOpenEdit={openEdit}
@@ -860,6 +953,16 @@ export default function ProductsPage() {
         onQuickMove={handleOpenQuickMove}
         onHoverProduct={setHoveredProduct}
         onPageChange={setPage}
+        sort={sort}
+        onSortChange={(value) => {
+          setSort(value);
+          setPage(1);
+        }}
+        pageSizes={PAGE_SIZES}
+        onPageSizeChange={(value) => {
+          setPageSize(value);
+          setPage(1);
+        }}
         locations={locations}
       />
 
@@ -956,8 +1059,8 @@ export default function ProductsPage() {
         }}
         product={quickMoveProduct}
         locations={locations}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["produtos", profileScopeKey] });
+        onSuccess={(movement) => {
+          if (quickMoveProduct) handleMoved(quickMoveProduct, movement);
         }}
       />
     </Stack>

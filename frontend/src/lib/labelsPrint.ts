@@ -12,6 +12,10 @@ export type ShippingLabelPrintableItem = {
   pesoKg: string;
   volumeIndex: number;
   volumeTotal: number;
+  endereco: string;
+  cep: string;
+  remetente: string;
+  remetenteLocal: string;
 };
 
 export type ShippingLabelFieldToken =
@@ -21,7 +25,12 @@ export type ShippingLabelFieldToken =
   | "transportadora"
   | "numeroNota"
   | "pesoKg"
-  | "volumeInfo";
+  | "volumeInfo"
+  | "endereco"
+  | "cep"
+  | "cidadeUf"
+  | "remetente"
+  | "remetenteLocal";
 
 export const SHIPPING_LABEL_FIELD_TOKEN_OPTIONS: {
   value: ShippingLabelFieldToken;
@@ -31,9 +40,14 @@ export const SHIPPING_LABEL_FIELD_TOKEN_OPTIONS: {
   { value: "cidade", label: "Cidade" },
   { value: "estado", label: "Estado" },
   { value: "transportadora", label: "Transportadora" },
-  { value: "numeroNota", label: "Numero da nota" },
+  { value: "numeroNota", label: "Número da nota" },
   { value: "pesoKg", label: "Peso (Kg)" },
   { value: "volumeInfo", label: "Volume (1/N)" },
+  { value: "endereco", label: "Endereço (rua, nº, bairro)" },
+  { value: "cep", label: "CEP" },
+  { value: "cidadeUf", label: "Cidade / UF" },
+  { value: "remetente", label: "Remetente (nome)" },
+  { value: "remetenteLocal", label: "Remetente (cidade e CNPJ)" },
 ];
 
 export type ShippingLabelDesignerItem = {
@@ -50,6 +64,10 @@ export type ShippingLabelDesignerItem = {
   fontWeight: 400 | 700;
   align: "left" | "center" | "right";
   objectFit: "contain" | "cover" | "fill";
+  /** Moldura preta em volta do bloco (para montar caixas e divisões). */
+  frame?: boolean;
+  /** Fundo preto com letra branca (destaque). */
+  inverted?: boolean;
 };
 
 export type ShippingLabelDesignerLayout = {
@@ -173,6 +191,101 @@ export const DEFAULT_SHIPPING_LABEL_DESIGNER_LAYOUT: ShippingLabelDesignerLayout
     showBorder: true,
     items: DEFAULT_DESIGNER_ITEMS,
   };
+
+type HalfSheetBlock = Partial<ShippingLabelDesignerItem> &
+  Pick<ShippingLabelDesignerItem, "id" | "x" | "y" | "width" | "height">;
+
+function halfSheetBlock(block: HalfSheetBlock): ShippingLabelDesignerItem {
+  return {
+    kind: "text",
+    text: "",
+    fontSize: 12,
+    fontWeight: 700,
+    align: "left",
+    objectFit: "contain",
+    ...block,
+  };
+}
+
+/**
+ * Modelo "meia folha" (19 x 13,5 cm, duas por A4): remetente com logo, destinatário com
+ * endereço e CEP, cidade grande, e nota / volume / peso em caixas. `logoSrc` reaproveita a
+ * imagem que já estava no layout.
+ */
+export function halfSheetShippingLabelLayout(
+  logoSrc?: string,
+): ShippingLabelDesignerLayout {
+  const label = (id: string, text: string, x: number, y: number, inverted = false) =>
+    halfSheetBlock({ id, text, x, y, width: 220, height: 18, inverted });
+  const token = (
+    id: string,
+    tokenName: ShippingLabelFieldToken,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fontSize: number,
+    extra: Partial<ShippingLabelDesignerItem> = {},
+  ) => halfSheetBlock({ id, kind: "token", token: tokenName, x, y, width, height, fontSize, ...extra });
+
+  return {
+    name: "Meia folha com endereço",
+    widthPx: 760,
+    heightPx: 540,
+    pxPerMm: 4,
+    fontFamily: 'Calibri, "Segoe UI", Tahoma, sans-serif',
+    showBorder: true,
+    items: [
+      // Caixas primeiro: o texto fica por cima.
+      halfSheetBlock({ id: "caixa_destino", x: 0, y: 100, width: 760, height: 300, frame: true }),
+      halfSheetBlock({ id: "caixa_nota", x: 0, y: 399, width: 254, height: 82, frame: true }),
+      halfSheetBlock({ id: "caixa_volume", x: 253, y: 399, width: 254, height: 82, frame: true, inverted: true }),
+      halfSheetBlock({ id: "caixa_peso", x: 506, y: 399, width: 254, height: 82, frame: true }),
+      {
+        ...halfSheetBlock({ id: "logo", x: 14, y: 12, width: 240, height: 76 }),
+        kind: "image",
+        text: "Logo",
+        src: logoSrc,
+      },
+      label("rotulo_remetente", "REMETENTE", 280, 14),
+      token("remetente", "remetente", 280, 34, 466, 22, 16),
+      token("remetente_local", "remetenteLocal", 280, 58, 466, 22, 14, { fontWeight: 400 }),
+      label("rotulo_destino", "DESTINATÁRIO", 16, 112),
+      token("cliente", "cliente", 16, 132, 728, 64, 26),
+      token("endereco", "endereco", 16, 204, 728, 26, 18, { fontWeight: 400 }),
+      token("cep", "cep", 16, 232, 360, 26, 18, { fontWeight: 400, text: "CEP" }),
+      token("cidade_uf", "cidadeUf", 16, 300, 728, 48, 36),
+      label("rotulo_nota", "NOTA FISCAL", 16, 408),
+      token("nota", "numeroNota", 16, 428, 228, 46, 38),
+      label("rotulo_volume", "VOLUME", 269, 408, true),
+      token("volume", "volumeInfo", 269, 428, 228, 46, 38, { inverted: true }),
+      label("rotulo_peso", "PESO", 522, 408),
+      token("peso", "pesoKg", 522, 428, 228, 46, 38),
+      label("rotulo_transp", "TRANSPORTADORA", 16, 500),
+      token("transportadora", "transportadora", 170, 494, 576, 28, 19),
+    ],
+  };
+}
+
+/** Blocos com a nossa marca: logo e remetente. */
+const BRAND_BLOCK_IDS = new Set(["logo", "rotulo_remetente", "remetente", "remetente_local"]);
+const RAW_SHIFT_PX = 96;
+
+/**
+ * Etiqueta "crua": a meia folha sem logo e sem remetente, para notas despachadas em nome de
+ * um cliente (nada da nossa marca pode ir no volume).
+ */
+export function rawShippingLabelLayout(): ShippingLabelDesignerLayout {
+  const base = halfSheetShippingLabelLayout();
+  return {
+    ...base,
+    name: "Crua (sem marca)",
+    heightPx: base.heightPx - RAW_SHIFT_PX,
+    items: base.items
+      .filter((item) => !BRAND_BLOCK_IDS.has(item.id))
+      .map((item) => ({ ...item, y: Math.max(0, item.y - RAW_SHIFT_PX) })),
+  };
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -381,6 +494,8 @@ function normalizeDesignerItem(
       objectFitRaw === "cover" || objectFitRaw === "fill"
         ? objectFitRaw
         : "contain",
+    frame: source.frame === true,
+    inverted: source.inverted === true,
   };
 }
 
@@ -446,9 +561,19 @@ export function resolveShippingLabelDesignerItemText(
     case "numeroNota":
       return `${prefix}${data.numeroNota}`;
     case "pesoKg":
-      return `${prefix}${data.pesoKg}Kg`;
+      return `${prefix}${data.pesoKg} kg`;
     case "volumeInfo":
       return `${prefix}${volumeInfo}`;
+    case "endereco":
+      return `${prefix}${data.endereco}`;
+    case "cep":
+      return `${prefix}${data.cep}`;
+    case "cidadeUf":
+      return `${prefix}${data.cidade} / ${data.estado}`;
+    case "remetente":
+      return `${prefix}${data.remetente}`;
+    case "remetenteLocal":
+      return `${prefix}${data.remetenteLocal}`;
     default:
       return prefix.trim();
   }
@@ -474,7 +599,8 @@ export function buildShippingLabelsDesignerPrintHtml(
           const fontMm = item.fontSize / pxPerMm;
           const isImage = item.kind === "image";
           const safeTopMm = isImage ? topMm : Math.max(0, topMm - 0.2);
-          const safeHeightMm = isImage ? heightMm : heightMm + 0.9;
+          const fixedHeight = isImage || Boolean(item.frame);
+          const safeHeightMm = fixedHeight ? heightMm : heightMm + 0.9;
           const content = isImage
             ? item.src
               ? `<img class="designer-image" src="${escapeHtml(item.src)}" alt="" style="object-fit:${item.objectFit};" />`
@@ -487,15 +613,15 @@ export function buildShippingLabelsDesignerPrintHtml(
               left:${leftMm}mm;
               top:${safeTopMm}mm;
               width:${widthMm}mm;
-              ${isImage ? `height:${safeHeightMm}mm;` : `min-height:${safeHeightMm}mm;`}
+              ${fixedHeight ? `height:${safeHeightMm}mm;` : `min-height:${safeHeightMm}mm;`}
+              ${item.frame ? "border:0.4mm solid #000;" : ""}
+              ${item.inverted ? "background:#000;color:#fff;" : ""}
               font-size:${fontMm}mm;
               font-weight:${item.fontWeight};
               text-align:${item.align};
               ${isImage ? `padding:0;` : ""}
             "
-          >
-            ${content}
-          </div>`;
+          >${content}</div>`; // colado nas tags: com pre-wrap, a quebra e o recuo viravam uma linha em branco
         })
         .join("\n");
 
@@ -510,7 +636,7 @@ export function buildShippingLabelsDesignerPrintHtml(
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <title>Etiquetas de Expedicao - Designer Visual</title>
+    <title>Etiquetas de Expedição - Designer Visual</title>
     <style>
       :root { color-scheme: only light; }
       * { box-sizing: border-box; }
@@ -538,6 +664,8 @@ export function buildShippingLabelsDesignerPrintHtml(
         overflow: visible;
       }
       .designer-block {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
         position: absolute;
         white-space: pre-wrap;
         overflow: visible;

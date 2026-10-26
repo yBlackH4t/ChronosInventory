@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
-import { Alert, Button, Divider, Group, PasswordInput, Stack, Text, TextInput, Textarea } from "@mantine/core";
-import { IconCertificate } from "@tabler/icons-react";
+import {
+  ActionIcon,
+  Alert,
+  Button,
+  Divider,
+  Group,
+  PasswordInput,
+  Stack,
+  Text,
+  TextInput,
+  Textarea,
+} from "@mantine/core";
+import { IconCertificate, IconPlus, IconTrash } from "@tabler/icons-react";
 
 import { api } from "../../lib/apiClient";
-import type { NfeConfig } from "../../lib/api";
+import type { NfeCnpj, NfeConfig } from "../../lib/api";
 import { notifyError, notifySuccess } from "../../lib/notify";
 
 type NfeSettingsPanelProps = {
@@ -26,7 +37,7 @@ function formatDate(value: string): string {
 export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelProps) {
   const [config, setConfig] = useState<NfeConfig | null>(null);
   const [folders, setFolders] = useState("");
-  const [cnpj, setCnpj] = useState("");
+  const [cnpjs, setCnpjs] = useState<NfeCnpj[]>([{ cnpj: "", nome: "" }]);
   const [arquivo, setArquivo] = useState("");
   const [senha, setSenha] = useState("");
   const [saving, setSaving] = useState(false);
@@ -34,7 +45,8 @@ export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelPr
   const apply = (data: NfeConfig) => {
     setConfig(data);
     setFolders(data.pastas_xml.join("\n"));
-    setCnpj(formatCnpj(data.cnpj_loja));
+    const saved = data.cnpjs?.length ? data.cnpjs : data.cnpj_loja ? [{ cnpj: data.cnpj_loja, nome: "" }] : [];
+    setCnpjs(saved.length ? saved.map((c) => ({ cnpj: formatCnpj(c.cnpj), nome: c.nome })) : [{ cnpj: "", nome: "" }]);
   };
 
   useEffect(() => {
@@ -52,7 +64,8 @@ export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelPr
     setSaving(true);
     try {
       const pastas = folders.split("\n").map((f) => f.trim()).filter(Boolean);
-      const res = await api.saveNfeConfig({ pastas_xml: pastas, cnpj_loja: cnpj });
+      const lista = cnpjs.filter((c) => c.cnpj.trim()).map((c) => ({ cnpj: c.cnpj.trim(), nome: c.nome.trim() }));
+      const res = await api.saveNfeConfig({ pastas_xml: pastas, cnpjs: lista });
       apply(res.data);
       notifySuccess("Configurações da NF-e salvas.");
       onSaved();
@@ -90,6 +103,9 @@ export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelPr
 
   const cert = config?.certificado;
 
+  const updateCnpj = (index: number, patch: Partial<NfeCnpj>) =>
+    setCnpjs((current) => current.map((c, i) => (i === index ? { ...c, ...patch } : c)));
+
   return (
     <Stack gap="sm">
       <Textarea
@@ -100,13 +116,56 @@ export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelPr
         value={folders}
         onChange={(e) => setFolders(e.currentTarget.value)}
       />
-      <TextInput
-        label="CNPJ desta loja"
-        description="Quem recebe as notas de entrada aqui (ex.: a filial de Canoas)."
-        placeholder="00.000.000/0000-00"
-        value={cnpj}
-        onChange={(e) => setCnpj(e.currentTarget.value)}
-      />
+      <Stack gap={6}>
+        <div>
+          <Text size="sm" fw={500}>
+            CNPJs da empresa
+          </Text>
+          <Text size="xs" c="dimmed">
+            O primeiro é o desta loja. Ao bipar a nota, o Chronos usa sozinho o CNPJ que está nela.
+          </Text>
+        </div>
+        {cnpjs.map((c, index) => (
+          <Group key={index} gap="xs" wrap="nowrap" align="flex-end">
+            <TextInput
+              style={{ flex: 1 }}
+              placeholder="00.000.000/0000-00"
+              aria-label={`CNPJ ${index + 1}`}
+              value={c.cnpj}
+              onChange={(e) => updateCnpj(index, { cnpj: e.currentTarget.value })}
+              onBlur={() => updateCnpj(index, { cnpj: formatCnpj(c.cnpj) })}
+            />
+            <TextInput
+              style={{ flex: 1 }}
+              placeholder={index === 0 ? "Nome (ex.: Canoas)" : "Nome (ex.: Matriz)"}
+              aria-label={`Nome do CNPJ ${index + 1}`}
+              value={c.nome}
+              maxLength={60}
+              onChange={(e) => updateCnpj(index, { nome: e.currentTarget.value })}
+            />
+            <ActionIcon
+              variant="subtle"
+              color="danger"
+              aria-label={`Remover CNPJ ${index + 1}`}
+              disabled={cnpjs.length === 1}
+              onClick={() => setCnpjs((current) => current.filter((_, i) => i !== index))}
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </Group>
+        ))}
+        <Group>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            leftSection={<IconPlus size={12} />}
+            disabled={cnpjs.length >= 10}
+            onClick={() => setCnpjs((current) => [...current, { cnpj: "", nome: "" }])}
+          >
+            Adicionar CNPJ
+          </Button>
+        </Group>
+      </Stack>
       <Group justify="flex-end">
         <Button size="xs" onClick={() => void save()} loading={saving}>
           Salvar
@@ -115,13 +174,13 @@ export default function NfeSettingsPanel({ opened, onSaved }: NfeSettingsPanelPr
 
       <Divider label="Notas de fornecedor (baixar o XML da SEFAZ)" labelPosition="left" />
       {cert ? (
-        <Alert color="teal" icon={<IconCertificate size={16} />}>
+        <Alert color="success" icon={<IconCertificate size={16} />}>
           <Group justify="space-between" wrap="nowrap">
             <Text size="sm">
               Certificado de {cert.titular}
               {cert.cnpj ? ` (${formatCnpj(cert.cnpj)})` : ""}, válido até {formatDate(cert.validade)}.
             </Text>
-            <Button size="xs" variant="subtle" color="red" onClick={() => void removeCertificate()}>
+            <Button size="xs" variant="subtle" color="danger" onClick={() => void removeCertificate()}>
               Remover
             </Button>
           </Group>

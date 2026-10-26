@@ -11,6 +11,8 @@ import dayjs from "dayjs";
 
 import type { InventorySessionOut } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
+import { sessionLocalLabel } from "../../lib/inventoryView";
+import { clickableRowProps } from "../../lib/clickableRow";
 
 type InventorySessionsTableProps = {
   sessions: InventorySessionOut[];
@@ -54,7 +56,7 @@ export function InventorySessionsTable({
               <Table.Th>Sessão</Table.Th>
               <Table.Th w={150}>Local</Table.Th>
               <Table.Th w={160}>Status</Table.Th>
-              <Table.Th w={200}>Progresso</Table.Th>
+              <Table.Th w={240}>Progresso</Table.Th>
               <Table.Th w={110} ta="right">
                 Divergentes
               </Table.Th>
@@ -74,9 +76,11 @@ export function InventorySessionsTable({
               return (
                 <Table.Tr
                   key={session.id}
-                  className={selectedSessionId === session.id ? "row-selected" : undefined}
-                  style={{ cursor: "pointer" }}
-                  onClick={() => onSelectSession(session)}
+                  {...clickableRowProps(() => onSelectSession(session))}
+                  className={
+                    selectedSessionId === session.id ? "clickable-row row-selected" : "clickable-row"
+                  }
+                  aria-selected={selectedSessionId === session.id}
                 >
                   <Table.Td>
                     <Text size="sm" fw={500} lineClamp={1}>
@@ -88,7 +92,7 @@ export function InventorySessionsTable({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">
-                      {session.local_label ?? `Local #${session.location_id}`}
+                      {sessionLocalLabel(session)}
                     </Text>
                   </Table.Td>
                   <Table.Td>
@@ -110,12 +114,12 @@ export function InventorySessionsTable({
                         <span
                           style={{
                             width: `${progress}%`,
-                            background: "var(--mantine-color-blue-filled)",
+                            background: "var(--accent-gradient)",
                           }}
                         />
                       </div>
-                      <Text size="xs" c="dimmed" className="num" w={70} ta="right">
-                        {session.counted_items}/{session.total_items}
+                      <Text size="xs" c="dimmed" className="num" w={96} ta="right">
+                        {Math.round(progress)}% · {session.counted_items}/{session.total_items}
                       </Text>
                     </Group>
                   </Table.Td>

@@ -11,9 +11,10 @@ from app.services.assistant_common import AssistantUnavailableError
 from app.services.assistant_config_store import AssistantConfigStore
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_transcription_service import AssistantTranscriptionService
-from app.services.whatsapp_bridge_service import ERROR_REACTION, HELP_TEXT, WaMessage, WhatsAppBridge
+from app.services.whatsapp_bridge_service import ERROR_REACTION, HELP_TEXT, PIN_MISSING_TEXT, WaMessage, WhatsAppBridge
 from app.services.whatsapp_service import WhatsAppService
 from backend.app.api.deps import get_assistant_admin_service, get_whatsapp_service
+from core.exceptions import ValidationException
 
 BOSS = "5551999990000@s.whatsapp.net"
 ME = "5551988887777@s.whatsapp.net"
@@ -473,7 +474,7 @@ def test_old_messages_are_not_context_for_a_new_request(setup):
     assert s.chat.calls[-1]["historico"] == []
 
 
-def test_ask_privately_teach_and_approve(setup, monkeypatch):
+def test_ask_privately_teach_and_approve(setup, monkeypatch, tmp_path):
     s = setup
     s.chat.answer = "*4031196* e *5455609*: não sei dizer se são iguais. Responda /igual, /similar ou /diferente"
     _msg(s, ME, "c1", ME, from_me=True, text="/perguntar 4031196 é a mesma que 5455609?")
@@ -503,5 +504,58 @@ def test_ask_privately_teach_and_approve(setup, monkeypatch):
     s.bridge.teacher = Teacher()
     _msg(s, ME, "c3", ME, from_me=True, text="/pendentes", dt=5)
     assert f"#{proposal_id}: 4031196 *igual* 5455609" in s.transport.to_self[-1]
+    admin = AssistantAdminService(
+        config_store=AssistantConfigStore(str(tmp_path / "assistente_config.json")),
+        role_reader=lambda: "publisher",
+        sleep=lambda _: None,
+    )
+    s.bridge.admin = admin
+    # Sem PIN criado: nao aprova, e diz onde criar.
     _msg(s, ME, "c4", ME, from_me=True, text=f"/aprovar {proposal_id}", dt=5)
+    assert s.transport.to_self[-1] == PIN_MISSING_TEXT
+    admin.set_whatsapp_pin("2468")
+    _msg(s, ME, "c5", ME, from_me=True, text=f"/aprovar {proposal_id}", dt=5)
+    assert s.transport.to_self[-1].startswith("Falta o PIN")
+    _msg(s, ME, "c6", ME, from_me=True, text=f"/aprovar {proposal_id} 1111", dt=5)
+    assert s.transport.to_self[-1] == "PIN incorreto."
+    _msg(s, ME, "c7", ME, from_me=True, text=f"/aprovar {proposal_id} 2468", dt=5)
     assert s.transport.to_self[-1] == f"aprovada {proposal_id}"
+    _msg(s, ME, "c8", ME, from_me=True, text=f"/recusar {proposal_id} 2468", dt=5)
+    assert s.transport.to_self[-1] == f"recusada {proposal_id}"
+
+
+def test_whatsapp_pin_is_hashed_survives_password_change_and_blocks_guessing(tmp_path, monkeypatch):
+    monkeypatch.setattr(assistant_admin_service, "_PIN_GUARD", {"falhas": [], "bloqueado_ate": 0.0})
+    store = AssistantConfigStore(str(tmp_path / "assistente_config.json"))
+    admin = AssistantAdminService(config_store=store, role_reader=lambda: "publisher", sleep=lambda _: None)
+    for bad in ("123", "123456789", "12a4"):
+        with pytest.raises(ValidationException):
+            admin.set_whatsapp_pin(bad)
+    admin.set_whatsapp_pin("1234")
+    assert "1234" not in json.dumps(store.load_admin()[assistant_admin_service.PIN_KEY])
+    admin.set_password("senha-admin-1")
+    assert admin.has_whatsapp_pin() and admin.check_whatsapp_pin("1234", now=0)
+
+    for i in range(5):
+        assert admin.check_whatsapp_pin("9999", now=100 + i) is False
+    assert admin.check_whatsapp_pin("1234", now=110) is False  # bloqueado
+    assert admin.check_whatsapp_pin("1234", now=110 + 601) is True
+
+    admin.set_whatsapp_pin("")
+    assert admin.has_whatsapp_pin() is False
+
+
+def test_whatsapp_pin_endpoint_requires_admin(client, monkeypatch):
+    monkeypatch.setattr(assistant_admin_service, "_PIN_GUARD", {"falhas": [], "bloqueado_ate": 0.0})
+    monkeypatch.setattr(AssistantAdminService, "is_publisher", lambda self: True)
+    assert client.post("/assistente/admin/pin-whatsapp", json={"pin": "1234"}).status_code == 403
+    assert client.post("/assistente/admin/senha", json={"senha_nova": "senha-admin-1"}).status_code == 200
+    token = client.post("/assistente/admin/login", json={"senha": "senha-admin-1"}).json()["data"]["token"]
+    auth = {"X-Admin-Token": token}
+    assert client.post("/assistente/admin/pin-whatsapp", json={"pin": "12"}, headers=auth).status_code == 422
+    saved = client.post("/assistente/admin/pin-whatsapp", json={"pin": "1234"}, headers=auth)
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["data"]["pin_whatsapp_definido"] is True
+    assert "1234" not in saved.text
+    removed = client.post("/assistente/admin/pin-whatsapp", json={"pin": None}, headers=auth)
+    assert removed.json()["data"]["pin_whatsapp_definido"] is False

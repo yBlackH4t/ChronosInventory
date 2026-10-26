@@ -12,7 +12,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import logging
+import re
 import secrets
+import threading
 import time
 from typing import Any, Callable, Dict, Optional
 
@@ -28,6 +30,15 @@ FAILED_LOGIN_DELAY_SECONDS = 0.5
 
 # token -> momento em que expira (por processo do backend).
 _SESSIONS: Dict[str, float] = {}
+
+# PIN do WhatsApp (/aprovar 3 1234): 4 a 8 digitos, guardado so como hash na secao "admin".
+PIN_KEY = "pin_whatsapp"
+PIN_PATTERN = re.compile(r"^\d{4,8}$")
+PIN_MAX_FAILURES = 5
+PIN_FAILURE_WINDOW_SECONDS = 600
+PIN_BLOCK_SECONDS = 600
+_PIN_GUARD = {"falhas": [], "bloqueado_ate": 0.0}
+_PIN_LOCK = threading.Lock()
 
 
 class AdminRequiredError(Exception):
@@ -68,6 +79,7 @@ class AssistantAdminService:
             "senha_definida": bool(self.config_store.load_admin().get("hash")),
             # Login vale em qualquer maquina (a senha e de cada uma); ensinar continua so na publicadora.
             "autenticado": self._valid_token(token),
+            "pin_whatsapp_definido": self.has_whatsapp_pin(),
         }
 
     def set_password(self, nova: str, atual: Optional[str] = None) -> None:
@@ -78,10 +90,65 @@ class AssistantAdminService:
             self.sleep(FAILED_LOGIN_DELAY_SECONDS)
             raise AdminRequiredError("Senha atual incorreta.")
         salt = secrets.token_hex(16)
-        self.config_store.save_admin(
-            {"salt": salt, "iteracoes": PBKDF2_ITERATIONS, "hash": _hash_password(nova, salt, PBKDF2_ITERATIONS)}
-        )
+        updated = {k: v for k, v in admin.items() if k == PIN_KEY}  # o PIN do WhatsApp continua
+        updated.update({"salt": salt, "iteracoes": PBKDF2_ITERATIONS, "hash": _hash_password(nova, salt, PBKDF2_ITERATIONS)})
+        self.config_store.save_admin(updated)
         _SESSIONS.clear()  # trocou a senha: todas as sessoes caem
+
+    # ------------------------------------------------------------------
+    # PIN do WhatsApp (/aprovar e /recusar)
+    # ------------------------------------------------------------------
+
+    def has_whatsapp_pin(self) -> bool:
+        pin = self.config_store.load_admin().get(PIN_KEY)
+        return isinstance(pin, dict) and bool(pin.get("hash"))
+
+    def set_whatsapp_pin(self, pin: Optional[str]) -> None:
+        """PIN de 4 a 8 digitos; None ou "" remove (aprovar pelo WhatsApp fica desligado)."""
+        admin = self.config_store.load_admin()
+        value = str(pin or "").strip()
+        if not value:
+            admin.pop(PIN_KEY, None)
+        else:
+            if not PIN_PATTERN.match(value):
+                raise ValidationException("O PIN precisa ter de 4 a 8 números.")
+            salt = secrets.token_hex(16)
+            admin[PIN_KEY] = {
+                "salt": salt,
+                "iteracoes": PBKDF2_ITERATIONS,
+                "hash": _hash_password(value, salt, PBKDF2_ITERATIONS),
+            }
+        self.config_store.save_admin(admin)
+        with _PIN_LOCK:
+            _PIN_GUARD["falhas"] = []
+            _PIN_GUARD["bloqueado_ate"] = 0.0
+
+    def check_whatsapp_pin(self, pin: Optional[str], now: Optional[float] = None) -> bool:
+        """Confere o PIN. Depois de 5 erros em 10 min, recusa tudo por 10 min."""
+        now = time.time() if now is None else now
+        stored = self.config_store.load_admin().get(PIN_KEY)
+        if not isinstance(stored, dict) or not stored.get("hash"):
+            return False
+        with _PIN_LOCK:
+            if now < _PIN_GUARD["bloqueado_ate"]:
+                return False
+        if PIN_PATTERN.match(str(pin or "")) and self._check(str(pin), stored):
+            return True
+        self.sleep(FAILED_LOGIN_DELAY_SECONDS)
+        with _PIN_LOCK:
+            failures = [t for t in _PIN_GUARD["falhas"] if now - t <= PIN_FAILURE_WINDOW_SECONDS] + [now]
+            if len(failures) >= PIN_MAX_FAILURES:
+                _PIN_GUARD["bloqueado_ate"] = now + PIN_BLOCK_SECONDS
+                failures = []
+                LOG.warning("whatsapp: PIN errado varias vezes; aprovar pelo WhatsApp bloqueado por 10 min")
+            _PIN_GUARD["falhas"] = failures
+        return False
+
+    @staticmethod
+    def whatsapp_pin_blocked(now: Optional[float] = None) -> bool:
+        now = time.time() if now is None else now
+        with _PIN_LOCK:
+            return now < _PIN_GUARD["bloqueado_ate"]
 
     def login(self, senha: str) -> Dict[str, Any]:
         admin = self.config_store.load_admin()

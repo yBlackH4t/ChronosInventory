@@ -178,7 +178,7 @@ export function InventoryCollectorPanel({
                 Limpar
               </Button>
             </Group>
-            <Collapse in={logOpened}>
+            <Collapse expanded={logOpened}>
               <Stack gap={4} mt={6} mah={220} style={{ overflowY: "auto" }}>
                 {log.map((entry) => (
                   <Group key={entry.id} gap="sm" wrap="nowrap">

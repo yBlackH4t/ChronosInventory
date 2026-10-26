@@ -35,7 +35,7 @@ export default function Panel({
         >
           <Stack gap={2} miw={0}>
             {title && (
-              <Text fw={600} size="sm">
+              <Text component="div" fw={600} size="sm">
                 {title}
               </Text>
             )}

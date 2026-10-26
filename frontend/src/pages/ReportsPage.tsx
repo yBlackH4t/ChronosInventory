@@ -3,6 +3,7 @@ import { Button, Grid, Group, Loader, Stack, Tabs, Text } from "@mantine/core";
 import {
   IconBuildingWarehouse,
   IconCash,
+  IconChartBar,
   IconHourglassEmpty,
   IconListCheck,
 } from "@tabler/icons-react";
@@ -12,6 +13,7 @@ import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
 import PageHeader from "../components/ui/PageHeader";
+import "../styles/vidro-telas.css";
 const ReportsStockSection = lazy(
   () => import("../components/reports/ReportsStockSection"),
 );
@@ -24,10 +26,14 @@ const ReportsSalesSection = lazy(
 const ReportsInactiveSection = lazy(
   () => import("../components/reports/ReportsInactiveSection"),
 );
+const ReportsAnalysisSection = lazy(
+  () => import("../components/reports/ReportsAnalysisSection"),
+);
 import { downloadBlob } from "../lib/download";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
 import type { DownloadResponse, Product, SuccessResponse } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
+import { notifyUndo } from "../lib/notifyUndo";
 
 import { useLocations } from "../hooks/useLocations";
 
@@ -37,7 +43,7 @@ type SelectedReportProduct = Pick<
 >;
 
 const REPORT_TYPES: {
-  value: "estoque" | "selecionados" | "vendas" | "parados";
+  value: ReportsTabState["activeSection"];
   label: string;
   hint: string;
   icon: typeof IconCash;
@@ -46,10 +52,11 @@ const REPORT_TYPES: {
   { value: "vendas", label: "Vendas reais", hint: "Saídas de operação normal", icon: IconCash },
   { value: "parados", label: "Estoque parado", hint: "Itens sem giro no período", icon: IconHourglassEmpty },
   { value: "selecionados", label: "Lista personalizada", hint: "Itens escolhidos por você", icon: IconListCheck },
+  { value: "analises", label: "Análises", hint: "Gráficos que saíram do Painel", icon: IconChartBar },
 ];
 
 type ReportsTabState = {
-  activeSection: "estoque" | "selecionados" | "vendas" | "parados";
+  activeSection: "estoque" | "selecionados" | "vendas" | "parados" | "analises";
   salesDateFrom: string | null;
   salesDateTo: string | null;
   salesScope: number | null;
@@ -212,7 +219,7 @@ export default function ReportsPage() {
     onSuccess: (res) => {
       const filename = res.filename || "Relatorio_Estoque.pdf";
       downloadBlob(res.blob, filename);
-      notifySuccess("Relatorio de estoque gerado.");
+      notifySuccess("Relatório de estoque gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -231,7 +238,7 @@ export default function ReportsPage() {
         res.blob,
         res.filename || "Relatorio_Estoque_Selecionado.pdf",
       );
-      notifySuccess("Relatorio dos itens selecionados gerado.");
+      notifySuccess("Relatório dos itens selecionados gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -245,7 +252,7 @@ export default function ReportsPage() {
       }),
     onSuccess: (res) => {
       downloadBlob(res.blob, res.filename || "Relatorio_Vendas_Reais.pdf");
-      notifySuccess("Relatorio de vendas reais gerado.");
+      notifySuccess("Relatório de vendas reais gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -259,7 +266,7 @@ export default function ReportsPage() {
       }),
     onSuccess: (res) => {
       downloadBlob(res.blob, res.filename || "Relatorio_Estoque_Parado.pdf");
-      notifySuccess("Relatorio de estoque parado gerado.");
+      notifySuccess("Relatório de estoque parado gerado.");
     },
     onError: (error) => notifyError(error),
   });
@@ -272,9 +279,25 @@ export default function ReportsPage() {
   };
 
   const removeSelectedItem = (productId: number) => {
+    const before = selectedItems;
+    const removed = before.find((item) => item.id === productId);
     setSelectedItems((current) =>
       current.filter((item) => item.id !== productId),
     );
+    if (removed) {
+      notifyUndo(`${removed.nome} saiu da lista.`, () => setSelectedItems(before));
+    }
+  };
+
+  const clearSelectedItems = () => {
+    const before = selectedItems;
+    setSelectedItems([]);
+    if (before.length > 0) {
+      notifyUndo(
+        `Lista limpa (${before.length} ${before.length === 1 ? "item" : "itens"}).`,
+        () => setSelectedItems(before),
+      );
+    }
   };
 
   const moveSelectedItem = (itemId: number, direction: "up" | "down") => {
@@ -321,9 +344,9 @@ export default function ReportsPage() {
         }
       />
 
-      <Grid gutter="lg">
+      <Grid gap="lg">
         <Grid.Col span={{ base: 12, md: 4, lg: 3 }}>
-          <div className="surface-panel" style={{ overflow: "hidden" }}>
+          <div className="surface-panel vt-report-nav" style={{ overflow: "hidden" }}>
             {REPORT_TYPES.map((report) => (
               <button
                 key={report.value}
@@ -362,6 +385,7 @@ export default function ReportsPage() {
             <ReportsStockSection
               onGenerate={() => stockReportMutation.mutate()}
               loading={stockReportMutation.isPending}
+              failed={stockReportMutation.isError}
             />
           </Suspense>
         </Tabs.Panel>
@@ -382,11 +406,12 @@ export default function ReportsPage() {
               addSelectedItem={addSelectedItem}
               removeSelectedItem={removeSelectedItem}
               moveSelectedItem={moveSelectedItem}
-              clearSelectedItems={() => setSelectedItems([])}
+              clearSelectedItems={clearSelectedItems}
               locationLabel={(inv) =>
                 locationLabel(inv as Record<number, number>, locations)
               }
               loadingGenerate={selectedStockReportMutation.isPending}
+              failed={selectedStockReportMutation.isError}
               generateSelectedReport={() =>
                 selectedStockReportMutation.mutate()
               }
@@ -413,6 +438,7 @@ export default function ReportsPage() {
                 })),
               ]}
               loading={salesReportMutation.isPending}
+              failed={salesReportMutation.isError}
               onGenerate={() => salesReportMutation.mutate()}
             />
           </Suspense>
@@ -439,8 +465,15 @@ export default function ReportsPage() {
                 })),
               ]}
               loading={inactiveReportMutation.isPending}
+              failed={inactiveReportMutation.isError}
               onGenerate={() => inactiveReportMutation.mutate()}
             />
+          </Suspense>
+        </Tabs.Panel>
+
+        <Tabs.Panel value="analises">
+          <Suspense fallback={<ReportSectionFallback />}>
+            {activeSection === "analises" ? <ReportsAnalysisSection /> : null}
           </Suspense>
         </Tabs.Panel>
       </Tabs>

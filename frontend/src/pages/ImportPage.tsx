@@ -86,12 +86,12 @@ export default function ImportPage() {
     onSuccess: (res) => {
       setResult(res.data);
       setActiveStep(2);
-      notifySuccess("Importacao concluida com sucesso");
+      notifySuccess("Importação concluída com sucesso");
       queryClient.invalidateQueries({ queryKey: ["analytics"] });
       queryClient.invalidateQueries({ queryKey: ["products"] });
       queryClient.invalidateQueries({ queryKey: ["inventory"] });
     },
-    onError: (error) => notifyError(error, "Falha na importacao"),
+    onError: (error) => notifyError(error, "Falha na importação"),
   });
 
   const handleAnalyze = () => {
@@ -195,7 +195,7 @@ export default function ImportPage() {
 
         <Stepper.Step label="Mapeamento" description="Indique as colunas">
           {analysisData && (
-            <Grid gutter="lg" mt="lg">
+            <Grid gap="lg" mt="lg">
               <Grid.Col span={{ base: 12, lg: 5 }}>
                 <Stack gap="md">
                   <Panel title="Objetivo">

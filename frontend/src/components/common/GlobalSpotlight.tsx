@@ -14,6 +14,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ADMIN_NAV, PRIMARY_NAV, type NavItem } from "../../app/navigation";
 import { api } from "../../lib/apiClient";
 import { detectBrand, detectCondition } from "../../lib/brands";
+import { previewActionProps } from "../../lib/spotlightPreview";
+import SpotlightPreview from "./SpotlightPreview";
 
 export function GlobalSpotlight() {
   const navigate = useNavigate();
@@ -68,6 +70,7 @@ export function GlobalSpotlight() {
         const inStock = prod.total_stock > 0;
 
         actions.push({
+          ...previewActionProps(prod.id),
           id: `product-${prod.id}`,
           label: prod.nome,
           description: `#${prod.id}${
@@ -82,7 +85,7 @@ export function GlobalSpotlight() {
             <IconBox
               size={18}
               stroke={1.5}
-              color={inStock ? "var(--mantine-color-teal-6)" : "var(--mantine-color-gray-6)"}
+              color={inStock ? "var(--mantine-color-success-6)" : "var(--mantine-color-gray-6)"}
             />
           ),
           rightSection: (
@@ -100,7 +103,7 @@ export function GlobalSpotlight() {
               <Badge
                 size="xs"
                 variant={inStock ? "filled" : "outline"}
-                color={inStock ? "teal" : "gray"}
+                color={inStock ? "success" : "gray"}
               >
                 {inStock ? `${prod.total_stock} un` : "Sem saldo"}
               </Badge>
@@ -135,7 +138,11 @@ export function GlobalSpotlight() {
   // "/" only outside text fields, so it never steals a typed slash.
   useHotkeys([["/", () => spotlight.open()]]);
 
+  const previewProducts = query.trim() ? (searchResults?.data ?? []) : [];
+
   return (
+    <>
+    <SpotlightPreview products={previewProducts} />
     <Spotlight
       actions={[...navGroups, ...dynamicActions]}
       nothingFound={
@@ -169,5 +176,6 @@ export function GlobalSpotlight() {
       scrollable
       maxHeight={460}
     />
+    </>
   );
 }

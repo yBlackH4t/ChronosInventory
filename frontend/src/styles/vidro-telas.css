@@ -1,0 +1,411 @@
+/* ==========================================================================
+   Vidro suave em Inventário, Etiquetas e Relatórios (2.7.4). Só classes vt-*.
+   Animações só nos níveis Suave/Completo; no "Nenhum" a regra global de
+   global.css já tira transições e animações.
+   ========================================================================== */
+
+:root {
+  --vt-ring-end: #38bdf8;
+  --vt-live: #0891b2;
+}
+
+:root[data-mantine-color-scheme="dark"] {
+  --vt-ring-end: #a5f3fc;
+  --vt-live: #22d3ee;
+}
+
+/* ---------- Anel de progresso ---------- */
+.vt-ring {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.vt-ring svg {
+  transform: rotate(-90deg);
+}
+
+.vt-ring-track {
+  fill: none;
+  stroke: var(--pill-track);
+}
+
+.vt-ring-arc {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 900ms var(--ease-out);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 35%, transparent));
+}
+
+.vt-ring-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.vt-ring-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.vt-ring-caption {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Inventário ---------- */
+.vt-session-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 22px;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Brilho suave atrás do anel. */
+.vt-session-hero::before {
+  content: "";
+  position: absolute;
+  left: -40px;
+  top: -60px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--accent-soft), transparent);
+  pointer-events: none;
+}
+
+.vt-session-hero > * {
+  position: relative;
+}
+
+.vt-session-actions {
+  margin-left: auto;
+}
+
+.vt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--pill-track);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 550;
+  line-height: 1.6;
+}
+
+.vt-chip[data-tone="live"] {
+  color: var(--vt-live);
+  border-color: color-mix(in srgb, var(--vt-live) 35%, transparent);
+  background: color-mix(in srgb, var(--vt-live) 10%, transparent);
+}
+
+.vt-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--vt-live);
+}
+
+:root[data-motion="completo"] .vt-live-dot {
+  animation: vt-live-pulse 1.8s var(--ease) infinite;
+}
+
+@keyframes vt-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--vt-live) 55%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Barrinha embaixo de cada número do resumo: a parte dele no total. */
+.vt-share {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--pill-track);
+  overflow: hidden;
+}
+
+.vt-share > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 700ms var(--ease-out);
+}
+
+/* Diferença da contagem como selo. */
+.vt-diff {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.vt-diff[data-kind="ok"] {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.vt-diff[data-kind="sobra"] {
+  color: var(--mantine-color-teal-text, var(--success));
+  background: color-mix(in srgb, var(--mantine-color-teal-filled) 14%, transparent);
+}
+
+.vt-diff[data-kind="falta"] {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 13%, transparent);
+}
+
+/* Linha com diferença: um traço na cor de aviso à esquerda. */
+.vt-count-row[data-diverge] > td:first-child {
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 70%, transparent);
+}
+
+/* ---------- Etiquetas ---------- */
+.vt-mode-switch {
+  align-self: flex-start;
+}
+
+/* ---------- Relatórios ---------- */
+.vt-report-nav .settings-item {
+  position: relative;
+}
+
+.vt-report-nav .settings-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-gradient);
+  transform: scaleY(0);
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.vt-report-nav .settings-item[data-active]::before {
+  transform: scaleY(1);
+}
+
+.vt-report-nav .settings-item[data-active] .settings-item-icon {
+  background: var(--accent-gradient);
+  color: #fff;
+  box-shadow: var(--shadow-button);
+}
+
+.vt-report {
+  overflow: hidden;
+}
+
+.vt-report-body {
+  display: flex;
+  gap: 28px;
+  padding: 22px 24px;
+  align-items: flex-start;
+}
+
+.vt-report-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.vt-report-params {
+  padding-top: 4px;
+}
+
+.vt-report-foot {
+  background: color-mix(in srgb, var(--surface-2, var(--pill-track)) 60%, transparent);
+}
+
+.vt-report-preview {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+
+/* Miniatura da folha A4. */
+.vt-paper {
+  width: 168px;
+  aspect-ratio: 210 / 297;
+  padding: 14px 12px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid rgba(16, 34, 46, 0.12);
+  box-shadow: 0 1px 2px rgba(15, 40, 60, 0.06), 0 12px 30px rgba(15, 40, 60, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transform: rotate(-1.5deg);
+  transition: transform var(--dur) var(--ease-out);
+  color: #10222e;
+}
+
+:root[data-mantine-color-scheme="dark"] .vt-paper {
+  background: #e8eef2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+.vt-report:hover .vt-paper {
+  transform: rotate(0deg) translateY(-2px);
+}
+
+.vt-paper-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vt-paper-logo {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--accent-gradient);
+}
+
+.vt-paper-title {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.vt-paper-line,
+.vt-paper-foot {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(16, 34, 46, 0.18);
+}
+
+.vt-paper-foot {
+  margin-top: auto;
+  width: 30%;
+  align-self: flex-end;
+}
+
+.vt-paper-cols,
+.vt-paper-row {
+  display: grid;
+  gap: 4px;
+  align-items: center;
+}
+
+.vt-paper-cols {
+  margin-top: 4px;
+  padding: 3px 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--accent) 16%, #ffffff);
+  font-size: 5.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.vt-paper-cols > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vt-paper-cols > span + span {
+  text-align: right;
+}
+
+.vt-paper-row {
+  padding: 0 4px;
+}
+
+.vt-paper-row > span {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(16, 34, 46, 0.22);
+}
+
+.vt-paper-row > .vt-paper-num {
+  width: 50%;
+  justify-self: end;
+  background: color-mix(in srgb, var(--accent) 45%, #ffffff);
+}
+
+/* Ao trocar de relatório, as linhas "imprimem" de cima para baixo. */
+:root:not([data-motion="nenhum"]) .vt-paper-row {
+  animation: vt-print 420ms var(--ease-out) both;
+}
+
+@keyframes vt-print {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Números de verdade ao lado da folha. */
+.vt-report-facts {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  min-width: 150px;
+}
+
+.vt-report-facts > div {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--pill-track);
+}
+
+.vt-report-facts dt {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.vt-report-facts dd {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.vt-report-facts > div[data-tone="accent"] dd {
+  color: var(--accent-text);
+}
+
+.vt-report-facts > div[data-tone="warning"] dd {
+  color: var(--warning);
+}
+
+@media (max-width: 1100px) {
+  .vt-report-body {
+    flex-direction: column;
+  }
+}

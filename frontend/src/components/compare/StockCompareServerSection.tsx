@@ -90,7 +90,7 @@ export default function StockCompareServerSection({
         {/* Esta máquina */}
         <Panel
           title="Esta máquina"
-          subtitle="Publique o snapshot para que outro computador possa comparar com você."
+          subtitle="Publique a cópia do estoque para que outro computador possa comparar com você."
         >
           <Stack gap="sm">
             <Group gap="lg" wrap="wrap">
@@ -99,8 +99,8 @@ export default function StockCompareServerSection({
               </StatusDot>
               <StatusDot tone={compareServerStatus?.local_snapshot_available ? "info" : "neutral"}>
                 {compareServerStatus?.local_snapshot_available
-                  ? "Snapshot publicado"
-                  : "Sem snapshot"}
+                  ? "Cópia do estoque publicada"
+                  : "Sem cópia do estoque"}
               </StatusDot>
             </Group>
             <Stack gap={0}>
@@ -108,7 +108,7 @@ export default function StockCompareServerSection({
               <KeyValue label="Perfil" value={activeProfileName} />
               <KeyValue label="Porta" value={compareServerStatus?.server_port || "—"} />
               <KeyValue
-                label="Último snapshot"
+                label="Última cópia do estoque"
                 value={
                   localSnapshot
                     ? dayjs(localSnapshot.manifest.published_at).format("DD/MM/YYYY HH:mm")
@@ -129,19 +129,19 @@ export default function StockCompareServerSection({
               <Button
                 size="xs"
                 variant="subtle"
-                color="red"
+                color="danger"
                 onClick={onDeleteLatestSnapshot}
                 disabled={!compareServerStatus?.local_snapshot_available}
                 loading={deleteLatestSnapshotLoading}
               >
-                Excluir snapshot
+                Excluir cópia do estoque
               </Button>
               <Button
                 leftSection={<IconUpload size={16} stroke={1.5} />}
                 onClick={onPublishSnapshot}
                 loading={publishSnapshotLoading}
               >
-                Publicar snapshot
+                Publicar cópia do estoque
               </Button>
             </Group>
           </Stack>
@@ -150,7 +150,7 @@ export default function StockCompareServerSection({
         {/* Servidor remoto */}
         <Panel
           title="Outro computador"
-          subtitle="Informe o endereço do servidor do colega e compare com o snapshot dele."
+          subtitle="Informe o endereço do servidor do colega e compare com a cópia do estoque dele."
           actions={
             <StatusDot
               tone={remoteReachable === null ? "neutral" : remoteReachable ? "success" : "danger"}
@@ -177,7 +177,7 @@ export default function StockCompareServerSection({
                   value={`${remoteServerInfo.machine_label || "—"} · app ${remoteServerInfo.app_version || "—"}`}
                 />
                 <KeyValue
-                  label="Snapshot"
+                  label="Cópia do estoque"
                   value={
                     remoteManifest
                       ? dayjs(remoteManifest.published_at).format("DD/MM/YYYY HH:mm")
@@ -194,12 +194,12 @@ export default function StockCompareServerSection({
               </Stack>
             ) : (
               <Text size="xs" c="dimmed">
-                Consulte o servidor para conferir se ele já publicou o snapshot.
+                Consulte o servidor para conferir se ele já publicou a cópia do estoque.
               </Text>
             )}
             {remoteSnapshotIsOlder && (
               <StatusDot tone="warning" size="xs">
-                O snapshot remoto é mais antigo que o desta máquina
+                A cópia do estoque remota é mais antiga que a desta máquina
               </StatusDot>
             )}
             {remoteCheckError ? (
@@ -286,7 +286,7 @@ export default function StockCompareServerSection({
                         <ActionIcon
                           color="gray"
                           className="action-danger"
-                          aria-label="Excluir snapshot"
+                          aria-label="Excluir cópia do estoque"
                           onClick={() => onDeleteHistorySnapshot(item.manifest_path)}
                           loading={
                             deleteHistorySnapshotLoading &&

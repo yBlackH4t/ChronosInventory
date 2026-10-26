@@ -229,6 +229,7 @@ def test_sefaz_answers_are_explained(client, tmp_path, monkeypatch):
 
     _setup(client, tmp_path)
     client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    client.put("/nfe/config", json={"pastas_xml": [str(tmp_path / "Geradas")], "cnpj_loja": EMIT_CNPJ})
     answers = iter([
         nfe_sefaz.SefazResult(c_stat="138", motivo="ok", so_resumo=True),
         nfe_sefaz.SefazResult(c_stat="656", motivo="Consumo Indevido"),
@@ -359,3 +360,166 @@ def test_authorized_xml_wins_over_the_unsigned_copy_of_the_same_note(client, tmp
     # Mesmo com o arquivo autorizado em outra pasta, sem a chave no nome.
     (vendas / f"{CHAVE}-procNFe.xml").rename(tmp_path / "Geradas" / "nota.xml")
     assert client.get(f"/nfe/{CHAVE}").json()["data"]["autorizada"] is True
+
+
+def test_sefaz_response_rejects_doctype_and_huge_gzip(monkeypatch):
+    import base64
+    import gzip
+
+    import pytest
+
+    from core import nfe_sefaz
+
+    bomb = '<!DOCTYPE x [<!ENTITY a "aaaa">]><x>&a;</x>'.encode()
+    with pytest.raises(nfe_sefaz.SefazError, match="DOCTYPE"):
+        nfe_sefaz.parse_response(bomb)
+
+    def body(doc_bytes):
+        doc = base64.b64encode(gzip.compress(doc_bytes)).decode()
+        return (
+            '<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope"><soap:Body>'
+            '<retDistDFeInt xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.01"><cStat>138</cStat>'
+            f'<xMotivo>ok</xMotivo><loteDistDFeInt><docZip NSU="1" schema="procNFe_v4.00.xsd">{doc}'
+            "</docZip></loteDistDFeInt></retDistDFeInt></soap:Body></soap:Envelope>"
+        ).encode()
+
+    with pytest.raises(nfe_sefaz.SefazError, match="DOCTYPE"):
+        nfe_sefaz.parse_response(body(b'<!DOCTYPE x [<!ENTITY a "a">]><x/>'))
+    monkeypatch.setattr(nfe_sefaz, "MAX_DOC_BYTES", 1000)
+    with pytest.raises(nfe_sefaz.SefazError, match="grande demais"):
+        nfe_sefaz.parse_response(body(b"<x>" + b"a" * 5000 + b"</x>"))
+    assert nfe_sefaz.parse_response(body(b"<x>pequeno</x>")).xml == b"<x>pequeno</x>"
+
+
+def test_certificate_key_is_never_written_in_clear_and_temp_files_are_removed(tmp_path, monkeypatch):
+    import os
+    import ssl
+
+    import pytest
+    import requests
+
+    from core import nfe_sefaz
+
+    with open(_pfx(tmp_path), "rb") as fh:
+        pfx = fh.read()
+    key, cert, extras = nfe_sefaz.load_certificate(pfx, "segredo1")
+    folder = tmp_path / "temp_nfe"
+    folder.mkdir()
+    cert_file, key_file, password = nfe_sefaz.write_temp_credentials(key, cert, extras, str(folder))
+    pem = open(key_file, "rb").read()
+    assert b"ENCRYPTED PRIVATE KEY" in pem and b"BEGIN PRIVATE KEY" not in pem
+    context = ssl.create_default_context()
+    context.load_cert_chain(cert_file, key_file, password=password)  # abre so com a senha da memoria
+    with pytest.raises(ssl.SSLError):
+        ssl.create_default_context().load_cert_chain(cert_file, key_file, password=b"errada")
+
+    # download_nfe: a pasta temporaria some mesmo quando a SEFAZ nao responde.
+    created = []
+    real_mkdtemp = nfe_sefaz.tempfile.mkdtemp
+
+    def tracking_mkdtemp(*args, **kwargs):
+        path = real_mkdtemp(*args, **kwargs)
+        created.append(path)
+        return path
+
+    def offline(self, *args, **kwargs):
+        assert kwargs.get("cert") is None  # o certificado vai no contexto TLS, nao em arquivo aberto
+        raise requests.exceptions.ConnectionError("sem internet")
+
+    monkeypatch.setattr(nfe_sefaz, "_use_system_trust", lambda: None)  # nao mexe no ssl do processo
+    monkeypatch.setattr(nfe_sefaz.tempfile, "mkdtemp", tracking_mkdtemp)
+    monkeypatch.setattr(requests.Session, "post", offline)
+    with pytest.raises(nfe_sefaz.SefazError, match="SEFAZ"):
+        nfe_sefaz.download_nfe(CHAVE, pfx=pfx, senha="segredo1", cnpj="03897158000102")
+    assert created and not os.path.exists(created[0])
+
+
+def test_xml_of_the_note_is_returned_for_the_shipping_label(client, tmp_path):
+    _setup(client, tmp_path)
+    response = client.get(f"/nfe/{CHAVE}/xml")
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["numero"] == 14560 and data["arquivo"] == f"{CHAVE}-nfe.xml"
+    assert "<xNome>B2PECAS LTDA</xNome>" in data["xml"]
+
+    outra = "43261003897158000285550020000145611821211029"
+    assert client.get(f"/nfe/{outra}/xml").status_code in (400, 404)
+
+
+def test_deactivated_product_is_found_and_can_be_reactivated_to_post_the_note(client, tmp_path):
+    _setup(client, tmp_path)
+    turbo = _product(client, "TURBO GARRETT GT4594BNS 876272-5017S", 3)
+    assert client.put("/produtos/status-lote", json={"ids": [turbo], "ativo": False}).status_code == 200
+
+    # O desativado continua sendo achado pelo codigo, marcado como desativado.
+    item = client.get(f"/nfe/{CHAVE}").json()["data"]["itens"][0]
+    assert item["produto_sugerido"]["id"] == turbo and item["produto_sugerido"]["ativo"] is False
+
+    body = {"tipo": "SAIDA", "location_id": CANOAS, "itens": [{"item": 1, "produto_id": turbo, "quantidade": 2}]}
+    blocked = client.post(f"/nfe/{CHAVE}/baixa", json=body)
+    assert blocked.status_code == 400 and "inativo" in blocked.json()["error"]["message"].lower()
+    assert client.get(f"/nfe/{CHAVE}").json()["data"]["ja_baixada"] is None
+
+    # Reativado (o botao da tela da nota), a baixa segue.
+    assert client.put("/produtos/status-lote", json={"ids": [turbo], "ativo": True}).status_code == 200
+    assert client.post(f"/nfe/{CHAVE}/baixa", json=body).status_code == 201
+    assert _stock(client, turbo) == 1
+
+
+def test_company_code_on_the_note_points_to_the_product_with_that_id(client, tmp_path):
+    """Notas da empresa trazem o CD_MATERIAL, que e o id no Chronos; o desativado nao perde para outro."""
+    _product(client, "TURBO 876272-5017S USADO", 4)  # ativo e cita o mesmo codigo
+    certo = _product(client, "TURBO GARRET GT4594BNS - 876272-5017S", 0)
+    assert client.put("/produtos/status-lote", json={"ids": [certo], "ativo": False}).status_code == 200
+    _setup(client, tmp_path, xml=_xml(itens=((f"{certo:07d}", "TURBO GARRET GT4594BNS 876272-5017S", "1"),)))
+
+    item = client.get(f"/nfe/{CHAVE}").json()["data"]["itens"][0]
+    assert item["produto_sugerido"]["id"] == certo and item["produto_sugerido"]["ativo"] is False
+    assert item["confianca"] == "codigo"
+
+
+def test_saved_cnpjs_are_tried_until_the_one_that_received_the_note(client, tmp_path, monkeypatch):
+    from core import nfe_sefaz
+
+    matriz, canoas = "03897158000102", EMIT_CNPJ
+    fornecedor = _fix_dv("42261053870235000109550020000748901471059981")
+    consultas = []
+
+    def fake_download(chave, *, cnpj, **kwargs):
+        consultas.append(cnpj)
+        if cnpj != matriz:
+            return nfe_sefaz.SefazResult(c_stat="641", motivo="nao e destinatario")
+        xml = _xml(chave=chave, emit=("53870235000109", "B2PECAS LTDA"), dest=(matriz, "MONTREAL MATRIZ"))
+        return nfe_sefaz.SefazResult(c_stat="138", motivo="Documento localizado", xml=xml)
+
+    monkeypatch.setattr(nfe_sefaz, "download_nfe", fake_download)
+    _setup(client, tmp_path)
+    client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    saved = client.put("/nfe/config", json={
+        "pastas_xml": [str(tmp_path / "Geradas")],
+        "cnpjs": [{"cnpj": "03.897.158/0002-85", "nome": "Canoas"}, {"cnpj": matriz, "nome": "Matriz"}],
+    }).json()["data"]
+    assert saved["cnpj_loja"] == canoas
+    assert saved["cnpjs"] == [{"cnpj": canoas, "nome": "Canoas"}, {"cnpj": matriz, "nome": "Matriz"}]
+    assert client.get("/nfe/config").json()["data"]["cnpjs"] == saved["cnpjs"]
+
+    data = client.get(f"/nfe/{fornecedor}").json()["data"]
+    assert consultas == [canoas, matriz]
+    assert data["loja"] == {"cnpj": matriz, "nome": "Matriz"} and data["tipo_sugerido"] == "ENTRADA"
+
+    bad = client.put("/nfe/config", json={"pastas_xml": [], "cnpjs": [{"cnpj": "123", "nome": "x"}]})
+    assert bad.status_code == 400
+
+
+def test_note_between_saved_cnpjs_keeps_this_store_point_of_view(client, tmp_path):
+    """Canoas (esta loja) mandando para a Matriz (tambem salva) continua sendo saida."""
+    matriz = ("03897158000102", "MONTREAL COMERCIO DE PECAS LTDA")
+    canoas = (EMIT_CNPJ, "MONTREAL COMERCIO DE PECAS - CANOAS")
+    _setup(client, tmp_path, xml=_xml(emit=canoas, dest=matriz))
+    client.put("/nfe/config", json={
+        "pastas_xml": [str(tmp_path / "Geradas")],
+        "cnpjs": [{"cnpj": canoas[0], "nome": "Canoas"}, {"cnpj": matriz[0], "nome": "Matriz"}],
+    })
+    data = client.get(f"/nfe/{CHAVE}").json()["data"]
+    assert data["tipo_sugerido"] == "SAIDA" and data["loja"]["nome"] == "Canoas"
+    assert data["movimento_sugerido"]["SAIDA"]["natureza"] == "TRANSFERENCIA_EXTERNA"

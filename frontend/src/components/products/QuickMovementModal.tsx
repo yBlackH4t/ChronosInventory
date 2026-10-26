@@ -34,21 +34,25 @@ import {
   type ProductMovementNature,
   type ProductMovementType,
 } from "../../lib/productMovement";
+import { detectBrand } from "../../lib/brands";
+import { splitProductCode } from "../../lib/productView";
 import { useProfileScope } from "../../state/profileScope";
+import "../../styles/products-movements.css";
 
 type QuickMovementModalProps = {
   opened: boolean;
   onClose: () => void;
   product: Product | null;
   locations: InventoryLocation[];
-  onSuccess?: () => void;
+  /** Chamado com o que foi lançado (a lista usa para piscar e rolar o saldo). */
+  onSuccess?: (movement: MovementCreate) => void;
 };
 
 type QuickMovementFormProps = {
   product: Product;
   locations: InventoryLocation[];
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (movement: MovementCreate) => void;
 };
 
 function computeInitialLocations(
@@ -102,6 +106,11 @@ function QuickMovementForm({
   const [documento, setDocumento] = useState<string>("");
   const [observacao, setObservacao] = useState<string>("");
 
+  const nameParts = useMemo(
+    () => splitProductCode(product.nome, detectBrand(product.nome)),
+    [product.nome],
+  );
+
   const natureOptions = useMemo(
     () => movementNatureOptionsByType(tipo),
     [tipo],
@@ -116,7 +125,7 @@ function QuickMovementForm({
 
   const mutation = useMutation({
     mutationFn: (payload: MovementCreate) => api.createMovement(payload),
-    onSuccess: () => {
+    onSuccess: (_data, payload) => {
       notifySuccess(
         `${
           tipo === "SAIDA"
@@ -138,7 +147,7 @@ function QuickMovementForm({
       queryClient.invalidateQueries({
         queryKey: ["movimentacoes", profileScopeKey],
       });
-      onSuccess?.();
+      onSuccess?.(payload);
       onClose();
     },
     onError: (err) => {
@@ -228,9 +237,12 @@ function QuickMovementForm({
         {/* Card com dados do item e saldos */}
         <Paper p="sm" radius="md" withBorder bg="var(--mantine-color-default-hover)">
           <Stack gap={4}>
-            <Text fw={650} size="sm" lineClamp={2}>
-              {product.nome}
-            </Text>
+            <Group gap={8} wrap="nowrap" miw={0}>
+              {nameParts.code && <span className="pm-code">{nameParts.code}</span>}
+              <Text fw={nameParts.code ? 500 : 650} size="sm" lineClamp={2} title={product.nome}>
+                {nameParts.code ? nameParts.rest : product.nome}
+              </Text>
+            </Group>
             <Group gap="xs" mt={4} wrap="wrap">
               <Text size="xs" c="dimmed">
                 Saldos atuais:
@@ -242,7 +254,7 @@ function QuickMovementForm({
                     key={loc.id}
                     size="xs"
                     variant={qty > 0 ? "light" : "outline"}
-                    color={qty > 0 ? "teal" : "gray"}
+                    color={qty > 0 ? "success" : "gray"}
                   >
                     {loc.label || loc.name}: {qty}
                   </Badge>
@@ -291,7 +303,7 @@ function QuickMovementForm({
                 value: "ENTRADA",
                 label: (
                   <Group gap={6} justify="center">
-                    <IconArrowUpRight size={16} color="var(--mantine-color-teal-6)" />
+                    <IconArrowUpRight size={16} color="var(--mantine-color-success-6)" />
                     <Text fw={600} size="sm">
                       Entrada
                     </Text>
@@ -315,11 +327,11 @@ function QuickMovementForm({
         </Stack>
 
         {/* Campos de Localidade */}
-        <Grid gutter="sm">
+        <Grid gap="sm">
           {tipo !== "ENTRADA" && (
             <Grid.Col span={tipo === "TRANSFERENCIA" ? 6 : 12}>
               <Select
-                label="Local de Origem (saída)"
+                label="Local de origem (saída)"
                 placeholder="Selecione o local"
                 data={locationSelectData}
                 value={origemId}
@@ -333,7 +345,7 @@ function QuickMovementForm({
           {tipo !== "SAIDA" && (
             <Grid.Col span={tipo === "TRANSFERENCIA" ? 6 : 12}>
               <Select
-                label="Local de Destino (entrada)"
+                label="Local de destino (entrada)"
                 placeholder="Selecione o local"
                 data={locationSelectData}
                 value={destinoId}
@@ -346,7 +358,7 @@ function QuickMovementForm({
         </Grid>
 
         {/* Quantidade e Natureza */}
-        <Grid gutter="sm">
+        <Grid gap="sm">
           <Grid.Col span={6}>
             <NumberInput
               label="Quantidade"
@@ -383,7 +395,7 @@ function QuickMovementForm({
         {/* Campos condicionais para AJUSTE e TRANSFERENCIA_EXTERNA */}
         {natureza === "AJUSTE" && (
           <Select
-            label="Motivo do Ajuste"
+            label="Motivo do ajuste"
             description="Obrigatório para natureza Ajuste"
             data={PRODUCT_ADJUSTMENT_REASON_OPTIONS}
             value={motivoAjuste}
@@ -399,7 +411,7 @@ function QuickMovementForm({
 
         {natureza === "TRANSFERENCIA_EXTERNA" && (
           <TextInput
-            label="Local Externo"
+            label="Local externo"
             description="Obrigatório para transferência externa"
             placeholder="Ex: Oficina parceira, filial terceirizada..."
             value={localExterno}
@@ -409,7 +421,7 @@ function QuickMovementForm({
         )}
 
         {/* Documento e Observação */}
-        <Grid gutter="sm">
+        <Grid gap="sm">
           <Grid.Col span={6}>
             <TextInput
               label="Documento / NF (opcional)"
@@ -478,7 +490,7 @@ export function QuickMovementModal({
         <Group gap="xs">
           <IconArrowsExchange size={20} color="var(--accent)" />
           <Text fw={700} size="md">
-            Movimentação Rápida
+            Movimentar
           </Text>
           <Badge size="sm" variant="light" color="gray">
             #{product.id}

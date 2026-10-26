@@ -314,7 +314,7 @@ export default function ProductStatusPage() {
                   <Table.Td colSpan={columnCount} style={{ borderBottom: 0 }}>
                     <EmptyState
                       message="Falha ao carregar itens"
-                      description={`${loadError} Verifique se o backend está atualizado.`}
+                      description={`${loadError} Se continuar, instale a atualização do Chronos e abra o app de novo.`}
                       actionLabel="Tentar novamente"
                       onAction={() => void listQuery.refetch()}
                     />

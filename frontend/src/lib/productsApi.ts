@@ -20,6 +20,9 @@ import type {
   OwnFichaList,
   CatalogStatus,
   CatalogImportOut,
+  CompanyRegisterImportOut,
+  CompanyRegisterPreview,
+  CompanyRegisterStatus,
   HiddenApplicationIn,
 } from "../types/api";
 
@@ -299,6 +302,35 @@ export function createProductsApi({
         { method: "POST", body: form, ...options },
         baseUrl,
       );
+    },
+
+    // Cadastro da empresa (arquivo de produtos da loja)
+    async getCompanyRegister(options: RequestInit = {}) {
+      return request<CompanyRegisterStatus>(`/catalogo/cadastro`, { method: "GET", ...options }, baseUrl);
+    },
+
+    async previewCompanyRegister(file: File, options: RequestInit = {}) {
+      const form = new FormData();
+      form.append("file", file);
+      return request<CompanyRegisterPreview>(
+        `/catalogo/cadastro/previa`,
+        { method: "POST", body: form, ...options },
+        baseUrl,
+      );
+    },
+
+    async importCompanyRegister(file: File, createProducts: boolean, options: RequestInit = {}) {
+      const form = new FormData();
+      form.append("file", file);
+      return request<CompanyRegisterImportOut>(
+        `/catalogo/cadastro/importar${buildQuery({ criar_produtos: createProducts })}`,
+        { method: "POST", body: form, ...options },
+        baseUrl,
+      );
+    },
+
+    async removeCompanyRegister(options: RequestInit = {}) {
+      return request<{ fichas_removidas: number }>(`/catalogo/cadastro`, { method: "DELETE", ...options }, baseUrl);
     },
   };
 }

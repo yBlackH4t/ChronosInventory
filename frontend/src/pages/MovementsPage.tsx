@@ -35,7 +35,7 @@ class MovementsPageErrorBoundary extends Component<
   }
 
   componentDidCatch(error: unknown): void {
-    console.error("Erro ao renderizar Movimentacoes:", error);
+    console.error("Erro ao renderizar Movimentações:", error);
   }
 
   private handleReload = () => {
@@ -88,7 +88,7 @@ function MovementsPageContent() {
                 leftSection={<IconFileInvoice size={16} stroke={1.5} />}
                 onClick={() => openNfeMovement()}
               >
-                Baixa por NF-e
+                Lançar nota fiscal
               </Button>
               <Button
                 leftSection={<IconQrcode size={16} stroke={1.5} />}
@@ -125,6 +125,8 @@ function MovementsPageContent() {
           setShowAdvancedFilters={state.setShowAdvancedFilters}
           showProductId={state.showProductId}
           setShowProductId={state.setShowProductId}
+          showReversed={state.showReversed}
+          setShowReversed={state.setShowReversed}
           tablePreferences={state.tablePreferences}
           setTablePreferences={state.setTablePreferences}
           activeViewCount={state.activeViewCount}

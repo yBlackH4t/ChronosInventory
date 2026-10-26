@@ -20,10 +20,18 @@ def get_nfe_service() -> NfeService:
     return NfeService()
 
 
+class NfeCnpjIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    cnpj: str = Field(max_length=20)
+    nome: str = Field(default="", max_length=60)
+
+
 class NfeConfigIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pastas_xml: List[str] = Field(default_factory=list, max_length=nfe_service.MAX_FOLDERS)
     cnpj_loja: Optional[str] = Field(default=None, max_length=20)
+    # Lista de CNPJs da empresa; o primeiro e o desta loja. Quando vem, substitui o cnpj_loja.
+    cnpjs: Optional[List[NfeCnpjIn]] = Field(default=None, max_length=nfe_service.MAX_CNPJS)
 
 
 class NfeCertificadoIn(BaseModel):
@@ -58,7 +66,8 @@ def get_config():
 
 @router.put("/config")
 def put_config(payload: NfeConfigIn):
-    return ok(nfe_service.save_config(payload.pastas_xml, payload.cnpj_loja))
+    cnpjs = [c.model_dump() for c in payload.cnpjs] if payload.cnpjs is not None else None
+    return ok(nfe_service.save_config(payload.pastas_xml, payload.cnpj_loja, cnpjs))
 
 
 @router.put("/certificado")
@@ -75,6 +84,12 @@ def delete_certificado():
 @router.get("/{chave}")
 def preview(chave: str, service: NfeService = Depends(get_nfe_service)):
     return ok(service.preview(chave))
+
+
+@router.get("/{chave}/xml")
+def xml(chave: str, service: NfeService = Depends(get_nfe_service)):
+    """XML da nota, para imprimir a etiqueta de expedicao depois da baixa."""
+    return ok(service.xml(chave))
 
 
 @router.post("/{chave}/baixa", status_code=201)

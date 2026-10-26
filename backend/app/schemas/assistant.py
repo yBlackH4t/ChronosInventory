@@ -74,6 +74,23 @@ class AdminStatusOut(BaseModel):
     maquina_publicadora: bool
     senha_definida: bool
     autenticado: bool
+    pin_whatsapp_definido: bool = False
+
+
+class AssistantPanelOut(BaseModel):
+    """Numeros do assistente para o Painel (sem conteudo das conversas)."""
+
+    perguntas_hoje: int
+    para_revisar: int
+    rascunhos: int
+    whatsapp_estado: Literal["parado", "conectando", "aguardando_qr", "conectado", "reconectando", "desconectado", "erro"]
+    whatsapp_ativo: bool
+
+
+class AdminWhatsAppPinIn(BaseModel):
+    """PIN para /aprovar e /recusar pelo WhatsApp: 4 a 8 numeros; null ou "" remove."""
+
+    pin: str | None = Field(default=None, max_length=8, pattern=r"^(\d{4,8})?$")
 
 
 class AdminPasswordIn(BaseModel):

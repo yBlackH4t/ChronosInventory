@@ -5,6 +5,20 @@ import { notifications } from "@mantine/notifications";
 import { createApiClient } from "../../lib/api";
 import type { MovementOut, MovementCreate } from "../../lib/api";
 
+// Como cada tipo aparece na frase ("desfazer esta entrada").
+const TIPO_TEXTO: Record<MovementOut["tipo"], string> = {
+  ENTRADA: "entrada",
+  SAIDA: "saída",
+  TRANSFERENCIA: "transferência",
+};
+
+// O lançamento que desfaz cada tipo.
+const ESTORNO_TEXTO: Record<MovementOut["tipo"], string> = {
+  ENTRADA: "uma saída",
+  SAIDA: "uma entrada",
+  TRANSFERENCIA: "uma transferência de volta",
+};
+
 type EstornoModalProps = {
   opened: boolean;
   onClose: () => void;
@@ -42,21 +56,23 @@ export default function EstornoModal({
     onSuccess: () => {
       notifications.show({
         title: "Sucesso",
-        message: "Estorno realizado com sucesso",
-        color: "green",
+        message:
+          "Estorno lançado. Na lista de Movimentações, a movimentação e o estorno ficam ocultos; ligue \"Mostrar estornados\" para vê-los.",
+        color: "success",
       });
-      queryClient.invalidateQueries({ queryKey: ["movements"] });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["product-history"] });
+      // As chaves usadas pelas telas (antes eram "movements"/"products" e a lista não atualizava).
+      for (const key of ["movimentacoes", "produtos", "produto", "historico", "produto-saldo-historico", "analytics"]) {
+        queryClient.invalidateQueries({ queryKey: [key] });
+      }
       setObservacao("");
       onSuccess?.();
       onClose();
     },
     onError: (error: Error) => {
       notifications.show({
-        title: "Erro",
-        message: error.message || "Falha ao realizar estorno",
-        color: "red",
+        title: "Não foi possível estornar",
+        message: error.message || "Tente de novo. Se continuar, avise o responsável.",
+        color: "danger",
       });
     },
   });
@@ -67,22 +83,22 @@ export default function EstornoModal({
     <Modal
       opened={opened}
       onClose={onClose}
-      title="Confirmar Estorno"
+      title="Estornar movimentação"
       centered
     >
       <Stack gap="md">
         <Text size="sm">
-          Você está prestes a estornar a movimentação <strong>#{movement.id}</strong> (
-          {movement.tipo} de {movement.quantidade} itens). 
+          Movimentação <strong>#{movement.id}</strong>: {TIPO_TEXTO[movement.tipo]} de{" "}
+          {movement.quantidade} {movement.quantidade === 1 ? "item" : "itens"}.
         </Text>
         <Text size="sm">
-          Isso criará uma nova movimentação do tipo{" "}
-          <strong>{movement.tipo === "ENTRADA" ? "SAIDA" : "ENTRADA"}</strong>{" "}
-          com natureza <strong>ESTORNO</strong> para reverter o saldo.
+          Será lançada {ESTORNO_TEXTO[movement.tipo]} de {movement.quantidade}{" "}
+          {movement.quantidade === 1 ? "item" : "itens"} para desfazer esta{" "}
+          {TIPO_TEXTO[movement.tipo]}.
         </Text>
 
         <TextInput
-          label="Observação (Opcional)"
+          label="Observação (opcional)"
           placeholder={`Estorno da movimentação #${movement.id}`}
           value={observacao}
           onChange={(e) => setObservacao(e.currentTarget.value)}
@@ -93,8 +109,8 @@ export default function EstornoModal({
           <Button variant="default" onClick={onClose} disabled={isPending}>
             Cancelar
           </Button>
-          <Button color="red" onClick={() => estornar()} loading={isPending}>
-            Confirmar Estorno
+          <Button color="danger" onClick={() => estornar()} loading={isPending}>
+            Estornar movimentação
           </Button>
         </Group>
       </Stack>

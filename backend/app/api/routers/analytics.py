@@ -17,6 +17,7 @@ from backend.app.schemas.analytics import (
     RecentStockoutItem,
     SaidasPoint,
     StockDistributionOut,
+    StockCountPoint,
     StockEvolutionPoint,
     StockItemOverview,
     StockSummaryOut,
@@ -196,6 +197,19 @@ def stock_items_overview(
     date_to = date_to or date.today()
     items = movement_service.get_stock_items_overview(date_to, days=days, scope=location_id)
     return ok([StockItemOverview(**item) for item in items])
+
+
+@router.get("/stock/count-history", response_model=SuccessResponse[list[StockCountPoint]])
+def stock_count_history(
+    days: int = Query(30, ge=2, le=365),
+    date_to: date | None = Query(None),
+    location_id: int | None = Query(None),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[list[StockCountPoint]]:
+    """Produtos com saldo e zerados no fim de cada dia (linhas de tendencia do Painel)."""
+    date_to = date_to or date.today()
+    points = movement_service.get_stock_count_history(date_to, days=days, scope=location_id)
+    return ok([StockCountPoint(**point) for point in points])
 
 
 @router.get("/movements/by-nature", response_model=SuccessResponse[list[MovementNatureTotal]])

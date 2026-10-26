@@ -457,6 +457,126 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-26 — Claude Code — 2.7.4, Vidro suave nas telas que faltavam e tabela de Produtos
+- Branch: `claude/project-thread-oq7mai` (a partir da `main` 481d293, 2.7.2).
+- Produtos (`ProductsListTable.tsx`): colunas Foto | Código (`.pm-code-cell`) | Produto | filiais | Total | Saídas 90 dias | ações. `useStockTotals` saiu para `hooks/useStockTotals.ts` (também nos Relatórios).
+- CSS novo `styles/vidro-telas.css` (classes `vt-*`): `ProgressRing` (`components/ui`), herói da sessão do Inventário, selos de diferença, miniatura da folha (`ReportPaperPreview`) e faixa do relatório ativo. Animações só fora do nível "Nenhum".
+- Etiquetas: as abas viraram `SegmentedControl`; lista com código em destaque e `StockNumber` no total.
+- Correções: `sessionLocalLabel` (`lib/inventoryView.ts`) usa `local` do backend (antes "Local #null"); botão `light` no Grafite escuro (global.css).
+- Microinterações (mesmo PR): `styles/microinteracoes.css` (classes `mi-*`), `ProgressButton`, `CopyCode`, `SortableList`, `ApiStatusDot`, `SpotlightPreview` (prévia do Ctrl+K), `MovementsMinimap`, `notifyUndo`, `themeReveal` (View Transitions), `rowExit`, `cursorGlow`. Tudo gated por `data-motion`.
+- Fotos: `/mnt/project-files/visual/2.7.4/` (animações em `animacoes/`, com o clipe `animacoes-2.7.4.mp4`).
+- Verificações: pytest ok / build ok / lint ok (só avisos antigos) / vitest ok.
+
+### 2026-10-19 — Claude Code — 2.6.3, NF-e, Assistente e leitura de código (Vidro suave)
+- Branch: `claude/nf-assistente` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e regras
+  do backend sem mudar). Arquivos compartilhados (`global.css`, `theme.ts`, `AppLayout.tsx`) intactos:
+  os estilos novos ficam em `components/scanner/scanner.css` e `components/assistant/assistantChat.css`.
+- **Lançar nota fiscal** (`NfeMovementModal.tsx`): etapas ler a chave → conferir itens → confirmar,
+  com indicador (`NfeStepper.tsx`, lógica em `lib/nfeSteps.ts`) e um bloco por etapa (o da etapa
+  atual com a borda da cor principal). Itens entram um a um; "Hoje → Fica" numa coluna, com o
+  "Fica" rolando até o valor (`AnimatedNumber`/NumberFlow). Produto escolhido num seletor novo
+  (`NfeProductPicker.tsx`, Combobox com a busca dentro da lista) que quebra o nome em duas linhas;
+  a coluna do produto é a mais larga (janela de 1040 px). Natureza, local externo, motivo do ajuste,
+  observação e "Ignorar (casco)" continuam iguais (o item ignorado fica riscado, não apagado).
+  Cabeçalho da janela opaco (o título se sobrepunha ao conteúdo rolando).
+- **Assistente** (`AssistantPage.tsx`, `AssistantAnswer.tsx`, `ThinkingIndicator.tsx`, lógica em
+  `lib/assistantAnswer.ts`): balões (pergunta à direita na cor principal; resposta num cartão à
+  esquerda), cada código de peça como etiqueta com borda (Garrett com hífen e códigos só de números;
+  não pega GT4594, anos ou quantidades), linhas da resposta, botões e cartões de produto entrando em
+  sequência (150 ms cada, `components/ui/Reveal.tsx` + `lib/reveal.ts`), três pontos "Pensando…".
+  Igual/Similar/Diferente, Pesquisar na internet, Configurações e Copiar resposta mantidos. O mock
+  (`VITE_ASSISTENTE_MOCK=1`) ganhou o caso "A é igual a B?" com os botões de ensinar.
+- **Leitura de código**: na Movimentação em lote, o item lido ganha uma moldura verde que pulsa e a
+  lista rola até ele; chave "Bipe ao ler" (desligada por padrão, lembrada na máquina,
+  `lib/scanFeedback.ts`); anúncio para leitor de tela. Página do celular
+  (`backend/app/api/routers/scanner.py`, só HTML/CSS/JS da página) no visual escuro, botão "Bipe"
+  (desligado por padrão, lembrado no celular) e moldura verde no último lido.
+- Animações: Completo = desloca e pulsa; Suave = só esmaece; Nenhum = nada (a moldura fica parada
+  1,6 s). Contraste conferido (>= 4,5:1) no claro e no escuro, nas três cores principais.
+- Verificações: build, lint (0 erros), vitest 58 (18 novos em `lib/nfAssistenteScan.test.ts`),
+  pytest 262, ruff. Telas em `/mnt/project-files/visual/2.6.3/` (banco de teste + mock).
+
+### 2026-10-19 — Claude Code — 2.6.2: Produtos, ficha, Movimentar e Movimentações
+- Branch: `claude/produtos-movimentacoes` (a partir da `main` 2.6.0; versão, CHANGELOG e Python
+  sem mudar). Só telas.
+- Produtos: código da peça como rótulo da linha (`lib/productView.ts`, `splitProductCode`), marca
+  e versão em texto com um ponto de cor, saldo grande (verde/âmbar com dica "Estoque baixo"/
+  vermelho), "Movimentar" sempre visível e o resto no menu "⋯"; coluna de filial sem saldo some
+  (se só uma tem saldo, a coluna vira "Saldo · Canoas"); filtros em chips (Todos, Com estoque,
+  Zerados). Busca ao vivo: linhas deslizam/esmaecem (FLIP, `hooks/useFlipList.ts` + `lib/flip.ts`,
+  sem o pacote de layout do motion; a virtualização continua).
+- Ficha: foto grande, código e ações no topo; zero da filial em cinza, vermelho só no total
+  zerado; gráfico com um rótulo por mês; últimas 5 movimentações logo abaixo; "foto que viaja"
+  da linha até a ficha (`lib/sharedFlight.ts`, mede e anima, como o `NavIndicator`).
+- Movimentar: o saldo da linha pisca verde/laranja e rola até o valor novo (NumberFlow).
+- Movimentações: linha do tempo compacta (uma linha por movimento), selo "Cadastro" no lugar da
+  observação padrão, estornada riscada (e sem botão de estornar de novo), movimento novo entra
+  no topo, ações visíveis. Corrigido: o estorno não atualizava as listas (chaves erradas).
+- Níveis de animação: Completo tudo; Suave só esmaecer (sem voo, sem rolar); Nenhum nada.
+- Capturas: `/mnt/project-files/visual/2.6.2/`. Verificações: build ok / lint 0 erros (5 avisos
+  antigos) / vitest 59 ok.
+
+### 2026-10-19 — Claude Code — 2.6.1, Painel em blocos ("bento")
+- Branch: `claude/painel-bento` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e constantes
+  sem mudar). Só o Painel, os blocos dele, Relatórios > Análises e duas rotas novas.
+- Painel (`pages/DashboardPage.tsx`, `components/dashboard/bento/`): cabe em ~1,5 tela (1520 px a
+  1440 de largura, antes ~2.400). Topo com 4 números que rolam e linha dos 30 dias que se desenha
+  (unidades, saídas em 30 dias com ritmo de 7 dias, produtos com estoque, zerados); filtro de
+  filial, semana/mês e data mantidos. Blocos: "Pede ação hoje" (o maior: zerados que venderam,
+  perto de zerar e parados que mais ocupam numa lista só, com etiqueta Zerado/Repor/Parado; clicar
+  abre a ficha do produto pela mesma rota `?openId=` da busca), Saúde do estoque (medidor circular),
+  Assistente e WhatsApp (perguntas de hoje, respostas e códigos para revisar, robô com ponto que
+  pulsa; some se a rota não existir), Movimento da semana/mês (barras que crescem; saldo num
+  gráfico pequeno separado, sem eixo duplo), Mais saídas (barras enchem em sequência) e Atividade ao
+  vivo (últimas movimentações a cada 20 s; a nova desce do topo). Sem Recharts no Painel.
+- Animações respeitam os níveis: Completo cresce/desenha/desliza, Suave só esmaece, Nenhum aparece
+  pronto (`lib/dashboardMotion.ts` + testes). Contraste conferido no claro e no escuro (todos os
+  textos do Painel >= 4,5:1). Funciona de 1100 px para cima sem rolagem lateral.
+- Saíram do Painel para Relatórios > Análises (`components/reports/ReportsAnalysisSection.tsx`,
+  `AnalysisPanels.tsx`): distribuição por filial, dias com mais movimento, para onde foram as saídas,
+  marca e versão, transferências externas. Os cartões por filial do topo foram tirados.
+- Backend: `GET /analytics/stock/count-history` (produtos com saldo e zerados por dia) e
+  `GET /assistente/painel` (só contagens, sem login); testes em `backend/tests/test_dashboard_bento.py`.
+- Capturas: `/mnt/project-files/visual/2.6.1/`.
+- Verificações: pytest 264 ok / ruff ok / versões ok / build ok / lint 0 erros (5 avisos antigos) /
+  vitest 52 ok.
+
+### 2026-10-18 — Claude Code — 2.6.0, passo "base nova" (estilo Vidro suave)
+- Branch: `claude/vidro-suave-base` (a partir da `claude/project-thread-vw3djm`, 2.5.5; versão,
+  CHANGELOG e Python sem mudar). Só a base do app; o redesenho de cada tela vem depois.
+- Tema (`theme/theme.ts`, `styles/global.css`): azul-petróleo #0E7490 (escala `petrol`, padrão de
+  "Cor principal") com degradê até o céu #38BDF8, Sora embutida (`@fontsource/sora`), fundo #EEF3F6
+  com três manchas que se movem (14 s), vidro (rgba branco .62 + blur 18px saturate 1.4, raio 16)
+  em Card/Paper/Modal/Drawer/Menu/Popover/barra do topo pelo CSS global, tema escuro equivalente,
+  números tabulares. Contraste de texto conferido (>= 4,5:1 sobre fundo, vidro e manchas).
+- Movimento: `framer-motion` -> `motion` 12.43 (`motion/react`, `LazyMotion` + `domAnimation`),
+  troca de tela com esmaecer e deslizar (~250 ms), pílula da aba ativa deslizando
+  (`components/shell/NavIndicator.tsx`), cartões entram com desfoque em sequência, cartão de número
+  sobe no mouse, ponto de status pulsando, números dos cartões com `@number-flow/react`.
+- Configurações > Aparência > Animações: Completo, Suave, Nenhum (`chronos.appearance.motion`;
+  `lib/motion.ts` + testes). Nenhum também tira o desfoque. "Efeitos de animação" desligado no
+  Windows faz o Completo virar Suave.
+- Mantine 9.6.3 em commit separado (só `Grid gutter`->`gap` e `Collapse in`->`expanded`).
+- Capturas antes/depois: `/mnt/project-files/visual/2.6.0/`.
+- Verificações: build ok / lint ok (5 avisos antigos) / vitest 40 ok.
+
+### 2026-10-18 — Claude Code — Versão 2.5.5 (correções da avaliação completa)
+- Branch: `claude/project-thread-vw3djm`, juntando `claude/frontend-correcoes-a11y-copy` e
+  `claude/seguranca-backend`. Tela do PIN do WhatsApp (`components/assistant/WhatsAppPinButton.tsx`,
+  `POST /assistente/admin/pin-whatsapp`). O saldo do gráfico do Painel usa `estoque_inicial`, que
+  saiu das entradas. Versão 2.5.5 e CHANGELOG.
+- Verificações: pytest 262 ok / ruff ok / build ok / lint ok (5 avisos antigos) / vitest 32 ok.
+
+### 2026-10-18 — Claude Code — Correções de telas (acessibilidade, cores, textos, dependências)
+- Branch: `claude/frontend-correcoes-a11y-copy` (sobre a `main` 65d638d, versão 2.5.4 sem mudar).
+- Contraste (texto ≥ 4,5:1 nos dois temas; âmbar/verde escuros no claro via `cssVariablesResolver`),
+  badges 11/12px, linhas clicáveis pelo teclado (`lib/clickableRow.ts`), cores só do tema
+  (`danger/info/success/warning`; laranja só "Saída"), acentos e termos técnicos nos textos
+  (`OUTDATED_APP_MESSAGE` e `ASSISTANT_UNREACHABLE_MESSAGE` em `lib/notify.ts`), Node 22 no CI,
+  dependências na última minor, reqwest 0.12.
+- Verificações: build ok / lint ok (5 avisos antigos) / vitest 31 ok / cargo check ok.
+- Ficou de fora: D3/D5/D7, tela do PIN do WhatsApp, `@tauri-apps/*` (andam junto com os crates).
+
 ### 2026-10-15 — Claude Code — Disco e backups (2.5.3)
 - Branch: `claude/project-thread-2j0v1i`. Verificação no PC da empresa: 23 pastas `_MEI*` no TEMP
   (1,1 GB, do backend onefile até a 2.3.x; não são apagadas pelo app porque outros programas
@@ -1025,3 +1145,34 @@ npm run lint
 - Verificações: pytest ok / build ok / lint ok
 - Pendências ou observações para o outro agente: ...
 -->
+
+### 2026-10-19 — Claude Code — 2.6.2, correção da publicação
+- A tag v2.6.1 falhou no `build_backend.ps1`: o autodiagnóstico do executável (`app/services/assistant_packaging_check.py`) usava o Host padrão `testserver` do TestClient, que a trava de Host da 2.5.5 recusa fora de `APP_ENV=test`. Agora usa `base_url="http://127.0.0.1"`. Teste novo em `backend/tests/test_packaging_check.py` roda o autodiagnóstico sem `APP_ENV`.
+- A v2.6.1 nunca foi publicada; a 2.6.2 leva tudo (2.5.5, 2.6.0 e 2.6.1). Não recriar a tag v2.6.1.
+
+### 2026-10-21 — Claude Code — 2.7.0, cadastro da empresa (CSV da loja)
+- Branch: `claude/project-thread-7n35k7`.
+- O que foi feito: Backup > Catálogo > "Cadastro da empresa" importa o `produtos_completos.csv` do sistema da loja. Prévia antes de gravar; depois cadastra os produtos que faltam (saldo zero, observação "material N") e guarda as aplicações e similares de turbos e conjuntos que o catálogo Master Power não tem na tabela `cadastro_fichas`, copiada para `catalogo_*` com a fonte `CADASTRO` ("Cadastro da empresa"), como as fichas próprias.
+- Arquivos principais: `core/catalog/company_register.py` (leitura do texto livre, fichas, cópia para o catálogo, casamento com produtos), `app/services/company_register_service.py`, rotas em `backend/app/api/routers/catalog.py`, tela `frontend/src/components/backup/CompanyRegisterSection.tsx`.
+- Verificações: pytest ok (269) / ruff ok / build ok / lint ok / vitest ok.
+- 2026-10-22: o id do produto passa a seguir o CD_MATERIAL (o cadastro do Chronos veio desse sistema: #866 = material 866). `plan_ids`/`apply_ids` em `company_register.py`: mesmo id → nome do arquivo (se o código bate, ou se o produto nunca teve saldo nem movimentação); mesmo nome (ou mesmo código, tipo e versão) num id que o arquivo não usa ou usa para outra peça → muda para o id do arquivo em todas as tabelas (`PRAGMA defer_foreign_keys`); novos com o id do arquivo; o resto vai para "Para conferir". Nome antigo anotado na observação e códigos dele em `produto_codigos` (origem `NOME_ANTIGO`).
+- Observações: nova, reman e montada só casam com a mesma versão (senão viram produto novo). Não sincroniza pelo conhecimento do assistente: as outras máquinas recebem com "Aplicar base oficial". O pacote do catálogo ignora a fonte CADASTRO ao decidir se o catálogo é local.
+
+### 2026-10-22 — Claude Code — 2.7.1, etiqueta da NF depois da baixa
+- `GET /nfe/{chave}/xml` (`NfeService.xml`) devolve o XML da nota; `NfeMovementModal` fica aberto depois de uma saída e oferece "Imprimir etiqueta" (`printNfeShippingLabels` em `components/labels/nfeDesignerUtils.ts`, com o layout salvo no localStorage). Nota já baixada de saída também mostra o botão.
+- Modelo `halfSheetShippingLabelLayout` (190 x 135 mm) em `lib/labelsPrint.ts`; tokens novos `endereco`, `cep`, `cidadeUf`, `remetente`, `remetenteLocal`; blocos com `frame` (moldura) e `inverted` (fundo preto). O layout anterior fica em `chronos.nfe.designer_layout.anterior`.
+- Correção: o HTML de impressão tinha quebra de linha e recuo dentro de cada bloco com `white-space: pre-wrap`, e o texto saía uma linha abaixo do desenho. Peso agora com vírgula e " kg".
+
+### 2026-10-26 — Claude Code — 2.7.2, nota com produto desativado, CNPJs salvos e perfis de etiqueta
+- Branch: `claude/project-thread-dcq6wk` (a partir da `main` 53bd21e, 2.7.1).
+- NF-e (`app/services/nfe_service.py`): a sugestão de produto procura também os desativados (`ativo` em cada candidato; com a mesma pontuação o ativo vem antes). `cProd` só com dígitos que é o id de um produto com o mesmo nome (`_same_name`, ignora espaços e traços) ganha +10: nas notas da empresa o código é o CD_MATERIAL. A baixa continua recusando produto inativo (MovementService); a tela reativa com `PUT /produtos/status-lote`.
+- Tela da nota: "Reativar" no item desativado, "Cadastrar novo" em cada item (`NfeNewProductModal.tsx`, `POST /produtos` com saldo 0), busca com `listProductsStatus(status: TODOS)`.
+- CNPJs: `nfe_config.json` ganha `cnpjs` `[{cnpj, nome}]`; o primeiro vira `cnpj_loja`. `_download` tenta cada CNPJ salvo menos o emitente (próximo em 137/593/640/641; para em XML, resumo ou outro erro). `_store_cnpj` escolhe o CNPJ desta loja se ele estiver na nota, senão o salvo que está nela (destinatário, depois emitente) para o tipo e a natureza sugeridos; o preview traz `loja`.
+- Etiquetas: perfis em `components/labels/nfeLabelProfiles.ts` (localStorage `chronos.nfe.etiqueta_perfis.v1`, ativo em `chronos.nfe.etiqueta_perfil_ativo`). Primeira vez: "Perfil 1" com o layout de hoje e "Crua (sem marca)" (`rawShippingLabelLayout`: meia folha sem logo e remetente). O perfil ativo é salvo a cada mudança; importar layout cria perfil novo. A janela da nota escolhe o perfil antes de imprimir.
+- Verificações: pytest ok / ruff ok / build ok / lint ok (só avisos antigos) / vitest ok.
+
+### 2026-10-26 — Claude Code — 2.7.3, estornos fora da lista de Movimentações
+- Branch: `claude/project-thread-mswsxd` (a partir da `main` 481d293, 2.7.2).
+- `GET /movimentacoes?ocultar_estornados=true` (`MovementRepository._OCULTAR_ESTORNADOS`): esconde a movimentação que tem um estorno apontando para ela (`movimento_ref_id`) e o estorno em si. Só a lista; `/produtos/{id}/historico`, saldo e relatórios não mudam. Com o filtro `natureza=ESTORNO` o parâmetro é ignorado.
+- Tela: chave "Mostrar estornados" na barra de filtros de Movimentações (desligada por padrão, guardada no estado da aba). O aviso do estorno conta que os dois saem da lista.
+- Teste: `backend/tests/test_movements_estornados.py`.

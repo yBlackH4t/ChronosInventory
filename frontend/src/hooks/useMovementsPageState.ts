@@ -53,6 +53,9 @@ export function useMovementsPageState() {
   const [showProductId, setShowProductId] = useState(
     persistedState.showProductId,
   );
+  const [showReversed, setShowReversedValue] = useState(
+    Boolean(persistedState.showReversed),
+  );
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(
     Boolean(
       persistedState.showProductId ||
@@ -129,6 +132,7 @@ export function useMovementsPageState() {
       sort,
       serializedFilters,
       debouncedDocumentoSearch,
+      showReversed,
     ],
     queryFn: ({ signal }) =>
       api.listMovements(
@@ -155,6 +159,7 @@ export function useMovementsPageState() {
                 .format("YYYY-MM-DDTHH:mm:ss")
             : undefined,
           documento: debouncedDocumentoSearch || undefined,
+          ocultar_estornados: showReversed ? undefined : true,
           page,
           page_size: Number(pageSize),
           sort,
@@ -177,6 +182,16 @@ export function useMovementsPageState() {
     placeholderData: keepPreviousData,
     staleTime: 30_000,
   });
+
+  // Um estorno tira duas linhas da lista: se a página atual ficou vazia, volta para a última.
+  const loadedTotalPages = listQuery.data?.meta?.total_pages;
+  if (
+    loadedTotalPages !== undefined &&
+    !listQuery.isPlaceholderData &&
+    page > Math.max(loadedTotalPages, 1)
+  ) {
+    setPage(Math.max(loadedTotalPages, 1));
+  }
 
   const totalItems = listQuery.data?.meta?.total_items ?? 0;
   const totalPages = Math.max(listQuery.data?.meta?.total_pages ?? 1, 1);
@@ -226,6 +241,7 @@ export function useMovementsPageState() {
         historyProductId,
         historyOpened,
         scrollY: nextScrollY,
+        showReversed,
       });
     },
     [
@@ -238,6 +254,7 @@ export function useMovementsPageState() {
       scrollY,
       serializedFilters,
       showProductId,
+      showReversed,
       sort,
     ],
   );
@@ -284,6 +301,11 @@ export function useMovementsPageState() {
     setPage(1);
   }, []);
 
+  const setShowReversed = useCallback((value: boolean) => {
+    setShowReversedValue(value);
+    setPage(1);
+  }, []);
+
   const clearFilters = useCallback(() => {
     filtersForm.setValues({ ...DEFAULT_MOVEMENT_FILTERS });
     setDocumentoSearchValue("");
@@ -297,6 +319,7 @@ export function useMovementsPageState() {
     setProductSearch(DEFAULT_MOVEMENTS_TAB_STATE.productSearch);
     setDocumentoSearchValue("");
     setShowProductId(DEFAULT_MOVEMENTS_TAB_STATE.showProductId);
+    setShowReversedValue(false);
     setShowAdvancedFilters(false);
     setHistoryProductId(DEFAULT_MOVEMENTS_TAB_STATE.historyProductId);
     historyHandlers.close();
@@ -351,12 +374,14 @@ export function useMovementsPageState() {
     setProductSearch,
     setShowAdvancedFilters,
     setShowProductId,
+    setShowReversed,
     setSort: (value: string) => {
       setSort(value);
       setPage(1);
     },
     showAdvancedFilters,
     showProductId,
+    showReversed,
     sort,
     tableColumnCount,
     tableLayout,

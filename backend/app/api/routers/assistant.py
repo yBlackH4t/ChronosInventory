@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, Query, Request, UploadFile
@@ -31,9 +32,11 @@ from backend.app.schemas.assistant import (
     AdminLoginIn,
     AdminLoginOut,
     AdminPasswordIn,
+    AdminWhatsAppPinIn,
     AdminStatusOut,
     AssistantConfigIn,
     AssistantConfigOut,
+    AssistantPanelOut,
     ChatHistoryItemIn,
     ChatIn,
     ChatOut,
@@ -174,6 +177,18 @@ def admin_set_password(
     return ok(AdminStatusOut(**admin.status(_admin_token(request))))
 
 
+@router.post("/admin/pin-whatsapp", response_model=SuccessResponse[AdminStatusOut])
+def admin_set_whatsapp_pin(
+    payload: AdminWhatsAppPinIn,
+    request: Request,
+    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+):
+    """PIN de /aprovar e /recusar pelo WhatsApp (admin logado na publicadora). pin vazio remove."""
+    admin.require(_admin_token(request))
+    admin.set_whatsapp_pin(payload.pin)
+    return ok(AdminStatusOut(**admin.status(_admin_token(request))))
+
+
 @router.post("/admin/login", response_model=SuccessResponse[AdminLoginOut])
 def admin_login(payload: AdminLoginIn, admin: AssistantAdminService = Depends(get_assistant_admin_service)):
     return ok(AdminLoginOut(**admin.login(payload.senha)))
@@ -268,6 +283,29 @@ def review_list(
         item["sugestoes"] = knowledge.suggestions(item["codigo"], asked_with=item.pop("comparado_com", []))
         items.append(ReviewItemOut(**item))
     return ok(items)
+
+
+@router.get("/painel", response_model=SuccessResponse[AssistantPanelOut])
+def assistant_panel(
+    history: AssistantHistoryService = Depends(get_assistant_history_service),
+    whatsapp: WhatsAppService = Depends(get_whatsapp_service),
+):
+    """
+    So contagens para o Painel, sem login: perguntas de hoje, codigos para revisar,
+    respostas do WhatsApp esperando revisao e o estado do robo. O conteudo continua so
+    para o admin.
+    """
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")
+    robot = whatsapp.panel_status()
+    return ok(
+        AssistantPanelOut(
+            perguntas_hoje=history.count_since(today),
+            para_revisar=len(history.review_items(limit=1000)),
+            rascunhos=robot["rascunhos"],
+            whatsapp_estado=robot["estado"],
+            whatsapp_ativo=robot["ativo"],
+        )
+    )
 
 
 @router.post("/revisao/{codigo}/concluir", response_model=SuccessResponse[dict])

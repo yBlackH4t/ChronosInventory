@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Modal,
   Button,
@@ -12,13 +12,21 @@ import {
   Box,
   TextInput,
   Autocomplete,
+  Switch,
+  VisuallyHidden,
 } from "@mantine/core";
-import { IconTrash, IconSearch } from "@tabler/icons-react";
+import { IconTrash, IconSearch, IconVolume, IconVolumeOff } from "@tabler/icons-react";
 import { useScanner } from "../../lib/useScanner";
 import { api } from "../../lib/apiClient";
 import type { Product, MovementBatchCreate } from "../../lib/api";
 import { notifyError, notifySuccess } from "../../lib/notify";
 import { useLocations } from "../../hooks/useLocations";
+import { useMotionLevel } from "../../lib/motionContext";
+import { playBeep, readBeepPreference, writeBeepPreference } from "../../lib/scanFeedback";
+import "./scanner.css";
+
+// Quanto tempo a moldura verde fica no item lido.
+const SCAN_HIT_MS = 1600;
 
 type StagedItem = {
   product: Product;
@@ -50,6 +58,56 @@ export default function BatchMovementModal({
 
   const { locations } = useLocations();
   const { listen } = useScanner();
+  const motionLevel = useMotionLevel();
+  // Bipe ao ler: desligado por padrão, lembrado só nesta máquina.
+  const [beepOn, setBeepOn] = useState(() => readBeepPreference());
+  const beepRef = useRef(beepOn);
+  const [flash, setFlash] = useState<{ id: number; n: number } | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const rowRefs = useRef(new Map<number, HTMLTableRowElement>());
+
+  useEffect(() => {
+    beepRef.current = beepOn;
+  }, [beepOn]);
+
+  const toggleBeep = (on: boolean) => {
+    setBeepOn(on);
+    writeBeepPreference(on);
+    if (on) playBeep(true);
+  };
+
+  const scanPanelRef = useRef<HTMLDivElement>(null);
+  // Código não encontrado: o quadro de leitura treme de leve (fora do nível "Nenhum").
+  const shakePanel = () => {
+    const panel = scanPanelRef.current;
+    if (!panel) return;
+    panel.classList.remove("mi-shake");
+    void panel.offsetWidth;
+    panel.classList.add("mi-shake");
+    window.setTimeout(() => panel.classList.remove("mi-shake"), 500);
+  };
+
+  const markFound = (product: Product) => {
+    setFlash((current) => ({ id: product.id, n: (current?.n ?? 0) + 1 }));
+    setAnnouncement(`${product.nome} adicionado ao lote.`);
+  };
+
+  // Moldura verde no item achado: pulsa (Completo), acende e apaga (Suave) ou fica parada
+  // um instante (Nenhum). Lido de novo, a moldura recomeça.
+  useEffect(() => {
+    if (!flash) return;
+    const row = rowRefs.current.get(flash.id);
+    if (!row) return;
+    row.classList.remove("scan-hit");
+    void row.offsetWidth; // recomeça a animação
+    row.classList.add("scan-hit");
+    row.scrollIntoView({ block: "nearest", behavior: motionLevel === "completo" ? "smooth" : "auto" });
+    const timer = window.setTimeout(() => row.classList.remove("scan-hit"), SCAN_HIT_MS);
+    return () => {
+      window.clearTimeout(timer);
+      row.classList.remove("scan-hit");
+    };
+  }, [flash, motionLevel]);
 
   useEffect(() => {
     if (!opened) return;
@@ -70,11 +128,15 @@ export default function BatchMovementModal({
         }
 
         if (!product) {
+          if (beepRef.current) playBeep(false);
+          shakePanel();
           notifyError(new Error(`Produto não encontrado para o código: ${code}`));
           return;
         }
 
         addProductToBatch(product);
+        markFound(product);
+        if (beepRef.current) playBeep(true);
         notifySuccess(`${product.nome} adicionado ao lote.`);
       } catch (e) {
         notifyError(e, "Erro ao processar leitura do código.");
@@ -83,16 +145,13 @@ export default function BatchMovementModal({
   }, [opened, listen]);
 
   const addProductToBatch = (product: Product) => {
+    // O item lido sobe para o topo da lista (novo ou de novo), onde a moldura acende.
     setItems((current) => {
       const existing = current.find((i) => i.product.id === product.id);
-      if (existing) {
-        return current.map((i) =>
-          i.product.id === product.id
-            ? { ...i, quantidade: i.quantidade + 1 }
-            : i
-        );
-      }
-      return [...current, { product, quantidade: 1 }];
+      const rest = current.filter((i) => i.product.id !== product.id);
+      return existing
+        ? [{ ...existing, quantidade: existing.quantidade + 1 }, ...rest]
+        : [{ product, quantidade: 1 }, ...rest];
     });
   };
 
@@ -120,6 +179,7 @@ export default function BatchMovementModal({
     const selected = searchResults.find(r => r.value === val);
     if (selected) {
       addProductToBatch(selected.product);
+      markFound(selected.product);
       setSearchQuery("");
       setSearchResults([]);
     }
@@ -133,11 +193,11 @@ export default function BatchMovementModal({
 
     if (tipo === "TRANSFERENCIA") {
       if (!origemLocationId || !destinoLocationId) {
-        notifyError(new Error("Selecione os locais de Origem e Destino."));
+        notifyError(new Error("Selecione os locais de origem e destino."));
         return;
       }
       if (origemLocationId === destinoLocationId) {
-        notifyError(new Error("Origem e Destino não podem ser iguais."));
+        notifyError(new Error("Origem e destino não podem ser iguais."));
         return;
       }
       resolvedOrigem = Number(origemLocationId);
@@ -197,7 +257,7 @@ export default function BatchMovementModal({
   }));
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Movimentação em Lote / Transferência" size="xl">
+    <Modal opened={opened} onClose={onClose} title="Movimentação em Lote / Transferência" size="xl" classNames={{ header: "modal-solid-header" }}>
       <Stack gap="md">
         <Group grow>
           <Select
@@ -226,7 +286,7 @@ export default function BatchMovementModal({
         {tipo === "TRANSFERENCIA" ? (
           <Group grow>
             <Select
-              label="Local de Origem"
+              label="Local de origem"
               data={locationOptions}
               value={origemLocationId}
               onChange={setOrigemLocationId}
@@ -234,7 +294,7 @@ export default function BatchMovementModal({
               allowDeselect={false}
             />
             <Select
-              label="Local de Destino"
+              label="Local de destino"
               data={locationOptions}
               value={destinoLocationId}
               onChange={setDestinoLocationId}
@@ -268,9 +328,19 @@ export default function BatchMovementModal({
           />
         </Group>
 
-        <Box style={{ border: "1px dashed var(--border-strong)", padding: "15px", borderRadius: "8px" }}>
+        <Box className="scan-panel" ref={scanPanelRef}>
           <Stack gap="xs">
-            <Text size="sm" fw={500}>Adicionar Itens ao Lote</Text>
+            <Group justify="space-between" align="center" gap="xs">
+              <Text size="sm" fw={500}>Adicionar Itens ao Lote</Text>
+              <Switch
+                size="sm"
+                checked={beepOn}
+                onChange={(e) => toggleBeep(e.currentTarget.checked)}
+                label="Bipe ao ler"
+                description="Só neste computador"
+                thumbIcon={beepOn ? <IconVolume size={10} /> : <IconVolumeOff size={10} />}
+              />
+            </Group>
             <Text size="xs" c="dimmed">
               Você pode usar seu leitor de código de barras a qualquer momento, ou pesquisar o produto manualmente abaixo:
             </Text>
@@ -296,7 +366,13 @@ export default function BatchMovementModal({
             </Table.Thead>
             <Table.Tbody>
               {items.map((item) => (
-                <Table.Tr key={item.product.id}>
+                <Table.Tr
+                  key={item.product.id}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(item.product.id, el);
+                    else rowRefs.current.delete(item.product.id);
+                  }}
+                >
                   <Table.Td>{item.product.nome}</Table.Td>
                   <Table.Td>
                     <NumberInput
@@ -321,12 +397,16 @@ export default function BatchMovementModal({
           </Text>
         )}
 
+        <VisuallyHidden aria-live="polite" role="status">
+          {announcement}
+        </VisuallyHidden>
+
         <Group justify="flex-end" mt="md">
           <Button variant="default" onClick={onClose} disabled={loading}>
             Cancelar
           </Button>
           <Button onClick={handleConfirm} loading={loading} disabled={items.length === 0}>
-            Confirmar Lote
+            Confirmar movimentação em lote
           </Button>
         </Group>
       </Stack>

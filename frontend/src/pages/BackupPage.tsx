@@ -12,6 +12,7 @@ import { IconDatabasePlus } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
 import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
+import { CompanyRegisterSection } from "../components/backup/CompanyRegisterSection";
 import { SecondFolderSection } from "../components/backup/SecondFolderSection";
 import { useBackupAutoConfig } from "../hooks/useBackupAutoConfig";
 import { useBackupOfficialBasePanel } from "../hooks/useBackupOfficialBasePanel";
@@ -116,7 +117,7 @@ export default function BackupPage() {
     mutationFn: (backupName) => api.backupValidate(backupName),
     onSuccess: (response) => {
       setSelectedValidation(response.data);
-      notifySuccess("Validacao concluida");
+      notifySuccess("Validação concluída");
     },
     onError: (error) => notifyError(error),
   });
@@ -151,7 +152,7 @@ export default function BackupPage() {
         );
       } else {
         notifySuccess(
-          "Nenhuma foto para recuperar: os produtos deste backup ja tem foto ou nao existem mais.",
+          "Nenhuma foto para recuperar: os produtos deste backup já têm foto ou não existem mais.",
         );
       }
       queryClient.invalidateQueries({ queryKey: ["produtos"] });
@@ -168,7 +169,7 @@ export default function BackupPage() {
   >({
     mutationFn: () => api.backupRestorePreUpdate(),
     onSuccess: () => {
-      notifySuccess("Backup pre-update restaurado com sucesso");
+      notifySuccess("Dados de antes da atualização restaurados");
       queryClient.invalidateQueries({ queryKey: ["backup-list"] });
       queryClient.invalidateQueries({ queryKey: ["backup-validate-current"] });
     },
@@ -184,11 +185,11 @@ export default function BackupPage() {
       api.backupRestoreTest({ backup_name: backupName ?? undefined }),
     onSuccess: (response) => {
       if (response.data.ok) {
-        notifySuccess("Teste de restauracao concluido com sucesso");
+        notifySuccess("Teste de restauração concluído com sucesso");
       } else {
         notifyError(
           new Error(
-            `Teste de restauracao falhou: ${response.data.integrity_result}`,
+            `Teste de restauração falhou: ${response.data.integrity_result}`,
           ),
         );
       }
@@ -203,7 +204,7 @@ export default function BackupPage() {
         blob,
         filename || `diagnostico_${dayjs().format("YYYYMMDD_HHmmss")}.zip`,
       );
-      notifySuccess("Diagnostico exportado");
+      notifySuccess("Diagnóstico exportado");
     },
     onError: (error) => notifyError(error),
   });
@@ -287,7 +288,7 @@ export default function BackupPage() {
         </Text>
       ),
       labels: { confirm: "Restaurar agora", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () => restoreMutation.mutate(effectiveSelectedBackupName),
     });
   };
@@ -389,6 +390,7 @@ export default function BackupPage() {
             onNotesChange={officialBasePanel.setOfficialNotesInput}
             onPublish={officialBasePanel.confirmPublishOfficialBase}
             publishLoading={officialBasePanel.publishLoading}
+            publishFailed={officialBasePanel.publishFailed}
             onApply={officialBasePanel.confirmApplyOfficialBase}
             applyLoading={officialBasePanel.applyLoading}
             formatBytes={bytesToHuman}
@@ -455,7 +457,10 @@ export default function BackupPage() {
           </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="catalogo" pt="md">
-          <CatalogUpdateSection />
+          <Stack gap="md">
+            <CatalogUpdateSection />
+            <CompanyRegisterSection />
+          </Stack>
         </Tabs.Panel>
         <Tabs.Panel value="diagnostico" pt="md">
           <BackupDiagnosticsSection

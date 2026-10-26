@@ -91,3 +91,26 @@ def test_database_connection_migrates_legacy_db_from_estoquers(tmp_path, monkeyp
     assert row[2] == 2
     assert row[3] == "origem-legado"
 
+
+
+def test_redundant_indexes_are_dropped_and_queries_still_use_an_index(client):
+    from core.database.connection import DatabaseConnection
+
+    redundant = {"idx_mov_produto", "idx_product_images_product", "idx_inventory_counts_session", "idx_produto_estoque_produto"}
+    conn = DatabaseConnection().get_connection()
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto ON movimentacoes(produto_id);")  # banco antigo
+        conn.commit()
+    finally:
+        conn.close()
+    DatabaseConnection._instance = None
+    DatabaseConnection._initialized = False
+    conn = DatabaseConnection().get_connection()
+    try:
+        names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'index'")}
+        assert not (redundant & names)
+        assert {"idx_mov_produto_data", "idx_product_images_primary", "idx_inventory_counts_divergencia"} <= names
+        plan = " ".join(str(r[-1]) for r in conn.execute("EXPLAIN QUERY PLAN SELECT * FROM movimentacoes WHERE produto_id = 1"))
+        assert "idx_mov_produto_data" in plan
+    finally:
+        conn.close()

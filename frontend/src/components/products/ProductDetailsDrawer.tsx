@@ -1,7 +1,6 @@
-import { type FormEventHandler, useState } from "react";
+import { type FormEventHandler, useCallback, useRef, useState } from "react";
 import {
   ActionIcon,
-  Badge,
   Button,
   Card,
   Drawer,
@@ -20,7 +19,6 @@ import {
   TextInput,
   Textarea,
   Tooltip,
-  UnstyledButton,
 } from "@mantine/core";
 import type { UseFormReturnType } from "@mantine/form";
 import {
@@ -37,9 +35,14 @@ import { ImageGalleryModal } from "./ImageGalleryModal";
 import { ProductCatalogTab } from "./ProductCatalogTab";
 import { ProductHistoryTable } from "./ProductHistoryTable";
 import { detectBrand, detectCondition } from "../../lib/brands";
-import { stockLevelColor } from "../../lib/semantic";
+import { useMotionLevel } from "../../lib/motionContext";
+import { brandTitle, splitProductCode, versionTitle } from "../../lib/productView";
+import { playFlight, rowThumbFor } from "../../lib/sharedFlight";
+import { stockLevel } from "../../lib/semantic";
+import ProductRecentMovements from "./ProductRecentMovements";
 import ProductStockHistoryChart from "./ProductStockHistoryChart";
 import ProductThumb from "./ProductThumb";
+import "../../styles/products-movements.css";
 
 import type {
   MovementCreate,
@@ -154,6 +157,7 @@ export function ProductDetailsDrawer({
 }: ProductDetailsDrawerProps) {
   const [galleryOpened, setGalleryOpened] = useState(false);
   const [gallerySlide, setGallerySlide] = useState(0);
+  const [galleryOrigin, setGalleryOrigin] = useState<DOMRect | null>(null);
 
   // Modais dedicados para reduzir a sobrecarga visual
   const [movementModalOpened, setMovementModalOpened] = useState(false);
@@ -168,6 +172,49 @@ export function ProductDetailsDrawer({
   };
 
   const hasAnyStock = (currentProduct?.total_stock ?? 0) > 0;
+  const level = useMotionLevel();
+  const [tab, setTab] = useState<string | null>("catalogo");
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const showFullHistory = () => {
+    setTab("historico");
+    requestAnimationFrame(() =>
+      tabsRef.current?.scrollIntoView({ behavior: level === "completo" ? "smooth" : "auto", block: "start" }),
+    );
+  };
+  const productId = currentProduct?.id ?? null;
+  const [tabProductId, setTabProductId] = useState(productId);
+  if (tabProductId !== productId) {
+    // Outro produto: a ficha volta para o Catálogo.
+    setTabProductId(productId);
+    setTab("catalogo");
+  }
+
+  // A foto e o código pousam aqui vindos da linha (lib/sharedFlight). O ref de callback roda
+  // quando o conteúdo da gaveta monta; um quadro depois as medidas já valem.
+  const heroRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!node || productId === null) return;
+      requestAnimationFrame(() => playFlight(node, productId, level));
+    },
+    [productId, level],
+  );
+
+  const primaryImage = (imageItems.find((item) => item.is_primary) ?? imageItems[0])?.image_base64 ?? null;
+  const heroImage = primaryImage ?? (productId !== null ? rowThumbFor(productId) : null);
+  const brand = currentProduct ? detectBrand(currentProduct.nome) : null;
+  const condition = currentProduct ? detectCondition(currentProduct.nome) : null;
+  const nameParts = currentProduct ? splitProductCode(currentProduct.nome, brand) : null;
+  const openPhotos = () => {
+    if (imageItems.length > 0) {
+      setGallerySlide(0);
+      setGalleryOrigin(
+        document.querySelector<HTMLElement>('[data-shared-target="thumb"]')?.getBoundingClientRect() ?? null,
+      );
+      setGalleryOpened(true);
+    } else {
+      setPhotosModalOpened(true);
+    }
+  };
 
   return (
     <>
@@ -178,58 +225,13 @@ export function ProductDetailsDrawer({
         size="xl"
         padding="lg"
         title={
-          currentProduct ? (
-            <Group gap="md" wrap="nowrap" align="flex-start">
-            <UnstyledButton
-              onClick={() => {
-                if (imageItems.length > 0) {
-                  setGallerySlide(0);
-                  setGalleryOpened(true);
-                } else {
-                  setPhotosModalOpened(true);
-                }
-              }}
-              aria-label={imageItems.length > 0 ? "Ver fotos" : "Adicionar foto"}
-              className="photo-thumb"
-            >
-              <ProductThumb
-                size={76}
-                alt={currentProduct.nome}
-                base64={
-                  (imageItems.find((item) => item.is_primary) ?? imageItems[0])?.image_base64 ?? null
-                }
-              />
-            </UnstyledButton>
-            <Stack gap={4} miw={0}>
-              <Group gap={6} wrap="wrap" align="center">
-                {(() => {
-                  const brand = detectBrand(currentProduct.nome);
-                  const condition = detectCondition(currentProduct.nome);
-                  return (
-                    <>
-                      {brand && (
-                        <Badge size="xs" color={brand.color} variant="light">
-                          {brand.label}
-                        </Badge>
-                      )}
-                      <Badge size="xs" color={condition.color} variant="outline">
-                        {condition.label}
-                      </Badge>
-                    </>
-                  );
-                })()}
-              </Group>
-              <Text fw={650} size="lg" lineClamp={2}>
-                {currentProduct.nome}
-              </Text>
-              <Text size="xs" c="dimmed" className="mono">
-                #{currentProduct.id}
-              </Text>
-            </Stack>
-            </Group>
-          ) : (
-            "Detalhes do produto"
-          )
+          <Text size="sm" fw={600} c="dimmed">
+            Ficha do produto
+          </Text>
+        }
+        // Completo e Suave: a gaveta esmaece no lugar (a foto é que viaja até ela).
+        transitionProps={
+          level === "nenhum" ? { duration: 0 } : { transition: "fade", duration: level === "suave" ? 150 : 200 }
         }
       >
         {loading && !currentProduct && (
@@ -240,7 +242,82 @@ export function ProductDetailsDrawer({
 
         {currentProduct && (
           <Stack gap="lg">
-            {/* 1. Disponibilidade imediata por filial */}
+            {/* 1. Foto grande, código e ações */}
+            <div className="pm-hero" ref={heroRef}>
+              <button
+                type="button"
+                className="pm-hero-photo"
+                data-shared-target="thumb"
+                onClick={openPhotos}
+                aria-label={imageItems.length > 0 ? "Ver fotos" : "Adicionar foto"}
+              >
+                <ProductThumb size={168} alt={currentProduct.nome} base64={heroImage} />
+              </button>
+              <Stack gap={8} miw={0}>
+                {nameParts?.code && (
+                  <span className="pm-code" data-size="lg" data-shared-target="code" style={{ alignSelf: "flex-start" }}>
+                    {nameParts.code}
+                  </span>
+                )}
+                <Text fw={600} size="lg" lh={1.3} lineClamp={2} title={currentProduct.nome}>
+                  {nameParts?.code ? nameParts.rest || currentProduct.nome : currentProduct.nome}
+                </Text>
+                {condition && (
+                  <div className="pm-meta">
+                    <span
+                      className="pm-version-dot"
+                      style={{ background: `var(--mantine-color-${condition.color}-filled)` }}
+                      aria-hidden
+                    />
+                    <span>{[brandTitle(brand), versionTitle(condition)].filter(Boolean).join(" · ")}</span>
+                    <span className="pm-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="mono">#{currentProduct.id}</span>
+                  </div>
+                )}
+                <Group gap="xs" wrap="wrap" mt={4}>
+                  <Button
+                    leftSection={<IconPlus size={16} />}
+                    onClick={handleOpenMovementModal}
+                  >
+                    Registrar movimentação
+                  </Button>
+                  <Button
+                    variant="default"
+                    leftSection={<IconPhoto size={16} stroke={1.5} />}
+                    onClick={() => setPhotosModalOpened(true)}
+                  >
+                    Fotos
+                    <Text component="span" size="xs" c="dimmed" ml={6} className="num">
+                      {imagesTotal}/{maxImages}
+                    </Text>
+                  </Button>
+                  <Button
+                    variant="default"
+                    leftSection={<IconNote size={16} stroke={1.5} />}
+                    rightSection={
+                      observacao.trim() ? (
+                        <span
+                          className="status-dot"
+                          style={{
+                            width: 6,
+                            height: 6,
+                            boxShadow: "none",
+                            background: "var(--accent)",
+                          }}
+                        />
+                      ) : undefined
+                    }
+                    onClick={() => setNotesModalOpened(true)}
+                  >
+                    Anotações
+                  </Button>
+                </Group>
+              </Stack>
+            </div>
+
+            {/* 2. Saldo por filial: zero em cinza; vermelho só no total zerado */}
             <Stack gap={8}>
               <Group justify="space-between" align="center">
                 <Text size="xs" fw={600} c="dimmed" tt="uppercase" lts="0.06em">
@@ -252,13 +329,13 @@ export function ProductDetailsDrawer({
                     style={
                       hasAnyStock
                         ? { boxShadow: "none" }
-                        : { boxShadow: "none", background: "var(--text-subtle)" }
+                        : { boxShadow: "none", background: "var(--danger)" }
                     }
                   />
                   <Text
                     size="xs"
                     fw={600}
-                    c={hasAnyStock ? "var(--success)" : "dimmed"}
+                    c={hasAnyStock ? "var(--success)" : "var(--danger)"}
                   >
                     {hasAnyStock ? "Disponível para venda" : "Sem estoque"}
                   </Text>
@@ -276,20 +353,9 @@ export function ProductDetailsDrawer({
                       <Text size="xs" c="dimmed" fw={500} lineClamp={1}>
                         {loc.label}
                       </Text>
-                      <Text
-                        fz={26}
-                        fw={650}
-                        lh={1.2}
-                        className="num"
-                        // Zero numa filial com saldo em outra não é alarme: fica apagado.
-                        c={
-                          qty === 0 && currentProduct.total_stock > 0
-                            ? "dimmed"
-                            : `var(--mantine-color-${stockLevelColor(qty)}-light-color)`
-                        }
-                      >
-                        {qty}
-                      </Text>
+                      <div className="pm-tile-value" data-zero={qty === 0 || undefined}>
+                        {qty.toLocaleString("pt-BR")}
+                      </div>
                     </div>
                   );
                 })}
@@ -298,62 +364,19 @@ export function ProductDetailsDrawer({
                   <Text size="xs" c="dimmed" fw={500}>
                     Total
                   </Text>
-                  <Text
-                    fz={26}
-                    fw={650}
-                    lh={1.2}
-                    className="num"
-                    c={`var(--mantine-color-${stockLevelColor(currentProduct.total_stock)}-light-color)`}
-                  >
-                    {currentProduct.total_stock}
-                  </Text>
+                  <div className="pm-tile-value" data-level={stockLevel(currentProduct.total_stock)}>
+                    {currentProduct.total_stock.toLocaleString("pt-BR")}
+                  </div>
                 </div>
               </SimpleGrid>
               <ProductStockHistoryChart productId={currentProduct.id} />
             </Stack>
 
-            {/* 2. Ações rápidas */}
-            <Group gap="xs" wrap="wrap">
-              <Button
-                leftSection={<IconPlus size={16} />}
-                onClick={handleOpenMovementModal}
-              >
-                Registrar movimentação
-              </Button>
-              <Button
-                variant="default"
-                leftSection={<IconPhoto size={16} stroke={1.5} />}
-                onClick={() => setPhotosModalOpened(true)}
-              >
-                Fotos
-                <Text component="span" size="xs" c="dimmed" ml={6} className="num">
-                  {imagesTotal}/{maxImages}
-                </Text>
-              </Button>
-              <Button
-                variant="default"
-                leftSection={<IconNote size={16} stroke={1.5} />}
-                rightSection={
-                  observacao.trim() ? (
-                    <span
-                      className="status-dot"
-                      style={{
-                        width: 6,
-                        height: 6,
-                        boxShadow: "none",
-                        background: "var(--accent)",
-                      }}
-                    />
-                  ) : undefined
-                }
-                onClick={() => setNotesModalOpened(true)}
-              >
-                Anotações
-              </Button>
-            </Group>
+            {/* 3. As últimas 5 movimentações, logo abaixo do gráfico */}
+            <ProductRecentMovements productId={currentProduct.id} onSeeAll={showFullHistory} />
 
-            {/* 3. Catálogo em destaque + histórico */}
-            <Tabs defaultValue="catalogo" keepMounted={false}>
+            {/* 4. Catálogo em destaque + histórico completo */}
+            <Tabs ref={tabsRef} value={tab} onChange={setTab} keepMounted={false}>
               <Tabs.List>
                 <Tabs.Tab
                   value="catalogo"
@@ -497,7 +520,7 @@ export function ProductDetailsDrawer({
 
                   {movementForm.values.natureza === "TRANSFERENCIA_EXTERNA" && (
                     <TextInput
-                      label="Local Externo"
+                      label="Local externo"
                       placeholder="Ex: Matriz, Maringá"
                       required
                       {...movementForm.getInputProps("local_externo")}
@@ -506,7 +529,7 @@ export function ProductDetailsDrawer({
 
                   {movementForm.values.natureza === "AJUSTE" && (
                     <Select
-                      label="Motivo do Ajuste"
+                      label="Motivo do ajuste"
                       data={adjustmentReasonOptions}
                       required
                       {...movementForm.getInputProps("motivo_ajuste")}
@@ -590,8 +613,9 @@ export function ProductDetailsDrawer({
                     h={140}
                     radius="sm"
                     className="photo-thumb"
-                    onClick={() => {
+                    onClick={(event) => {
                       setGallerySlide(idx);
+                      setGalleryOrigin(event.currentTarget.getBoundingClientRect());
                       setGalleryOpened(true);
                     }}
                   />
@@ -604,7 +628,7 @@ export function ProductDetailsDrawer({
                       }
                     >
                       <ActionIcon
-                        color={img.is_primary ? "yellow" : "gray"}
+                        color={img.is_primary ? "warning" : "gray"}
                         onClick={() => !img.is_primary && onSetPrimaryImage(img.id)}
                         loading={setPrimaryImageLoading}
                         aria-label={img.is_primary ? "Imagem principal" : "Definir como principal"}
@@ -713,6 +737,7 @@ export function ProductDetailsDrawer({
         onClose={() => setGalleryOpened(false)}
         images={imageItems}
         initialSlide={gallerySlide}
+        originRect={galleryOrigin}
       />
     </>
   );

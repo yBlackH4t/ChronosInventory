@@ -323,7 +323,7 @@ export function OwnFichaPanel({ productName }: { productName: string }) {
               onChange={(e) => update({ observacao: e.currentTarget.value })}
             />
 
-            <Alert variant="light" color="blue" p="xs">
+            <Alert variant="light" color="info" p="xs">
               <Text size="xs">
                 A ficha fica na aba Catálogo, o assistente acha a turbina por essas aplicações e códigos,
                 e ela vai para as outras máquinas junto com o conhecimento do assistente.
@@ -334,7 +334,7 @@ export function OwnFichaPanel({ productName }: { productName: string }) {
               {editingId ? (
                 <Button
                   variant="subtle"
-                  color="red"
+                  color="danger"
                   leftSection={<IconTrash size={14} />}
                   loading={deleteMutation.isPending}
                   onClick={() =>
@@ -342,7 +342,7 @@ export function OwnFichaPanel({ productName }: { productName: string }) {
                       title: "Excluir ficha própria?",
                       children: <Text size="sm">As aplicações e códigos desta ficha deixam de valer.</Text>,
                       labels: { confirm: "Excluir", cancel: "Cancelar" },
-                      confirmProps: { color: "red" },
+                      confirmProps: { color: "danger" },
                       onConfirm: () => deleteMutation.mutate(editingId),
                     })
                   }

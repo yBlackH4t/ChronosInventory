@@ -29,3 +29,16 @@ def test_packaging_check_reports_failures(tmp_path, monkeypatch):
 
     (item,) = json.loads(report.read_text(encoding="utf-8"))["verificacoes"]
     assert item == {"nome": "Algo que falta", "ok": False, "erro": "ImportError: DLL nao encontrada"}
+
+
+def test_packaging_check_api_passes_host_lock(client, tmp_path, monkeypatch):
+    # O executavel roda sem APP_ENV=test: o Host "testserver" do TestClient seria recusado.
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.setenv("CHRONOS_APP_DIR", str(tmp_path))
+    monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
+    report = tmp_path / "diagnostico.json"
+
+    run_check(str(report), app=client.app)
+
+    item = json.loads(report.read_text(encoding="utf-8"))["verificacoes"][-1]
+    assert item == {"nome": "Backend e assistente respondendo (banco temporário)", "ok": True}

@@ -90,7 +90,13 @@ class MovementAnalyticsService:
         dt = datetime.combine(date_to, time.max).strftime(DATE_FORMAT_DB)
         rows = self.repo.get_flow_timeseries(df, dt, bucket=bucket, location_id=self.normalize_location(scope))
         return [
-            {"period": row["periodo"], "entradas": int(row.get("entradas") or 0), "saidas": int(row.get("saidas") or 0)}
+            {
+                "period": row["periodo"],
+                "entradas": int(row.get("entradas") or 0),
+                "saidas": int(row.get("saidas") or 0),
+                # Estoque inicial do cadastro: fora de "entradas", mas conta para o saldo.
+                "estoque_inicial": int(row.get("estoque_inicial") or 0),
+            }
             for row in rows
         ]
 
@@ -251,6 +257,51 @@ class MovementAnalyticsService:
             points.append({"date": date_to.isoformat(), "saldo": max(running, 0), "entradas": 0, "saidas": 0})
         return points
 
+    def get_stock_count_history(
+        self,
+        date_to: date,
+        days: int = 30,
+        scope: Optional[int | str] = None,
+    ) -> List[dict]:
+        """
+        Quantos produtos tinham saldo e quantos estavam zerados no fim de cada dia (para as
+        linhas de tendencia do Painel). Volta a partir do saldo de hoje desfazendo o
+        movimento de cada dia, como a evolucao do estoque.
+        """
+        location_id = self.normalize_location(scope)
+        start = date_to - timedelta(days=days - 1)
+        since = datetime.combine(start, time.min).strftime(DATE_FORMAT_DB)
+        running = {
+            int(row["produto_id"]): int(row.get("estoque") or 0)
+            for row in self.repo.get_product_stock_levels(location_id)
+        }
+        deltas: dict[str, dict[int, int]] = {}
+        # Produto cadastrado no periodo nao conta (nem como zerado) antes do cadastro.
+        born: dict[int, str] = {}
+        for row in self.repo.get_products_daily_net(since, location_id):
+            pid = int(row["produto_id"])
+            running.setdefault(pid, 0)
+            day = deltas.setdefault(str(row["dia"]), {})
+            day[pid] = day.get(pid, 0) + int(row.get("delta") or 0)
+            if row.get("cadastro"):
+                born[pid] = min(born.get(pid, str(row["dia"])), str(row["dia"]))
+
+        # Do dia mais recente com movimento (pode passar de date_to) ate o inicio.
+        last = max([date_to, date.today(), *(date.fromisoformat(d) for d in deltas)])
+        points: List[dict] = []
+        cursor = last
+        while cursor >= start:
+            key = cursor.isoformat()
+            if cursor <= date_to:
+                existing = [value for pid, value in running.items() if born.get(pid, key) <= key]
+                with_stock = sum(1 for value in existing if value > 0)
+                points.append({"date": key, "com_saldo": with_stock, "zerados": len(existing) - with_stock})
+            for pid, delta in deltas.get(key, {}).items():
+                running[pid] -= delta
+            cursor -= timedelta(days=1)
+        points.reverse()
+        return points
+
     def get_external_transfer_totals(
         self,
         date_from: date,
@@ -329,7 +380,14 @@ class MovementAnalyticsService:
         while current <= date_to:
             key = current.isoformat()
             row = by_day.get(key, {})
-            series.append({"date": key, "entradas": int(row.get("entradas") or 0), "saidas": int(row.get("saidas") or 0)})
+            series.append(
+                {
+                    "date": key,
+                    "entradas": int(row.get("entradas") or 0),
+                    "saidas": int(row.get("saidas") or 0),
+                    "estoque_inicial": int(row.get("estoque_inicial") or 0),
+                }
+            )
             current += timedelta(days=1)
         return series
 

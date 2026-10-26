@@ -95,6 +95,28 @@ async function mockChat(req: AssistantChatRequest): Promise<AssistantChatRespons
     throw new AssistantApiError("assistente_indisponivel", 503, "O assistente está indisponível no momento.");
   }
 
+  // "A é igual a B?" sem regra do especialista: "não sei" com Igual / Similar / Diferente.
+  if (/\d{6,}/.test(texto) && /igual|mesma/.test(texto)) {
+    return {
+      resposta:
+        "*53279887101* e *53279887210*: não sei se são iguais.\nO especialista ainda não ensinou essa relação.\n\nSão iguais, similares ou diferentes?",
+      produtos: [],
+      ferramentas_usadas: ["comparar_codigos"],
+      modo: "busca_direta",
+      aviso: null,
+      ensinar: { codigo_a: "53279887101", codigo_b: "53279887210", pesquisar: true },
+    };
+  }
+  if (["igual", "similar", "diferente", "pesquisar"].includes(texto.trim())) {
+    return {
+      resposta: `Anotado: *53279887101* é ${texto.trim()} à *53279887210*. Vai para o admin aprovar.`,
+      produtos: [],
+      ferramentas_usadas: [],
+      modo: "busca_direta",
+      aviso: null,
+    };
+  }
+
   const config = buildMockConfig();
   const semIa = config.provedor === "nenhum" || !config.configurado || texto.includes("busca");
 

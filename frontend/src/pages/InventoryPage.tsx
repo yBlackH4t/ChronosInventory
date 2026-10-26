@@ -240,7 +240,7 @@ export default function InventoryPage() {
   >({
     mutationFn: (payload) => api.inventoryCreateSession(payload),
     onSuccess: (response) => {
-      notifySuccess("Sessao de inventario criada");
+      notifySuccess("Sessão de inventário criada");
       createModal.close();
       setSessionName("");
       setSessionObservacao("");
@@ -299,7 +299,7 @@ export default function InventoryPage() {
   >({
     mutationFn: (sessionId) => api.inventoryCloseSession(sessionId),
     onSuccess: (response) => {
-      notifySuccess(`Sessao #${response.data.id} fechada`);
+      notifySuccess(`Sessão #${response.data.id} fechada`);
       if (selectedSessionId === response.data.id) {
         setCollectorModeActive(false);
         setCollectorSessionId(null);
@@ -377,7 +377,7 @@ export default function InventoryPage() {
       const exact = rows.find((item) => item.produto_id === parsedInput.value);
       if (!exact) {
         throw new Error(
-          `Item ${parsedInput.value} nao encontrado nesta sessao.`,
+          `Item ${parsedInput.value} não encontrado nesta sessão.`,
         );
       }
       return exact;
@@ -395,10 +395,12 @@ export default function InventoryPage() {
         .slice(0, 3)
         .map((item) => `${item.produto_nome} (#${item.produto_id})`)
         .join(" | ");
-      throw new Error(`Codigo ambiguo. Matches: ${sample}`);
+      throw new Error(
+        `Esse código serve para mais de um produto (${sample}). Bipe a etiqueta CI- do item.`,
+      );
     }
 
-    throw new Error(`Codigo ${parsedInput.value} nao encontrado nesta sessao.`);
+    throw new Error(`Código ${parsedInput.value} não encontrado nesta sessão.`);
   };
 
   // Last used location while it is still active, otherwise the first active one
@@ -411,7 +413,7 @@ export default function InventoryPage() {
 
   const onCreateSession = () => {
     if (effectiveSessionLocationId === null) {
-      notifyError(new Error("Selecione um local para a sessao."));
+      notifyError(new Error("Selecione um local para a sessão."));
       return;
     }
     createSessionMutation.mutate({
@@ -427,7 +429,7 @@ export default function InventoryPage() {
     try {
       const allItems = await listAllSessionItems(selectedSessionId);
       if (allItems.length === 0) {
-        throw new Error("Sessao sem itens para iniciar coletor.");
+        throw new Error("Sessão sem itens para iniciar coletor.");
       }
 
       const chunkSize = 300;
@@ -451,7 +453,7 @@ export default function InventoryPage() {
         status: "OK",
         message: `Modo bip iniciado. ${allItems.length} item(ns) zerado(s).`,
       });
-      notifySuccess("Modo bip iniciado. Agora e so bipar os itens.");
+      notifySuccess("Modo bip iniciado. Agora é só bipar os itens.");
       void queryClient.invalidateQueries({
         queryKey: ["inventory-session-items", selectedSessionId],
       });
@@ -509,7 +511,7 @@ export default function InventoryPage() {
       observacao: (item.observacao || "").trim() || undefined,
     }));
     if (payload.length === 0) {
-      notifyError(new Error("Nenhuma alteracao pendente para salvar."));
+      notifyError(new Error("Nenhuma alteração pendente para salvar."));
       return;
     }
     updateItemsMutation.mutate({
@@ -570,11 +572,11 @@ export default function InventoryPage() {
 
   const initializeCollectorMode = () => {
     if (!selectedSessionId) {
-      notifyError(new Error("Abra uma sessao antes de iniciar o modo bip."));
+      notifyError(new Error("Abra uma sessão antes de iniciar o modo bip."));
       return;
     }
     if (selectedSession?.status !== "ABERTO") {
-      notifyError(new Error("Somente sessoes abertas podem iniciar modo bip."));
+      notifyError(new Error("Somente sessões abertas podem iniciar modo bip."));
       return;
     }
     confirmInitializeCollectorMode();
@@ -591,15 +593,15 @@ export default function InventoryPage() {
 
   const runCollector = async (overrideInput?: string) => {
     if (!selectedSessionId) {
-      notifyError(new Error("Abra uma sessao antes de usar o coletor."));
+      notifyError(new Error("Abra uma sessão antes de usar o coletor."));
       return;
     }
     if (selectedSession?.status !== "ABERTO") {
-      notifyError(new Error("Coletor disponivel apenas para sessoes abertas."));
+      notifyError(new Error("Coletor disponível apenas para sessões abertas."));
       return;
     }
     if (!collectorModeActive || collectorSessionId !== selectedSessionId) {
-      notifyError(new Error("Inicie primeiro o modo bip para esta sessao."));
+      notifyError(new Error("Inicie primeiro o modo bip para esta sessão."));
       return;
     }
 
@@ -613,10 +615,10 @@ export default function InventoryPage() {
       appendCollectorLog({
         input: rawInput,
         status: "ERRO",
-        message: "Formato invalido. Use CI-<id> ou codigo numerico da peca.",
+        message: "Formato inválido. Use CI-<id> ou código numérico da peça.",
       });
       notifyError(
-        new Error("Formato invalido. Use CI-<id> ou codigo numerico da peca."),
+        new Error("Formato inválido. Use CI-<id> ou código numérico da peça."),
       );
       return;
     }
@@ -713,9 +715,10 @@ export default function InventoryPage() {
       return;
     const html = buildInventorySheetHtml({
       sessionName:
-        selectedSession?.nome || sessionName.trim() || "Sessao manual",
+        selectedSession?.nome || sessionName.trim() || "Sessão manual",
       local:
         selectedSession?.local_label ||
+        selectedSession?.local ||
         locations.find((l) => l.id === effectiveSessionLocationId)?.name ||
         "N/A",
       totalRows: 56,

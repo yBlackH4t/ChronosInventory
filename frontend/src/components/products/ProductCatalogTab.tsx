@@ -147,7 +147,7 @@ function RelatedPieceCard({
             <Badge
               size="xs"
               variant={inStock ? "filled" : "outline"}
-              color={inStock ? "teal" : "gray"}
+              color={inStock ? "success" : "gray"}
             >
               {inStock
                 ? `Estoque: ${matchedProduct.total_stock} un`
@@ -156,7 +156,6 @@ function RelatedPieceCard({
             <Button
               size="compact-xs"
               variant="subtle"
-              color="blue"
               leftSection={<IconExternalLink size={12} />}
               onClick={() => onOpenProduct(matchedProduct.id, rel.codigo)}
             >
@@ -415,7 +414,7 @@ export function ProductCatalogTab({ productId }: ProductCatalogTabProps) {
                             <Button
                               size="compact-xs"
                               variant="subtle"
-                              color={app.oculta ? "gray" : "red"}
+                              color={app.oculta ? "gray" : "danger"}
                               loading={toggleApplication.isPending}
                               onClick={() =>
                                 toggleApplication.mutate({

@@ -156,7 +156,9 @@ def _identification(items: List[Dict[str, Any]]) -> Optional[str]:
     brands = list(dict.fromkeys(b for i in found for b in i["codigo_pesquisado_e"]))
     fichas = ", ".join(_ficha_label(i) for i in found[:3])
     where = "é a" if len(found) == 1 else "aparece em"
-    if all(i.get("ficha_propria") for i in found):
+    if all(i.get("cadastro_empresa") for i in found):
+        place = "no cadastro da empresa"
+    elif all(i.get("ficha_propria") for i in found):
         place = "na ficha própria"
     elif any(i.get("ficha_propria") for i in found):
         place = "no catálogo e na ficha própria"

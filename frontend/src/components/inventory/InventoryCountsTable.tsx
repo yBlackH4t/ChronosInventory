@@ -14,6 +14,23 @@ import type {
   InventoryCountOut,
 } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
+import { detectBrand } from "../../lib/brands";
+import { splitProductCode } from "../../lib/productView";
+import "../../styles/products-movements.css";
+import "../../styles/vidro-telas.css";
+
+// Código em destaque e o resto do nome ao lado, como em Produtos.
+function ProductCodeName({ nome }: { nome: string }) {
+  const { code, rest } = splitProductCode(nome, detectBrand(nome));
+  return (
+    <Group gap={10} wrap="nowrap" miw={0}>
+      {code && <span className="pm-code-cell">{code}</span>}
+      <Text size="sm" fw={600} truncate="end" title={nome}>
+        {(code ? rest : "") || nome}
+      </Text>
+    </Group>
+  );
+}
 
 type InventoryCountsTableProps = {
   loading: boolean;
@@ -107,11 +124,9 @@ export function InventoryCountsTable({
               const diverges = divergencia !== 0;
 
               return (
-                <Table.Tr key={item.produto_id}>
+                <Table.Tr key={item.produto_id} data-diverge={diverges || undefined} className="vt-count-row">
                   <Table.Td>
-                    <Text size="sm" fw={500} lineClamp={1}>
-                      {item.produto_nome}
-                    </Text>
+                    <ProductCodeName nome={item.produto_nome} />
                     <Text size="xs" c="dimmed" className="mono">
                       #{item.produto_id}
                     </Text>
@@ -136,31 +151,16 @@ export function InventoryCountsTable({
                     />
                   </Table.Td>
                   <Table.Td>
-                    {diverges ? (
-                      <Group gap={6} wrap="nowrap">
-                        <Text
-                          size="sm"
-                          fw={600}
-                          className="num"
-                          c={
-                            divergencia > 0
-                              ? "var(--mantine-color-teal-filled)"
-                              : "var(--warning)"
-                          }
-                        >
-                          {divergencia > 0
-                            ? "+" + divergencia
-                            : "\u2212" + Math.abs(divergencia)}
-                        </Text>
-                        <Text size="xs" c="dimmed">
-                          {divergencia > 0 ? "sobrando" : "faltando"}
-                        </Text>
-                      </Group>
-                    ) : (
-                      <Text size="sm" c="var(--text-subtle)">
-                        OK
-                      </Text>
-                    )}
+                    <span
+                      className="vt-diff num"
+                      data-kind={!diverges ? "ok" : divergencia > 0 ? "sobra" : "falta"}
+                    >
+                      {!diverges
+                        ? "OK"
+                        : divergencia > 0
+                          ? `+${divergencia} sobrando`
+                          : `\u2212${Math.abs(divergencia)} faltando`}
+                    </span>
                   </Table.Td>
                   <Table.Td>
                     <Select

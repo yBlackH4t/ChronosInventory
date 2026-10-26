@@ -14,6 +14,11 @@ Erro:
 { "error": { "code": "...", "message": "...", "details": ... } }
 ```
 
+## Acesso local (Host e Origin)
+- Fora de `/api/scanner/*`, o cabecalho `Host` precisa ser `127.0.0.1`, `localhost` ou `tauri.localhost` (qualquer porta); outro nome responde 403 (protege contra DNS rebinding). Com `CHRONOS_ALLOW_LAN_API=1`, o IP da maquina tambem vale.
+- `POST`/`PUT`/`PATCH`/`DELETE` fora do scanner com cabecalho `Origin` fora da lista do CORS respondem 403 (CSRF). Sem `Origin` (ferramentas locais) continua valendo.
+- O scanner do celular (`/api/scanner/*`) segue acessivel pelo IP da rede.
+
 ## Observabilidade
 - Header `X-Request-ID` em todas as respostas.
 - Logs com `request_id`, metodo, path, status e tempo.
@@ -69,7 +74,7 @@ Validacoes:
 
 ## Movimentacoes
 - `POST /movimentacoes`
-- `GET /movimentacoes`
+- `GET /movimentacoes`: `ocultar_estornados=true` tira da lista cada movimentacao estornada junto com o estorno dela (`natureza=ESTORNO` com `movimento_ref_id`). Nada e apagado; ignorado quando o filtro e `natureza=ESTORNO`. A tela Movimentacoes manda `true` ate o usuario ligar "Mostrar estornados".
 
 Regras:
 - `ENTRADA`: exige `destino`
@@ -90,7 +95,7 @@ Regras:
 - `GET /analytics/movements/timeseries?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&scope=CANOAS|PF|AMBOS&bucket=day|week|month`
   - serie temporal de `SAIDA`
 - `GET /analytics/movements/flow?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&scope=CANOAS|PF|AMBOS&bucket=day|week|month`
-  - entradas vs saidas
+  - entradas vs saidas. `entradas` nao conta o estoque inicial do cadastro (documento `CADASTRO_INICIAL`), que vem a parte em `estoque_inicial` (some com `entradas` para reconstruir o saldo). O mesmo vale para `GET /analytics/entradas-saidas`.
 - `GET /analytics/stock/evolution?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&bucket=day|week|month`
   - evolucao de estoque total
 - `GET /analytics/products/inactive?days=30&date_to=YYYY-MM-DD&limit=5`
@@ -100,8 +105,9 @@ Regras:
   - retorna `estoque_atual`, `total_saida` e `dias_cobertura`, do mais urgente para o menos
 - `GET /analytics/stock/items?days=90&date_to=YYYY-MM-DD&location_id=` (2.5.0)
   - um item por produto com saldo: `estoque`, `ultima_saida`, `dias_sem_saida` e `saidas_periodo` (saida normal, sem ajuste/estorno); base da "Saude do estoque"
+- `GET /analytics/stock/count-history?days=30&date_to=YYYY-MM-DD&location_id=` (2.6.1) - produtos com saldo e zerados no fim de cada dia: `[{ date, com_saldo, zerados }]` (linhas do topo do Painel). Volta a partir do saldo de hoje; produto cadastrado no periodo nao conta antes do estoque inicial. `days` de 2 a 365.
 - `GET /analytics/movements/by-nature?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&tipo=SAIDA|ENTRADA&location_id=` (2.5.0)
-  - quantidade e numero de movimentacoes por natureza no periodo
+  - quantidade e numero de movimentacoes por natureza no periodo (sem o estoque inicial do cadastro)
 - `GET /analytics/products/{id}/stock-history?days=180&date_to=YYYY-MM-DD` (2.5.0)
   - saldo total do produto no inicio, em cada dia com mudanca e hoje (nunca negativo)
 
@@ -114,10 +120,11 @@ Regras:
 
 ## Baixa por NF-e (codigo de barras do DANFE)
 - O codigo de barras do DANFE e a chave de acesso (44 digitos). O app procura o XML autorizado dessa chave nas pastas configuradas (e subpastas): primeiro pelo nome do arquivo, depois pelo comeco do conteudo.
-- `GET /nfe/config` / `PUT /nfe/config` `{pastas_xml: [..]}` (ate 10). Padrao: `C:\nQuestorEmp\NFe\Geradas` e `C:\nQuestorEmp\NFe\Distribuicao`. Fica em `nfe_config.json` na pasta do app (por maquina, fora do banco).
-- `GET /nfe/{chave}`: cabecalho da nota (`numero`, `serie`, `tipo_sugerido` SAIDA/ENTRADA pelo `tpNF`, `destinatario`, `autorizada`, `cancelada` se houver o evento 110111 na pasta, `ja_baixada`) e `itens` com `produto_sugerido`, `confianca` (`aprendido` | `codigo` | `duvida` | `nenhum`) e `candidatos` (com `estoque` por local). 400 se a chave for invalida; 404 se o XML nao estiver nas pastas.
+- `GET /nfe/config` / `PUT /nfe/config` `{pastas_xml: [..], cnpjs?: [{cnpj, nome}]}` (ate 10 pastas e 10 CNPJs; o primeiro CNPJ vira o `cnpj_loja`). Para baixar da SEFAZ o app tenta cada CNPJ salvo (menos o emitente) ate achar o destinatario; o preview traz `loja` `{cnpj, nome}` com o CNPJ salvo que esta na nota. Padrao: `C:\nQuestorEmp\NFe\Geradas` e `C:\nQuestorEmp\NFe\Distribuicao`. Fica em `nfe_config.json` na pasta do app (por maquina, fora do banco).
+- `GET /nfe/{chave}`: cabecalho da nota (`numero`, `serie`, `tipo_sugerido` SAIDA/ENTRADA pelo `tpNF`, `destinatario`, `autorizada`, `cancelada` se houver o evento 110111 na pasta, `ja_baixada`) e `itens` com `produto_sugerido`, `confianca` (`aprendido` | `codigo` | `duvida` | `nenhum`) e `candidatos` (com `estoque` por local e `ativo`; produtos desativados tambem entram, depois dos ativos com a mesma pontuacao, e a baixa recusa produto inativo ate ele ser reativado). Item cujo `cProd` e o id de um produto com o mesmo nome (notas da empresa, CD_MATERIAL) vem primeiro. 400 se a chave for invalida; 404 se o XML nao estiver nas pastas.
 - `POST /nfe/{chave}/baixa` `{tipo, location_id, itens: [{item, produto_id, quantidade, ignorar?}], natureza?, local_externo?, motivo_ajuste?, observacao?}`: todos os itens da nota, numa transacao. `natureza` e `OPERACAO_NORMAL` (padrao), `TRANSFERENCIA_EXTERNA` (exige `local_externo`) ou `AJUSTE` (exige `motivo_ajuste`). Movimentacoes com `documento` "NF <numero>" e `observacao` informada ou "NF-e <numero> serie <serie> - <outra parte>". O preview traz `movimento_sugerido` por tipo (`natureza`, `local_externo`, `observacao`): outra parte com a mesma raiz de CNPJ do `cnpj_loja` vem como transferencia externa. Recusa (400) nota cancelada, sem autorizacao ou ja baixada (tabela `nfe_baixas`); se todas as movimentacoes da nota foram estornadas, ela fica livre de novo. Item com `ignorar: true` (ex.: casco, nao e estoque) nao movimenta e fica lembrado em `nfe_itens_ignorados` (CNPJ do emitente + codigo; o preview traz `ignorar` em cada item); pelo menos um item precisa ser lancado. Guarda `nfe_item_vinculos` (CNPJ do emitente + codigo do item -> produto) para sugerir na proxima nota.
 - Nota que nao esta nas pastas (ex.: de fornecedor): com o certificado A1 configurado, o app baixa o XML na SEFAZ (NFeDistribuicaoDFe, consulta pela chave, como o CNPJ desta loja; so consulta, nao registra ciencia) e guarda em `nfe_xml/` na pasta do app. Nota recebida pelo `cnpj_loja` vem com `tipo_sugerido` ENTRADA. Respostas da SEFAZ viram mensagens (so resumo = falta a ciencia da operacao; 656 = esperar 1 hora).
+- `GET /nfe/{chave}/xml`: `{chave, numero, arquivo, xml}` com o XML da nota como texto (mesma busca do preview). A tela usa para imprimir a etiqueta de expedicao depois da baixa de saida.
 - `PUT /nfe/config` aceita tambem `cnpj_loja`. `PUT /nfe/certificado` `{arquivo, senha}`: confere o .pfx, guarda uma copia (`nfe_certificado.pfx`) e a senha protegida pelo DPAPI do Windows; `GET /nfe/config` devolve so `certificado: {titular, cnpj, validade}`. `DELETE /nfe/certificado` remove.
 - O leitor do celular (`POST /api/scanner/barcode`) mostra "NF-e <numero>" no historico; a tela abre a conferencia da nota em qualquer aba. Sem https (pagina aberta pelo IP) a camera ao vivo e bloqueada pelo navegador, entao a pagina le o codigo de uma foto.
 
@@ -133,8 +140,11 @@ Regras:
 
 ### Base oficial: senha do servidor local (porta 8765)
 - `PUT /backup/base-oficial/config` aceita `server_token` (min. 6 caracteres; `null` mantem, `""` remove). A mesma senha em todas as maquinas. `GET /backup/base-oficial/status` devolve so `server_token_set: bool` (a senha nunca volta).
-- Com senha, o servidor exige o cabecalho `X-Chronos-Senha` em `/official/*`, `/compare/*` (e `/knowledge` do assistente); sem ele responde 401. `/health` continua aberto e informa `senha_exigida` e `senha_ok`. As buscas desta maquina mandam a senha sozinhas; senha diferente vira uma mensagem explicando o que configurar.
-- Sem senha configurada, o servidor continua aberto como antes.
+- O servidor exige o cabecalho `X-Chronos-Senha` em `/official/*`, `/compare/*`, `/knowledge` e `POST /proposals`; sem ele ou com senha errada responde 401. `/health` continua aberto: sem senha informa so `senha_exigida`; com a senha certa inclui `senha_ok: true`; com senha errada responde 401. As buscas desta maquina mandam a senha sozinhas; senha diferente vira uma mensagem explicando o que configurar.
+- O servidor so liga com senha: `POST /backup/base-oficial-servidor/iniciar` (ou `PUT /backup/base-oficial/config` com `server_enabled: true`) sem senha responde 400 "Defina uma senha para publicar a base.".
+- 5 senhas erradas em 5 minutos bloqueiam o IP por 5 minutos (429). Sugestoes (`POST /proposals`): no maximo 20 por IP por hora (429); o `autor` enviado e ignorado e vira `PC <ip>`.
+- A senha fica protegida no `official_base_config.json` (chave `server_token_protegida`, DPAPI do Windows); o `server_token` antigo em texto puro e regravado protegido na primeira leitura. As chaves de API em `assistente_config.json` seguem a mesma regra.
+- Download da base remota: limite de 500 MB e prazo de 30 min (60 s sem receber nada cancela).
 
 ## Assistente de IA
 Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A busca direta (sem IA) responde primeiro quando entende a pergunta (codigo, veiculo/motor, "essa dai"); a IA so entra quando ela nao entende. Sem IA disponivel, responde pela busca direta.
@@ -151,10 +161,11 @@ Plano e regras em `docs/PLANO_IA.md`. Provedor padrao: Groq (plano gratuito). A 
 
 ### Admin do assistente (maquina publicadora + senha)
 Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login) e a maquina configurada como publicadora da base oficial; sem isso: `403 admin_necessario`.
-- `GET /assistente/admin/status` - `{ maquina_publicadora, senha_definida, autenticado }`.
+- `GET /assistente/admin/status` - `{ maquina_publicadora, senha_definida, autenticado, pin_whatsapp_definido }`.
 - `POST /assistente/admin/senha` - `{ senha_nova (6+), senha_atual? }`. A atual e exigida quando ja existe senha. Trocar a senha encerra as sessoes.
 - `POST /assistente/admin/login` - `{ senha }` -> `{ token, expira_em }` (sessao de 8 h, some quando o backend reinicia).
 - `POST /assistente/admin/logout`.
+- `POST /assistente/admin/pin-whatsapp` (admin) - `{ pin }`: PIN de 4 a 8 numeros para `/aprovar <n> <PIN>` e `/recusar <n> <PIN>` no WhatsApp; `null` ou `""` remove. Devolve o mesmo que `/admin/status` (o PIN nunca volta; fica so como hash PBKDF2 na secao `admin`). Sem PIN, o WhatsApp responde "Para aprovar pelo WhatsApp, crie um PIN em Assistente > Admin.". 5 PINs errados em 10 min bloqueiam o aprovar pelo WhatsApp por 10 min. Trocar a senha de admin mantem o PIN. 422 se o PIN nao tiver de 4 a 8 numeros; 403 sem admin.
 
 ### Base de conhecimento do especialista
 - `GET /assistente/conhecimento?busca=&limite=&offset=` - regras `{ id, codigo_a, codigo_b, tipo: igual|similar|diferente, observacao, criado_em, atualizado_em }`. Leitura livre.
@@ -167,6 +178,7 @@ Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login
 ### Revisao e historico
 - `GET /assistente/revisao` (admin) - codigos pesquisados sem estoque ainda nao revisados: `{ codigo, vezes, ultima_vez, exemplo, conversas, conhecimento: [{codigo, relacao, obs}], sugestoes: [{codigo, produto_id, nome, estoque_total, motivo}] }`.
 - `POST /assistente/revisao/{codigo}/concluir` (admin) - tira o codigo da lista (volta se for perguntado de novo).
+- `GET /assistente/painel` (sem login, 2.6.1) - so contagens para o Painel: `{ perguntas_hoje, para_revisar, rascunhos, whatsapp_estado, whatsapp_ativo }`. Nao devolve conteudo das conversas.
 - `GET /assistente/historico?limite=&offset=` (admin) - conversas, da mais nova para a mais antiga.
 - `PUT /assistente/historico/{id}/correcao` (admin) - `{ resposta_correta, observacao? }`.
 - `GET /assistente/historico/exportar` (admin) - arquivo JSONL (uma conversa por linha, sem o autor).
@@ -186,6 +198,14 @@ Todas (admin): o QR code conecta o WhatsApp da empresa ao Chronos.
 - `POST /assistente/whatsapp/iniciar` - liga a ponte (mostra QR se ainda nao conectou). Fica ligada nas proximas aberturas do app.
 - `POST /assistente/whatsapp/parar` - desliga a ponte (a conexao do aparelho continua salva).
 - `POST /assistente/whatsapp/desconectar` - tira o Chronos dos aparelhos conectados e apaga a sessao (precisa de QR de novo).
+
+### Cadastro da empresa (arquivo de produtos da loja)
+Importa o produtos_completos.csv do sistema da loja (cp1252, `;`, CD_MATERIAL;DS_MATERIAL;CD_IDENTIFICACAO;...;DS_PRODUCAO). Regras em `core/catalog/company_register.py`.
+- `GET /catalogo/cadastro` - `{ fichas, importado_em, pode_editar, motivo }`.
+- `POST /catalogo/cadastro/previa` (multipart `file`) - so le: itens, ja cadastrados, produtos novos (+ exemplos), fichas, aplicacoes, codigos e o que ficou sem ficha (`ignorados`). Ids iguais aos do sistema da loja (CD_MATERIAL): `iguais`, `nomes_trocados` (+ `exemplos_nomes`), `ids_trocados` (+ `exemplos_ids`), `para_conferir` (lista completa, `OUTRA_PECA`: mesmo id, outra peca, com saldo ou movimentacao), `fora_do_arquivo`, `fora_do_arquivo_com_saldo`.
+- `POST /catalogo/cadastro/importar?criar_produtos=true` (multipart `file`) - backup `backup_pre_cadastro_*`, acerta nomes e ids pelo arquivo (troca de id em toda coluna `produto_id`/`product_id`/`produto_vinculado_id`), cadastra os produtos que faltam com o id do arquivo (saldo zero), troca as fichas do cadastro e religa o catalogo. 403 `somente_leitura` na maquina que recebe a base.
+- `DELETE /catalogo/cadastro` - tira as fichas do cadastro (os produtos cadastrados ficam).
+- `GET /catalogo/status` ganhou `fichas_cadastro`.
 
 ## Indices SQLite relevantes
 - `idx_produtos_nome`

@@ -25,17 +25,101 @@ Formato recomendado:
 
 
 
-## [2.5.5] - 2026-10-26
+## [2.7.4] - 2026-10-26
 
 ### Added
-- **Pedidos completos:** consultas com quatro ou mais peças, alternativas por “ou” e códigos falados em partes. Cada item mantém sua condição e filial; alternativas não são somadas como se fossem a mesma peça.
-- **Contexto no WhatsApp:** atendimentos e rascunhos persistidos, pendências somente após envio aprovado, prazo configurável e encerramento pelo app ou `/encerrar`. Respostas citadas priorizam o atendimento correspondente.
-- **Exemplos aprovados:** nova aba do administrador para ensinar como interpretar perguntas, com sincronização entre máquinas e sem reinstalar para cada exemplo. Quantidades continuam vindo do banco.
+- **Busca rápida (Ctrl+K) com prévia:** à direita aparecem a foto, o código, a marca e o saldo por filial do produto escolhido.
+- **Minimapa nas Movimentações por dia:** um traço por dia (verde entradas, laranja saídas). Passar o mouse mostra os totais; clicar pula para o dia.
+- **Botões com progresso:** "Publicar base oficial", "Buscar" da nota fiscal e "Gerar PDF" mostram o progresso dentro do botão e terminam com um ✓. Clicar no código da peça em Produtos copia o código ("✓ Copiado"); os botões da linha só aparecem ao passar o mouse. Busca sem resultado tem "Cadastrar esta peça".
+- **Desfazer e arrastar:** tirar item da Lista personalizada, limpar a lista ou excluir um perfil de etiqueta tem "Desfazer" no aviso. Perfis de etiqueta (Layout > Ordenar perfis) e as colunas das filiais em Produtos (pelo título) mudam de ordem arrastando.
+- **Animações (Completo e Suave; no "Nenhum" nada se mexe):** avisos que deslizam e somem sozinhos, brilho no carregamento, item lido no lote sobe para o topo (código não achado faz o quadro tremer), valor do dia ao passar o mouse nas linhas do Painel e brilho que segue o mouse nos cartões, foto que cresce da miniatura, produto excluído que sai encolhendo, etapas da nota com o traço enchendo, troca claro/escuro com um círculo, e o ponto do serviço no topo âmbar quando lento e vermelho quando cai.
+
+### Changed
+- **Produtos refeito:** a primeira coluna é o "Cód." da empresa (o mesmo número do sistema) e a descrição aparece exatamente como no cadastro, com o código da peça destacado (clique para copiar). Os zerados ficam apagados, em vez de um "0" vermelho em cada linha, e quem tem estoque ganha um traço verde. Os filtros mostram quantos produtos há em cada um (Todos, Com estoque, Zerados), os títulos Cód., Descrição e Total ordenam a lista com um clique, e o topo mostra as peças em estoque por filial. Sem foto, aparece a sigla da marca ou do tipo (HOL, BW, CC). As ações da linha flutuam ao passar o mouse e a escolha de itens por página fica no rodapé.
+- **Inventário no visual novo:** a sessão aberta mostra um anel com quanto já foi contado, o local e o status em selos ("Em contagem" pulsa). Os números do resumo sobem ao abrir e têm uma barrinha com a parte de cada um no total. Na contagem, o código aparece em destaque e a diferença vira um selo ("+1 sobrando", "−2 faltando", "OK"), com um traço nas linhas com diferença.
+- **Etiquetas:** Estoque e Expedição (NF-e) viraram a pílula deslizante das outras telas. A lista mostra o código em destaque e o total na cor do saldo (verde, âmbar ou vermelho).
+- **Relatórios:** cada relatório mostra uma miniatura da folha que vai sair, com as colunas do PDF, e ao lado os números de verdade (ex.: unidades em estoque por filial e itens zerados). O relatório escolhido fica marcado com uma faixa colorida.
 
 ### Fixed
-- **Saldo Garrett:** sufixos diferentes não são equivalentes apenas por compartilharem o prefixo. A atualização refaz os vínculos automáticos antigos, preservando vínculos manuais e sem alterar estoque ou movimentações.
-- **Envio seguro:** falhas não apagam o rascunho; consultas de estoque são conferidas novamente antes de enviar. Saldo alterado, atendimento expirado ou revisão antiga exigem nova conferência.
-- **Conversas separadas:** novo código/assunto não herda motor ou ano de outro atendimento. Limites e falhas de consulta são explícitos, sem tratar erro como estoque zero.
+- **Inventário:** a sessão mostrava "Local #null" no lugar do nome do local.
+- **Cor Grafite no tema escuro:** o botão "Movimentar" e os outros botões claros ficavam pretos, como se as cores estivessem invertidas.
+
+## [2.7.3] - 2026-10-26
+
+### Changed
+- Movimentações mais limpas: uma movimentação lançada errado e o estorno que a desfez saem juntos da lista de Movimentações. Eles não são apagados: continuam guardados, aparecem no histórico do produto, e o saldo e os relatórios não mudam. Para vê-los, ligue "Mostrar estornados" ao lado dos filtros. Filtrar pela natureza "Estorno" também mostra os estornos.
+
+## [2.7.2] - 2026-10-26
+
+### Added
+- **Nota fiscal com produto desativado:** ao ler a nota, o Chronos também acha os produtos desativados (antes pulava e sugeria outro item). O item aparece marcado "desativado" com o botão "Reativar", ali mesmo na tela da nota. A busca de produto na nota também mostra os desativados.
+- **Cadastrar produto dentro da nota:** cada item tem "Cadastrar novo". O nome vem da descrição da nota, o produto entra com saldo 0 e já fica escolhido no item.
+- **Notas da própria empresa:** o código do item na nota da matriz ou da filial é o número (#) do produto no Chronos. Com o mesmo nome, esse produto vem sugerido primeiro.
+- **Vários CNPJs salvos:** em "Configurar" da nota fiscal dá para salvar os CNPJs da empresa (ex.: Canoas e Matriz). Ao bipar a nota, o Chronos usa sozinho o CNPJ que está nela, inclusive para baixar da SEFAZ, e mostra qual usou.
+- **Perfis de etiqueta de expedição:** em Etiquetas > Expedição (NF-e), escolha o perfil na lista ao lado de "Layout" (Perfil 1, Perfil 2...). Cada perfil guarda o seu layout sozinho. Já vem o perfil "Crua (sem marca)", sem logo e sem remetente, para notas despachadas em nome do cliente. Em Layout: salvar como novo perfil, renomear, excluir e novo perfil cru. Importar layout cria um perfil novo. Depois da baixa da nota, dá para escolher o perfil antes de imprimir.
+
+## [2.7.1] - 2026-10-22
+
+### Added
+- **Etiqueta da NF depois da baixa:** ao dar saída de uma NF (pela foto da DANFE ou pela chave), aparece o botão "Imprimir etiqueta". Ele usa o XML que o Chronos já leu e o layout salvo em Etiquetas > Expedição (NF-e), uma etiqueta por volume da nota. Ao bipar de novo uma nota já baixada, o botão também aparece para reimprimir.
+- **Modelo de etiqueta meia folha:** em Etiquetas > Expedição (NF-e) > Layout > "Usar modelo meia folha". Duas etiquetas por A4 com remetente e logo, destinatário com endereço e CEP, cidade em letra grande, e nota, volume (em destaque) e peso em caixas. O logo que já estava no layout é aproveitado, e "Voltar ao layout anterior" desfaz.
+- Campos novos para a etiqueta: endereço, CEP, cidade/UF e remetente. Blocos podem ter moldura e fundo preto.
+
+### Fixed
+- **Impressão da etiqueta de NF:** o texto de cada bloco saía uma linha abaixo e um pouco à direita do que aparecia no desenho. Agora sai no mesmo lugar. Peso com vírgula (18,4 kg).
+
+## [2.7.0] - 2026-10-21
+
+### Added
+- Cadastro da empresa: em Backup > Catálogo, importe o arquivo de produtos do sistema da loja (produtos_completos.csv). Antes de gravar, o Chronos mostra o que vai mudar. Depois cadastra os produtos que ainda não existem, com saldo zero, e guarda as aplicações (veículo e motor) e os códigos similares dos turbos e conjuntos que o catálogo Master Power não tem. O assistente passa a achar essas peças pelo veículo, pelo motor e pelos similares. O saldo não muda, e uma cópia de segurança do banco é feita antes. Também deixa o número (#) e o nome de cada produto iguais aos do sistema da loja: quem tem o mesmo número fica com o nome do arquivo (o nome antigo fica anotado e os códigos dele continuam na busca), quem tem o mesmo nome passa para o número do arquivo com movimentações, saldo, fotos e NFs, e os novos entram com o número do arquivo. O que parece outra peça não muda e aparece numa lista para conferir.
+
+## [2.6.2] - 2026-10-19
+
+### Fixed
+- **Publicação:** a 2.6.1 não chegou a ser publicada porque o autoteste do instalador era barrado pela trava de segurança da 2.5.5. O autoteste agora se apresenta como o próprio computador. Esta versão traz tudo o que veio na 2.5.5, na 2.6.0 e na 2.6.1.
+
+## [2.6.1] - 2026-10-19
+
+### Changed
+- **Painel novo, em blocos:** o que pede ação vem primeiro. No topo ficam quatro números que rolam até o valor (unidades em estoque, saídas em 30 dias, produtos com estoque e zerados), cada um com a linha dos últimos 30 dias. Logo abaixo, o bloco grande "Pede ação hoje" junta os zerados que venderam, os que estão perto de zerar e os parados que mais ocupam; clicar abre a ficha do produto. Em volta ficam a saúde do estoque (girando, lento e parado), o movimento da semana ou do mês, as mais saídas, o assistente e o WhatsApp, e as últimas movimentações, que entram sozinhas no topo. O Painel ficou com menos da metade da altura.
+- **Produtos:** o código da peça aparece em destaque no começo de cada linha, com a marca e a versão em texto simples. O saldo fica grande à direita, o botão "Movimentar" sempre visível e as outras ações no menu "⋯". Filiais sem estoque somem da tabela, os filtros viraram botões (Todos, Com estoque, Zerados) e as linhas se reacomodam ao buscar.
+- **Ficha do produto:** foto grande, saldo por filial (zero em cinza), um rótulo por mês no gráfico e as últimas 5 movimentações já visíveis. A foto e o código "viajam" da linha até a ficha.
+- **Movimentar:** ao confirmar, o saldo da linha pisca em verde (entrada), laranja (saída) ou azul (transferência) e rola até o valor novo.
+- **Movimentações:** uma linha por movimento, com o código, o tipo, o local e a quantidade. O estoque inicial aparece como "Cadastro", a movimentação estornada fica riscada e os botões ficam sempre visíveis.
+- **Lançar nota fiscal:** a janela mostra as etapas (ler a chave, conferir os itens e confirmar), os itens aparecem um a um, o "Fica" rola até o valor e o nome do produto escolhido não é mais cortado.
+- **Assistente:** a conversa aparece em balões, os códigos de peça viram etiquetas, a resposta aparece em sequência e três pontinhos mostram que ele está pensando.
+- **Leitura de código:** na movimentação em lote e no celular, o item lido ganha uma moldura verde. O bipe ao ler pode ser ligado ou desligado (vem desligado).
+- **Relatórios > Análises:** a distribuição por filial, os dias com mais movimento, para onde foram as saídas, o estoque por marca e versão e as transferências externas saíram do Painel e foram para cá.
+
+### Fixed
+- **Estorno:** a lista de movimentações e a de produtos agora se atualizam logo depois de estornar.
+
+## [2.6.0] - 2026-10-19
+
+### Added
+- **Visual novo "Vidro suave":** fonte Sora, cartões de vidro translúcido, manchas de cor que se movem devagar no fundo, barra do topo flutuante e menu com uma pílula que desliza até a aba aberta. Vale para o app inteiro, no tema claro e no escuro.
+- **Animações:** a troca de tela desliza de leve, os cartões aparecem em sequência e os números do Painel rolam até o valor.
+- **Nível de animação:** em Configurações > Aparência > Animações dá para escolher Completo, Suave ou Nenhum. "Nenhum" também desliga o desfoque do vidro, para PCs mais fracos. Com os efeitos de animação do Windows desligados, o Chronos usa no máximo Suave.
+
+### Changed
+- **Cor principal:** a cor padrão passa a ser azul-petróleo. Quem já tinha escolhido Índigo continua com ela.
+- **Biblioteca das telas** atualizada para o Mantine 9.
+
+## [2.5.5] - 2026-10-18
+
+### Added
+- **PIN para aprovar pelo WhatsApp:** em Assistente > Admin, o botão "Criar PIN do WhatsApp" define um PIN de 4 a 8 números. A partir de agora, aprovar ou recusar pelo WhatsApp é `/aprovar 3 1234` (número da sugestão e PIN). Sem PIN, esses dois comandos ficam desligados. Cinco PINs errados seguidos bloqueiam por 10 minutos.
+
+### Changed
+- **Base oficial exige senha:** o computador que publica a base só liga o servidor se tiver uma senha definida (a mesma nas outras máquinas). Cinco senhas erradas seguidas bloqueiam aquele computador por 5 minutos. A senha passa a ficar guardada protegida pelo Windows.
+- **Chaves do assistente protegidas:** as chaves do Groq e do Gemini passam a ficar guardadas protegidas pelo Windows, e não mais em texto aberto. Nada muda para quem usa.
+- **Entradas sem o estoque inicial:** o estoque cadastrado junto com um produto novo não conta mais como "entrada" no Painel, nos gráficos e nos números de entradas. O saldo continua certo.
+- **Textos e cores:** acentos corrigidos em todo o app, nomes mais claros ("Computador principal", "Lançar nota fiscal", "cópia do estoque"), cinzas mais escuros para ler melhor, selos maiores, botões das linhas mais visíveis e laranja só para saída.
+- **Bibliotecas atualizadas** (React 19.3, Mantine 8.3.18, FastAPI, cryptography e outras), sem mudança de uso.
+
+### Fixed
+- **Segurança:** um site aberto no navegador do mesmo computador não consegue mais falar com o Chronos nem baixar o banco. Sugestões vindas de outras máquinas precisam da senha da base oficial. A chave do certificado digital não fica mais exposta durante a consulta à SEFAZ, e as respostas da SEFAZ e os downloads da base têm limites de tamanho e de tempo.
+- **Linhas do Painel e das listas** podem ser abertas pelo teclado (Tab e Enter).
 
 ## [2.5.4] - 2026-10-15
 

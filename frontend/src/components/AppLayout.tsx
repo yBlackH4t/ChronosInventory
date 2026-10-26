@@ -13,7 +13,19 @@ import { preloadRoute } from "../app/routePreload";
 import TopBar from "./shell/TopBar";
 import NfeScanHost from "./scanner/NfeScanHost";
 
-const TOPBAR_HEIGHT = 97; // 52px row + 44px tabs + 1px border
+// 10px de respiro + cartão de vidro (52px da linha de cima + 44px das abas + 6px).
+const TOPBAR_HEIGHT = 114;
+
+// Manchas de cor atrás de tudo (estilo Vidro suave). Só se mexem no nível "Completo".
+function AppBackdrop() {
+  return (
+    <div className="app-backdrop" aria-hidden="true">
+      <span className="app-blob" data-blob="1" />
+      <span className="app-blob" data-blob="2" />
+      <span className="app-blob" data-blob="3" />
+    </div>
+  );
+}
 
 export default function AppLayout({
   children,
@@ -45,7 +57,12 @@ export default function AppLayout({
   }, []);
 
   if (location.pathname === "/setup") {
-    return <>{children}</>;
+    return (
+      <>
+        <AppBackdrop />
+        {children}
+      </>
+    );
   }
 
   const handleRestartNow = async () => {
@@ -56,7 +73,7 @@ export default function AppLayout({
     } catch (error) {
       notifyError(
         error,
-        "Nao foi possivel reiniciar automaticamente. Feche e abra o app.",
+        "Não foi possível reiniciar automaticamente. Feche e abra o app.",
       );
     } finally {
       setRestarting(false);
@@ -66,60 +83,63 @@ export default function AppLayout({
   const showRestartBanner = backendSupportsProfiles && restartRequired;
 
   return (
-    <AppShell
-      header={{ height: TOPBAR_HEIGHT }}
-      padding={0}
-      classNames={{ header: "topbar", main: "app-shell-main" }}
-    >
-      <AppShell.Header withBorder={false}>
-        <TopBar health={health} />
-      </AppShell.Header>
+    <>
+      <AppBackdrop />
+      <AppShell
+        header={{ height: TOPBAR_HEIGHT }}
+        padding={0}
+        classNames={{ header: "topbar", main: "app-shell-main" }}
+      >
+        <AppShell.Header withBorder={false}>
+          <TopBar health={health} />
+        </AppShell.Header>
 
-      <AppShell.Main>
-        {showRestartBanner && (
-          <div className="restart-banner">
-            <Group
-              justify="space-between"
-              wrap="wrap"
-              gap="sm"
-              className="topbar-inner"
-              py={8}
-            >
-              <Group gap="xs">
-                <IconAlertTriangle
-                  size={16}
-                  stroke={1.75}
-                  color="var(--warning)"
-                />
-                <Text size="sm">
-                  Alteracoes aplicadas. Reinicie o sistema para ter efeito.
-                </Text>
-              </Group>
-              <Button
-                size="xs"
-                variant="light"
-                color="orange"
-                onClick={() => void handleRestartNow()}
-                loading={restarting}
+        <AppShell.Main>
+          {showRestartBanner && (
+            <div className="restart-banner">
+              <Group
+                justify="space-between"
+                wrap="wrap"
+                gap="sm"
+                className="topbar-inner"
+                py={8}
               >
-                Reiniciar agora
-              </Button>
-            </Group>
-          </div>
-        )}
+                <Group gap="xs">
+                  <IconAlertTriangle
+                    size={16}
+                    stroke={1.75}
+                    color="var(--warning)"
+                  />
+                  <Text size="sm">
+                    Alterações aplicadas. Reinicie o sistema para ter efeito.
+                  </Text>
+                </Group>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="warning"
+                  onClick={() => void handleRestartNow()}
+                  loading={restarting}
+                >
+                  Reiniciar agora
+                </Button>
+              </Group>
+            </div>
+          )}
 
-        <div
-          className="app-content"
-          style={
-            restartRequired
-              ? { pointerEvents: "none", opacity: 0.55 }
-              : undefined
-          }
-        >
-          {children}
-        </div>
-        <NfeScanHost />
-      </AppShell.Main>
-    </AppShell>
+          <div
+            className="app-content"
+            style={
+              restartRequired
+                ? { pointerEvents: "none", opacity: 0.55 }
+                : undefined
+            }
+          >
+            {children}
+          </div>
+          <NfeScanHost />
+        </AppShell.Main>
+      </AppShell>
+    </>
   );
 }

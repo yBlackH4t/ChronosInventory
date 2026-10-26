@@ -1,4 +1,9 @@
 import type { MovementCreate } from "./api";
+import {
+  ADJUSTMENT_REASON_LABELS,
+  MOVEMENT_NATURE_LABELS,
+  movementColor as sharedMovementColor,
+} from "./movements";
 
 export type ProductMovementType = MovementCreate["tipo"];
 export type ProductMovementNature = NonNullable<MovementCreate["natureza"]>;
@@ -9,30 +14,19 @@ export type ProductAdjustmentReason = NonNullable<
 export const PRODUCT_MOVEMENT_NATURE_OPTIONS: {
   value: ProductMovementNature;
   label: string;
-}[] = [
-  { value: "OPERACAO_NORMAL", label: "Operacao normal" },
-  { value: "TRANSFERENCIA_EXTERNA", label: "Transferencia externa" },
-  { value: "DEVOLUCAO", label: "Devolucao" },
-  { value: "AJUSTE", label: "Ajuste" },
-  { value: "ESTORNO", label: "Estorno" },
-];
+}[] = (Object.keys(MOVEMENT_NATURE_LABELS) as ProductMovementNature[]).map(
+  (value) => ({ value, label: MOVEMENT_NATURE_LABELS[value] }),
+);
 
 export const PRODUCT_ADJUSTMENT_REASON_OPTIONS: {
   value: ProductAdjustmentReason;
   label: string;
-}[] = [
-  { value: "AVARIA", label: "Avaria" },
-  { value: "PERDA", label: "Perda" },
-  { value: "CORRECAO_INVENTARIO", label: "Correcao inventario" },
-  { value: "ERRO_OPERACIONAL", label: "Erro operacional" },
-  { value: "TRANSFERENCIA", label: "Transferencia" },
-];
+}[] = (Object.keys(ADJUSTMENT_REASON_LABELS) as ProductAdjustmentReason[]).map(
+  (value) => ({ value, label: ADJUSTMENT_REASON_LABELS[value] }),
+);
 
 export function movementColor(tipo: ProductMovementType) {
-  // Red stays reserved for destructive actions; a sale is routine.
-  if (tipo === "ENTRADA") return "teal";
-  if (tipo === "SAIDA") return "orange";
-  return "indigo";
+  return sharedMovementColor(tipo);
 }
 
 export function movementNatureLabel(natureza: ProductMovementNature) {
@@ -131,7 +125,7 @@ export function validateMovementSubmission(values: MovementCreate): {
     };
   }
   if (values.natureza === "DEVOLUCAO" && values.tipo !== "ENTRADA") {
-    return { field: "natureza", message: "Devolucao so pode ser ENTRADA" };
+    return { field: "natureza", message: "Devolução só pode ser uma entrada" };
   }
   if (
     values.natureza === "TRANSFERENCIA_EXTERNA" &&
@@ -140,7 +134,7 @@ export function validateMovementSubmission(values: MovementCreate): {
   ) {
     return {
       field: "natureza",
-      message: "Transferencia externa so pode ser ENTRADA ou SAIDA",
+      message: "Transferência externa só pode ser entrada ou saída",
     };
   }
   if (
@@ -155,7 +149,7 @@ export function validateMovementSubmission(values: MovementCreate): {
   ) {
     return {
       field: "movimento_ref_id",
-      message: "Informe o movimento de referencia",
+      message: "Informe a movimentação de referência",
     };
   }
   if (
@@ -164,7 +158,7 @@ export function validateMovementSubmission(values: MovementCreate): {
   ) {
     return {
       field: "movimento_ref_id",
-      message: "Informe a movimentacao original a ser estornada",
+      message: "Informe a movimentação original a ser estornada",
     };
   }
   if (values.natureza === "AJUSTE" && !values.motivo_ajuste) {
@@ -173,7 +167,7 @@ export function validateMovementSubmission(values: MovementCreate): {
   if (values.natureza === "AJUSTE" && !(values.observacao || "").trim()) {
     return {
       field: "observacao",
-      message: "Observacao obrigatoria para ajuste",
+      message: "Observação obrigatória para ajuste",
     };
   }
   return null;

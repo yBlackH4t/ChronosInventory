@@ -2,6 +2,8 @@ export interface AdminStatus {
   maquina_publicadora: boolean;
   senha_definida: boolean;
   autenticado: boolean;
+  /** PIN de /aprovar e /recusar pelo WhatsApp já criado (desde a 2.5.5). */
+  pin_whatsapp_definido?: boolean;
 }
 
 export interface AdminPasswordRequest {

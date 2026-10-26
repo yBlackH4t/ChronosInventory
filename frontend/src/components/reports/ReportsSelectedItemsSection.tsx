@@ -23,6 +23,7 @@ import {
 
 import type { Product } from "../../lib/api";
 import { useLocations } from "../../hooks/useLocations";
+import ProgressButton from "../ui/ProgressButton";
 import ReportShell from "./ReportShell";
 
 type SelectedReportProduct = Pick<
@@ -31,6 +32,8 @@ type SelectedReportProduct = Pick<
 >;
 
 type Props = {
+  /** A última geração deu erro (sem o ✓ no botão). */
+  failed?: boolean;
   selectedItems: SelectedReportProduct[];
   selectedIds: Set<number>;
   selectedSearch: string;
@@ -70,6 +73,7 @@ export default function ReportsSelectedItemsSection({
   locationLabel,
   loadingGenerate,
   generateSelectedReport,
+  failed = false,
 }: Props) {
   const { locations } = useLocations();
   const searching = selectedSearch.trim().length >= 2;
@@ -80,14 +84,17 @@ export default function ReportsSelectedItemsSection({
       description="Monte uma lista de conferência com os itens que quiser, na ordem que preferir."
       footerHint={`${selectedItems.length} ${selectedItems.length === 1 ? "item" : "itens"} na lista · usa os saldos do momento da geração`}
       action={
-        <Button
+        <ProgressButton
           onClick={generateSelectedReport}
-          loading={loadingGenerate}
+          busy={loadingGenerate}
+          failed={failed}
+          busyLabel="Gerando PDF…"
+          doneLabel="PDF pronto"
           disabled={selectedItems.length === 0}
           leftSection={<IconFileTypePdf size={16} stroke={1.5} />}
         >
           Gerar PDF
-        </Button>
+        </ProgressButton>
       }
     >
       <Stack gap="lg">

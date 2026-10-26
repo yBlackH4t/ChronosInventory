@@ -76,7 +76,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   >({
     mutationFn: (payload) => api.officialBaseUpdateConfig(payload),
     onSuccess: (response) => {
-      notifySuccess("Configuracao da base oficial salva.");
+      notifySuccess("Configuração da base oficial salva.");
       setOfficialServerTokenInput("");
       queryClient.setQueryData(["official-base-status"], response);
       queryClient.invalidateQueries({
@@ -154,7 +154,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
       const keptPhotos = response.data.fotos_mantidas ?? 0;
       notifySuccess(
         keptPhotos > 0
-          ? `Base oficial aplicada. ${keptPhotos} foto(s) desta maquina foram mantidas.`
+          ? `Base oficial aplicada. ${keptPhotos} foto(s) desta máquina foram mantidas.`
           : "Base oficial aplicada com sucesso.",
       );
       queryClient.invalidateQueries({ queryKey: ["official-base-status"] });
@@ -232,7 +232,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         notifyError(
           new Error(
             expectedRunning
-              ? `Servidor nao confirmou inicializacao. Verifique se a porta ${refreshed.data?.data?.server_port ?? officialServerPortInput ?? 8765} esta livre e se o firewall permitiu o acesso local.`
+              ? `O servidor não confirmou que iniciou. Verifique se a porta ${refreshed.data?.data?.server_port ?? officialServerPortInput ?? 8765} está livre e se o firewall permitiu o acesso local.`
               : "Servidor ainda aparece ativo. Aguarde alguns segundos e, se persistir, verifique se o processo foi encerrado corretamente.",
           ),
         );
@@ -378,7 +378,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     modals.openConfirmModal({
       title: "Publicar base oficial",
       children:
-        "Esta operacao vai gerar uma copia oficial da base atual e deixar essa base disponivel no servidor local desta maquina. Use isso somente na maquina que representa a fonte oficial do estoque.",
+        "Esta operação vai gerar uma cópia oficial da base atual e deixar essa base disponível no servidor local desta máquina. Use isso somente na máquina que representa a fonte oficial do estoque.",
       labels: { confirm: "Publicar agora", cancel: "Cancelar" },
       onConfirm: () =>
         officialBasePublishMutation.mutate({
@@ -391,9 +391,9 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     modals.openConfirmModal({
       title: "Atualizar minha base local",
       children:
-        "O sistema vai criar um backup automatico do banco atual, baixar a base oficial do servidor remoto informado e reiniciar o aplicativo ao final. As fotos de produto colocadas nesta maquina sao mantidas.",
+        "O sistema vai criar um backup automático do banco atual, baixar a base oficial do servidor remoto informado e reiniciar o aplicativo ao final. As fotos de produto colocadas nesta máquina são mantidas.",
       labels: { confirm: "Atualizar base", cancel: "Cancelar" },
-      confirmProps: { color: "orange" },
+      confirmProps: { color: "warning" },
       onConfirm: () => officialBaseApplyMutation.mutate(),
     });
   }, [officialBaseApplyMutation]);
@@ -402,9 +402,9 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     modals.openConfirmModal({
       title: "Excluir base oficial atual",
       children:
-        "Isso vai remover a base oficial mais recente publicada neste servidor local. Os snapshots do historico continuam existentes, mas os outros computadores nao vao mais encontrar uma base atual para baixar.",
+        "Isso vai remover a base oficial mais recente publicada neste servidor local. As cópias do histórico continuam guardadas, mas os outros computadores não vão mais encontrar uma base atual para baixar.",
       labels: { confirm: "Excluir base atual", cancel: "Cancelar" },
-      confirmProps: { color: "red" },
+      confirmProps: { color: "danger" },
       onConfirm: () =>
         officialBaseDeleteMutation.mutate({ deleteLatest: true }),
     });
@@ -413,10 +413,10 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   const confirmDeleteOfficialBaseHistoryItem = useCallback(
     (item: OfficialBaseHistoryItemOut) => {
       modals.openConfirmModal({
-        title: "Excluir publicacao historica",
-        children: `Isso vai remover este snapshot do historico publicado em ${dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}. Essa acao nao altera a base local ativa.`,
-        labels: { confirm: "Excluir snapshot", cancel: "Cancelar" },
-        confirmProps: { color: "red" },
+        title: "Excluir publicação do histórico",
+        children: `Isso vai remover esta cópia da base do histórico, publicada em ${dayjs(item.manifest.published_at).format("DD/MM/YYYY HH:mm")}. Essa ação não altera a base local ativa.`,
+        labels: { confirm: "Excluir cópia", cancel: "Cancelar" },
+        confirmProps: { color: "danger" },
         onConfirm: () =>
           officialBaseDeleteMutation.mutate({
             manifestPath: item.manifest_path,
@@ -445,6 +445,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     remoteOfficialStatus,
     saveConfigLoading: officialBaseConfigMutation.isPending,
     publishLoading: officialBasePublishMutation.isPending,
+    publishFailed: officialBasePublishMutation.isError,
     applyLoading: officialBaseApplyMutation.isPending,
     deletePending: officialBaseDeleteMutation.isPending,
     testRemoteLoading: officialBaseTestDirectoryMutation.isPending,
