@@ -474,3 +474,33 @@ def test_note_issued_by_this_store_is_read_from_the_questor_root_not_from_sefaz(
     found = client.get(f"/nfe/{other}")
     assert found.status_code == 200, found.text
     assert found.json()["data"]["autorizada"] is True and calls == []
+
+
+def test_unauthorized_xml_in_the_questor_root_does_not_block_the_sefaz_download(client, tmp_path, monkeypatch):
+    """Nota de fornecedor com XML sem protocolo na raiz do Questor ainda vem da SEFAZ."""
+    from app.services import nfe_service
+    from core import nfe_sefaz
+
+    fornecedor = _fix_dv("43261053870235000109550020000145981475712081")
+    baixadas = []
+
+    def fake_download(chave, **kwargs):
+        baixadas.append(chave)
+        xml = _xml(chave=chave, emit=("53870235000109", "B2PECAS LTDA"), dest=(EMIT_CNPJ, "MONTREAL"))
+        return nfe_sefaz.SefazResult(c_stat="138", motivo="Documento localizado", xml=xml)
+
+    monkeypatch.setattr(nfe_sefaz, "download_nfe", fake_download)
+    _setup(client, tmp_path)
+    saved = client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    assert saved.status_code == 200, saved.text
+    client.put("/nfe/config", json={"pastas_xml": [str(tmp_path / "Geradas")], "cnpj_loja": EMIT_CNPJ})
+
+    root = tmp_path / "nQuestorEmp" / "NFe"
+    (root / "Assinadas").mkdir(parents=True)
+    (root / "Assinadas" / f"{fornecedor}-nfe.xml").write_bytes(_xml(chave=fornecedor, c_stat="0"))
+    monkeypatch.setattr(nfe_service, "QUESTOR_ROOT", str(root))
+
+    found = client.get(f"/nfe/{fornecedor}")
+    assert found.status_code == 200, found.text
+    assert found.json()["data"]["autorizada"] is True
+    assert baixadas == [fornecedor]

@@ -322,12 +322,21 @@ class NfeService:
         config = load_config()
         folders = [*config["pastas_xml"], xml_download_dir()]
         documento = find_nfe_by_chave(chave, folders)
+        sem_autorizacao = None
         if documento is None and os.path.isdir(QUESTOR_ROOT):
-            documento = find_nfe_by_chave(chave, [QUESTOR_ROOT], by_content=False)
+            encontrado = find_nfe_by_chave(chave, [QUESTOR_ROOT], by_content=False)
+            if encontrado is not None and encontrado.autorizada:
+                documento = encontrado
+            else:
+                # XML assinado mas sem o protocolo: guarda so como ultimo recurso,
+                # para nao atrapalhar o download da nota autorizada na SEFAZ.
+                sem_autorizacao = encontrado
         if documento is not None:
             return documento
         loja = config["cnpj_loja"] or _only_digits((config["certificado"] or {}).get("cnpj"))
         if loja and chave[6:20] == loja:
+            if sem_autorizacao is not None:
+                return sem_autorizacao
             # Nota emitida por esta loja: a SEFAZ so devolve o resumo para quem emitiu,
             # entao o XML tem que vir das pastas do emissor (Questor).
             raise ProductNotFoundException(
@@ -338,6 +347,8 @@ class NfeService:
             )
         if config["certificado"]:
             return self._download(chave, config)
+        if sem_autorizacao is not None:
+            return sem_autorizacao
         if not any(os.path.isdir(f) for f in config["pastas_xml"]):
             raise ProductNotFoundException(
                 "Nenhuma das pastas de XML existe nesta maquina. Confira em 'Configurar'."
