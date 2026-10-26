@@ -56,7 +56,8 @@ export default function EstornoModal({
     onSuccess: () => {
       notifications.show({
         title: "Sucesso",
-        message: "Estorno realizado com sucesso",
+        message:
+          "Estorno lançado. Na lista de Movimentações, a movimentação e o estorno ficam ocultos; ligue \"Mostrar estornados\" para vê-los.",
         color: "success",
       });
       // As chaves usadas pelas telas (antes eram "movements"/"products" e a lista não atualizava).

@@ -77,6 +77,8 @@ export type MovementsTabState = {
   historyProductId: number | null;
   historyOpened: boolean;
   scrollY: number;
+  /** Mostra os pares lançamento errado + estorno, que ficam ocultos por padrão. */
+  showReversed?: boolean;
 };
 
 export const MOVEMENTS_TAB_ID = "movements";

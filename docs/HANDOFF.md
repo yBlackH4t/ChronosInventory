@@ -1125,3 +1125,9 @@ npm run lint
 - CNPJs: `nfe_config.json` ganha `cnpjs` `[{cnpj, nome}]`; o primeiro vira `cnpj_loja`. `_download` tenta cada CNPJ salvo menos o emitente (próximo em 137/593/640/641; para em XML, resumo ou outro erro). `_store_cnpj` escolhe o CNPJ desta loja se ele estiver na nota, senão o salvo que está nela (destinatário, depois emitente) para o tipo e a natureza sugeridos; o preview traz `loja`.
 - Etiquetas: perfis em `components/labels/nfeLabelProfiles.ts` (localStorage `chronos.nfe.etiqueta_perfis.v1`, ativo em `chronos.nfe.etiqueta_perfil_ativo`). Primeira vez: "Perfil 1" com o layout de hoje e "Crua (sem marca)" (`rawShippingLabelLayout`: meia folha sem logo e remetente). O perfil ativo é salvo a cada mudança; importar layout cria perfil novo. A janela da nota escolhe o perfil antes de imprimir.
 - Verificações: pytest ok / ruff ok / build ok / lint ok (só avisos antigos) / vitest ok.
+
+### 2026-10-26 — Claude Code — 2.7.3, estornos fora da lista de Movimentações
+- Branch: `claude/project-thread-mswsxd` (a partir da `main` 481d293, 2.7.2).
+- `GET /movimentacoes?ocultar_estornados=true` (`MovementRepository._OCULTAR_ESTORNADOS`): esconde a movimentação que tem um estorno apontando para ela (`movimento_ref_id`) e o estorno em si. Só a lista; `/produtos/{id}/historico`, saldo e relatórios não mudam. Com o filtro `natureza=ESTORNO` o parâmetro é ignorado.
+- Tela: chave "Mostrar estornados" na barra de filtros de Movimentações (desligada por padrão, guardada no estado da aba). O aviso do estorno conta que os dois saem da lista.
+- Teste: `backend/tests/test_movements_estornados.py`.
