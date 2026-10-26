@@ -28,6 +28,14 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     ]
   },
   {
+    "version": "2.7.3",
+    "date": "2026-10-26",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: Movimentações mais limpas: uma movimentação lançada errado e o estorno que a desfez saem juntos da lista de Movimentações. Eles não são apagados: continuam guardados, aparecem no histórico do produto, e o saldo e os relatórios não mudam. Para vê-los, ligue \"Mostrar estornados\" ao lado dos filtros. Filtrar pela natureza \"Estorno\" também mostra os estornos."
+    ]
+  },
+  {
     "version": "2.7.2",
     "date": "2026-10-26",
     "title": "Novas funcionalidades",

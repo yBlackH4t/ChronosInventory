@@ -95,8 +95,13 @@ banco real: `analise-estoque-db.md` na biblioteca do Projeto.
 - **2.7.4, Vidro suave em Inventário, Etiquetas, Relatórios e tabela de Produtos** (branch
    `claude/project-thread-oq7mai`, PR para a `main`): coluna "Código" em Produtos, anel de progresso
    e selos no Inventário, pílula e código em destaque nas Etiquetas, miniatura da folha nos
-   Relatórios, correção do "Local #null" e do botão claro no Grafite escuro. A 2.7.3 (estornos) é
-   outro PR; a tag `v2.7.4` cobre as duas. Depois: 2.7.5 com as animações (itens 2 a 22).
+   Relatórios, correção do "Local #null" e do botão claro no Grafite escuro. Inclui também as
+   microinterações (itens 2 a 22) no mesmo PR #36. A 2.7.3 (estornos, PR #35) já está na `main`;
+   a tag `v2.7.4` cobre a 2.7.3 e a 2.7.2.
+- **2.7.3, movimentações mais limpas** (branch `claude/project-thread-mswsxd`, PR para a `main`): a
+   movimentação estornada e o estorno dela saem juntos da lista de Movimentações (chave "Mostrar
+   estornados" mostra de novo). Nada é apagado; saldo, relatórios e histórico do produto iguais.
+   A tag `v2.7.3` cobre a 2.7.2.
 - **2.7.2, nota fiscal e etiquetas** (branch `claude/project-thread-dcq6wk`, PR para a `main`): a nota
    acha produtos desativados e reativa na tela, cadastra produto novo sem sair da nota, sugere pelo
    código da empresa (CD_MATERIAL = id), vários CNPJs salvos escolhidos sozinhos pela nota, e perfis

@@ -381,6 +381,8 @@ export type ListMovementsParams = {
   date_from?: string;
   date_to?: string;
   documento?: string;
+  /** Esconde o lançamento estornado e o estorno dele (os dois juntos). */
+  ocultar_estornados?: boolean;
   page?: number;
   page_size?: number;
   sort?: string;

@@ -125,6 +125,8 @@ function MovementsPageContent() {
           setShowAdvancedFilters={state.setShowAdvancedFilters}
           showProductId={state.showProductId}
           setShowProductId={state.setShowProductId}
+          showReversed={state.showReversed}
+          setShowReversed={state.setShowReversed}
           tablePreferences={state.tablePreferences}
           setTablePreferences={state.setTablePreferences}
           activeViewCount={state.activeViewCount}
