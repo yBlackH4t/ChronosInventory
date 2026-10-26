@@ -10,6 +10,18 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.2",
+    "date": "2026-10-26",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: Nota fiscal com produto desativado: ao ler a nota, o Chronos também acha os produtos desativados (antes pulava e sugeria outro item). O item aparece marcado \"desativado\" com o botão \"Reativar\", ali mesmo na tela da nota. A busca de produto na nota também mostra os desativados.",
+      "Novo: Cadastrar produto dentro da nota: cada item tem \"Cadastrar novo\". O nome vem da descrição da nota, o produto entra com saldo 0 e já fica escolhido no item.",
+      "Novo: Notas da própria empresa: o código do item na nota da matriz ou da filial é o número (#) do produto no Chronos. Com o mesmo nome, esse produto vem sugerido primeiro.",
+      "Novo: Vários CNPJs salvos: em \"Configurar\" da nota fiscal dá para salvar os CNPJs da empresa (ex.: Canoas e Matriz). Ao bipar a nota, o Chronos usa sozinho o CNPJ que está nela, inclusive para baixar da SEFAZ, e mostra qual usou.",
+      "Novo: Perfis de etiqueta de expedição: em Etiquetas > Expedição (NF-e), escolha o perfil na lista ao lado de \"Layout\" (Perfil 1, Perfil 2...). Cada perfil guarda o seu layout sozinho. Já vem o perfil \"Crua (sem marca)\", sem logo e sem remetente, para notas despachadas em nome do cliente. Em Layout: salvar como novo perfil, renomear, excluir e novo perfil cru. Importar layout cria um perfil novo. Depois da baixa da nota, dá para escolher o perfil antes de imprimir."
+    ]
+  },
+  {
     "version": "2.7.1",
     "date": "2026-10-22",
     "title": "Melhorias e correcoes",

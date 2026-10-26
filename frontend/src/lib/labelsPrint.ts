@@ -267,6 +267,26 @@ export function halfSheetShippingLabelLayout(
   };
 }
 
+/** Blocos com a nossa marca: logo e remetente. */
+const BRAND_BLOCK_IDS = new Set(["logo", "rotulo_remetente", "remetente", "remetente_local"]);
+const RAW_SHIFT_PX = 96;
+
+/**
+ * Etiqueta "crua": a meia folha sem logo e sem remetente, para notas despachadas em nome de
+ * um cliente (nada da nossa marca pode ir no volume).
+ */
+export function rawShippingLabelLayout(): ShippingLabelDesignerLayout {
+  const base = halfSheetShippingLabelLayout();
+  return {
+    ...base,
+    name: "Crua (sem marca)",
+    heightPx: base.heightPx - RAW_SHIFT_PX,
+    items: base.items
+      .filter((item) => !BRAND_BLOCK_IDS.has(item.id))
+      .map((item) => ({ ...item, y: Math.max(0, item.y - RAW_SHIFT_PX) })),
+  };
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")

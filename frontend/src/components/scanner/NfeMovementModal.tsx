@@ -19,7 +19,9 @@ import {
   IconCheck,
   IconCircleCheck,
   IconFileInvoice,
+  IconPlus,
   IconPrinter,
+  IconRefresh,
   IconSearch,
   IconSettings,
 } from "@tabler/icons-react";
@@ -39,6 +41,8 @@ import { revealFor } from "../../lib/reveal";
 import AnimatedNumber from "../ui/AnimatedNumber";
 import Reveal from "../ui/Reveal";
 import { printNfeShippingLabels } from "../labels/nfeDesignerUtils";
+import { loadActiveProfileId, loadProfiles, type NfeLabelProfile } from "../labels/nfeLabelProfiles";
+import NfeNewProductModal from "./NfeNewProductModal";
 import NfeProductPicker from "./NfeProductPicker";
 import NfeSettingsPanel from "./NfeSettingsPanel";
 import NfeStepper from "./NfeStepper";
@@ -91,6 +95,11 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   const [lancada, setLancada] = useState<{ chave: string; numero: number } | null>(null);
   const [envio, setEnvio] = useState<NfeShippingData | null>(null);
   const [printingLabel, setPrintingLabel] = useState(false);
+  // Perfil da etiqueta (ex.: "Crua" para nota despachada em nome do cliente).
+  const [labelProfiles, setLabelProfiles] = useState<NfeLabelProfile[]>([]);
+  const [labelProfileId, setLabelProfileId] = useState<string | null>(null);
+  const [reactivating, setReactivating] = useState<number | null>(null);
+  const [newProductFor, setNewProductFor] = useState<NfeItemPreview | null>(null);
 
   const fetchEnvio = async (chaveNota: string): Promise<NfeShippingData> => {
     const res = await api.getNfeXml(chaveNota);
@@ -101,7 +110,8 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     setPrintingLabel(true);
     try {
       const data = envio ?? (await fetchEnvio(chaveNota));
-      printNfeShippingLabels(data, (message) => notifyError(new Error(message)));
+      const profile = labelProfiles.find((p) => p.id === labelProfileId);
+      printNfeShippingLabels(data, (message) => notifyError(new Error(message)), profile?.layout);
     } catch (e) {
       notifyError(e, "Não foi possível gerar a etiqueta.");
     } finally {
@@ -163,6 +173,25 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   };
 
   useEffect(() => {
+    if (!opened) return;
+    const profiles = loadProfiles();
+    setLabelProfiles(profiles);
+    setLabelProfileId(loadActiveProfileId(profiles));
+  }, [opened]);
+
+  const labelProfileSelect = labelProfiles.length > 1 && (
+    <Select
+      aria-label="Perfil da etiqueta"
+      w={180}
+      data={labelProfiles.map((p) => ({ value: p.id, label: p.nome }))}
+      value={labelProfileId}
+      onChange={setLabelProfileId}
+      allowDeselect={false}
+      comboboxProps={{ withinPortal: true }}
+    />
+  );
+
+  useEffect(() => {
     if (opened && chave) void load(chave);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opened, chave]);
@@ -192,10 +221,12 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     if (query.trim().length < 2) return;
     searchTimers.current[item] = window.setTimeout(async () => {
       try {
-        const res = await api.listProducts({ query, page_size: 10 });
+        // Desativados tambem: a nota pode trazer um produto desativado, que da para reativar aqui.
+        const res = await api.listProductsStatus({ query, status: "TODOS", page_size: 10 });
         const found: NfeProduto[] = (res.data ?? []).map((p) => ({
           id: p.id,
           nome: p.nome,
+          ativo: p.ativo ?? true,
           estoque: Object.fromEntries(
             Object.entries(p.inventories ?? {}).map(([k, v]) => [String(k), Number(v)]),
           ),
@@ -213,6 +244,39 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
         // busca falhou: o usuario tenta de novo
       }
     }, 300);
+  };
+
+  const selectedOf = (row: RowState | undefined): NfeProduto | null =>
+    row?.produtoId ? row.options.find((o) => String(o.id) === row.produtoId) ?? null : null;
+
+  const reactivate = async (product: NfeProduto) => {
+    setReactivating(product.id);
+    try {
+      await api.bulkUpdateProductStatus({ ids: [product.id], ativo: true });
+      setRows((current) =>
+        Object.fromEntries(
+          Object.entries(current).map(([key, row]) => [
+            key,
+            { ...row, options: row.options.map((o) => (o.id === product.id ? { ...o, ativo: true } : o)) },
+          ]),
+        ),
+      );
+      notifySuccess(`${product.nome} reativado.`);
+      void queryClient.invalidateQueries();
+    } catch (e) {
+      notifyError(e, "Não foi possível reativar o produto.");
+    } finally {
+      setReactivating(null);
+    }
+  };
+
+  const useNewProduct = (item: number, product: NfeProduto) => {
+    setRows((current) => {
+      const row = current[item];
+      if (!row) return current;
+      return { ...current, [item]: { ...row, produtoId: String(product.id), options: [product, ...row.options] } };
+    });
+    void queryClient.invalidateQueries();
   };
 
   const stockOf = (row: RowState | undefined): number | null => {
@@ -235,6 +299,12 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     const semProduto = nota.itens.filter((i) => !rows[i.item]?.produtoId && !rows[i.item]?.ignorar).length;
     if (nota.itens.every((i) => rows[i.item]?.ignorar)) list.push("Todos os itens estão marcados para ignorar.");
     if (semProduto) list.push(`Escolha o produto de ${semProduto === 1 ? "1 item" : `${semProduto} itens`}.`);
+    const desativados = nota.itens.filter((i) => !rows[i.item]?.ignorar && selectedOf(rows[i.item])?.ativo === false).length;
+    if (desativados) {
+      list.push(
+        `${desativados === 1 ? "1 produto escolhido está desativado" : `${desativados} produtos escolhidos estão desativados`}: clique em Reativar no item.`,
+      );
+    }
     if (tipo === "SAIDA") {
       const semSaldo = nota.itens.filter((i) => {
         const stock = stockOf(rows[i.item]);
@@ -341,9 +411,10 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                   : "Imprima a etiqueta da caixa com os dados da nota."}
               </Text>
               <Text size="xs" c="dimmed">
-                Sai com o layout salvo em Etiquetas &gt; NF-e, uma etiqueta por volume da nota.
+                Sai com o perfil escolhido de Etiquetas &gt; NF-e, uma etiqueta por volume da nota.
               </Text>
               <Group>
+                {labelProfileSelect}
                 <Button
                   leftSection={<IconPrinter size={16} />}
                   loading={printingLabel}
@@ -420,6 +491,11 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                         {nota.natureza_operacao} · {nota.tipo_sugerido === "SAIDA" ? "para" : "de"}{" "}
                         {nota.tipo_sugerido === "SAIDA" ? nota.destinatario : nota.emitente}
                       </Text>
+                      {nota.loja?.nome && (
+                        <Text size="xs" c="dimmed">
+                          CNPJ usado: {nota.loja.nome}
+                        </Text>
+                      )}
                     </Stack>
                     <Group gap={6}>
                       <Badge variant="light" color="gray">
@@ -505,6 +581,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                           const row = rows[item.item];
                           const badge = CONFIANCA_LABEL[item.confianca];
                           const stock = stockOf(row);
+                          const selected = selectedOf(row);
                           const short = tipo === "SAIDA" && stock !== null && stock < (row?.quantidade ?? 0);
                           const after = stockAfter(stock, row?.quantidade ?? 0, tipo);
                           const reveal = revealFor(motionLevel, index, { step: 0.08, maxSteps: 10 });
@@ -541,6 +618,16 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                                     checked={row?.ignorar ?? false}
                                     onChange={(e) => updateRow(item.item, { ignorar: e.currentTarget.checked })}
                                   />
+                                  {!row?.ignorar && (
+                                    <Button
+                                      size="compact-xs"
+                                      variant="subtle"
+                                      leftSection={<IconPlus size={12} />}
+                                      onClick={() => setNewProductFor(item)}
+                                    >
+                                      Cadastrar novo
+                                    </Button>
+                                  )}
                                   {badge &&
                                     !row?.ignorar &&
                                     row?.produtoId === (item.produto_sugerido ? String(item.produto_sugerido.id) : null) && (
@@ -549,6 +636,23 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                                       </Badge>
                                     )}
                                 </Group>
+                                {selected?.ativo === false && !row?.ignorar && (
+                                  <Group gap={8} mt={6} wrap="nowrap">
+                                    <Text size="xs" c="warning">
+                                      Este produto está desativado.
+                                    </Text>
+                                    <Button
+                                      size="compact-xs"
+                                      variant="light"
+                                      color="warning"
+                                      leftSection={<IconRefresh size={12} />}
+                                      loading={reactivating === selected.id}
+                                      onClick={() => void reactivate(selected)}
+                                    >
+                                      Reativar
+                                    </Button>
+                                  </Group>
+                                )}
                               </td>
                               <td>
                                 <NumberInput
@@ -669,6 +773,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                   )}
 
                   <Group justify="flex-end">
+                    {nota.ja_baixada?.tipo === "SAIDA" && labelProfileSelect}
                     {nota.ja_baixada?.tipo === "SAIDA" && (
                       <Button
                         variant="default"
@@ -698,6 +803,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
           </>
         )}
       </Stack>
+      <NfeNewProductModal item={newProductFor} onClose={() => setNewProductFor(null)} onCreated={useNewProduct} />
     </Modal>
   );
 }

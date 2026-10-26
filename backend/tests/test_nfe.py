@@ -229,6 +229,7 @@ def test_sefaz_answers_are_explained(client, tmp_path, monkeypatch):
 
     _setup(client, tmp_path)
     client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    client.put("/nfe/config", json={"pastas_xml": [str(tmp_path / "Geradas")], "cnpj_loja": EMIT_CNPJ})
     answers = iter([
         nfe_sefaz.SefazResult(c_stat="138", motivo="ok", so_resumo=True),
         nfe_sefaz.SefazResult(c_stat="656", motivo="Consumo Indevido"),
@@ -443,3 +444,68 @@ def test_xml_of_the_note_is_returned_for_the_shipping_label(client, tmp_path):
 
     outra = "43261003897158000285550020000145611821211029"
     assert client.get(f"/nfe/{outra}/xml").status_code in (400, 404)
+
+
+def test_deactivated_product_is_found_and_can_be_reactivated_to_post_the_note(client, tmp_path):
+    _setup(client, tmp_path)
+    turbo = _product(client, "TURBO GARRETT GT4594BNS 876272-5017S", 3)
+    assert client.put("/produtos/status-lote", json={"ids": [turbo], "ativo": False}).status_code == 200
+
+    # O desativado continua sendo achado pelo codigo, marcado como desativado.
+    item = client.get(f"/nfe/{CHAVE}").json()["data"]["itens"][0]
+    assert item["produto_sugerido"]["id"] == turbo and item["produto_sugerido"]["ativo"] is False
+
+    body = {"tipo": "SAIDA", "location_id": CANOAS, "itens": [{"item": 1, "produto_id": turbo, "quantidade": 2}]}
+    blocked = client.post(f"/nfe/{CHAVE}/baixa", json=body)
+    assert blocked.status_code == 400 and "inativo" in blocked.json()["error"]["message"].lower()
+    assert client.get(f"/nfe/{CHAVE}").json()["data"]["ja_baixada"] is None
+
+    # Reativado (o botao da tela da nota), a baixa segue.
+    assert client.put("/produtos/status-lote", json={"ids": [turbo], "ativo": True}).status_code == 200
+    assert client.post(f"/nfe/{CHAVE}/baixa", json=body).status_code == 201
+    assert _stock(client, turbo) == 1
+
+
+def test_company_code_on_the_note_points_to_the_product_with_that_id(client, tmp_path):
+    """Notas da empresa trazem o CD_MATERIAL, que e o id no Chronos; o desativado nao perde para outro."""
+    _product(client, "TURBO 876272-5017S USADO", 4)  # ativo e cita o mesmo codigo
+    certo = _product(client, "TURBO GARRET GT4594BNS - 876272-5017S", 0)
+    assert client.put("/produtos/status-lote", json={"ids": [certo], "ativo": False}).status_code == 200
+    _setup(client, tmp_path, xml=_xml(itens=((f"{certo:07d}", "TURBO GARRET GT4594BNS 876272-5017S", "1"),)))
+
+    item = client.get(f"/nfe/{CHAVE}").json()["data"]["itens"][0]
+    assert item["produto_sugerido"]["id"] == certo and item["produto_sugerido"]["ativo"] is False
+    assert item["confianca"] == "codigo"
+
+
+def test_saved_cnpjs_are_tried_until_the_one_that_received_the_note(client, tmp_path, monkeypatch):
+    from core import nfe_sefaz
+
+    matriz, canoas = "03897158000102", EMIT_CNPJ
+    fornecedor = _fix_dv("42261053870235000109550020000748901471059981")
+    consultas = []
+
+    def fake_download(chave, *, cnpj, **kwargs):
+        consultas.append(cnpj)
+        if cnpj != matriz:
+            return nfe_sefaz.SefazResult(c_stat="641", motivo="nao e destinatario")
+        xml = _xml(chave=chave, emit=("53870235000109", "B2PECAS LTDA"), dest=(matriz, "MONTREAL MATRIZ"))
+        return nfe_sefaz.SefazResult(c_stat="138", motivo="Documento localizado", xml=xml)
+
+    monkeypatch.setattr(nfe_sefaz, "download_nfe", fake_download)
+    _setup(client, tmp_path)
+    client.put("/nfe/certificado", json={"arquivo": _pfx(tmp_path), "senha": "segredo1"})
+    saved = client.put("/nfe/config", json={
+        "pastas_xml": [str(tmp_path / "Geradas")],
+        "cnpjs": [{"cnpj": "03.897.158/0002-85", "nome": "Canoas"}, {"cnpj": matriz, "nome": "Matriz"}],
+    }).json()["data"]
+    assert saved["cnpj_loja"] == canoas
+    assert saved["cnpjs"] == [{"cnpj": canoas, "nome": "Canoas"}, {"cnpj": matriz, "nome": "Matriz"}]
+    assert client.get("/nfe/config").json()["data"]["cnpjs"] == saved["cnpjs"]
+
+    data = client.get(f"/nfe/{fornecedor}").json()["data"]
+    assert consultas == [canoas, matriz]
+    assert data["loja"] == {"cnpj": matriz, "nome": "Matriz"} and data["tipo_sugerido"] == "ENTRADA"
+
+    bad = client.put("/nfe/config", json={"pastas_xml": [], "cnpjs": [{"cnpj": "123", "nome": "x"}]})
+    assert bad.status_code == 400

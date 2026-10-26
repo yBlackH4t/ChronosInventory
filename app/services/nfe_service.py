@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import unicodedata
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -36,6 +37,7 @@ CERTIFICATE_FILENAME = "nfe_certificado.pfx"
 DEFAULT_UF = "43"  # RS: UF de quem consulta na SEFAZ
 MAX_FOLDERS = 10
 MAX_CANDIDATES = 5
+MAX_CNPJS = 10
 # Naturezas que a baixa por NF aceita (devolucao exige a movimentacao de origem; estorno e outra tela).
 NATUREZAS_NF = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "AJUSTE"}
 
@@ -139,6 +141,25 @@ def _write_raw(data: Dict[str, Any]) -> None:
         json.dump(data, fh, ensure_ascii=False, indent=2)
 
 
+def _saved_cnpjs(data: Dict[str, Any], cnpj_loja: Optional[str]) -> List[Dict[str, str]]:
+    """CNPJs da empresa salvos em 'Configurar' (o desta loja primeiro); a nota escolhe o certo."""
+    result: List[Dict[str, str]] = []
+    seen: set[str] = set()
+    raw = data.get("cnpjs") if isinstance(data.get("cnpjs"), list) else []
+    entries = [{"cnpj": cnpj_loja, "nome": ""}] + [e for e in raw if isinstance(e, dict)]
+    for entry in entries:
+        cnpj = _only_digits(entry.get("cnpj"))
+        if len(cnpj) != 14 or cnpj in seen:
+            continue
+        seen.add(cnpj)
+        nome = str(entry.get("nome") or "").strip()[:60]
+        if not nome:
+            nome = next((str(e.get("nome") or "").strip()[:60] for e in raw
+                         if isinstance(e, dict) and _only_digits(e.get("cnpj")) == cnpj), "")
+        result.append({"cnpj": cnpj, "nome": nome})
+    return result[:MAX_CNPJS]
+
+
 def load_config() -> Dict[str, Any]:
     """Configuracao desta maquina, sem segredos (a senha do certificado nunca sai daqui)."""
     data = _read_raw()
@@ -148,9 +169,11 @@ def load_config() -> Dict[str, Any]:
         folders = [str(p).strip() for p in saved if str(p).strip()][:MAX_FOLDERS]
     cert = data.get("certificado") if isinstance(data.get("certificado"), dict) else None
     has_cert = bool(cert and cert.get("senha") and os.path.isfile(_certificate_path()))
+    cnpj_loja = _only_digits(data.get("cnpj_loja")) or None
     return {
         "pastas_xml": folders,
-        "cnpj_loja": _only_digits(data.get("cnpj_loja")) or None,
+        "cnpj_loja": cnpj_loja,
+        "cnpjs": _saved_cnpjs(data, cnpj_loja),
         "uf": str(data.get("uf") or DEFAULT_UF),
         "certificado": (
             {"titular": cert.get("titular"), "cnpj": cert.get("cnpj"), "validade": cert.get("validade")}
@@ -159,7 +182,11 @@ def load_config() -> Dict[str, Any]:
     }
 
 
-def save_config(pastas_xml: List[str], cnpj_loja: Optional[str] = None) -> Dict[str, Any]:
+def save_config(
+    pastas_xml: List[str],
+    cnpj_loja: Optional[str] = None,
+    cnpjs: Optional[List[Dict[str, Any]]] = None,
+) -> Dict[str, Any]:
     folders: List[str] = []
     for raw in pastas_xml:
         folder = str(raw or "").strip()
@@ -178,6 +205,21 @@ def save_config(pastas_xml: List[str], cnpj_loja: Optional[str] = None) -> Dict[
         if cnpj and len(cnpj) != 14:
             raise ValidationException("CNPJ da loja deve ter 14 numeros.")
         data["cnpj_loja"] = cnpj or None
+    if cnpjs is not None:
+        saved: List[Dict[str, str]] = []
+        for entry in cnpjs:
+            cnpj = _only_digits(entry.get("cnpj"))
+            if not cnpj:
+                continue
+            if len(cnpj) != 14:
+                raise ValidationException(f"CNPJ {entry.get('cnpj')} deve ter 14 numeros.")
+            if cnpj not in {e["cnpj"] for e in saved}:
+                saved.append({"cnpj": cnpj, "nome": str(entry.get("nome") or "").strip()[:60]})
+        if len(saved) > MAX_CNPJS:
+            raise ValidationException(f"Informe no maximo {MAX_CNPJS} CNPJs.")
+        data["cnpjs"] = saved
+        # O primeiro da lista e o desta loja (quem recebe as notas de entrada aqui).
+        data["cnpj_loja"] = saved[0]["cnpj"] if saved else None
     _write_raw(data)
     return load_config()
 
@@ -245,6 +287,13 @@ def _quantity(value: Decimal) -> Optional[int]:
     return int(value)
 
 
+def _same_name(a: str, b: str) -> bool:
+    """Mesmo nome ignorando espacos, tracos e acentos (a nota tira o " - " do cadastro)."""
+    def norm(text: str) -> str:
+        return "".join(ch for ch in unicodedata.normalize("NFD", text or "").upper() if ch.isalnum())
+    return bool(norm(a)) and norm(a) == norm(b)
+
+
 def _description_codes(descricao: str, ean: str) -> List[str]:
     """Codigos de peca citados na descricao do item (como escritos) e o EAN."""
     codes: List[str] = []
@@ -265,6 +314,30 @@ def _other_party(documento: NfeDocumento, tipo: str) -> tuple[str, str]:
     if tipo == "SAIDA":
         return documento.destinatario_nome or "", documento.destinatario_documento or ""
     return documento.emitente_nome or "", documento.emitente_cnpj or ""
+
+
+# Respostas da SEFAZ que querem dizer "este CNPJ nao e o da nota": tenta o proximo salvo.
+OUTRO_CNPJ = {"137", "593", "640", "641"}
+
+
+def _download_cnpjs(chave: str, config: Dict[str, Any]) -> List[str]:
+    emitente = chave[6:20]
+    ordem = [e["cnpj"] for e in config.get("cnpjs") or []]
+    ordem += [config.get("cnpj_loja") or "", _only_digits((config.get("certificado") or {}).get("cnpj"))]
+    result: List[str] = []
+    for cnpj in ordem:
+        if cnpj and cnpj != emitente and cnpj not in result:
+            result.append(cnpj)
+    return result
+
+
+def _store_cnpj(documento: NfeDocumento, config: Dict[str, Any]) -> Optional[str]:
+    """Qual dos CNPJs salvos esta na nota: o destinatario, senao o emitente, senao o desta loja."""
+    salvos = [e["cnpj"] for e in config.get("cnpjs") or []]
+    for cnpj in (documento.destinatario_documento, documento.emitente_cnpj):
+        if cnpj and cnpj in salvos:
+            return cnpj
+    return config.get("cnpj_loja")
 
 
 def _same_company(cnpj_a: str, cnpj_b: Optional[str]) -> bool:
@@ -334,13 +407,19 @@ class NfeService:
         if secret is None:
             raise ValidationException("Certificado digital nao configurado nesta maquina.")
         pfx, senha = secret
-        cnpj = config["cnpj_loja"] or (config["certificado"] or {}).get("cnpj")
-        if not cnpj:
-            raise ValidationException("Informe o CNPJ desta loja em 'Configurar'.")
-        try:
-            result = self.downloader(chave, pfx=pfx, senha=senha, cnpj=cnpj, uf=config["uf"])
-        except SefazError as exc:
-            raise ValidationException(str(exc)) from exc
+        cnpjs = _download_cnpjs(chave, config)
+        if not cnpjs:
+            raise ValidationException(
+                "Salve em 'Configurar' o CNPJ que recebeu esta nota (quem emitiu nao consegue baixar da SEFAZ)."
+            )
+        # A chave so traz o emitente: tenta cada CNPJ salvo ate achar o destinatario da nota.
+        for cnpj in cnpjs:
+            try:
+                result = self.downloader(chave, pfx=pfx, senha=senha, cnpj=cnpj, uf=config["uf"])
+            except SefazError as exc:
+                raise ValidationException(str(exc)) from exc
+            if result.xml or result.so_resumo or result.c_stat not in OUTRO_CNPJ:
+                break
         if result.xml:
             destino = os.path.join(xml_download_dir(), f"{chave}-nfe.xml")
             with open(destino, "wb") as fh:
@@ -368,13 +447,17 @@ class NfeService:
         finally:
             conn.close()
 
-        cnpj_loja = load_config()["cnpj_loja"]
+        config = load_config()
+        cnpj_loja = _store_cnpj(documento, config)
+        loja = next((e for e in config["cnpjs"] if e["cnpj"] == cnpj_loja), None)
         tipo_sugerido = _suggested_type(documento, cnpj_loja)
         return {
             "chave": documento.chave,
             "numero": documento.numero,
             "serie": documento.serie,
             "tipo_sugerido": tipo_sugerido,
+            # CNPJ salvo que a nota usou (escolhido sozinho; o "Configurar" so muda em caso de erro).
+            "loja": loja,
             "movimento_sugerido": {
                 tipo: _suggested_movement(documento, tipo, cnpj_loja) for tipo in ("SAIDA", "ENTRADA")
             },
@@ -415,9 +498,13 @@ class NfeService:
             return {}
         marks = ",".join("?" for _ in ids)
         rows = conn.execute(
-            f"SELECT id, nome FROM produtos WHERE ativo = 1 AND id IN ({marks})", tuple(ids)
+            f"SELECT id, nome, ativo FROM produtos WHERE id IN ({marks})", tuple(ids)
         ).fetchall()
-        result = {int(r["id"]): {"id": int(r["id"]), "nome": r["nome"], "estoque": {}} for r in rows}
+        # Desativados tambem: o item da nota pode ser um produto desativado, que a tela reativa.
+        result = {
+            int(r["id"]): {"id": int(r["id"]), "nome": r["nome"], "ativo": int(r["ativo"] or 0) == 1, "estoque": {}}
+            for r in rows
+        }
         if result:
             stock_rows = conn.execute(
                 f"""
@@ -453,11 +540,18 @@ class NfeService:
                 continue
             sql, params = clause
             rows = conn.execute(
-                f"SELECT p.id FROM produtos p WHERE p.ativo = 1 AND (p.nome LIKE ? OR {sql})",
+                f"SELECT p.id FROM produtos p WHERE p.nome LIKE ? OR {sql}",
                 [f"%{code}%", *params],
             )
             for row in rows:
                 scores[int(row["id"])] = scores.get(int(row["id"]), 0) + 1
+
+        # Notas da propria empresa trazem o codigo do cadastro (CD_MATERIAL), que e o id no
+        # Chronos: com o mesmo nome, e esse o produto, mesmo que esteja desativado.
+        if item.codigo.isdigit() and len(item.codigo) <= 9:
+            row = conn.execute("SELECT id, nome FROM produtos WHERE id = ?", (int(item.codigo),)).fetchone()
+            if row and _same_name(row["nome"], item.descricao):
+                scores[int(row["id"])] = scores.get(int(row["id"]), 0) + 10
 
         ids = list(scores)
         if learned_id is not None and learned_id not in scores:
@@ -469,7 +563,7 @@ class NfeService:
 
         ranked = sorted(
             (pid for pid in scores if pid in products),
-            key=lambda pid: (-scores[pid], -(total(pid) > 0), products[pid]["nome"]),
+            key=lambda pid: (-scores[pid], not products[pid]["ativo"], -(total(pid) > 0), products[pid]["nome"]),
         )
         candidatos = [products[pid] for pid in ranked[:MAX_CANDIDATES]]
 

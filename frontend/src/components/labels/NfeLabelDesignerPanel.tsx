@@ -15,6 +15,7 @@ import {
   Group,
   Kbd,
   Menu,
+  Modal,
   NumberInput,
   Select,
   Stack,
@@ -24,7 +25,10 @@ import {
 } from "@mantine/core";
 import {
   IconArrowBackUp,
+  IconCopy,
   IconDownload,
+  IconEraser,
+  IconPencil,
   IconFileImport,
   IconFileTypeXml,
   IconKeyboard,
@@ -59,6 +63,15 @@ import {
 import { notifyError, notifySuccess } from "../../lib/notify";
 import NfeSelectedBlockEditor from "./NfeSelectedBlockEditor";
 import {
+  MAX_PROFILES,
+  loadActiveProfileId,
+  loadProfiles,
+  rawProfile,
+  saveActiveProfileId,
+  saveProfiles,
+  type NfeLabelProfile,
+} from "./nfeLabelProfiles";
+import {
   COMMON_WINDOWS_FONTS,
   GRID_SIZE,
   MAX_NFE_LABELS_PER_PRINT,
@@ -82,9 +95,16 @@ export default function NfeLabelDesignerPanel() {
   const [nfeData, setNfeData] = useState<NfeShippingData | null>(null);
   const [nfeFileName, setNfeFileName] = useState("");
   const [printing, setPrinting] = useState(false);
-  const [layout, setLayout] = useState<ShippingLabelDesignerLayout>(() =>
-    loadLayoutFromStorage(),
+  // Perfis (Perfil 1, Perfil 2, Crua...): o escolhido é o layout em edição, salvo sozinho nele.
+  const [profiles, setProfiles] = useState<NfeLabelProfile[]>(() => loadProfiles());
+  const [activeProfileId, setActiveProfileId] = useState<string>(() =>
+    loadActiveProfileId(profiles),
   );
+  const [layout, setLayout] = useState<ShippingLabelDesignerLayout>(
+    () => profiles.find((p) => p.id === activeProfileId)?.layout ?? loadLayoutFromStorage(),
+  );
+  const [profileNameModal, setProfileNameModal] = useState<"novo" | "renomear" | null>(null);
+  const [profileName, setProfileName] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(
     null,
@@ -104,7 +124,74 @@ export default function NfeLabelDesignerPanel() {
     } catch {
       // Ignore storage errors.
     }
-  }, [layout]);
+    setProfiles((current) => {
+      const next = current.map((p) => (p.id === activeProfileId ? { ...p, layout } : p));
+      saveProfiles(next);
+      return next;
+    });
+  }, [layout, activeProfileId]);
+
+  const activeProfile = profiles.find((p) => p.id === activeProfileId) ?? profiles[0];
+
+  const selectProfile = (id: string) => {
+    const profile = profiles.find((p) => p.id === id);
+    if (!profile) return;
+    setActiveProfileId(id);
+    saveActiveProfileId(id);
+    setLayout(profile.layout);
+    setSelectedId(null);
+    setImportedLayoutName("");
+  };
+
+  const addProfile = (profile: NfeLabelProfile) => {
+    if (profiles.length >= MAX_PROFILES) {
+      notifyError(new Error(`Limite de ${MAX_PROFILES} perfis. Exclua um antes.`));
+      return false;
+    }
+    const next = [...profiles, profile];
+    setProfiles(next);
+    saveProfiles(next);
+    setActiveProfileId(profile.id);
+    saveActiveProfileId(profile.id);
+    setLayout(profile.layout);
+    setSelectedId(null);
+    return true;
+  };
+
+  const openProfileName = (mode: "novo" | "renomear") => {
+    setProfileName(mode === "renomear" ? activeProfile.nome : `Perfil ${profiles.length + 1}`);
+    setProfileNameModal(mode);
+  };
+
+  const confirmProfileName = () => {
+    const nome = profileName.trim().slice(0, 40);
+    if (!nome) return;
+    if (profileNameModal === "renomear") {
+      const next = profiles.map((p) => (p.id === activeProfile.id ? { ...p, nome } : p));
+      setProfiles(next);
+      saveProfiles(next);
+      notifySuccess(`Perfil renomeado para ${nome}.`);
+    } else if (addProfile({ id: makeId(), nome, layout })) {
+      notifySuccess(`Perfil ${nome} salvo. Escolha o perfil na lista para trocar de layout.`);
+    }
+    setProfileNameModal(null);
+  };
+
+  const deleteProfile = () => {
+    if (profiles.length <= 1) return;
+    const next = profiles.filter((p) => p.id !== activeProfile.id);
+    setProfiles(next);
+    saveProfiles(next);
+    setActiveProfileId(next[0].id);
+    saveActiveProfileId(next[0].id);
+    setLayout(next[0].layout);
+    setSelectedId(null);
+    notifySuccess(`Perfil ${activeProfile.nome} excluído.`);
+  };
+
+  const addRawProfile = () => {
+    if (addProfile(rawProfile())) notifySuccess("Perfil cru criado: sem logo e sem remetente.");
+  };
 
   useEffect(() => {
     let active = true;
@@ -437,10 +524,11 @@ export default function NfeLabelDesignerPanel() {
       const normalized = normalizeShippingLabelDesignerLayout(
         JSON.parse(text) as unknown,
       );
-      setLayout(normalized);
-      setSelectedId(null);
+      // O layout importado vira um perfil novo, sem apagar o que estava em uso.
+      const nome = file.name.replace(/\.json$/i, "").slice(0, 40) || `Perfil ${profiles.length + 1}`;
+      if (!addProfile({ id: makeId(), nome, layout: normalized })) return;
       setImportedLayoutName(file.name);
-      notifySuccess(`Layout importado com sucesso: ${file.name}`);
+      notifySuccess(`Layout importado como o perfil ${nome}.`);
     } catch (error) {
       notifyError(error, "Falha ao importar layout visual.");
     }
@@ -599,7 +687,7 @@ export default function NfeLabelDesignerPanel() {
                 <Text size="xs" c="dimmed">
                   {importedLayoutName
                     ? `Layout: ${importedLayoutName}`
-                    : "Layout salvo automaticamente neste computador"}
+                    : `${activeProfile.nome}: salvo sozinho neste computador`}
                 </Text>
               </div>
             )}
@@ -633,7 +721,16 @@ export default function NfeLabelDesignerPanel() {
                 </ActionIcon>
               </Tooltip>
             )}
-            <Menu position="bottom-end" width={220} keepMounted>
+            <Select
+              aria-label="Perfil da etiqueta"
+              w={190}
+              data={profiles.map((p) => ({ value: p.id, label: p.nome }))}
+              value={activeProfile.id}
+              onChange={(v) => v && selectProfile(v)}
+              allowDeselect={false}
+              comboboxProps={{ withinPortal: true }}
+            />
+            <Menu position="bottom-end" width={260} keepMounted>
               <Menu.Target>
                 <Button
                   variant="default"
@@ -643,6 +740,34 @@ export default function NfeLabelDesignerPanel() {
                 </Button>
               </Menu.Target>
               <Menu.Dropdown>
+                <Menu.Label>Perfil: {activeProfile.nome}</Menu.Label>
+                <Menu.Item
+                  leftSection={<IconCopy size={16} stroke={1.5} />}
+                  onClick={() => openProfileName("novo")}
+                >
+                  Salvar como novo perfil
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconPencil size={16} stroke={1.5} />}
+                  onClick={() => openProfileName("renomear")}
+                >
+                  Renomear perfil
+                </Menu.Item>
+                <Menu.Item
+                  leftSection={<IconEraser size={16} stroke={1.5} />}
+                  onClick={addRawProfile}
+                >
+                  Novo perfil cru (sem marca)
+                </Menu.Item>
+                <Menu.Item
+                  color="danger"
+                  leftSection={<IconTrash size={16} stroke={1.5} />}
+                  disabled={profiles.length <= 1}
+                  onClick={deleteProfile}
+                >
+                  Excluir este perfil
+                </Menu.Item>
+                <Menu.Divider />
                 <FileButton
                   onChange={(file) => void importLayout(file)}
                   accept=".json,application/json,text/json"
@@ -1059,6 +1184,35 @@ export default function NfeLabelDesignerPanel() {
           </div>
         </Group>
       )}
+
+      <Modal
+        opened={profileNameModal !== null}
+        onClose={() => setProfileNameModal(null)}
+        title={profileNameModal === "renomear" ? "Renomear perfil" : "Salvar como novo perfil"}
+        centered
+        size="sm"
+      >
+        <Stack gap="sm">
+          <TextInput
+            label="Nome do perfil"
+            value={profileName}
+            maxLength={40}
+            onChange={(e) => setProfileName(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmProfileName();
+            }}
+            data-autofocus
+          />
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setProfileNameModal(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={confirmProfileName} disabled={!profileName.trim()}>
+              Salvar
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }

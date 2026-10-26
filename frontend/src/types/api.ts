@@ -1033,6 +1033,8 @@ export type SelectedStockReportIn = {
 export type NfeProduto = {
   id: number;
   nome: string;
+  /** false = produto desativado; a tela da nota oferece reativar. */
+  ativo?: boolean;
   estoque: Record<string, number>;
 };
 
@@ -1065,6 +1067,13 @@ export type NfePreview = {
   arquivo: string;
   itens: NfeItemPreview[];
   movimento_sugerido: Record<"SAIDA" | "ENTRADA", NfeMovimentoSugerido>;
+  /** CNPJ salvo em "Configurar" que esta nota usa (escolhido sozinho). */
+  loja?: NfeCnpj | null;
+};
+
+export type NfeCnpj = {
+  cnpj: string;
+  nome: string;
 };
 
 export type NfeNatureza = "OPERACAO_NORMAL" | "TRANSFERENCIA_EXTERNA" | "AJUSTE";
@@ -1103,6 +1112,7 @@ export type NfeXmlOut = {
 export type NfeConfig = {
   pastas_xml: string[];
   cnpj_loja?: string | null;
+  cnpjs?: NfeCnpj[];
   uf?: string;
   certificado?: { titular: string; cnpj: string | null; validade: string } | null;
 };
@@ -1110,6 +1120,8 @@ export type NfeConfig = {
 export type NfeConfigIn = {
   pastas_xml: string[];
   cnpj_loja?: string | null;
+  /** O primeiro e o desta loja. */
+  cnpjs?: NfeCnpj[];
 };
 
 export type NfeCertificadoIn = {

@@ -4,6 +4,7 @@ import {
   buildShippingLabelsDesignerPrintHtml,
   halfSheetShippingLabelLayout,
   normalizeShippingLabelDesignerLayout,
+  rawShippingLabelLayout,
 } from "./labelsPrint";
 import { nfeShippingPrintItems, type NfeShippingData } from "./nfeShippingLabel";
 
@@ -38,6 +39,17 @@ describe("etiqueta de expedição da NF", () => {
     expect(html).toContain("data:image/png;base64,AAAA");
     expect(html).toContain("background:#000;color:#fff;"); // volume em destaque
     expect(html.match(/designer-card"/g)).toHaveLength(2);
+  });
+
+  it("perfil cru não leva logo nem remetente, só o destino e a nota", () => {
+    const html = buildShippingLabelsDesignerPrintHtml(nfeShippingPrintItems(NOTA, 400), rawShippingLabelLayout());
+    expect(html).not.toContain("MONTREAL");
+    expect(html).not.toContain("CNPJ 03.897.158");
+    expect(html).not.toContain("REMETENTE");
+    expect(html).not.toContain("<img");
+    expect(html).toContain("RUA EXEMPLO, 100 · CENTRO");
+    expect(html).toContain("GARIBALDI / RS");
+    expect(html).toContain(">14590</div>");
   });
 
   it("moldura e fundo preto sobrevivem a salvar e carregar o layout", () => {
