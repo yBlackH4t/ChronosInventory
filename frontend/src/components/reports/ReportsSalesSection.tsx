@@ -1,6 +1,9 @@
 import { Button, Select, SimpleGrid } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { IconFileTypePdf } from "@tabler/icons-react";
+import dayjs from "dayjs";
+
+import ReportPaperPreview from "./ReportPaperPreview";
 import ReportShell from "./ReportShell";
 
 type Scope = string;
@@ -28,8 +31,21 @@ export default function ReportsSalesSection({
   loading,
   onGenerate,
 }: Props) {
+  const days =
+    salesDateFrom && salesDateTo ? dayjs(salesDateTo).diff(dayjs(salesDateFrom), "day") + 1 : null;
+  const scopeLabel = scopeOptions.find((option) => option.value === salesScope)?.label ?? "Todas as filiais";
   return (
     <ReportShell
+      preview={
+        <ReportPaperPreview
+          title="Vendas reais"
+          columns={["Produto", "Qtd", "Data", "Filial"]}
+          facts={[
+            ...(days !== null ? [{ label: "Dias no período", value: days.toLocaleString("pt-BR"), tone: "accent" as const }] : []),
+            { label: "Filial", value: scopeLabel },
+          ]}
+        />
+      }
       title="Vendas reais"
       description="Somente saídas de operação normal. Devoluções, transferências e ajustes ficam de fora, para mostrar o que realmente foi vendido no período."
       footerHint={

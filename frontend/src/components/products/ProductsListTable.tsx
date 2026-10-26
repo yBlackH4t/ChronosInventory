@@ -19,19 +19,17 @@ import {
   IconLink,
   IconTrash,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, useRef } from "react";
 
-import type { InventoryLocation, Product, StockSummary, SuccessResponse } from "../../lib/api";
-import { api } from "../../lib/apiClient";
+import type { InventoryLocation, Product } from "../../lib/api";
 import { useRowHeight } from "../../lib/appearance";
 import { detectBrand, detectCondition } from "../../lib/brands";
 import { clickableRowProps } from "../../lib/clickableRow";
 import { brandTitle, locationColumns, splitProductCode, versionTitle } from "../../lib/productView";
 import { useProductsVisual } from "../../hooks/useProductsVisual";
 import { useFlipList } from "../../hooks/useFlipList";
-import { useProfileScope } from "../../state/profileScope";
+import { useStockTotals } from "../../hooks/useStockTotals";
 import EmptyState from "../ui/EmptyState";
 import ProductThumb from "./ProductThumb";
 import SalesMiniBars from "./SalesMiniBars";
@@ -75,16 +73,6 @@ function linkSummary(product: Product): string | null {
     }`;
   }
   return null;
-}
-
-/** Totais por filial do estoque inteiro (o mesmo cache do Painel). */
-function useStockTotals() {
-  const { profileScopeKey } = useProfileScope();
-  return useQuery<SuccessResponse<StockSummary>>({
-    queryKey: ["analytics", profileScopeKey, "stock-summary", null],
-    queryFn: ({ signal }) => api.getAnalyticsStockSummary({ scope: null }, { signal }),
-    staleTime: 60_000,
-  });
 }
 
 export function ProductsListTable({
@@ -166,7 +154,7 @@ export function ProductsListTable({
     );
   }
 
-  const columnCount = 4 + shownLocations.length;
+  const columnCount = (compact ? 5 : 6) + shownLocations.length;
   const virtualItems = rowVirtualizer.getVirtualItems();
   const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
   const paddingBottom =
@@ -187,17 +175,22 @@ export function ProductsListTable({
           overflow: "auto",
         }}
       >
-        <Table layout="fixed" stickyHeader verticalSpacing={0} miw={680}>
+        <Table layout="fixed" stickyHeader verticalSpacing={0} miw={900}>
           <Table.Thead>
             <Table.Tr>
+              {!compact && (
+                <Table.Th w={60}>
+                  <VisuallyHidden>Foto</VisuallyHidden>
+                </Table.Th>
+              )}
+              <Table.Th w={150}>Código</Table.Th>
               <Table.Th>Produto</Table.Th>
-              <Table.Th w={124}>Vendas 90 dias</Table.Th>
               {shownLocations.map((loc) => (
-                <Table.Th key={loc.id} w={104} ta="right">
+                <Table.Th key={loc.id} w={120} ta="right" className="pm-th">
                   {loc.label || loc.name}
                 </Table.Th>
               ))}
-              <Table.Th w={onlyLocation ? 150 : 96} ta="right">
+              <Table.Th w={onlyLocation ? 150 : 96} ta="right" className="pm-th">
                 {onlyLocation ? (
                   <Tooltip
                     label={`Só ${onlyLocation.label || onlyLocation.name} tem estoque; as outras filiais estão zeradas`}
@@ -212,6 +205,7 @@ export function ProductsListTable({
                   totalLabel
                 )}
               </Table.Th>
+              <Table.Th w={140} className="pm-th">Saídas 90 dias</Table.Th>
               <Table.Th w={200}>
                 <VisuallyHidden>Ações</VisuallyHidden>
               </Table.Th>
@@ -250,62 +244,62 @@ export function ProductsListTable({
                   onBlur={() => onHoverProduct?.(null)}
                   style={{ height: ROW_HEIGHT }}
                 >
+                  {!compact && (
+                    <Table.Td pr={0}>
+                      <span data-shared="thumb" style={{ display: "inline-flex" }}>
+                        <ProductThumb base64={visual.get(product.id)?.thumb_base64} alt={product.nome} />
+                      </span>
+                    </Table.Td>
+                  )}
+
                   <Table.Td>
-                    <Group gap={12} wrap="nowrap">
-                      {!compact && (
-                        <span data-shared="thumb" style={{ display: "inline-flex" }}>
-                          <ProductThumb base64={visual.get(product.id)?.thumb_base64} alt={product.nome} />
-                        </span>
-                      )}
-                      <Stack gap={3} miw={0} style={{ flex: 1 }}>
-                        <Group gap={8} wrap="nowrap" miw={0}>
-                          {code && (
-                            <span className="pm-code" data-shared="code" title={product.nome}>
-                              {code}
-                            </span>
-                          )}
-                          {(rest || !code) && (
-                            <Text
-                              size="sm"
-                              fw={code ? 500 : 650}
-                              truncate="end"
-                              c={inStock ? undefined : "var(--text-muted)"}
-                              title={product.nome}
-                            >
-                              {code ? rest : product.nome}
-                            </Text>
-                          )}
-                        </Group>
-                        {!compact && (
-                          <div className="pm-meta">
-                            <span
-                              className="pm-version-dot"
-                              style={{ background: `var(--mantine-color-${condition.color}-filled)` }}
-                              aria-hidden
-                            />
-                            <span>
-                              {[brandTitle(brand), versionTitle(condition)].filter(Boolean).join(" · ")}
-                            </span>
-                            <span className="pm-sep" aria-hidden>
-                              ·
-                            </span>
-                            <span className="mono">#{product.id}</span>
-                            {links && (
-                              <>
-                                <span className="pm-sep" aria-hidden>
-                                  ·
-                                </span>
-                                <span className="pm-meta-fill">{links}</span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </Stack>
-                    </Group>
+                    {code ? (
+                      <span className="pm-code-cell" data-shared="code" title={product.nome}>
+                        {code}
+                      </span>
+                    ) : (
+                      <span className="pm-code-cell" data-empty aria-label="Sem código no nome">
+                        —
+                      </span>
+                    )}
                   </Table.Td>
 
                   <Table.Td>
-                    <SalesMiniBars weeks={visual.get(product.id)?.saidas_semanas} />
+                    <Stack gap={3} miw={0}>
+                      <Text
+                        size="sm"
+                        fw={600}
+                        truncate="end"
+                        c={inStock ? undefined : "var(--text-muted)"}
+                        title={product.nome}
+                      >
+                        {(code ? rest : "") || product.nome}
+                      </Text>
+                      {!compact && (
+                        <div className="pm-meta">
+                          <span
+                            className="pm-version-dot"
+                            style={{ background: `var(--mantine-color-${condition.color}-filled)` }}
+                            aria-hidden
+                          />
+                          <span>
+                            {[brandTitle(brand), versionTitle(condition)].filter(Boolean).join(" · ")}
+                          </span>
+                          <span className="pm-sep" aria-hidden>
+                            ·
+                          </span>
+                          <span className="mono">#{product.id}</span>
+                          {links && (
+                            <>
+                              <span className="pm-sep" aria-hidden>
+                                ·
+                              </span>
+                              <span className="pm-meta-fill">{links}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </Stack>
                   </Table.Td>
 
                   {shownLocations.map((loc) => {
@@ -321,6 +315,10 @@ export function ProductsListTable({
 
                   <Table.Td ta="right">
                     <StockNumber value={product.total_stock} flash={rowFlash} />
+                  </Table.Td>
+
+                  <Table.Td className="pm-sales-cell">
+                    <SalesMiniBars weeks={visual.get(product.id)?.saidas_semanas} />
                   </Table.Td>
 
                   <Table.Td>

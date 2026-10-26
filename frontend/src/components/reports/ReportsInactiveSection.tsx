@@ -1,6 +1,7 @@
 import { Button, NumberInput, Select, SimpleGrid } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
 import { IconFileTypePdf } from "@tabler/icons-react";
+import ReportPaperPreview from "./ReportPaperPreview";
 import ReportShell from "./ReportShell";
 
 type Scope = string;
@@ -28,8 +29,19 @@ export default function ReportsInactiveSection({
   loading,
   onGenerate,
 }: Props) {
+  const scopeLabel = scopeOptions.find((option) => option.value === inactiveScope)?.label ?? "Todas as filiais";
   return (
     <ReportShell
+      preview={
+        <ReportPaperPreview
+          title="Estoque parado"
+          columns={["Produto", "Saldo", "Última mov."]}
+          facts={[
+            { label: "Sem movimento há", value: `${inactiveDays.toLocaleString("pt-BR")} dias`, tone: "warning" },
+            { label: "Filial", value: scopeLabel },
+          ]}
+        />
+      }
       title="Estoque parado"
       description="Itens com saldo positivo que não tiveram nenhuma entrada ou saída no período. Útil para promoções ou para descontinuar o que não gira."
       footerHint={!inactiveDateTo ? "Informe a data de referência." : undefined}

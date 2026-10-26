@@ -125,6 +125,19 @@
   --accent-soft: rgba(203, 213, 225, 0.1);
 }
 
+/* Grafite no escuro: o botão "light" do Mantine (cinza a 15% sobre o fundo escuro) ficava
+   preto, como se as cores estivessem invertidas. Aqui ele fica claro e suave como nas
+   outras cores. */
+:root[data-mantine-color-scheme="dark"][data-accent="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]) {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.16);
+}
+
+:root[data-mantine-color-scheme="dark"][data-accent="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]):hover {
+  background: rgba(203, 213, 225, 0.18);
+}
+
 /* "Nenhum" em Configurações > Aparência: sem desfoque (PCs fracos). O vidro vira cartão
    quase opaco, para o texto continuar legível sem o desfoque por trás. */
 :root[data-motion="nenhum"] {

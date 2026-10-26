@@ -13,6 +13,7 @@ import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
 import PageHeader from "../components/ui/PageHeader";
+import "../styles/vidro-telas.css";
 const ReportsStockSection = lazy(
   () => import("../components/reports/ReportsStockSection"),
 );
@@ -328,7 +329,7 @@ export default function ReportsPage() {
 
       <Grid gap="lg">
         <Grid.Col span={{ base: 12, md: 4, lg: 3 }}>
-          <div className="surface-panel" style={{ overflow: "hidden" }}>
+          <div className="surface-panel vt-report-nav" style={{ overflow: "hidden" }}>
             {REPORT_TYPES.map((report) => (
               <button
                 key={report.value}

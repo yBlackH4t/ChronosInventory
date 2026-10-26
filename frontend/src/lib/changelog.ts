@@ -10,6 +10,19 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.4",
+    "date": "2026-10-26",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Mudanca: Produtos com tabela mais clara: o código da peça ganhou uma coluna própria (\"Código\"), alinhada, como no sistema da empresa. O nome vem em destaque logo depois, os saldos por filial e o total ficam em seguida e as saídas dos últimos 90 dias foram para o fim da linha. Os títulos das colunas não quebram mais em duas linhas.",
+      "Mudanca: Inventário no visual novo: a sessão aberta mostra um anel com quanto já foi contado, o local e o status em selos (\"Em contagem\" pulsa). Os números do resumo sobem ao abrir e têm uma barrinha com a parte de cada um no total. Na contagem, o código aparece em destaque e a diferença vira um selo (\"+1 sobrando\", \"−2 faltando\", \"OK\"), com um traço nas linhas com diferença.",
+      "Mudanca: Etiquetas: Estoque e Expedição (NF-e) viraram a pílula deslizante das outras telas. A lista mostra o código em destaque e o total na cor do saldo (verde, âmbar ou vermelho).",
+      "Mudanca: Relatórios: cada relatório mostra uma miniatura da folha que vai sair, com as colunas do PDF, e ao lado os números de verdade (ex.: unidades em estoque por filial e itens zerados). O relatório escolhido fica marcado com uma faixa colorida.",
+      "Correcao: Inventário: a sessão mostrava \"Local #null\" no lugar do nome do local.",
+      "Correcao: Cor Grafite no tema escuro: o botão \"Movimentar\" e os outros botões claros ficavam pretos, como se as cores estivessem invertidas."
+    ]
+  },
+  {
     "version": "2.7.2",
     "date": "2026-10-26",
     "title": "Novas funcionalidades",

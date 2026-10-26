@@ -631,7 +631,9 @@ export type InventorySessionCreateIn = {
 export type InventorySessionOut = {
   id: number;
   nome: string;
-  location_id: number;
+  location_id: number | null;
+  /** Nome do local, como o backend manda. */
+  local?: string | null;
   local_label?: string | null;
   status: InventorySessionStatus;
   observacao?: string | null;

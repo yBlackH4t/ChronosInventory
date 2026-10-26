@@ -422,6 +422,15 @@ npm run lint
 
 <!-- Mais recente no topo. Uma entrada por tarefa concluída. -->
 
+### 2026-10-26 — Claude Code — 2.7.4, Vidro suave nas telas que faltavam e tabela de Produtos
+- Branch: `claude/project-thread-oq7mai` (a partir da `main` 481d293, 2.7.2).
+- Produtos (`ProductsListTable.tsx`): colunas Foto | Código (`.pm-code-cell`) | Produto | filiais | Total | Saídas 90 dias | ações. `useStockTotals` saiu para `hooks/useStockTotals.ts` (também nos Relatórios).
+- CSS novo `styles/vidro-telas.css` (classes `vt-*`): `ProgressRing` (`components/ui`), herói da sessão do Inventário, selos de diferença, miniatura da folha (`ReportPaperPreview`) e faixa do relatório ativo. Animações só fora do nível "Nenhum".
+- Etiquetas: as abas viraram `SegmentedControl`; lista com código em destaque e `StockNumber` no total.
+- Correções: `sessionLocalLabel` (`lib/inventoryView.ts`) usa `local` do backend (antes "Local #null"); botão `light` no Grafite escuro (global.css).
+- Fotos: `/mnt/project-files/visual/2.7.4/`.
+- Verificações: pytest ok / build ok / lint ok (só avisos antigos) / vitest ok.
+
 ### 2026-10-19 — Claude Code — 2.6.3, NF-e, Assistente e leitura de código (Vidro suave)
 - Branch: `claude/nf-assistente` (a partir da `main` 0ac4bd4, 2.6.0; versão, CHANGELOG e regras
   do backend sem mudar). Arquivos compartilhados (`global.css`, `theme.ts`, `AppLayout.tsx`) intactos:

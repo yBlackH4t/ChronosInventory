@@ -44,6 +44,36 @@
   padding: 0 6px;
 }
 
+/* Coluna "Código" da lista de Produtos (2.7.4): o código numa coluna própria, alinhado,
+   como no sistema da empresa; o nome vem depois, em destaque. */
+.pm-code-cell {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--accent-text);
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.92rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-code-cell[data-empty] {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Cabeçalhos curtos numa linha só ("Saldo · Canoas" não quebra). */
+.pm-th {
+  white-space: nowrap;
+}
+
+.pm-sales-cell {
+  opacity: 0.92;
+}
+
 /* Marca · versão em texto, com a cor da versão num ponto. */
 .pm-meta {
   display: flex;
