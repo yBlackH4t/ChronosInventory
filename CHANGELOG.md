@@ -33,6 +33,11 @@ Formato recomendado:
 - **Turbo montado faturado pelo conjunto central:** quando a entrada é feita no conjunto e o turbo fica vinculado a ele, a busca e a lista mostram "1 montada" ao lado do saldo do turbo e "Faturada como #conjunto". A ficha do turbo mostra "Tem montada" com o saldo por filial e o botão "Abrir conjunto"; a ficha do conjunto mostra em quais turbos ele está montado.
 - O assistente (chat e WhatsApp) responde que tem a montada, com a filial, e avisa para faturar pelo conjunto. O saldo continua só no conjunto: não soma no total do turbo, nos relatórios nem duas vezes na resposta.
 
+## [2.7.7] - 2026-10-28
+
+### Fixed
+- **Produtos:** ao passar o mouse na linha, a barra de ações cobria o saldo e as saídas, e era preciso clicar para ver quantas peças havia. Agora os botões (movimentar, etiqueta e mais ações) ficam numa coluna própria no fim da linha, apagados, e acendem ao passar o mouse. O saldo e as saídas ficam sempre à vista.
+
 ## [2.7.6] - 2026-10-26
 
 ### Fixed
