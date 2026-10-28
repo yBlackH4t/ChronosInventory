@@ -49,6 +49,10 @@ describe("officialBaseLine", () => {
     const status = { role: "publisher", latest_manifest: manifest } as OfficialBaseStatusOut;
     expect(officialBaseLine(status, now)).toMatchObject({ label: "Base publicada", detail: "hoje 07:58", tone: "ok" });
   });
+  it("quem publica pelo servidor local também conta", () => {
+    const status = { role: "publisher", latest_manifest: null, server_latest_manifest: manifest } as OfficialBaseStatusOut;
+    expect(officialBaseLine(status, now).detail).toBe("hoje 07:58");
+  });
   it("quem consome mostra de quem é a base", () => {
     const status = { role: "consumer", server_latest_manifest: manifest } as OfficialBaseStatusOut;
     expect(officialBaseLine(status, now).detail).toBe("hoje 07:58 por DELL-WIN11PRO");

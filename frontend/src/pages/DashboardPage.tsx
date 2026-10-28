@@ -236,9 +236,12 @@ export default function DashboardPage() {
   const assistant = assistantQuery.data;
   const systems = useMemo(() => {
     const lines: SystemLine[] = [
-      healthQuery.data
-        ? { label: "Chronos", detail: `versão ${healthQuery.data.data.version} respondendo`, tone: "ok" }
-        : { label: "Chronos", detail: healthQuery.isError ? "sem resposta" : "verificando…", tone: healthQuery.isError ? "danger" : "neutral" },
+      // O erro vem antes: o TanStack guarda a última resposta boa mesmo quando a nova falha.
+      healthQuery.isError
+        ? { label: "Chronos", detail: "sem resposta", tone: "danger" }
+        : healthQuery.data
+          ? { label: "Chronos", detail: `versão ${healthQuery.data.data.version} respondendo`, tone: "ok" }
+          : { label: "Chronos", detail: "verificando…", tone: "neutral" },
     ];
     if (assistant) {
       const robot = robotStatus(assistant.whatsapp_estado, assistant.whatsapp_ativo);

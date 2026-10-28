@@ -44,9 +44,10 @@ export function backupLine(backups: BackupListItemOut[] | null | undefined, now 
 export function officialBaseLine(status: OfficialBaseStatusOut | null | undefined, now = dayjs()): SystemLine {
   if (!status) return { label: "Base oficial", detail: "sem informação", tone: "neutral" };
   const publisher = status.role === "publisher";
-  const manifest = publisher
-    ? status.latest_manifest
-    : (status.server_latest_manifest ?? status.latest_manifest);
+  // A base pode ir pela pasta compartilhada ou pelo servidor local: vale a mais nova.
+  const manifest = [status.server_latest_manifest, status.latest_manifest]
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .sort((a, b) => dayjs(b.published_at).valueOf() - dayjs(a.published_at).valueOf())[0];
   const label = publisher ? "Base publicada" : "Base consumida";
   if (!manifest) {
     return { label, detail: publisher ? "ainda não publicou" : "nenhuma base encontrada", tone: "warn" };
