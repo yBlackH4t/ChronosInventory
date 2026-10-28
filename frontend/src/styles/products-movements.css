@@ -742,34 +742,16 @@
   color: var(--accent-text);
 }
 
-/* Ações da linha flutuando à direita (só no hover/seleção): não ocupam uma coluna vazia. */
-.pm-table .pm-actions-cell {
-  position: relative;
-  padding: 0;
-  overflow: visible;
+/* Ações da linha numa coluna própria, depois das saídas (2.7.7): nunca cobrem o saldo.
+   Fora do hover ficam apagadas; ao passar o mouse, acendem. */
+.pm-table .pm-actions.pm-actions-col {
+  opacity: 0.35;
+  transform: none;
 }
 
-.pm-actions.pm-actions-float {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  translate: 0 -50%;
-  z-index: 2;
-  padding: 4px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface-solid);
-  box-shadow: 0 6px 18px rgba(15, 40, 60, 0.14);
-  pointer-events: none;
-}
-
-:root[data-mantine-color-scheme="dark"] .pm-actions.pm-actions-float {
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
-}
-
-.clickable-row:hover .pm-actions.pm-actions-float,
-.clickable-row:focus-within .pm-actions.pm-actions-float,
-.clickable-row.row-selected .pm-actions.pm-actions-float,
-.pm-actions.pm-actions-float:has([aria-expanded="true"]) {
-  pointer-events: auto;
+.pm-table .clickable-row:hover .pm-actions.pm-actions-col,
+.pm-table .clickable-row:focus-within .pm-actions.pm-actions-col,
+.pm-table .clickable-row.row-selected .pm-actions.pm-actions-col,
+.pm-table .pm-actions.pm-actions-col:has([aria-expanded="true"]) {
+  opacity: 1;
 }

@@ -21,6 +21,14 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     ]
   },
   {
+    "version": "2.7.7",
+    "date": "2026-10-28",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Produtos: ao passar o mouse na linha, a barra de ações cobria o saldo e as saídas, e era preciso clicar para ver quantas peças havia. Agora os botões (movimentar, etiqueta e mais ações) ficam numa coluna própria no fim da linha, apagados, e acendem ao passar o mouse. O saldo e as saídas ficam sempre à vista."
+    ]
+  },
+  {
     "version": "2.7.6",
     "date": "2026-10-26",
     "title": "Correcao e estabilidade",

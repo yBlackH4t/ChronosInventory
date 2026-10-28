@@ -26,7 +26,6 @@ Formato recomendado:
 
 
 
-
 ## [2.7.9] - 2026-10-28
 
 ### Changed
@@ -34,6 +33,11 @@ Formato recomendado:
 - **Faixa "ao vivo"** com as últimas movimentações, que corre devagar no movimento "Completo" e para quando o mouse passa por cima. Clicar abre a ficha do produto.
 - **Gráfico de entradas e saídas** no fim do Painel: as entradas sobem do eixo e as saídas descem, em 30 dias, 90 dias ou 12 meses (por semana). Passar o mouse mostra o dia.
 - Com o movimento "Nenhum", nada no Painel se mexe: os anéis e as barras já aparecem prontos, a faixa fica parada e as luzes não pulsam.
+
+## [2.7.7] - 2026-10-28
+
+### Fixed
+- **Produtos:** ao passar o mouse na linha, a barra de ações cobria o saldo e as saídas, e era preciso clicar para ver quantas peças havia. Agora os botões (movimentar, etiqueta e mais ações) ficam numa coluna própria no fim da linha, apagados, e acendem ao passar o mouse. O saldo e as saídas ficam sempre à vista.
 
 ## [2.7.6] - 2026-10-26
 
