@@ -26,10 +26,15 @@ Formato recomendado:
 
 
 
-## [2.7.12] - 2026-10-28
+## [2.7.14] - 2026-10-28
 
 ### Fixed
 - **Busca por código na aba Produtos derrubava o programa ("Ocorreu um erro inesperado")** quando o código não achava nada, por exemplo enquanto o número ainda estava sendo digitado. Agora aparece "Nada com o código" com o botão "Ver em lista", e qualquer outro erro nas colunas mostra um aviso no lugar delas, sem fechar a tela.
+
+## [2.7.13] - 2026-10-28
+
+### Fixed
+- **Código inteiro na lista, na ficha e nas etiquetas:** códigos com ponto, traço ou letras grudados agora aparecem completos. Ex.: 157.070000422 (antes 070000422), 15.18552-1.A, ACR-01679, 812971-2, HX40-3596928. Nomes com vários códigos separados por barra mostram todos. Eram 329 peças do cadastro; nada muda no banco nem na busca.
 
 ## [2.7.11] - 2026-10-28
 
