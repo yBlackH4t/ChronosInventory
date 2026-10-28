@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
 from app.services.image_service import ImageService
 from app.services.movement_service import MovementService
+from app.services.product_columns_service import ProductColumnsService
 from app.services.stock_service import StockService
 from backend.app.api.deps import get_image_service, get_movement_service, get_stock_service
 from backend.app.api.responses import ok
@@ -29,6 +30,7 @@ from backend.app.schemas.product import (
     ProductStatusFilter,
     ProductPut,
     ProductCatalogResponseOut,
+    ProductColumnsOut,
     ProductVisualItem,
 )
 from core.exceptions import ValidationException
@@ -196,6 +198,12 @@ def products_visual_summary(
             )
         )
     return ok(items)
+
+
+@router.get("/colunas", response_model=SuccessResponse[ProductColumnsOut])
+def product_columns(codigo: str = Query(..., min_length=1, max_length=80)) -> SuccessResponse[ProductColumnsOut]:
+    """Busca por codigo da aba Produtos: nova, reman, montada, conjunto central e similares."""
+    return ok(ProductColumnsService().columns(codigo))
 
 
 @router.get("/{product_id}", response_model=SuccessResponse[ProductOut])

@@ -5,6 +5,7 @@ import type {
   ProductPatch,
   ProductImage,
   ProductImageListOut,
+  ProductColumnsOut,
   ProductVisualItem,
   ProductImageUploadOut,
   ProductImagesUploadOut,
@@ -154,6 +155,14 @@ export function createProductsApi({
     async getProductImage(id: number, options: RequestInit = {}) {
       return request<ProductImage>(
         `/produtos/${id}/imagem`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getProductColumns(codigo: string, options: RequestInit = {}) {
+      return request<ProductColumnsOut>(
+        `/produtos/colunas?codigo=${encodeURIComponent(codigo)}`,
         { method: "GET", ...options },
         baseUrl,
       );
