@@ -841,6 +841,35 @@ export type ProductStockHistoryPoint = {
   saidas: number;
 };
 
+/** Coluna da busca por código na aba Produtos (2.7.10). */
+export type ProductColumnKey = "nova" | "reman" | "montada" | "conjunto" | "similares";
+
+export type ProductColumnItem = {
+  produto: Product;
+  /** exato, familia, igual_especialista, similar_especialista, equivalente_catalogo ou montada_no_conjunto. */
+  relacao: string;
+  rotulo?: string | null;
+  codigo_relacionado?: string | null;
+  obs?: string | null;
+  /** Montada: o produto é o conjunto onde ela é faturada; o turbo é este. */
+  turbo_id?: number | null;
+  turbo_nome?: string | null;
+};
+
+export type ProductColumn = {
+  chave: ProductColumnKey;
+  titulo: string;
+  itens: ProductColumnItem[];
+};
+
+export type ProductColumnsOut = {
+  codigo?: string | null;
+  codigo_digitado?: string | null;
+  colunas: ProductColumn[];
+  aplicacoes: string[];
+  codigos_possiveis: string[];
+};
+
 export type ProductVisualItem = {
   id: number;
   thumb_base64: string | null;

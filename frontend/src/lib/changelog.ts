@@ -10,6 +10,16 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.10",
+    "date": "2026-10-28",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: Aba Produtos em colunas: pesquisar um código (ex.: 4031196) abre colunas lado a lado: Turbina nova, Turbina reman, Turbina montada, Conjunto central e Similares, cada uma com o saldo grande na frente e as saídas dos últimos 90 dias. Coluna sem nada não aparece; se só existe a turbina nova, ela ocupa a largura toda.",
+      "Novo: Clicar num item abre a ficha dentro da própria coluna (foto, saldo, saídas por semana, aplicação e os outros itens da busca) e as demais colunas viram faixas na lateral; Esc ou \"Voltar\" fecha. Movimentar, Etiqueta e Editar ficam visíveis em cada cartão, e \"+ Vincular\" fica no pé de cada coluna. O botão \"Lista\" volta para a tabela de sempre.",
+      "Novo: As colunas usam a mesma busca do assistente: o que ele encontra (igual, similar, catálogo e vínculos feitos na tela) aparece aqui também. As animações seguem a opção de movimento e somem em \"Nenhum\"."
+    ]
+  },
+  {
     "version": "2.7.8",
     "date": "2026-10-28",
     "title": "Novas funcionalidades",

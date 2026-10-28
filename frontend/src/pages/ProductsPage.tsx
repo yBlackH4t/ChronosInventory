@@ -37,6 +37,7 @@ import { ProductDetailsDrawer } from "../components/products/ProductDetailsDrawe
 import { ProductFormModal } from "../components/products/ProductFormModal";
 import { ProductsListTable } from "../components/products/ProductsListTable";
 import ProductLinkModal from "../components/products/ProductLinkModal";
+import ProductColumnsBoard from "../components/products/ProductColumnsBoard";
 import { QuickMovementModal } from "../components/products/QuickMovementModal";
 import { useProductMovement } from "../hooks/useProductMovement";
 import { useLocations } from "../hooks/useLocations";
@@ -46,6 +47,7 @@ import { useScanner } from "../lib/useScanner";
 import { useMotionLevel } from "../lib/motionContext";
 import { animateRowOut } from "../lib/rowExit";
 import { applyMovementToProduct, flashKindFor } from "../lib/productView";
+import { looksLikeCode } from "../lib/productColumns";
 import { captureFlight, clearFlight } from "../lib/sharedFlight";
 import type { StockFlash } from "../components/products/StockNumber";
 import {
@@ -138,6 +140,10 @@ export default function ProductsPage() {
   );
   const [query, setQuery] = useState(persistedState.query);
   const [debounced] = useDebouncedValue(query, 350);
+  // Busca por um código abre as colunas (nova, montada, conjunto, similares); "Lista" volta à tabela.
+  const [codeView, setCodeView] = useState<"colunas" | "lista">("colunas");
+  const isCodeSearch = looksLikeCode(debounced);
+  const showColumns = isCodeSearch && codeView === "colunas";
   const [page, setPage] = useState(persistedState.page);
   const [pageSize, setPageSize] = useState(
     PAGE_SIZES.some((option) => option.value === persistedState.pageSize)
@@ -858,27 +864,40 @@ export default function ProductsPage() {
             }}
             style={{ flex: 1, minWidth: 260 }}
           />
-          <SegmentedControl
-            className="pm-stock-filter"
-            aria-label="Filtrar por estoque"
-            value={stockFilter}
-            onChange={(val) => {
-              if (!isStockFilter(val)) return;
-              setStockFilter(val);
-              setPage(1);
-            }}
-            data={STOCK_FILTERS.map((item) => ({
-              value: item.value,
-              label: (
-                <span className="pm-filter-label">
-                  {item.label}
-                  {stockCounts ? (
-                    <span className="pm-filter-count num">{stockCounts[item.value].toLocaleString("pt-BR")}</span>
-                  ) : null}
-                </span>
-              ),
-            }))}
-          />
+          {isCodeSearch && (
+            <SegmentedControl
+              aria-label="Como mostrar a busca por código"
+              value={codeView}
+              onChange={(val) => setCodeView(val === "lista" ? "lista" : "colunas")}
+              data={[
+                { value: "colunas", label: "Colunas" },
+                { value: "lista", label: "Lista" },
+              ]}
+            />
+          )}
+          {!showColumns && (
+            <SegmentedControl
+              className="pm-stock-filter"
+              aria-label="Filtrar por estoque"
+              value={stockFilter}
+              onChange={(val) => {
+                if (!isStockFilter(val)) return;
+                setStockFilter(val);
+                setPage(1);
+              }}
+              data={STOCK_FILTERS.map((item) => ({
+                value: item.value,
+                label: (
+                  <span className="pm-filter-label">
+                    {item.label}
+                    {stockCounts ? (
+                      <span className="pm-filter-count num">{stockCounts[item.value].toLocaleString("pt-BR")}</span>
+                    ) : null}
+                  </span>
+                ),
+              }))}
+            />
+          )}
           <Popover position="bottom-end" width={260}>
             <Popover.Target>
               <Button
@@ -925,46 +944,64 @@ export default function ProductsPage() {
         </Group>
       </FilterToolbar>
 
-      <ProductsListTable
-        rows={rows}
-        page={page}
-        pageSize={pageSize}
-        selectedId={selectedId}
-        totalItems={totalItems}
-        totalPages={totalPages}
-        loading={productsQuery.isLoading}
-        errorMessage={productsErrorMessage}
-        query={query}
-        flash={stockFlash}
-        onRetry={() => void productsQuery.refetch()}
-        onClearSearch={() => {
-          setQuery("");
-          setPage(1);
-        }}
-        onCreateFromSearch={(text) => openCreate(text)}
-        onOpenDetails={openDetails}
-        onOpenSingleLabel={openSingleLabel}
-        onOpenEdit={openEdit}
-        onConfirmDelete={confirmDelete}
-        onOpenLinks={(product) => {
-          setLinkModalProduct(product);
-          openLinkModal();
-        }}
-        onQuickMove={handleOpenQuickMove}
-        onHoverProduct={setHoveredProduct}
-        onPageChange={setPage}
-        sort={sort}
-        onSortChange={(value) => {
-          setSort(value);
-          setPage(1);
-        }}
-        pageSizes={PAGE_SIZES}
-        onPageSizeChange={(value) => {
-          setPageSize(value);
-          setPage(1);
-        }}
-        locations={locations}
-      />
+      {showColumns ? (
+        <ProductColumnsBoard
+          key={debounced.trim()}
+          codigo={debounced.trim()}
+          locations={locations}
+          onShowList={() => setCodeView("lista")}
+          onQuickMove={handleOpenQuickMove}
+          onOpenSingleLabel={openSingleLabel}
+          onOpenEdit={openEdit}
+          onOpenLinks={(product) => {
+            setLinkModalProduct(product);
+            openLinkModal();
+          }}
+          onOpenDetails={(product) => openDetails(product)}
+          onHoverProduct={setHoveredProduct}
+        />
+      ) : (
+        <ProductsListTable
+          rows={rows}
+          page={page}
+          pageSize={pageSize}
+          selectedId={selectedId}
+          totalItems={totalItems}
+          totalPages={totalPages}
+          loading={productsQuery.isLoading}
+          errorMessage={productsErrorMessage}
+          query={query}
+          flash={stockFlash}
+          onRetry={() => void productsQuery.refetch()}
+          onClearSearch={() => {
+            setQuery("");
+            setPage(1);
+          }}
+          onCreateFromSearch={(text) => openCreate(text)}
+          onOpenDetails={openDetails}
+          onOpenSingleLabel={openSingleLabel}
+          onOpenEdit={openEdit}
+          onConfirmDelete={confirmDelete}
+          onOpenLinks={(product) => {
+            setLinkModalProduct(product);
+            openLinkModal();
+          }}
+          onQuickMove={handleOpenQuickMove}
+          onHoverProduct={setHoveredProduct}
+          onPageChange={setPage}
+          sort={sort}
+          onSortChange={(value) => {
+            setSort(value);
+            setPage(1);
+          }}
+          pageSizes={PAGE_SIZES}
+          onPageSizeChange={(value) => {
+            setPageSize(value);
+            setPage(1);
+          }}
+          locations={locations}
+        />
+      )}
 
       <ProductFormModal
         opened={formOpened}
