@@ -445,6 +445,15 @@ def test_assembled_turbo_shows_the_core_stock_once(client, tools):
     assert "Montada: temos" in answer
 
 
+def test_two_turbos_on_the_same_core_count_it_once(client, tools):
+    core = _create_product(client, "CONJUNTO CENTRAL - 4032382", {CANOAS: 1})
+    for nome in ("TURBO HOLSET HX55W - 4031196 MONTADO", "TURBO HOLSET HX55W - 4031196RX"):
+        _link(_create_product(client, nome, {}), core)
+    result = tools.search_by_code("4031196")
+    assert sum(1 for p in result["produtos"] if p.get("montada_no_conjunto")) == 1
+    assert "📍Canoas: 01 - 4031196 MONTADA" in result["texto_compacto"].splitlines()
+
+
 def test_assembled_turbo_without_core_stock_or_other_links(client, tools):
     turbo = _create_product(client, "TURBO HOLSET HX55W - 4031196RX", {})
     core = _create_product(client, "CONJUNTO CENTRAL - 4032382", {})

@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../lib/apiClient";
 import type { Product } from "../../lib/api";
 import { assembledViaCore, productRef } from "../../lib/productView";
+import { useProfileScope } from "../../state/profileScope";
 
 const CORE_NAME = /CONJ|CENTRAL|MIOLO/i;
 
@@ -19,11 +20,12 @@ type Props = {
 // nele. O saldo é um só, o do conjunto: aqui ele é só mostrado.
 export default function AssembledViaCorePanel({ product, locations }: Props) {
   const navigate = useNavigate();
+  const { profileScopeKey } = useProfileScope();
   const assembled = assembledViaCore(product);
   const isCore = CORE_NAME.test(product.nome) && product.linked_count > 0;
 
   const linkedQuery = useQuery({
-    queryKey: ["produtos", "vinculados", product.id],
+    queryKey: ["produtos", profileScopeKey, "vinculados", product.id],
     queryFn: ({ signal }) => api.getLinkedProducts(product.id, { signal }),
     enabled: isCore,
     staleTime: 60_000,

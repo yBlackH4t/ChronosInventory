@@ -338,6 +338,14 @@ class AssistantToolsService:
         products = sorted(
             by_id.values(), key=lambda p: (_MATCH_RANK[p["correspondencia"]], -available_stock(p), p["nome"])
         )
+        # Dois turbos no mesmo conjunto (ex.: 4031196 e 4031196RX): a montada fica so no primeiro.
+        cores_shown: set = set()
+        for product in products:
+            assembled = product.get("montada_no_conjunto")
+            if assembled and assembled["id"] in cores_shown:
+                product.pop("montada_no_conjunto")
+            elif assembled:
+                cores_shown.add(assembled["id"])
 
         catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=self.limits.code_catalog_items)]
         family = expand_family_codes([code])
