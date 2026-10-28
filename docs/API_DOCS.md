@@ -31,6 +31,7 @@ Erro:
 - `GET /produtos?query=&page=&page_size=&sort=`
 - `GET /produtos/resumo-visual?ids=1,2,3` (2.5.0, ate 100 ids)
   - por produto: `thumb_base64` (miniatura JPEG da foto principal ou null) e `saidas_semanas` (13 semanas, da mais antiga para a atual)
+- `GET /produtos/colunas?codigo=4031196` (2.7.11): busca da aba Produtos em colunas (`nova`, `reman`, `montada`, `conjunto`, `similares`; coluna vazia nao vem), com `aplicacoes` e `produtos_omitidos` (busca ampla passou de 80 produtos: a tela avisa e manda para a lista). Codigo com menos de 4 caracteres ou sem numero: 400.
 - `GET /produtos/{id}`
 - `POST /produtos`
 - `PUT /produtos/{id}`

@@ -173,3 +173,32 @@ class ProductVisualItem(BaseModel):
     id: int
     thumb_base64: str | None = None
     saidas_semanas: list[int]
+
+
+class ProductColumnItem(BaseModel):
+    """Um produto numa coluna da busca por codigo (aba Produtos em colunas, 2.7.11)."""
+
+    produto: ProductOut
+    # exato, familia, igual_especialista, similar_especialista, equivalente_catalogo ou
+    # montada_no_conjunto (o produto e o conjunto central onde o turbo montado e faturado).
+    relacao: str
+    rotulo: Optional[str] = None
+    codigo_relacionado: Optional[str] = None
+    obs: Optional[str] = None
+    turbo_id: Optional[int] = None
+    turbo_nome: Optional[str] = None
+
+
+class ProductColumn(BaseModel):
+    chave: Literal["nova", "reman", "montada", "conjunto", "similares"]
+    titulo: str
+    itens: list[ProductColumnItem]
+
+
+class ProductColumnsOut(BaseModel):
+    codigo: Optional[str] = None
+    codigo_digitado: Optional[str] = None
+    colunas: list[ProductColumn] = Field(default_factory=list)
+    aplicacoes: list[str] = Field(default_factory=list)
+    codigos_possiveis: list[str] = Field(default_factory=list)
+    produtos_omitidos: int = 0

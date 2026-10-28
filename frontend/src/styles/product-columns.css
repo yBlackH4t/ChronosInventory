@@ -1,0 +1,616 @@
+/* ==========================================================================
+   Produtos em colunas (2.7.11): busca por código separada em nova, reman, montada,
+   conjunto central e similares. Clicar num cartão abre a ficha na própria coluna e as
+   outras viram faixas. Movimento só no nível Completo; no Suave só esmaece; no Nenhum o
+   global.css desliga tudo.
+   ========================================================================== */
+
+.pc-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pc-summary {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.pc-searched {
+  font-family: var(--mantine-font-family-monospace);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.pc-summary strong {
+  color: var(--text);
+}
+
+.pc-summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--pc-color, var(--accent));
+}
+
+/* Quadro: as colunas dividem a largura; abrir uma ficha muda o flex-grow, e a transição
+   faz a coluna crescer e as outras encolherem até virar faixa. */
+.pc-board {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  min-height: 420px;
+}
+
+.pc-board[data-solo] {
+  min-height: 0;
+}
+
+.pc-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-radius: var(--radius-glass);
+  background: var(--surface);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+  overflow: hidden;
+  container: pc-col / inline-size;
+  transition:
+    flex-grow 520ms var(--ease-out),
+    flex-basis 520ms var(--ease-out),
+    padding 520ms var(--ease-out);
+}
+
+.pc-col::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--pc-color);
+}
+
+.pc-col[data-state="open"] {
+  flex-grow: 6;
+}
+
+.pc-col[data-state="rail"] {
+  flex: 0 0 56px;
+  padding: 0;
+}
+
+.pc-col-skeleton::before {
+  background: var(--border);
+}
+
+.pc-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  white-space: nowrap;
+}
+
+.pc-col-head .pc-dot {
+  background: var(--pc-color);
+}
+
+.pc-col-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.pc-col-total {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.pc-col-total strong {
+  color: var(--text);
+}
+
+.pc-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Cartão: foto, código e nome; o saldo grande à direita; as ações sempre à vista embaixo. */
+.pc-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  transition:
+    transform 220ms var(--ease-out),
+    box-shadow 220ms var(--ease-out),
+    border-color 220ms var(--ease-out);
+}
+
+.pc-card.clickable-row {
+  cursor: pointer;
+}
+
+.pc-card.clickable-row:hover {
+  border-color: color-mix(in srgb, var(--pc-color) 45%, var(--border));
+  box-shadow: var(--shadow-lift);
+}
+
+:root[data-motion="completo"] .pc-card.clickable-row:hover {
+  transform: translateY(-2px);
+}
+
+.pc-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pc-info {
+  min-width: 0;
+}
+
+.pc-code {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pc-code-part {
+  color: var(--text);
+}
+
+.pc-name {
+  margin-top: 2px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.pc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pc-tag {
+  font-weight: 600;
+  color: var(--mantine-color-pink-filled);
+}
+
+.pc-via {
+  font-weight: 500;
+  color: var(--mantine-color-violet-filled);
+}
+
+.pc-qty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  min-width: 64px;
+}
+
+.pc-qty .pm-stock {
+  font-size: 1.85rem;
+  line-height: 1.1;
+  padding: 0;
+}
+
+.pc-qty-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.pc-qty-out {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.pc-actions {
+  grid-column: 1 / -1;
+  padding-top: 9px;
+  border-top: 1px solid var(--border);
+}
+
+/* Cinco colunas lado a lado ficam estreitas: o saldo sobe para o lado da foto, o nome ganha a
+   linha toda e as ações viram só ícones (com o nome no aria-label e no tooltip). */
+@container pc-col (max-width: 300px) {
+  .pc-card:not([data-big]) {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pc-card:not([data-big]) .pc-qty {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .pc-card:not([data-big]) .pc-info {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .pc-act-label,
+  .pc-col-total-word {
+    display: none;
+  }
+
+  .pc-actions > * {
+    flex: 1;
+  }
+
+  .pc-actions [data-position="left"] {
+    margin-inline-end: 0;
+  }
+}
+
+/* Peça com uma coluna só: o cartão ocupa a largura toda, com foto grande e aplicação. */
+.pc-card[data-big] {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px 24px;
+  padding: 20px;
+}
+
+.pc-card[data-big] .pc-name {
+  font-size: 1.3rem;
+  -webkit-line-clamp: 3;
+}
+
+.pc-card[data-big] .pc-code {
+  font-size: 0.9rem;
+}
+
+.pc-card[data-big] .pc-qty .pm-stock {
+  font-size: 3.4rem;
+}
+
+.pc-card[data-big] .pc-qty-label {
+  font-size: 0.8rem;
+}
+
+.pc-apps strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* "+ Vincular ..." no fim da coluna. */
+.pc-link {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px;
+  border-radius: 14px;
+  border: 1.5px dashed var(--border-strong);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 180ms var(--ease-out),
+    border-color 180ms var(--ease-out),
+    background 180ms var(--ease-out);
+}
+
+.pc-link:hover,
+.pc-link:focus-visible {
+  color: var(--pc-link);
+  border-color: var(--pc-link);
+  background: color-mix(in srgb, var(--pc-link) 8%, transparent);
+  outline: none;
+}
+
+.pc-link-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* Faixa da coluna recolhida: o saldo e o nome em pé; um clique volta às colunas. */
+.pc-rail {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.pc-rail:hover,
+.pc-rail:focus-visible {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.pc-rail-count {
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--pc-color) 16%, transparent);
+  color: var(--text);
+}
+
+.pc-rail-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* Ficha dentro da coluna. */
+.pc-ficha {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.pc-back {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.pc-back-key {
+  font-family: var(--mantine-font-family-monospace);
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+}
+
+.pc-photo {
+  height: 250px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--pc-color) 18%, transparent), transparent 65%),
+    var(--surface-raised);
+}
+
+.pc-photo .product-thumb {
+  border: 0;
+  background: none;
+}
+
+.pc-ficha-title {
+  margin: 4px 0 4px;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.pc-ficha-title .num {
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.pc-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.pc-kpi {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+}
+
+.pc-kpi strong,
+.pc-kpi .pm-stock {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+  padding: 0;
+  text-align: left;
+}
+
+.pc-kpi span:not(.pm-stock) {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.pc-kpi-main {
+  background: color-mix(in srgb, var(--success) 10%, var(--surface-raised));
+  border-color: transparent;
+}
+
+.pc-kpi-main[data-zero] {
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface-raised));
+}
+
+.pc-section {
+  margin-top: 14px;
+}
+
+.pc-section h3 {
+  margin: 0 0 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pc-weeks .mini-bars span {
+  width: 10px;
+}
+
+.pc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  font-size: 0.78rem;
+}
+
+/* ---------- Animações ---------- */
+
+@keyframes pc-col-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+
+@keyframes pc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pc-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pc-ficha-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes pc-photo-in {
+  from {
+    opacity: 0;
+    transform: rotate(-10deg) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+:root[data-motion="completo"] .pc-col {
+  animation: pc-col-in 520ms var(--ease-out) both;
+  animation-delay: calc(var(--pc-i, 0) * 90ms);
+}
+
+:root[data-motion="completo"] .pc-card {
+  animation: pc-card-in 420ms var(--ease-out) both;
+  animation-delay: calc(var(--pc-i, 0) * 90ms + 120ms + var(--pc-card-i, 0) * 60ms);
+}
+
+:root[data-motion="completo"] .pc-ficha {
+  animation: pc-ficha-in 420ms var(--ease-out) both;
+}
+
+:root[data-motion="completo"] .pc-photo .product-thumb {
+  animation: pc-photo-in 640ms var(--ease-out) both;
+}
+
+:root[data-motion="completo"] .pc-rail {
+  animation: pc-fade-in 360ms var(--ease-out) both;
+}
+
+:root[data-motion="suave"] :is(.pc-col, .pc-card, .pc-ficha, .pc-rail) {
+  animation: pc-fade-in 220ms ease-out both;
+}
+
+/* Telas estreitas: uma coluna embaixo da outra. */
+@media (max-width: 900px) {
+  .pc-board {
+    flex-direction: column;
+  }
+
+  .pc-col[data-state="rail"] {
+    flex: 0 0 44px;
+  }
+
+  .pc-rail {
+    flex-direction: row;
+    min-height: 0;
+    padding: 0 16px;
+  }
+
+  .pc-rail-title {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .pc-ficha,
+  .pc-link-row {
+    grid-template-columns: 1fr;
+  }
+}
