@@ -1,0 +1,513 @@
+/* ==========================================================================
+   Centro de comando (Painel 2.7.9). Só vale dentro de .cc: não mexe nas outras telas.
+   O vidro vem do global.css (.surface-panel). Animações só em data-motion="completo".
+   ========================================================================== */
+
+.cc {
+  position: relative;
+  --cc-mono: var(--mantine-font-family-monospace);
+  --cc-grid: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+/* Malha de fundo, bem leve: dá o ar de "painel de controle" sem pesar. */
+.cc::before {
+  content: "";
+  position: absolute;
+  inset: -12px -12px 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--cc-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cc-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+.cc-mono {
+  font-family: var(--cc-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.cc-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cc-clock {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+  white-space: pre;
+}
+
+.cc-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-areas:
+    "sys core alert"
+    "ticker ticker ticker"
+    "flow flow flow";
+  gap: 16px;
+  align-items: stretch;
+}
+
+.cc-grid > [data-area="sys"] { grid-area: sys; }
+.cc-grid > [data-area="core"] { grid-area: core; }
+.cc-grid > [data-area="alert"] { grid-area: alert; }
+.cc-grid > .cc-ticker { grid-area: ticker; }
+.cc-grid > [data-area="flow"] { grid-area: flow; }
+
+@media (max-width: 1180px) {
+  .cc-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "core core"
+      "sys alert"
+      "ticker ticker"
+      "flow flow";
+  }
+}
+
+@media (max-width: 760px) {
+  .cc-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "core" "alert" "sys" "ticker" "flow";
+  }
+}
+
+/* --- Painel com cantoneiras -------------------------------------------- */
+
+.cc-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px 18px;
+  border-radius: 8px;
+}
+
+.cc-panel::before,
+.cc-panel::after {
+  content: "";
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.cc-panel::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+  border-top-left-radius: 8px;
+}
+
+.cc-panel::after {
+  right: -1px;
+  bottom: -1px;
+  border-left: 0;
+  border-top: 0;
+  border-bottom-right-radius: 8px;
+}
+
+.cc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.cc-panel-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-subtle);
+}
+
+.cc-count {
+  font-size: 0.75rem;
+  padding: 1px 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+/* --- Sistemas ----------------------------------------------------------- */
+
+.cc-systems {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cc-systems li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.cc-systems li:last-child {
+  border-bottom: 0;
+}
+
+.cc-systems small {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.cc-light {
+  --tone: var(--text-subtle);
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 20%, transparent);
+}
+
+.cc-light[data-tone="ok"] { --tone: var(--success); }
+.cc-light[data-tone="warn"] { --tone: var(--warning); }
+.cc-light[data-tone="danger"] { --tone: var(--danger); }
+
+:root[data-motion="completo"] .cc-light[data-tone="ok"] {
+  animation: cc-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes cc-breathe {
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tone) 6%, transparent); }
+}
+
+/* --- Miolo: anéis ------------------------------------------------------- */
+
+.cc-core {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.cc-core-center {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.cc-core-total {
+  font-size: 2.9rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text);
+}
+
+.cc-core-label {
+  font-size: 0.78rem;
+  color: var(--text-subtle);
+}
+
+.cc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+}
+
+.cc-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.cc-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.cc-legend b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cc-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.cc-kpis > div {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+  min-width: 0;
+}
+
+.cc-kpis b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 1.25rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.cc-daybars {
+  width: 100%;
+}
+
+.cc-daybars-head {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.cc-daybars-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 96px;
+}
+
+.cc-daybar {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.cc-daybar[data-empty] {
+  background: var(--border);
+  opacity: 1;
+}
+
+/* --- Pede ação hoje ----------------------------------------------------- */
+
+.cc-alerts {
+  list-style: none;
+  margin: 0 -6px;
+  padding: 0;
+}
+
+.cc-alert {
+  --tone: var(--text-subtle);
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 6px;
+  border: 0;
+  border-bottom: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast, 0.15s) ease;
+}
+
+.cc-alerts li:last-child .cc-alert {
+  border-bottom: 0;
+}
+
+.cc-alert:hover {
+  background: var(--surface-hover);
+}
+
+.cc-alert:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.cc-alert[data-kind="ZERADO"] { --tone: var(--danger); }
+.cc-alert[data-kind="REPOR"] { --tone: var(--warning); }
+
+.cc-alert > i {
+  align-self: stretch;
+  border-radius: 2px;
+  background: var(--tone);
+}
+
+.cc-alert-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cc-alert-name {
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-alert-detail {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.cc-alert-tag {
+  font-size: 0.72rem;
+  color: var(--tone);
+}
+
+/* --- Faixa ao vivo ------------------------------------------------------ */
+
+.cc-ticker {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+.cc-ticker-label {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0 16px;
+  background: var(--accent);
+  color: var(--surface-solid);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.cc-ticker-window {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cc-ticker-window[data-running] {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 48px), transparent);
+}
+
+.cc-ticker-track {
+  display: flex;
+  width: max-content;
+}
+
+:root[data-motion="completo"] .cc-ticker-window[data-running] .cc-ticker-track {
+  animation: cc-marquee 60s linear infinite;
+}
+
+.cc-ticker-window[data-running]:hover .cc-ticker-track,
+.cc-ticker-window[data-running]:focus-within .cc-ticker-track {
+  animation-play-state: paused;
+}
+
+@keyframes cc-marquee {
+  to { transform: translateX(-50%); }
+}
+
+.cc-tick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border: 0;
+  border-right: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cc-tick:hover {
+  background: var(--surface-hover);
+}
+
+.cc-tick-time {
+  color: var(--text-subtle);
+}
+
+.cc-tick-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* --- Entradas e saídas -------------------------------------------------- */
+
+.cc-flow-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 44px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+}
+
+.cc-flow-head b {
+  display: block;
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.cc-flow-plot {
+  position: relative;
+  min-height: 300px;
+}
+
+.cc-flow-tip {
+  position: absolute;
+  top: 6px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-pop);
+  font-size: 0.75rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+:root[data-motion="completo"] .cc-flow-pulse {
+  animation: cc-ping 2.4s ease-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes cc-ping {
+  0% { transform: scale(0.6); opacity: 0.35; }
+  80%, 100% { transform: scale(1.6); opacity: 0; }
+}

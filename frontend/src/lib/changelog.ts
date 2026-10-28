@@ -10,6 +10,17 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.9",
+    "date": "2026-10-28",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: Painel novo, o Centro de comando: no meio, três anéis mostram quanto do estoque está girando, lento ou parado, em volta do total de unidades; embaixo deles ficam as saídas dos 30 dias, a comparação com os 30 anteriores, os zerados e as saídas de cada dia. À esquerda, a coluna Sistemas mostra se o Chronos, o WhatsApp, o assistente, a base oficial, o certificado A1 e o backup estão em dia. À direita fica o que pede ação hoje.",
+      "Mudanca: Faixa \"ao vivo\" com as últimas movimentações, que corre devagar no movimento \"Completo\" e para quando o mouse passa por cima. Clicar abre a ficha do produto.",
+      "Mudanca: Gráfico de entradas e saídas no fim do Painel: as entradas sobem do eixo e as saídas descem, em 30 dias, 90 dias ou 12 meses (por semana). Passar o mouse mostra o dia.",
+      "Mudanca: Com o movimento \"Nenhum\", nada no Painel se mexe: os anéis e as barras já aparecem prontos, a faixa fica parada e as luzes não pulsam."
+    ]
+  },
+  {
     "version": "2.7.7",
     "date": "2026-10-28",
     "title": "Correcao e estabilidade",
