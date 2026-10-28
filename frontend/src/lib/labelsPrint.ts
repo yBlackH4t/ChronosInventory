@@ -1,5 +1,6 @@
 import JsBarcode from "jsbarcode";
 import type { Product } from "./api";
+import { findProductCode } from "./productView";
 
 export type LabelPrintableItem = Pick<Product, "id" | "nome" | "total_stock">;
 
@@ -297,6 +298,8 @@ function escapeHtml(value: string): string {
 }
 
 export function deriveLabelCode(product: LabelPrintableItem): string {
+  const found = findProductCode(product.nome);
+  if (found) return found.value;
   const byDigits = product.nome.match(/\d{5,}/);
   if (byDigits?.[0]) return byDigits[0];
 
@@ -414,6 +417,7 @@ export function buildLabelsPrintHtml(items: LabelPrintableItem[]): string {
         line-height: 1;
         letter-spacing: 0.6px;
         font-weight: 700;
+        overflow-wrap: anywhere;
       }
       .barcode {
         height: 13mm;
