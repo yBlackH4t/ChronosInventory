@@ -23,6 +23,10 @@ class ProductOut(BaseModel):
     observacao: str | None = None
     produto_vinculado_id: int | None = None
     produto_vinculado_nome: str | None = None
+    # Saldo do produto pai (ex.: conjunto central de um turbo montado). So para mostrar:
+    # o estoque continua no pai e nao entra em total_stock.
+    produto_vinculado_inventories: dict[int, int] = Field(default_factory=dict)
+    produto_vinculado_estoque: int = 0
     linked_count: int = 0
     ativo: bool = True
     inativado_em: str | None = None

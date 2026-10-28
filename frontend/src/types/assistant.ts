@@ -16,6 +16,13 @@ export interface AssistantProduct {
   categoria: string | null;
   estoque_total: number;
   estoque_por_local: Record<string, number>;
+  /** Turbo montado faturado pelo conjunto central: o saldo é do conjunto. */
+  montada_no_conjunto?: {
+    id: number;
+    nome: string;
+    estoque_total: number;
+    estoque_por_local: Record<string, number>;
+  } | null;
 }
 
 export type AssistantResponseMode = "ia" | "busca_direta";

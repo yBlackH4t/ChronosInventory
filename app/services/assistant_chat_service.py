@@ -70,7 +70,8 @@ def _summarize_call(name: str, arguments: Any, output: Dict[str, Any]) -> Dict[s
         products.extend(item.get("nossos_produtos") or [])
     if products:
         summary["produtos"] = [
-            {k: p[k] for k in ("id", "nome", "estoque_total", "estoque_por_local", "correspondencia", "condicao") if k in p}
+            {k: p[k] for k in ("id", "nome", "estoque_total", "estoque_por_local", "correspondencia", "condicao",
+                               "montada_no_conjunto") if k in p}
             for p in products
         ]
     return summary

@@ -200,3 +200,35 @@ export function monthTicks(minTs: number, maxTs: number): number[] {
   }
   return ticks;
 }
+
+const CORE_NAME = /CONJ|CENTRAL|MIOLO/i;
+
+export type AssembledViaCore = {
+  coreId: number;
+  coreName: string;
+  /** Saldo do conjunto por local ({ location_id: quantidade }). */
+  inventories: Record<number, number>;
+  total: number;
+};
+
+/**
+ * Turbo montado que a empresa fatura pelo conjunto central: a entrada é feita no conjunto e o
+ * turbo fica vinculado a ele. O saldo continua sendo do conjunto; aqui ele só é mostrado no turbo
+ * (não soma no total do turbo nem nos relatórios). Null quando o vínculo não é turbo → conjunto.
+ */
+export function assembledViaCore(product: Product | null | undefined): AssembledViaCore | null {
+  if (!product?.produto_vinculado_id) return null;
+  const coreName = product.produto_vinculado_nome ?? "";
+  if (!CORE_NAME.test(coreName) || CORE_NAME.test(product.nome)) return null;
+  return {
+    coreId: product.produto_vinculado_id,
+    coreName,
+    inventories: product.produto_vinculado_inventories ?? {},
+    total: product.produto_vinculado_estoque ?? 0,
+  };
+}
+
+/** Rótulo curto do produto: "#3699 CONJUNTO CENTRAL - 4032382". */
+export function productRef(id: number, nome?: string | null): string {
+  return nome ? `#${id} ${nome}` : `#${id}`;
+}

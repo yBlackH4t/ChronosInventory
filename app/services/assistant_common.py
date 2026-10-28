@@ -132,6 +132,8 @@ def collect_products(output: Dict[str, Any], found: Dict[int, Dict[str, Any]]) -
             "estoque_total": int(product.get("estoque_total") or 0),
             "estoque_por_local": dict(product.get("estoque_por_local") or {}),
         }
+        if product.get("montada_no_conjunto"):
+            found[int(product["id"])]["montada_no_conjunto"] = product["montada_no_conjunto"]
 
 
 def _normalize(text: str) -> str:

@@ -773,3 +773,32 @@
 .pm-actions.pm-actions-float:has([aria-expanded="true"]) {
   pointer-events: auto;
 }
+
+/* Turbo montado faturado pelo conjunto central: o saldo é do conjunto, mostrado à parte. */
+.pm-assembled {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--mantine-color-violet-light-color);
+  background: var(--mantine-color-violet-light);
+  cursor: help;
+}
+
+.pm-assembled-panel {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--mantine-color-violet-light-hover);
+  background: var(--mantine-color-violet-light);
+}
+
+.pm-assembled-icon {
+  color: var(--mantine-color-violet-light-color);
+  flex-shrink: 0;
+}
+
+.pm-assembled-total {
+  color: var(--mantine-color-violet-light-color);
+}

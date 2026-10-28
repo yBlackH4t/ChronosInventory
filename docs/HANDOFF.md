@@ -1185,3 +1185,11 @@ npm run lint
 - `GET /movimentacoes?ocultar_estornados=true` (`MovementRepository._OCULTAR_ESTORNADOS`): esconde a movimentação que tem um estorno apontando para ela (`movimento_ref_id`) e o estorno em si. Só a lista; `/produtos/{id}/historico`, saldo e relatórios não mudam. Com o filtro `natureza=ESTORNO` o parâmetro é ignorado.
 - Tela: chave "Mostrar estornados" na barra de filtros de Movimentações (desligada por padrão, guardada no estado da aba). O aviso do estorno conta que os dois saem da lista.
 - Teste: `backend/tests/test_movements_estornados.py`.
+
+### 2026-10-28 — Claude Code — 2.7.8, turbo montado faturado pelo conjunto central
+- Branch: `claude/project-thread-xr0e9i` (a partir da `main` 98c5528, 2.7.6; a 2.7.7 é o PR #39).
+- Caso: a empresa fatura a montada pelo conjunto central. A entrada vai no conjunto e o turbo fica vinculado a ele (`produtos.produto_vinculado_id`, filho → pai). O dono decidiu: todo o saldo do conjunto conta como montada do turbo.
+- `ProductRepository._attach_inventories` junta `produto_vinculado_inventories` (saldo do pai, só para mostrar); a API devolve também `produto_vinculado_estoque`. `total_stock`, filtros e relatórios não mudam: o saldo é só do conjunto.
+- Telas: `assembledViaCore` (`lib/productView.ts`) só vale para turbo → conjunto (nome com CONJ/CENTRAL/MIOLO). Lista: "N montada" ao lado do saldo e "Faturada como #id". Ficha: `AssembledViaCorePanel` ("Tem montada" no turbo, "Montado como" no conjunto). Cartão do assistente mostra "Temos montada" e "Abrir conjunto".
+- Assistente: `_product_summary` põe `montada_no_conjunto`; `available_stock` (answer_format) usa esse saldo quando o turbo está zerado. Só para o próprio código; o conjunto que já aparece como montada sai da lista e da busca por aplicação (não conta duas vezes).
+- Testes: `test_assembled_turbo_*` em `backend/tests/test_assistant_tools.py`; `assembledViaCore` em `productView.test.ts`.

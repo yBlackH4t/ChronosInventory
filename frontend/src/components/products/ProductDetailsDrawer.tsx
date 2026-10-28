@@ -31,12 +31,13 @@ import {
   IconStarFilled,
   IconTrash,
 } from "@tabler/icons-react";
+import AssembledViaCorePanel from "./AssembledViaCorePanel";
 import { ImageGalleryModal } from "./ImageGalleryModal";
 import { ProductCatalogTab } from "./ProductCatalogTab";
 import { ProductHistoryTable } from "./ProductHistoryTable";
 import { detectBrand, detectCondition } from "../../lib/brands";
 import { useMotionLevel } from "../../lib/motionContext";
-import { brandTitle, splitProductCode, versionTitle } from "../../lib/productView";
+import { assembledViaCore, brandTitle, splitProductCode, versionTitle } from "../../lib/productView";
 import { playFlight, rowThumbFor } from "../../lib/sharedFlight";
 import { stockLevel } from "../../lib/semantic";
 import ProductRecentMovements from "./ProductRecentMovements";
@@ -172,6 +173,8 @@ export function ProductDetailsDrawer({
   };
 
   const hasAnyStock = (currentProduct?.total_stock ?? 0) > 0;
+  // Sem saldo próprio, mas montada no conjunto central (o saldo é do conjunto).
+  const hasAssembled = !hasAnyStock && (assembledViaCore(currentProduct)?.total ?? 0) > 0;
   const level = useMotionLevel();
   const [tab, setTab] = useState<string | null>("catalogo");
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -329,15 +332,17 @@ export function ProductDetailsDrawer({
                     style={
                       hasAnyStock
                         ? { boxShadow: "none" }
-                        : { boxShadow: "none", background: "var(--danger)" }
+                        : hasAssembled
+                          ? { boxShadow: "none", background: "var(--mantine-color-violet-filled)" }
+                          : { boxShadow: "none", background: "var(--danger)" }
                     }
                   />
                   <Text
                     size="xs"
                     fw={600}
-                    c={hasAnyStock ? "var(--success)" : "var(--danger)"}
+                    c={hasAnyStock ? "var(--success)" : hasAssembled ? "var(--mantine-color-violet-light-color)" : "var(--danger)"}
                   >
-                    {hasAnyStock ? "Disponível para venda" : "Sem estoque"}
+                    {hasAnyStock ? "Disponível para venda" : hasAssembled ? "Montada, pelo conjunto" : "Sem estoque"}
                   </Text>
                 </Group>
               </Group>
@@ -369,6 +374,7 @@ export function ProductDetailsDrawer({
                   </div>
                 </div>
               </SimpleGrid>
+              <AssembledViaCorePanel product={currentProduct} locations={locations} />
               <ProductStockHistoryChart productId={currentProduct.id} />
             </Stack>
 

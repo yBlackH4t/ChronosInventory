@@ -65,6 +65,21 @@ def stock_text(product: Dict[str, Any]) -> str:
     return parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " e " + parts[-1]
 
 
+def available_stock(product: Dict[str, Any]) -> int:
+    """Saldo do produto ou, se ele estiver zerado, o da montada faturada pelo conjunto central."""
+    assembled = product.get("montada_no_conjunto")
+    return product["estoque_total"] or (int(assembled["estoque_total"]) if assembled else 0)
+
+
+def _assembled_text(product: Dict[str, Any]) -> Optional[str]:
+    """ "montada, 1 em Canoas (faturar pelo conjunto #3699 CONJUNTO CENTRAL - 4032382)" """
+    assembled = product.get("montada_no_conjunto")
+    if not assembled:
+        return None
+    name = f" {assembled['nome']}" if assembled.get("nome") else ""
+    return f"montada, {stock_text(assembled)} (faturar pelo conjunto #{assembled['id']}{name})"
+
+
 def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[str]:
     match = product.get("correspondencia")
     note = product.get("obs_especialista")
@@ -91,7 +106,11 @@ def product_line(product: Dict[str, Any], catalog_note: bool = True, show_new: b
     if product.get("categoria") == CATEGORY_CORE:
         notes.append("conjunto central")
     suffix = f" ({'; '.join(notes)})" if notes else ""
-    return f"• *{product['nome']}* — {stock_text(product)}{suffix}"
+    assembled = _assembled_text(product)
+    if assembled and not product["estoque_total"]:
+        return f"• *{product['nome']}* — {assembled}{suffix}"
+    line = f"• *{product['nome']}* — {stock_text(product)}{suffix}"
+    return f"{line}; {assembled}" if assembled else line
 
 
 def _kind(item: Dict[str, Any]) -> str:
@@ -181,9 +200,11 @@ def _version_lines(products: List[Dict[str, Any]], wanted: List[str]) -> List[st
         of_version = [p for p in own if p.get("condicao") == version]
         in_stock = [p for p in of_version if p["estoque_total"] > 0]
         label = _VERSION_LABELS.get(version, version.capitalize())
-        if in_stock:
-            listed = "; ".join(f"*{p['nome']}* — {stock_text(p)}" for p in in_stock[:3])
-            lines.append(f"{label}: temos — {listed}")
+        assembled = [p for p in own if p.get("montada_no_conjunto")] if version == "montada" else []
+        if in_stock or assembled:
+            listed = [f"*{p['nome']}* — {stock_text(p)}" for p in in_stock[:3]]
+            listed += [f"*{p['nome']}* — {_assembled_text(p)}" for p in assembled[:3]]
+            lines.append(f"{label}: temos — {'; '.join(listed)}")
         elif of_version:
             lines.append(f"{label}: não temos em estoque (cadastrada, zerada).")
         else:
@@ -222,6 +243,7 @@ def format_code_compact(code_label: str, output: Dict[str, Any], locations: List
     products = output.get("produtos") or []
     own = [p for p in products if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
     others = [p for p in products if p.get("correspondencia") in _COMPACT_NOTE and p["estoque_total"] > 0]
+    assembled = [p for p in own if p.get("montada_no_conjunto")]
     if not own and not others:
         return None
     places = locations or sorted({loc for p in products for loc in (p.get("estoque_por_local") or {})}) or ["Estoque"]
@@ -229,15 +251,21 @@ def format_code_compact(code_label: str, output: Dict[str, Any], locations: List
     lines: List[str] = []
     for version in ("nova", "reman", "montada"):
         of_version = [p for p in own if (p.get("condicao") or "nova") == version]
-        if not of_version and version not in wanted and not (version == "nova" and not own):
+        via_core = assembled if version == "montada" else []
+        if not of_version and not via_core and version not in wanted and not (version == "nova" and not own):
             continue
         for place in places:
             qty = sum(int((p.get("estoque_por_local") or {}).get(place, 0)) for p in of_version)
+            qty += sum(int(p["montada_no_conjunto"]["estoque_por_local"].get(place, 0)) for p in via_core)
             lines.append(f"📍{place}: {qty:02d} - {code_label}{_COMPACT_SUFFIX[version]}")
     for product in others[:3]:
         code = _main_code(product["nome"]) or product["nome"]
         for place, qty in (product.get("estoque_por_local") or {}).items():
             lines.append(f"📍{place}: {int(qty):02d} - {code} ({_COMPACT_NOTE[product['correspondencia']]})")
+    for product in assembled[:3]:
+        core = product["montada_no_conjunto"]
+        name = f" {core['nome']}" if core.get("nome") else ""
+        lines.append(f"Montada: faturar pelo conjunto #{core['id']}{name}")
     return "\n".join(lines)
 
 
@@ -254,7 +282,7 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     items = sorted(items, key=lambda i: 1 if i.get("tipo") == CATEGORY_CORE else 0)
     taught = output.get("conhecimento_especialista") or []
 
-    with_stock = [p for p in products if p["estoque_total"] > 0]
+    with_stock = [p for p in products if available_stock(p) > 0]
     own_stock = [p for p in with_stock if p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY)]
     own = any(p.get("correspondencia") in (MATCH_EXACT, MATCH_FAMILY) for p in products)
     identified = None if own else _identification(output.get("fichas_catalogo") or [])
@@ -463,12 +491,20 @@ def _application_items(output: Dict[str, Any], core_question: bool) -> "tuple[Li
         return cores or turbos, None
     if turbos:
         # Conjunto central so aparece numa pergunta de turbina quando temos em estoque.
-        return turbos + [i for i in cores if _has_stock(i)], None
+        # O conjunto que ja aparece como montada de uma dessas turbinas nao aparece de novo.
+        assembled = {
+            p["montada_no_conjunto"]["id"]
+            for i in turbos for p in i.get("nossos_produtos") or [] if p.get("montada_no_conjunto")
+        }
+        return turbos + [
+            i for i in cores
+            if any(p["estoque_total"] > 0 and p["id"] not in assembled for p in i.get("nossos_produtos") or [])
+        ], None
     return cores, None
 
 
 def _has_stock(item: Dict[str, Any]) -> bool:
-    return any(p["estoque_total"] > 0 for p in item.get("nossos_produtos") or [])
+    return any(available_stock(p) > 0 for p in item.get("nossos_produtos") or [])
 
 
 def _asks_engine(output: Dict[str, Any], items: List[Dict[str, Any]]) -> bool:
@@ -500,9 +536,11 @@ def format_application_answer(output: Dict[str, Any], core_question: bool = Fals
     for item in items[:MAX_LINES]:
         first_app = (item.get("aplicacoes") or [{}])[0]
         ours = item.get("nossos_produtos") or []
-        in_stock = [p for p in ours if p["estoque_total"] > 0]
+        in_stock = sorted((p for p in ours if available_stock(p) > 0), key=lambda p: -p["estoque_total"])
         if in_stock:
-            status = f"✅ *{in_stock[0]['nome']}* — {stock_text(in_stock[0])}"
+            first = in_stock[0]
+            stock = stock_text(first) if first["estoque_total"] else _assembled_text(first)
+            status = f"✅ *{first['nome']}* — {stock}"
         elif ours:
             status = "❌ não temos (cadastrado, sem estoque)"
         else:
@@ -545,11 +583,15 @@ def format_application_compact(output: Dict[str, Any], core_question: bool, loca
         models = " / ".join(str(item.get("modelo") or "").split(" / ")[:2])  # "GTA42S / GTC4294BNS"
         kind = "conjunto central " if item.get("tipo") == CATEGORY_CORE else ""
         lines = [f"*{_application_label(first_app)}* · {kind}{models}".rstrip(" ·")]
-        ours = sorted(item.get("nossos_produtos") or [], key=lambda p: -p["estoque_total"])
+        ours = sorted(item.get("nossos_produtos") or [], key=lambda p: (-p["estoque_total"], -available_stock(p)))
         if ours:
             product = ours[0]
             code = _main_code(product["nome"]) or product["nome"]
             stock = product.get("estoque_por_local") or {}
+            if not product["estoque_total"] and product.get("montada_no_conjunto"):
+                core = product["montada_no_conjunto"]
+                stock = core["estoque_por_local"]
+                code = f"{code} MONTADA (conjunto #{core['id']})"
             for place in locations or list(stock) or ["Estoque"]:
                 lines.append(f"📍{place}: {int(stock.get(place, 0)):02d} - {code}")
         else:

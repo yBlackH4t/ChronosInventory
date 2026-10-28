@@ -31,7 +31,15 @@ import type { InventoryLocation, Product } from "../../lib/api";
 import { useRowHeight } from "../../lib/appearance";
 import { detectBrand, detectCondition } from "../../lib/brands";
 import { clickableRowProps } from "../../lib/clickableRow";
-import { brandTitle, locationColumns, nameAroundCode, productMonogram, versionTitle } from "../../lib/productView";
+import {
+  assembledViaCore,
+  brandTitle,
+  locationColumns,
+  nameAroundCode,
+  productMonogram,
+  productRef,
+  versionTitle,
+} from "../../lib/productView";
 import { useProductsVisual } from "../../hooks/useProductsVisual";
 import { useFlipList } from "../../hooks/useFlipList";
 import { useStockTotals } from "../../hooks/useStockTotals";
@@ -115,6 +123,8 @@ function SortHeader({
 }
 
 function linkSummary(product: Product): string | null {
+  const assembled = assembledViaCore(product);
+  if (assembled) return `Faturada como ${productRef(assembled.coreId, assembled.coreName)}`;
   if (product.produto_vinculado_id) {
     const name = product.produto_vinculado_nome
       ? ` ${product.produto_vinculado_nome}`
@@ -332,6 +342,7 @@ export function ProductsListTable({
               const condition = detectCondition(product.nome);
               const name = nameAroundCode(product.nome);
               const links = linkSummary(product);
+              const assembled = assembledViaCore(product);
               const hasLinks =
                 product.linked_count > 0 || !!product.produto_vinculado_id;
               const rowFlash = flash && flash.productId === product.id ? flash : null;
@@ -415,7 +426,21 @@ export function ProductsListTable({
                   })}
 
                   <Table.Td ta="right">
-                    <StockNumber value={product.total_stock} flash={rowFlash} />
+                    {assembled && assembled.total > 0 ? (
+                      <Group gap={6} justify="flex-end" wrap="nowrap">
+                        <Tooltip
+                          label={`O saldo é do conjunto ${productRef(assembled.coreId, assembled.coreName)}: movimente e fature por ele. Não soma no total.`}
+                          multiline
+                          w={280}
+                          openDelay={200}
+                        >
+                          <span className="pm-assembled num">{assembled.total} montada</span>
+                        </Tooltip>
+                        <StockNumber value={product.total_stock} flash={rowFlash} />
+                      </Group>
+                    ) : (
+                      <StockNumber value={product.total_stock} flash={rowFlash} />
+                    )}
                   </Table.Td>
 
                   <Table.Td className="pm-sales-cell">
