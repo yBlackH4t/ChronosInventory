@@ -176,7 +176,7 @@ class ProductVisualItem(BaseModel):
 
 
 class ProductColumnItem(BaseModel):
-    """Um produto numa coluna da busca por codigo (aba Produtos em colunas, 2.7.10)."""
+    """Um produto numa coluna da busca por codigo (aba Produtos em colunas, 2.7.11)."""
 
     produto: ProductOut
     # exato, familia, igual_especialista, similar_especialista, equivalente_catalogo ou

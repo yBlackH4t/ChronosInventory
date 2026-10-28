@@ -1,4 +1,4 @@
-"""Aba Produtos em colunas (2.7.10): o codigo pesquisado separado por coluna."""
+"""Aba Produtos em colunas (2.7.11): o codigo pesquisado separado por coluna."""
 
 from backend.tests.test_assistant_tools import CANOAS, _create_product, _link, _seed_catalog
 from core.catalog.bundle import relink_catalog

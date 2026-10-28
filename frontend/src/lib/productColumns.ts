@@ -1,4 +1,4 @@
-// Aba Produtos em colunas (2.7.10): a busca por código abre colunas (nova, reman, montada,
+// Aba Produtos em colunas (2.7.11): a busca por código abre colunas (nova, reman, montada,
 // conjunto central, similares). Lógica pura, sem React, para testar.
 
 import type { InventoryLocation, ProductColumn, ProductColumnItem, ProductColumnKey } from "./api";

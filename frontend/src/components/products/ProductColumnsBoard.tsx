@@ -54,7 +54,7 @@ type Opened = { column: ProductColumnKey; key: string };
 
 const colorVar = (key: ProductColumnKey) => `var(--mantine-color-${COLUMN_COLORS[key]}-filled)`;
 
-// Busca por código em colunas (2.7.10): nova, reman, montada, conjunto central e similares.
+// Busca por código em colunas (2.7.11): nova, reman, montada, conjunto central e similares.
 // Clicar num cartão abre a ficha dentro da própria coluna; as outras viram faixas na lateral.
 export default function ProductColumnsBoard({ codigo, locations, onShowList, ...handlers }: Props) {
   const { profileScopeKey } = useProfileScope();

@@ -1203,9 +1203,10 @@ npm run lint
 - Assistente: `_product_summary` põe `montada_no_conjunto`; `available_stock` (answer_format) usa esse saldo quando o turbo está zerado. Só para o próprio código; o conjunto que já aparece como montada sai da lista e da busca por aplicação (não conta duas vezes).
 - Testes: `test_assembled_turbo_*` em `backend/tests/test_assistant_tools.py`; `assembledViaCore` em `productView.test.ts`.
 
-### 2026-10-28 — Claude Code — 2.7.10, aba Produtos em colunas
+### 2026-10-28 — Claude Code — 2.7.11, aba Produtos em colunas
 - Branch: `claude/project-thread-b83yb7`, em cima da `claude/project-thread-xr0e9i` (2.7.8, PR #41). A 2.7.9 é o PR #40 (Painel).
 - Modelo escolhido pelo dono no protótipo `/mnt/project-files/produtos/colunas/`: pesquisar um código abre colunas Turbina nova / reman / montada / Conjunto central / Similares; coluna vazia some; se sobra só uma, ela ocupa a largura toda.
 - Backend: `GET /produtos/colunas?codigo=` (`app/services/product_columns_service.py`) reaproveita `AssistantToolsService.search_by_code` (mesmas peças que o assistente acha) e separa por `categoria`/`condicao`/`correspondencia`. A montada é o conjunto (saldo dele, sem contar duas vezes), com `turbo_id`/`turbo_nome`. Vínculos feitos na tela que a busca não traz entram como "Vinculado".
 - Telas: `ProductColumnsBoard` (+ `lib/productColumns.ts`, `styles/product-columns.css`). `ProductsPage` usa as colunas quando a busca parece um código (`looksLikeCode`), com o seletor Colunas/Lista. Clicar num cartão abre a ficha na própria coluna; as outras viram faixas. Animações por CSS, desligadas em "Nenhum".
 - Testes: `backend/tests/test_product_columns.py`, `frontend/src/lib/productColumns.test.ts`.
+- O #42 foi mesclado na branch do #41 depois que o #41 já tinha entrado na main, e a tag v2.7.10 saiu só com a montada. As colunas entram na main por um PR novo, como 2.7.11.

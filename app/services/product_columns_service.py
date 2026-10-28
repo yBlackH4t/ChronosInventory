@@ -1,4 +1,4 @@
-"""Aba Produtos em colunas (2.7.10): o codigo pesquisado separado em nova, reman, montada,
+"""Aba Produtos em colunas (2.7.11): o codigo pesquisado separado em nova, reman, montada,
 conjunto central e similares.
 
 Usa a mesma busca do assistente (search_by_code), para a tela e o assistente acharem as mesmas
