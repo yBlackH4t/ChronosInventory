@@ -15,7 +15,10 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
     "title": "Novas funcionalidades",
     "highlights": [
       "Novo: Turbo montado faturado pelo conjunto central: quando a entrada é feita no conjunto e o turbo fica vinculado a ele, a busca e a lista mostram \"1 montada\" ao lado do saldo do turbo e \"Faturada como #conjunto\". A ficha do turbo mostra \"Tem montada\" com o saldo por filial e o botão \"Abrir conjunto\"; a ficha do conjunto mostra em quais turbos ele está montado.",
-      "Novo: O assistente (chat e WhatsApp) responde que tem a montada, com a filial, e avisa para faturar pelo conjunto. O saldo continua só no conjunto: não soma no total do turbo, nos relatórios nem duas vezes na resposta."
+      "Novo: O assistente (chat e WhatsApp) responde que tem a montada, com a filial, e avisa para faturar pelo conjunto. O saldo continua só no conjunto: não soma no total do turbo, nos relatórios nem duas vezes na resposta.",
+      "Novo: Aba Produtos em colunas: pesquisar um código (ex.: 4031196) abre colunas lado a lado: Turbina nova, Turbina reman, Turbina montada, Conjunto central e Similares, cada uma com o saldo grande na frente e as saídas dos últimos 90 dias. Coluna sem nada não aparece; se só existe a turbina nova, ela ocupa a largura toda.",
+      "Novo: Clicar num item abre a ficha dentro da própria coluna (foto, saldo, saídas por semana, aplicação e os outros itens da busca) e as demais colunas viram faixas na lateral; Esc ou \"Voltar\" fecha. Movimentar, Etiqueta e Editar ficam visíveis em cada cartão, e \"+ Vincular\" fica no pé de cada coluna. O botão \"Lista\" volta para a tabela de sempre.",
+      "Novo: As colunas usam a mesma busca do assistente: o que ele encontra (igual, similar, catálogo e vínculos feitos na tela) aparece aqui também. As animações seguem a opção de movimento e somem em \"Nenhum\"."
     ]
   },
   {
