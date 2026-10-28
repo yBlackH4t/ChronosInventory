@@ -194,7 +194,8 @@ export default function ProductsPage() {
     queryClient.setQueriesData<SuccessResponse<Product[]>>(
       { queryKey: ["produtos", profileScopeKey] },
       (old) =>
-        old?.data
+        // Só as listas: a busca em colunas usa o mesmo prefixo, mas não é lista (o modal já a recarrega).
+        Array.isArray(old?.data)
           ? {
               ...old,
               data: old.data.map((item) =>
