@@ -10,7 +10,7 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
-    "version": "2.7.12",
+    "version": "2.7.13",
     "date": "2026-10-28",
     "title": "Correcao e estabilidade",
     "highlights": [

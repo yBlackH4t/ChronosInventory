@@ -1211,7 +1211,7 @@ npm run lint
 - Testes: `backend/tests/test_product_columns.py`, `frontend/src/lib/productColumns.test.ts`.
 - O #42 foi mesclado na branch do #41 depois que o #41 já tinha entrado na main, e a tag v2.7.10 saiu só com a montada. As colunas entram na main por um PR novo, como 2.7.11.
 
-### 2026-10-28 — Claude Code — 2.7.12, código inteiro das peças
-- Branch: `claude/project-thread-iwypfq`, a partir da main (2.7.11).
+### 2026-10-28 — Claude Code — 2.7.13, código inteiro das peças
+- Branch: `claude/project-thread-iwypfq`, a partir da main (2.7.11). Era 2.7.12; virou 2.7.13 porque o #45 (conserto das colunas) ficou com a 2.7.12.
 - `findProductCode` (`frontend/src/lib/productView.ts`) achava só a parte numérica: 157.070000422 virava 070000422, e ACR-01679 virava 01679. Agora estende o trecho até o próximo espaço ou parêntese, sem ponto ou traço solto nas pontas. Isso vale para a lista, a ficha, as colunas, as movimentações e as etiquetas (`deriveLabelCode`).
 - Simulado no `produtos_completos.csv`: as 329 peças do checklist (`/mnt/project-files/produtos/codigos-cortados/`) saem com o código inteiro. Só a exibição muda; banco e busca ficam iguais.

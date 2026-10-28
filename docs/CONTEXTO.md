@@ -19,7 +19,7 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
-- **Base atual da main:** 2.7.11 (aba Produtos em colunas, tag publicada). Em PR: 2.7.12, código inteiro das peças (157.070000422, ACR-01679). Merge e tag só pelo dono.
+- **Base atual da main:** 2.7.11 (aba Produtos em colunas, tag publicada). Em PR: 2.7.12 (#45, conserto das colunas) e 2.7.13 (#44), código inteiro das peças (157.070000422, ACR-01679). Merge e tag só pelo dono.
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.
