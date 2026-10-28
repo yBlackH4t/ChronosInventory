@@ -204,3 +204,21 @@ def test_never_asks_who_am_i_while_disconnected(transport):
     transport._state("reconectando")
     transport.client.get_me = boom
     assert transport.phone_number() == OWN_NUMBER  # o ultimo numero conhecido, sem chamar get_me
+
+
+def test_notice_goes_to_the_address_whatsapp_gives_for_the_number(transport):
+    # Celular antigo pode estar no WhatsApp sem o 9 na frente: vale o endereco que o WhatsApp devolve.
+    asked = []
+
+    def is_on_whatsapp(*numbers):
+        asked.extend(numbers)
+        return [N.IsOnWhatsAppResponse(Query=numbers[0], JID=jid("555188887777", "s.whatsapp.net"), IsIn=True)]
+
+    transport.client.is_on_whatsapp = is_on_whatsapp
+    assert transport.send_text("5551988887777", "Bom dia") == "ENVIADA1"
+    to, message = transport.client.sent[-1]
+    assert asked == ["+5551988887777"] and to.User == "555188887777" and message == "Bom dia"
+
+    transport.client.is_on_whatsapp = lambda *numbers: [N.IsOnWhatsAppResponse(Query=numbers[0], IsIn=False)]
+    with pytest.raises(LookupError):
+        transport.send_text("5551900000000", "Bom dia")

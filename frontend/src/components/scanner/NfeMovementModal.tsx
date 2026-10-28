@@ -8,6 +8,7 @@ import {
   Group,
   Modal,
   NumberInput,
+  SegmentedControl,
   Select,
   Stack,
   Text,
@@ -16,6 +17,7 @@ import {
 import {
   IconAlertTriangle,
   IconArrowRight,
+  IconBrandWhatsapp,
   IconCheck,
   IconCircleCheck,
   IconFileInvoice,
@@ -29,7 +31,7 @@ import { m } from "motion/react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../../lib/apiClient";
-import type { NfeItemPreview, NfeNatureza, NfePreview, NfeProduto } from "../../lib/api";
+import type { NfeItemPreview, NfeNatureza, NfePreview, NfeProduto, NfeTipoAviso } from "../../lib/api";
 import { formatNfeKey, parseNfeKey } from "../../lib/nfe";
 import { parseNfeShippingData, type NfeShippingData } from "../../lib/nfeShippingLabel";
 import { notifyError, notifySuccess } from "../../lib/notify";
@@ -38,6 +40,7 @@ import { useLocations } from "../../hooks/useLocations";
 import { useMotionLevel } from "../../lib/motionContext";
 import { NFE_STEPS, nfeStepIndex, stockAfter } from "../../lib/nfeSteps";
 import { revealFor } from "../../lib/reveal";
+import { TIPOS_AVISO, buildRemessaAviso, codigoDoAviso, foraDoEstoque } from "../../lib/remessaAviso";
 import AnimatedNumber from "../ui/AnimatedNumber";
 import Reveal from "../ui/Reveal";
 import { printNfeShippingLabels } from "../labels/nfeDesignerUtils";
@@ -47,6 +50,7 @@ import NfeProductPicker from "./NfeProductPicker";
 import NfeSettingsPanel from "./NfeSettingsPanel";
 import ProgressButton from "../ui/ProgressButton";
 import NfeStepper from "./NfeStepper";
+import RemessaAvisoPanel from "./RemessaAvisoPanel";
 import "./scanner.css";
 
 type RowState = {
@@ -54,7 +58,11 @@ type RowState = {
   quantidade: number;
   options: NfeProduto[];
   ignorar: boolean;
+  /** Remessa entre matriz e filial: estoque, serviço, casco ou garantia (casco/garantia = ignorar). */
+  tipoAviso: NfeTipoAviso;
 };
+
+const TIPO_AVISO_OPTIONS = TIPOS_AVISO.map((t) => ({ value: t.value, label: `${t.emoji} ${t.label}` }));
 
 type NfeMovementModalProps = {
   opened: boolean;
@@ -92,8 +100,14 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFolders, setShowFolders] = useState(false);
   const searchTimers = useRef<Record<number, number>>({});
-  // Saida lancada: o modal fica aberto oferecendo a etiqueta de expedicao da nota.
-  const [lancada, setLancada] = useState<{ chave: string; numero: number } | null>(null);
+  // Nota lancada: o modal fica aberto oferecendo a etiqueta (saida) e o aviso no WhatsApp (remessa).
+  const [lancada, setLancada] = useState<{
+    chave: string;
+    numero: number;
+    tipo: "SAIDA" | "ENTRADA";
+    aviso: string | null;
+  } | null>(null);
+  const [showAviso, setShowAviso] = useState(false);
   const [envio, setEnvio] = useState<NfeShippingData | null>(null);
   const [printingLabel, setPrintingLabel] = useState(false);
   // Perfil da etiqueta (ex.: "Crua" para nota despachada em nome do cliente).
@@ -142,6 +156,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     setNota(null);
     setLancada(null);
     setEnvio(null);
+    setShowAviso(false);
     try {
       const res = await api.getNfe(key);
       const data = res.data;
@@ -149,11 +164,13 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       applyTipo(data, data.tipo_sugerido);
       const next: Record<number, RowState> = {};
       for (const item of data.itens) {
+        const tipoAviso = item.tipo_aviso ?? "ESTOQUE";
         next[item.item] = {
           produtoId: item.produto_sugerido ? String(item.produto_sugerido.id) : null,
           quantidade: item.quantidade ?? 1,
           options: item.candidatos,
-          ignorar: item.ignorar ?? false,
+          ignorar: data.remessa_interna ? foraDoEstoque(tipoAviso) : item.ignorar ?? false,
+          tipoAviso,
         };
       }
       setRows(next);
@@ -206,6 +223,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       setShowFolders(false);
       setLancada(null);
       setEnvio(null);
+      setShowAviso(false);
     }
   }, [opened]);
 
@@ -249,6 +267,33 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
 
   const selectedOf = (row: RowState | undefined): NfeProduto | null =>
     row?.produtoId ? row.options.find((o) => String(o.id) === row.produtoId) ?? null : null;
+
+  const remessa = Boolean(nota?.remessa_interna);
+
+  const setTipoAviso = (item: number, tipoAviso: NfeTipoAviso) =>
+    updateRow(item, { tipoAviso, ignorar: foraDoEstoque(tipoAviso) });
+
+  const setTipoAvisoTodos = (tipoAviso: NfeTipoAviso) =>
+    setRows((current) =>
+      Object.fromEntries(
+        Object.entries(current).map(([key, row]) => [key, { ...row, tipoAviso, ignorar: foraDoEstoque(tipoAviso) }]),
+      ),
+    );
+
+  const avisoTexto = (data: NfePreview): string =>
+    buildRemessaAviso({
+      numero: data.numero,
+      ufOrigem: data.uf_origem,
+      ufDestino: data.uf_destino,
+      itens: data.itens.map((i) => {
+        const row = rows[i.item];
+        return {
+          tipo: row?.tipoAviso ?? "ESTOQUE",
+          quantidade: row?.quantidade ?? i.quantidade ?? 1,
+          codigo: codigoDoAviso(selectedOf(row)?.nome, i.descricao, i.codigo),
+        };
+      }),
+    });
 
   const reactivate = async (product: NfeProduto) => {
     setReactivating(product.id);
@@ -298,7 +343,9 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     }
     if (nota.ja_baixada) list.push(`Esta nota já foi baixada em ${formatEmissao(nota.ja_baixada.data)}.`);
     const semProduto = nota.itens.filter((i) => !rows[i.item]?.produtoId && !rows[i.item]?.ignorar).length;
-    if (nota.itens.every((i) => rows[i.item]?.ignorar)) list.push("Todos os itens estão marcados para ignorar.");
+    if (!nota.remessa_interna && nota.itens.every((i) => rows[i.item]?.ignorar)) {
+      list.push("Todos os itens estão marcados para ignorar.");
+    }
     if (semProduto) list.push(`Escolha o produto de ${semProduto === 1 ? "1 item" : `${semProduto} itens`}.`);
     const desativados = nota.itens.filter((i) => !rows[i.item]?.ignorar && selectedOf(rows[i.item])?.ativo === false).length;
     if (desativados) {
@@ -328,28 +375,36 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       const res = await api.baixarNfe(nota.chave, {
         tipo,
         location_id: Number(locationId),
-        itens: nota.itens.map((i) =>
-          rows[i.item].ignorar
-            ? { item: i.item, quantidade: 1, ignorar: true }
-            : { item: i.item, produto_id: Number(rows[i.item].produtoId), quantidade: rows[i.item].quantidade },
-        ),
+        itens: nota.itens.map((i) => {
+          const row = rows[i.item];
+          const tipo_aviso = remessa ? row.tipoAviso : undefined;
+          return row.ignorar
+            ? { item: i.item, quantidade: row.quantidade, ignorar: !remessa || undefined, tipo_aviso }
+            : { item: i.item, produto_id: Number(row.produtoId), quantidade: row.quantidade, tipo_aviso };
+        }),
         natureza,
         local_externo: natureza === "TRANSFERENCIA_EXTERNA" ? localExterno.trim() : undefined,
         motivo_ajuste: natureza === "AJUSTE" && motivoAjuste ? motivoAjuste : undefined,
         observacao: observacao.trim() || undefined,
       });
+      const lancados = res.data.movimentacoes.length;
       notifySuccess(
-        `${tipo === "SAIDA" ? "Saída" : "Entrada"} da ${res.data.documento} lançada (${res.data.movimentacoes.length} ${
-          res.data.movimentacoes.length === 1 ? "item" : "itens"
-        }).`,
+        lancados === 0
+          ? `${res.data.documento}: só casco ou garantia, o estoque não mudou.`
+          : `${tipo === "SAIDA" ? "Saída" : "Entrada"} da ${res.data.documento} lançada (${lancados} ${
+              lancados === 1 ? "item" : "itens"
+            }).`,
       );
       void queryClient.invalidateQueries();
+      const aviso = remessa ? avisoTexto(nota) : null;
+      if (tipo === "SAIDA" || aviso) {
+        setLancada({ chave: nota.chave, numero: nota.numero, tipo, aviso });
+      }
       if (tipo === "SAIDA") {
-        setLancada({ chave: nota.chave, numero: nota.numero });
         fetchEnvio(nota.chave)
           .then(setEnvio)
           .catch(() => setEnvio(null)); // sem o XML agora: o botao tenta de novo ao clicar
-      } else {
+      } else if (!aviso) {
         onClose();
       }
     } catch (e) {
@@ -375,7 +430,9 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
     hasNota: Boolean(nota),
     itemsWithoutProduct,
     itemsShort,
-    allIgnored: Boolean(nota && nota.itens.length > 0 && nota.itens.every((i) => rows[i.item]?.ignorar)),
+    allIgnored: Boolean(
+      nota && !remessa && nota.itens.length > 0 && nota.itens.every((i) => rows[i.item]?.ignorar),
+    ),
     hasProblems: problems.length > 0,
   });
   const ignoredCount = nota ? nota.itens.filter((i) => rows[i.item]?.ignorar).length : 0;
@@ -402,29 +459,38 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
             <Stack gap="md" align="flex-start">
               <Group gap="xs">
                 <IconCircleCheck size={22} stroke={1.6} color="var(--mantine-color-success-6)" />
-                <Text fw={600}>Saída da NF {lancada.numero} lançada.</Text>
+                <Text fw={600}>
+                  {lancada.tipo === "SAIDA" ? "Saída" : "Entrada"} da NF {lancada.numero} lançada.
+                </Text>
               </Group>
-              <Text size="sm" c="dimmed">
-                {envio
-                  ? `${envio.cliente} · ${envio.cidade}/${envio.estado} · ${envio.transportadora} · ${
-                      envio.volumes === 1 ? "1 volume" : `${envio.volumes} volumes`
-                    }`
-                  : "Imprima a etiqueta da caixa com os dados da nota."}
-              </Text>
-              <Text size="xs" c="dimmed">
-                Sai com o perfil escolhido de Etiquetas &gt; NF-e, uma etiqueta por volume da nota.
-              </Text>
+              {lancada.tipo === "SAIDA" && (
+                <>
+                  <Text size="sm" c="dimmed">
+                    {envio
+                      ? `${envio.cliente} · ${envio.cidade}/${envio.estado} · ${envio.transportadora} · ${
+                          envio.volumes === 1 ? "1 volume" : `${envio.volumes} volumes`
+                        }`
+                      : "Imprima a etiqueta da caixa com os dados da nota."}
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Sai com o perfil escolhido de Etiquetas &gt; NF-e, uma etiqueta por volume da nota.
+                  </Text>
+                </>
+              )}
+              {lancada.aviso && <RemessaAvisoPanel texto={lancada.aviso} />}
               <Group>
-                {labelProfileSelect}
-                <Button
-                  leftSection={<IconPrinter size={16} />}
-                  loading={printingLabel}
-                  onClick={() => void printLabel(lancada.chave)}
-                  data-autofocus
-                >
-                  Imprimir etiqueta
-                  {envio && envio.volumes > 1 ? ` (${envio.volumes} volumes)` : ""}
-                </Button>
+                {lancada.tipo === "SAIDA" && labelProfileSelect}
+                {lancada.tipo === "SAIDA" && (
+                  <Button
+                    leftSection={<IconPrinter size={16} />}
+                    loading={printingLabel}
+                    onClick={() => void printLabel(lancada.chave)}
+                    data-autofocus
+                  >
+                    Imprimir etiqueta
+                    {envio && envio.volumes > 1 ? ` (${envio.volumes} volumes)` : ""}
+                  </Button>
+                )}
                 <Button variant="default" onClick={onClose}>
                   Fechar
                 </Button>
@@ -566,6 +632,24 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                     />
                   </Group>
 
+                  {remessa && (
+                    <Group gap="xs" wrap="wrap">
+                      <Text size="sm" c="dimmed">
+                        Remessa entre matriz e filial: marque o tipo de cada peça para o aviso no WhatsApp.
+                        Casco e garantia não entram no estoque.
+                      </Text>
+                      <Select
+                        aria-label="Marcar todas como"
+                        placeholder="Marcar todas como…"
+                        size="xs"
+                        w={190}
+                        data={TIPO_AVISO_OPTIONS}
+                        value={null}
+                        onChange={(v) => v && setTipoAvisoTodos(v as NfeTipoAviso)}
+                        comboboxProps={{ withinPortal: true }}
+                      />
+                    </Group>
+                  )}
                   <div className="nfe-items-wrap">
                     <table className="nfe-items">
                       <colgroup>
@@ -619,13 +703,25 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                                   disabled={row?.ignorar}
                                   ariaLabel={`Produto do item ${item.item}: ${item.descricao}`}
                                 />
-                                <Group gap={8} mt={6} wrap="wrap">
-                                  <Checkbox
+                                {remessa && (
+                                  <SegmentedControl
                                     size="xs"
-                                    label="Ignorar (não é estoque, ex.: casco)"
-                                    checked={row?.ignorar ?? false}
-                                    onChange={(e) => updateRow(item.item, { ignorar: e.currentTarget.checked })}
+                                    mt={6}
+                                    data={TIPO_AVISO_OPTIONS}
+                                    value={row?.tipoAviso ?? "ESTOQUE"}
+                                    onChange={(v) => setTipoAviso(item.item, v as NfeTipoAviso)}
+                                    aria-label={`Tipo do item ${item.item} no aviso`}
                                   />
+                                )}
+                                <Group gap={8} mt={6} wrap="wrap">
+                                  {!remessa && (
+                                    <Checkbox
+                                      size="xs"
+                                      label="Ignorar (não é estoque, ex.: casco)"
+                                      checked={row?.ignorar ?? false}
+                                      onChange={(e) => updateRow(item.item, { ignorar: e.currentTarget.checked })}
+                                    />
+                                  )}
                                   {!row?.ignorar && (
                                     <Button
                                       size="compact-xs"
@@ -667,7 +763,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                                   size="xs"
                                   min={1}
                                   value={row?.quantidade ?? 1}
-                                  disabled={row?.ignorar}
+                                  disabled={row?.ignorar && !remessa}
                                   aria-label={`Quantidade do item ${item.item}`}
                                   onChange={(v) => updateRow(item.item, { quantidade: Math.max(1, Number(v) || 1) })}
                                 />
@@ -780,7 +876,18 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                     </Alert>
                   )}
 
+                  {remessa && nota.ja_baixada && showAviso && <RemessaAvisoPanel texto={avisoTexto(nota)} />}
+
                   <Group justify="flex-end">
+                    {remessa && nota.ja_baixada && !showAviso && (
+                      <Button
+                        variant="default"
+                        leftSection={<IconBrandWhatsapp size={16} />}
+                        onClick={() => setShowAviso(true)}
+                      >
+                        Aviso no WhatsApp
+                      </Button>
+                    )}
                     {nota.ja_baixada?.tipo === "SAIDA" && labelProfileSelect}
                     {nota.ja_baixada?.tipo === "SAIDA" && (
                       <Button

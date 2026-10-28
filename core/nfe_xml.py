@@ -67,6 +67,7 @@ class NfeItem:
     descricao: str
     unidade: str
     quantidade: Decimal
+    cfop: str = ""
 
 
 @dataclass
@@ -85,6 +86,9 @@ class NfeDocumento:
     cancelada: bool = False
     arquivo: str = ""
     itens: List[NfeItem] = field(default_factory=list)
+    # Estado (sigla) de quem emitiu e de quem recebe: "SC X RS" no aviso de remessa.
+    emitente_uf: str = ""
+    destinatario_uf: str = ""
 
 
 def _text(node: Optional[ET.Element], path: str) -> str:
@@ -134,6 +138,7 @@ def parse_nfe_xml(content: bytes, *, arquivo: str = "") -> NfeDocumento:
                 descricao=_text(prod, _q("xProd")),
                 unidade=_text(prod, _q("uCom")),
                 quantidade=quantidade,
+                cfop=_text(prod, _q("CFOP")),
             )
         )
 
@@ -152,6 +157,8 @@ def parse_nfe_xml(content: bytes, *, arquivo: str = "") -> NfeDocumento:
         autorizada=c_stat in {"100", "150"},
         arquivo=arquivo,
         itens=itens,
+        emitente_uf=_text(emit, _q("enderEmit/UF")),
+        destinatario_uf=_text(dest, _q("enderDest/UF")),
     )
 
 

@@ -523,3 +523,87 @@ def test_note_between_saved_cnpjs_keeps_this_store_point_of_view(client, tmp_pat
     data = client.get(f"/nfe/{CHAVE}").json()["data"]
     assert data["tipo_sugerido"] == "SAIDA" and data["loja"]["nome"] == "Canoas"
     assert data["movimento_sugerido"]["SAIDA"]["natureza"] == "TRANSFERENCIA_EXTERNA"
+
+
+def _remessa_xml(itens, natop="SIMPLES REMESSA", cfop="6152"):
+    matriz = ("03897158000102", "MONTREAL COMERCIO DE PECAS LTDA")
+    canoas = ("03897158000285", "MONTREAL COMERCIO DE PECAS - CANOAS")
+    xml = _xml(itens=itens, emit=matriz, dest=canoas).decode("utf-8")
+    xml = xml.replace("VENDA DE MERCADORIAS", natop).replace("<CFOP>5102</CFOP>", f"<CFOP>{cfop}</CFOP>")
+    xml = xml.replace(f"<xNome>{matriz[1]}</xNome></emit>", f"<xNome>{matriz[1]}</xNome><enderEmit><UF>SC</UF></enderEmit></emit>")
+    xml = xml.replace(f"<xNome>{canoas[1]}</xNome></dest>", f"<xNome>{canoas[1]}</xNome><enderDest><UF>RS</UF></enderDest></dest>")
+    return xml.encode("utf-8")
+
+
+def test_shipment_between_branches_asks_each_part_type_and_casco_or_warranty_do_not_enter_stock(client, tmp_path):
+    vendas = _setup(client, tmp_path, xml=_remessa_xml((
+        ("805", "TURBO HOLSET 4032382", "1"),
+        ("806", "CONJUNTO BC.0373", "1"),
+        ("294", "CASCO", "2"),
+        ("807", "TURBO HOLSET 4031195", "1"),
+    )))
+    client.put("/nfe/config", json={"pastas_xml": [str(tmp_path / "Geradas")], "cnpj_loja": "03.897.158/0002-85"})
+    turbo = _product(client, "TURBO HOLSET 4032382", 0)
+    conjunto = _product(client, "CONJUNTO BC.0373", 0)
+    garantia = _product(client, "TURBO HOLSET 4031195", 0)
+
+    data = client.get(f"/nfe/{CHAVE}").json()["data"]
+    assert data["remessa_interna"] is True
+    assert (data["uf_origem"], data["uf_destino"], data["cfops"]) == ("SC", "RS", ["6152"])
+    assert [i["tipo_aviso"] for i in data["itens"]] == ["ESTOQUE", "ESTOQUE", "CASCO", "ESTOQUE"]
+
+    itens = [
+        {"item": 1, "produto_id": turbo, "quantidade": 1, "tipo_aviso": "ESTOQUE"},
+        {"item": 2, "produto_id": conjunto, "quantidade": 1, "tipo_aviso": "SERVICO"},
+        {"item": 3, "quantidade": 2, "tipo_aviso": "CASCO"},
+        {"item": 4, "produto_id": garantia, "quantidade": 1, "tipo_aviso": "GARANTIA"},
+    ]
+    done = client.post(f"/nfe/{CHAVE}/baixa", json={"tipo": "ENTRADA", "location_id": CANOAS, "itens": itens,
+                                                      "natureza": "TRANSFERENCIA_EXTERNA", "local_externo": "Matriz"})
+    assert done.status_code == 201, done.text
+    assert len(done.json()["data"]["movimentacoes"]) == 2
+    assert (_stock(client, turbo), _stock(client, conjunto), _stock(client, garantia)) == (1, 1, 0)
+
+    # Na proxima remessa, cada codigo ja vem com o tipo escolhido.
+    other = _fix_dv("43261003897158000285550020000145611821211025")
+    (vendas / f"{other}-nfe.xml").write_bytes(
+        _remessa_xml((("806", "CONJUNTO BC.0373", "1"), ("807", "TURBO HOLSET 4031195", "1"))).replace(
+            CHAVE.encode(), other.encode()))
+    again = client.get(f"/nfe/{other}").json()["data"]
+    assert [i["tipo_aviso"] for i in again["itens"]] == ["SERVICO", "GARANTIA"]
+
+    # So garantia: passa sem mexer no estoque e a nota fica livre.
+    only = client.post(f"/nfe/{other}/baixa", json={"tipo": "ENTRADA", "location_id": CANOAS, "itens": [
+        {"item": 1, "quantidade": 1, "tipo_aviso": "GARANTIA"}, {"item": 2, "quantidade": 1, "tipo_aviso": "CASCO"},
+    ]})
+    assert only.status_code == 201, only.text
+    assert only.json()["data"]["movimentacoes"] == []
+    assert client.get(f"/nfe/{other}").json()["data"]["ja_baixada"] is None
+
+
+def test_sale_between_branches_is_not_a_shipment_notice(client, tmp_path):
+    _setup(client, tmp_path, xml=_remessa_xml((("805", "TURBO HOLSET 4032382", "1"),),
+                                              natop="VENDA DE MERCADORIAS", cfop="6102"))
+    data = client.get(f"/nfe/{CHAVE}").json()["data"]
+    assert data["remessa_interna"] is False
+    turbo = _product(client, "TURBO HOLSET 4032382", 0)
+    refused = client.post(f"/nfe/{CHAVE}/baixa", json={"tipo": "ENTRADA", "location_id": CANOAS, "itens": [
+        {"item": 1, "produto_id": turbo, "quantidade": 1, "tipo_aviso": "CASCO"}]})
+    assert refused.status_code == 400
+
+
+def test_notice_contacts_are_saved_with_country_code_and_sending_needs_the_robot(client, tmp_path):
+    saved = client.put("/nfe/config", json={"pastas_xml": [], "contatos_aviso": [
+        {"nome": "Chefe", "numero": "(51) 99999-8888"}, {"nome": "Colega", "numero": "5548988887777"},
+    ]})
+    assert saved.status_code == 200, saved.text
+    assert saved.json()["data"]["contatos_aviso"] == [
+        {"nome": "Chefe", "numero": "5551999998888"}, {"nome": "Colega", "numero": "5548988887777"},
+    ]
+    # Salvar so as pastas mantem os contatos.
+    assert client.put("/nfe/config", json={"pastas_xml": []}).json()["data"]["contatos_aviso"][0]["nome"] == "Chefe"
+    bad = client.put("/nfe/config", json={"pastas_xml": [], "contatos_aviso": [{"nome": "X", "numero": "123"}]})
+    assert bad.status_code == 400
+
+    off = client.post("/nfe/aviso/enviar", json={"numero": "5551999998888", "texto": "Bom dia"})
+    assert off.status_code == 400 and "Copiar" in off.json()["error"]["message"]

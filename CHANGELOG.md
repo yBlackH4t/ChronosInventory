@@ -26,6 +26,14 @@ Formato recomendado:
 
 
 
+## [2.7.15] - 2026-10-28
+
+### Added
+- **Aviso de remessa no WhatsApp:** ao bipar uma nota de simples remessa ou transferência entre a matriz e Canoas (pela natureza da operação ou CFOP 5152/6152), cada peça ganha a escolha 📦 Estoque, 🛠️ Serviço, 🐢 Casco ou 🛡️ Garantia. O Chronos lembra o tipo escolhido para cada código na próxima nota, e "Marcar todas como" muda todas de uma vez.
+- Casco e garantia aparecem só na mensagem e não entram nem saem do estoque. Uma nota só com casco ou garantia passa sem mexer no estoque.
+- Depois de lançar, a janela mostra a mensagem pronta no padrão da equipe ("Bom dia, tudo bem? / SEGUE RELAÇÃO DE PEÇAS SC X RS", as peças por tipo e o número da NF). Dá para editar, copiar ou enviar pelo robô do WhatsApp deste PC para um contato escolhido na hora. Nota já lançada tem o botão "Aviso no WhatsApp".
+- Em NF > Configurar, a lista "Quem recebe o aviso de remessa" guarda nome e WhatsApp do chefe e dos colegas.
+
 ## [2.7.11] - 2026-10-28
 
 ### Added

@@ -26,12 +26,26 @@ class NfeCnpjIn(BaseModel):
     nome: str = Field(default="", max_length=60)
 
 
+class NfeContatoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    nome: str = Field(default="", max_length=40)
+    numero: str = Field(max_length=30)
+
+
 class NfeConfigIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     pastas_xml: List[str] = Field(default_factory=list, max_length=nfe_service.MAX_FOLDERS)
     cnpj_loja: Optional[str] = Field(default=None, max_length=20)
     # Lista de CNPJs da empresa; o primeiro e o desta loja. Quando vem, substitui o cnpj_loja.
     cnpjs: Optional[List[NfeCnpjIn]] = Field(default=None, max_length=nfe_service.MAX_CNPJS)
+    # Quem recebe o aviso de remessa no WhatsApp. Quando vem, substitui a lista.
+    contatos_aviso: Optional[List[NfeContatoIn]] = Field(default=None, max_length=nfe_service.MAX_CONTATOS)
+
+
+class NfeAvisoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    numero: str = Field(min_length=10, max_length=30)
+    texto: str = Field(min_length=1, max_length=4000)
 
 
 class NfeCertificadoIn(BaseModel):
@@ -46,6 +60,8 @@ class NfeBaixaItem(BaseModel):
     produto_id: Optional[int] = Field(default=None, ge=1)
     quantidade: int = Field(default=1, ge=1)
     ignorar: bool = False  # item que nao e estoque (ex.: casco): nao movimenta
+    # So em remessa entre matriz e filial: casco e garantia nao movimentam, so vao no aviso.
+    tipo_aviso: Optional[Literal["ESTOQUE", "SERVICO", "CASCO", "GARANTIA"]] = None
 
 
 class NfeBaixaIn(BaseModel):
@@ -67,7 +83,17 @@ def get_config():
 @router.put("/config")
 def put_config(payload: NfeConfigIn):
     cnpjs = [c.model_dump() for c in payload.cnpjs] if payload.cnpjs is not None else None
-    return ok(nfe_service.save_config(payload.pastas_xml, payload.cnpj_loja, cnpjs))
+    contatos = [c.model_dump() for c in payload.contatos_aviso] if payload.contatos_aviso is not None else None
+    return ok(nfe_service.save_config(payload.pastas_xml, payload.cnpj_loja, cnpjs, contatos))
+
+
+@router.post("/aviso/enviar")
+def enviar_aviso(payload: NfeAvisoIn):
+    """Aviso de remessa (matriz/filial) pelo robo do WhatsApp deste PC; a tela ja mostrou o texto."""
+    from app.services.whatsapp_service import WhatsAppService
+
+    WhatsAppService.instance().send_text(nfe_service._phone(payload.numero), payload.texto)
+    return ok({"enviado": True})
 
 
 @router.put("/certificado")

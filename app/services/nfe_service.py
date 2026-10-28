@@ -40,6 +40,13 @@ MAX_CANDIDATES = 5
 MAX_CNPJS = 10
 # Naturezas que a baixa por NF aceita (devolucao exige a movimentacao de origem; estorno e outra tela).
 NATUREZAS_NF = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "AJUSTE"}
+# Aviso de remessa entre matriz e filial (WhatsApp): o tipo de cada peca. Casco e garantia nao
+# entram no estoque, so aparecem na mensagem.
+TIPOS_AVISO = ("ESTOQUE", "SERVICO", "CASCO", "GARANTIA")
+TIPOS_FORA_DO_ESTOQUE = {"CASCO", "GARANTIA"}
+# CFOPs de remessa/transferencia (sem o primeiro digito, que e 5 dentro do estado e 6 fora).
+CFOPS_REMESSA = {"152", "949"}
+MAX_CONTATOS = 20
 
 _SCHEMA = (
     """
@@ -63,6 +70,13 @@ _SCHEMA = (
     )
     """,
     # Itens que nao sao estoque (ex.: CASCO, embalagem de transporte): a nota passa sem eles.
+    """
+    CREATE TABLE IF NOT EXISTS nfe_item_tipos_aviso (
+        codigo TEXT PRIMARY KEY,
+        tipo TEXT NOT NULL,
+        atualizado_em DATETIME NOT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS nfe_itens_ignorados (
         emitente_cnpj TEXT NOT NULL,
@@ -160,6 +174,24 @@ def _saved_cnpjs(data: Dict[str, Any], cnpj_loja: Optional[str]) -> List[Dict[st
     return result[:MAX_CNPJS]
 
 
+def _phone(value: Any) -> str:
+    """Numero do WhatsApp com o 55 do Brasil na frente (DDD + numero vira 55 + DDD + numero)."""
+    digits = _only_digits(value)
+    return "55" + digits if len(digits) in (10, 11) else digits
+
+
+def _saved_contacts(raw: Any) -> List[Dict[str, str]]:
+    """Quem recebe o aviso de remessa (chefe, colegas): nome e numero, escolhidos na hora de mandar."""
+    result: List[Dict[str, str]] = []
+    for entry in raw if isinstance(raw, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        numero = _phone(entry.get("numero"))
+        if 12 <= len(numero) <= 13 and numero not in {c["numero"] for c in result}:
+            result.append({"nome": str(entry.get("nome") or "").strip()[:40], "numero": numero})
+    return result[:MAX_CONTATOS]
+
+
 def load_config() -> Dict[str, Any]:
     """Configuracao desta maquina, sem segredos (a senha do certificado nunca sai daqui)."""
     data = _read_raw()
@@ -175,6 +207,7 @@ def load_config() -> Dict[str, Any]:
         "cnpj_loja": cnpj_loja,
         "cnpjs": _saved_cnpjs(data, cnpj_loja),
         "uf": str(data.get("uf") or DEFAULT_UF),
+        "contatos_aviso": _saved_contacts(data.get("contatos_aviso")),
         "certificado": (
             {"titular": cert.get("titular"), "cnpj": cert.get("cnpj"), "validade": cert.get("validade")}
             if has_cert else None
@@ -186,6 +219,7 @@ def save_config(
     pastas_xml: List[str],
     cnpj_loja: Optional[str] = None,
     cnpjs: Optional[List[Dict[str, Any]]] = None,
+    contatos_aviso: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     folders: List[str] = []
     for raw in pastas_xml:
@@ -220,6 +254,16 @@ def save_config(
         data["cnpjs"] = saved
         # O primeiro da lista e o desta loja (quem recebe as notas de entrada aqui).
         data["cnpj_loja"] = saved[0]["cnpj"] if saved else None
+    if contatos_aviso is not None:
+        for entry in contatos_aviso:
+            numero = _phone(entry.get("numero"))
+            if numero and not 12 <= len(numero) <= 13:
+                raise ValidationException(
+                    f"Numero {entry.get('numero')} invalido: use DDD + numero, ex.: 51 99999-9999."
+                )
+        if len(contatos_aviso) > MAX_CONTATOS:
+            raise ValidationException(f"Informe no maximo {MAX_CONTATOS} contatos.")
+        data["contatos_aviso"] = _saved_contacts(contatos_aviso)
     _write_raw(data)
     return load_config()
 
@@ -363,6 +407,17 @@ def _suggested_movement(documento: NfeDocumento, tipo: str, cnpj_loja: Optional[
     }
 
 
+def _internal_shipment(documento: NfeDocumento) -> bool:
+    """Simples remessa/transferencia entre matriz e filial: a nota que vira aviso no WhatsApp.
+    Venda entre elas (CFOP 5102) nao conta; quem diz e a natureza da operacao e o CFOP."""
+    if not _same_company(documento.emitente_cnpj, documento.destinatario_documento):
+        return False
+    natureza = unicodedata.normalize("NFD", documento.natureza_operacao or "").upper()
+    if "REMESSA" in natureza or "TRANSF" in natureza:
+        return True
+    return any(item.cfop[1:] in CFOPS_REMESSA for item in documento.itens)
+
+
 def _suggested_type(documento: NfeDocumento, cnpj_loja: Optional[str]) -> str:
     """Do ponto de vista desta loja: nota recebida e entrada; nota emitida segue o tpNF."""
     if cnpj_loja and documento.destinatario_documento == cnpj_loja and documento.emitente_cnpj != cnpj_loja:
@@ -465,6 +520,11 @@ class NfeService:
                 tipo: _suggested_movement(documento, tipo, cnpj_loja) for tipo in ("SAIDA", "ENTRADA")
             },
             "natureza_operacao": documento.natureza_operacao,
+            "cfops": sorted({i.cfop for i in documento.itens if i.cfop}),
+            # Remessa entre matriz e filial: a tela pede o tipo de cada peca e monta o aviso.
+            "remessa_interna": _internal_shipment(documento),
+            "uf_origem": documento.emitente_uf,
+            "uf_destino": documento.destinatario_uf,
             "emissao": documento.emissao,
             "emitente": documento.emitente_nome,
             "destinatario": documento.destinatario_nome,
@@ -534,6 +594,14 @@ class NfeService:
             ).fetchone()
             if row:
                 learned_id = int(row["produto_id"])
+        tipo_aviso = "ESTOQUE"
+        row = conn.execute(
+            "SELECT tipo FROM nfe_item_tipos_aviso WHERE codigo = ?", (item.codigo,)
+        ).fetchone() if item.codigo else None
+        if row and row["tipo"] in TIPOS_AVISO:
+            tipo_aviso = row["tipo"]
+        elif ignorar or "CASCO" in (item.descricao or "").upper():
+            tipo_aviso = "CASCO"
 
         # Codigos de peca citados na descricao (ex.: 876272-5017S) e o EAN.
         scores: Dict[int, int] = {}
@@ -592,6 +660,7 @@ class NfeService:
             "confianca": confianca,
             "candidatos": candidatos,
             "ignorar": ignorar,
+            "tipo_aviso": tipo_aviso,
         }
 
     # ------------------------------------------------------------------
@@ -623,21 +692,28 @@ class NfeService:
             raise ValidationException("O XML encontrado nao tem a autorizacao da SEFAZ; nada foi baixado.")
 
         by_item = {i.item: i for i in documento.itens}
-        chosen: Dict[int, Dict[str, int]] = {}
+        remessa = _internal_shipment(documento)
+        chosen: Dict[int, Dict[str, Any]] = {}
         for entry in itens:
             n = int(entry["item"])
             if n not in by_item:
                 raise ValidationException(f"Item {n} nao existe nesta nota.")
             if n in chosen:
                 raise ValidationException(f"Item {n} repetido.")
-            chosen[n] = entry
+            tipo_aviso = entry.get("tipo_aviso")
+            if tipo_aviso is not None and (not remessa or tipo_aviso not in TIPOS_AVISO):
+                raise ValidationException("Tipo da peca (estoque, servico, casco, garantia) so vale em remessa entre matriz e filial.")
+            # Casco e garantia nao entram no estoque: passam como item ignorado.
+            fora = tipo_aviso in TIPOS_FORA_DO_ESTOQUE
+            chosen[n] = {**entry, "ignorar": bool(entry.get("ignorar")) or fora, "fora_do_estoque": fora}
         missing = [n for n in by_item if n not in chosen or (not chosen[n].get("ignorar") and not chosen[n].get("produto_id"))]
         if missing:
             raise ValidationException(
                 "Escolha o produto de todos os itens da nota ou marque 'Ignorar' (faltam: "
                 + ", ".join(str(n) for n in missing) + ")."
             )
-        if all(entry.get("ignorar") for entry in chosen.values()):
+        so_aviso = remessa and all(entry["fora_do_estoque"] for entry in chosen.values())
+        if all(entry.get("ignorar") for entry in chosen.values()) and not so_aviso:
             raise ValidationException("Todos os itens estao marcados para ignorar: nada para lancar.")
 
         documento_mov = f"NF {documento.numero}"
@@ -655,6 +731,16 @@ class NfeService:
             for n in sorted(chosen):
                 entry = chosen[n]
                 codigo = by_item[n].codigo
+                if codigo and entry.get("tipo_aviso"):
+                    conn.execute(
+                        """
+                        INSERT INTO nfe_item_tipos_aviso (codigo, tipo, atualizado_em) VALUES (?, ?, ?)
+                        ON CONFLICT(codigo) DO UPDATE SET tipo = excluded.tipo, atualizado_em = excluded.atualizado_em
+                        """,
+                        (codigo, entry["tipo_aviso"], now),
+                    )
+                if entry["fora_do_estoque"]:
+                    continue
                 if entry.get("ignorar"):
                     if codigo and documento.emitente_cnpj:
                         conn.execute(
@@ -697,11 +783,13 @@ class NfeService:
                         (documento.emitente_cnpj, codigo, int(entry["produto_id"]), now),
                     )
 
-            conn.execute(
-                "INSERT INTO nfe_baixas (chave, numero, serie, tipo, data_hora, movimentacao_ids) VALUES (?, ?, ?, ?, ?, ?)",
-                (documento.chave, documento.numero, documento.serie, tipo, now,
-                 json.dumps([r.id for r in records])),
-            )
+            # So casco/garantia: nada entrou no estoque, a nota fica livre (serviu so para o aviso).
+            if records:
+                conn.execute(
+                    "INSERT INTO nfe_baixas (chave, numero, serie, tipo, data_hora, movimentacao_ids) VALUES (?, ?, ?, ?, ?, ?)",
+                    (documento.chave, documento.numero, documento.serie, tipo, now,
+                     json.dumps([r.id for r in records])),
+                )
             conn.commit()
         except (ValidationException, InvalidTransferException, InsufficientStockException, ProductNotFoundException):
             conn.rollback()
