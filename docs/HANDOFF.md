@@ -420,6 +420,15 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-28 — Claude — Painel novo: Centro de comando (2.7.9)
+- Branch `claude/project-thread-ytbzeq`. O dono escolheu, entre 5 modelos, o "Centro de comando" com o
+  gráfico de entradas e saídas do modelo "Fluxo" embaixo (modelos em `/mnt/project-files/dashboard/modelos/`).
+- `frontend/src/components/dashboard/command/` substitui `dashboard/bento/`. Contas puras em
+  `frontend/src/lib/commandCenter.ts` (com testes). Coluna Sistemas usa rotas que já existiam:
+  `/health`, `/assistente/painel`, `/backup/base-oficial/status`, `/nfe/config`, `/backup/listar`.
+- Saiu do Painel: escolha de semana/mês e data, "Mais saídas" e o bloco do assistente (virou linhas
+  em Sistemas). Com movimento "Nenhum" nada se mexe.
+
 ### 2026-10-26 — Codex — Integração da IA com a main 2.7.4 e preparação da 2.7.5
 - Branch `codex/ia-estoque-garrett`. Trabalho de IA registrado em `5683696`; main 2.7.4
   integrada em `ef326ac`, preservando telas, cadastro da empresa, PIN e restrições do WhatsApp.
@@ -1186,7 +1195,7 @@ npm run lint
 - Tela: chave "Mostrar estornados" na barra de filtros de Movimentações (desligada por padrão, guardada no estado da aba). O aviso do estorno conta que os dois saem da lista.
 - Teste: `backend/tests/test_movements_estornados.py`.
 
-### 2026-10-28 — Claude Code — 2.7.8, turbo montado faturado pelo conjunto central
+### 2026-10-28 — Claude Code — 2.7.10 (feito como 2.7.8), turbo montado faturado pelo conjunto central
 - Branch: `claude/project-thread-xr0e9i` (a partir da `main` 98c5528, 2.7.6; a 2.7.7 é o PR #39).
 - Caso: a empresa fatura a montada pelo conjunto central. A entrada vai no conjunto e o turbo fica vinculado a ele (`produtos.produto_vinculado_id`, filho → pai). O dono decidiu: todo o saldo do conjunto conta como montada do turbo.
 - `ProductRepository._attach_inventories` junta `produto_vinculado_inventories` (saldo do pai, só para mostrar); a API devolve também `produto_vinculado_estoque`. `total_stock`, filtros e relatórios não mudam: o saldo é só do conjunto.

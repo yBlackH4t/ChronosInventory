@@ -26,12 +26,19 @@ Formato recomendado:
 
 
 
-
-## [2.7.8] - 2026-10-28
+## [2.7.10] - 2026-10-28
 
 ### Added
 - **Turbo montado faturado pelo conjunto central:** quando a entrada é feita no conjunto e o turbo fica vinculado a ele, a busca e a lista mostram "1 montada" ao lado do saldo do turbo e "Faturada como #conjunto". A ficha do turbo mostra "Tem montada" com o saldo por filial e o botão "Abrir conjunto"; a ficha do conjunto mostra em quais turbos ele está montado.
 - O assistente (chat e WhatsApp) responde que tem a montada, com a filial, e avisa para faturar pelo conjunto. O saldo continua só no conjunto: não soma no total do turbo, nos relatórios nem duas vezes na resposta.
+
+## [2.7.9] - 2026-10-28
+
+### Changed
+- **Painel novo, o Centro de comando:** no meio, três anéis mostram quanto do estoque está girando, lento ou parado, em volta do total de unidades; embaixo deles ficam as saídas dos 30 dias, a comparação com os 30 anteriores, os zerados e as saídas de cada dia. À esquerda, a coluna Sistemas mostra se o Chronos, o WhatsApp, o assistente, a base oficial, o certificado A1 e o backup estão em dia. À direita fica o que pede ação hoje.
+- **Faixa "ao vivo"** com as últimas movimentações, que corre devagar no movimento "Completo" e para quando o mouse passa por cima. Clicar abre a ficha do produto.
+- **Gráfico de entradas e saídas** no fim do Painel: as entradas sobem do eixo e as saídas descem, em 30 dias, 90 dias ou 12 meses (por semana). Passar o mouse mostra o dia.
+- Com o movimento "Nenhum", nada no Painel se mexe: os anéis e as barras já aparecem prontos, a faixa fica parada e as luzes não pulsam.
 
 ## [2.7.7] - 2026-10-28
 
