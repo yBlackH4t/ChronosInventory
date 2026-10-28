@@ -10,6 +10,15 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.10",
+    "date": "2026-10-28",
+    "title": "Novas funcionalidades",
+    "highlights": [
+      "Novo: Turbo montado faturado pelo conjunto central: quando a entrada é feita no conjunto e o turbo fica vinculado a ele, a busca e a lista mostram \"1 montada\" ao lado do saldo do turbo e \"Faturada como #conjunto\". A ficha do turbo mostra \"Tem montada\" com o saldo por filial e o botão \"Abrir conjunto\"; a ficha do conjunto mostra em quais turbos ele está montado.",
+      "Novo: O assistente (chat e WhatsApp) responde que tem a montada, com a filial, e avisa para faturar pelo conjunto. O saldo continua só no conjunto: não soma no total do turbo, nos relatórios nem duas vezes na resposta."
+    ]
+  },
+  {
     "version": "2.7.9",
     "date": "2026-10-28",
     "title": "Ajustes operacionais",

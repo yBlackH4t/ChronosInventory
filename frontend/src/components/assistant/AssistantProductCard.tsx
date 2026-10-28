@@ -19,8 +19,11 @@ export default function AssistantProductCard({
   const navigate = useNavigate();
   const brand = detectBrand(product.nome);
   const condition = detectCondition(product.nome);
-  const temos = product.estoque_total > 0;
-  const locais = Object.entries(product.estoque_por_local);
+  const core = product.estoque_total > 0 ? null : product.montada_no_conjunto ?? null;
+  const temos = product.estoque_total > 0 || !!core;
+  // Montada pelo conjunto: os números são do conjunto, que é onde se fatura.
+  const locais = Object.entries(core ? core.estoque_por_local : product.estoque_por_local);
+  const total = core ? core.estoque_total : product.estoque_total;
   const openProduct = () =>
     navigate(`/produtos?search=${encodeURIComponent(product.nome)}&openId=${product.id}`);
 
@@ -31,7 +34,7 @@ export default function AssistantProductCard({
         <Stack gap={6} miw={0} style={{ flex: 1 }}>
           <Group gap={6} wrap="wrap">
             <Badge size="sm" color={temos ? "success" : "danger"} variant="filled">
-              {temos ? "Temos" : "Sem estoque"}
+              {core ? "Temos montada" : temos ? "Temos" : "Sem estoque"}
             </Badge>
             {brand ? (
               <Badge size="xs" color={brand.color} variant="light">
@@ -45,6 +48,11 @@ export default function AssistantProductCard({
           <Text fw={600} size="sm" lineClamp={2}>
             {product.nome}
           </Text>
+          {core ? (
+            <Text size="xs" c="dimmed">
+              Faturar pelo conjunto #{core.id} {core.nome}
+            </Text>
+          ) : null}
           <SimpleGrid cols={{ base: 2, sm: Math.min(Math.max(locais.length, 1) + 1, 4) }} spacing={6}>
             {locais.map(([local, qtde]) => (
               <div key={local} className="stock-tile" style={{ padding: "6px 10px" }}>
@@ -58,16 +66,16 @@ export default function AssistantProductCard({
             ))}
             <div className="stock-tile" style={{ padding: "6px 10px" }}>
               <Text size="xs" c="dimmed">
-                Total
+                {core ? "Montadas" : "Total"}
               </Text>
               <Text
                 fz={20}
                 fw={700}
                 lh={1.2}
                 className="num"
-                c={`var(--mantine-color-${stockLevelColor(product.estoque_total)}-light-color)`}
+                c={`var(--mantine-color-${stockLevelColor(total)}-light-color)`}
               >
-                {product.estoque_total}
+                {total}
               </Text>
             </div>
           </SimpleGrid>
@@ -80,6 +88,16 @@ export default function AssistantProductCard({
             >
               Abrir produto
             </Button>
+            {core ? (
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                color="violet"
+                onClick={() => navigate(`/produtos?openId=${core.id}`)}
+              >
+                Abrir conjunto
+              </Button>
+            ) : null}
           </Group>
         </Stack>
       </Group>

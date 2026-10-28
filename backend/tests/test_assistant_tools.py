@@ -403,3 +403,67 @@ def test_tool_definitions_match_handlers():
     }
     for tool in ASSISTANT_TOOLS:
         assert tool["input_schema"]["required"]
+
+
+def _link(child_id: int, parent_id: int) -> None:
+    conn = DatabaseConnection().get_connection()
+    try:
+        conn.execute("UPDATE produtos SET produto_vinculado_id = ? WHERE id = ?", (parent_id, child_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def test_assembled_turbo_shows_the_core_stock_once(client, tools):
+    # Montada que a empresa fatura pelo conjunto central: a entrada vai no conjunto e o turbo
+    # fica vinculado a ele. A busca do turbo diz que tem montada, sem somar o saldo duas vezes.
+    turbo = _create_product(client, "TURBO HOLSET HX55W - 4031196RX", {})
+    core = _create_product(client, "CONJUNTO CENTRAL - 4032382", {CANOAS: 1})
+    _link(turbo, core)
+
+    product = client.get(f"/produtos/{turbo}").json()["data"]
+    assert product["total_stock"] == 0
+    assert product["produto_vinculado_estoque"] == 1
+    assert product["produto_vinculado_inventories"] == {str(CANOAS): 1}
+
+    result = tools.search_by_code("4031196RX")
+    rx = next(p for p in result["produtos"] if p["id"] == turbo)
+    assert rx["estoque_total"] == 0
+    assert rx["montada_no_conjunto"]["id"] == core
+    assert rx["montada_no_conjunto"]["estoque_por_local"] == {"Canoas": 1}
+    assert result["temos_em_estoque"] is True
+    assert core not in [p["id"] for p in result["produtos"]]
+    assert (
+        f"• *TURBO HOLSET HX55W - 4031196RX* — montada, 1 em Canoas "
+        f"(faturar pelo conjunto #{core} CONJUNTO CENTRAL - 4032382)"
+    ) in result["texto_pronto"]
+    compact = result["texto_compacto"].splitlines()
+    assert "📍Canoas: 01 - 4031196RX MONTADA" in compact
+    assert f"Montada: faturar pelo conjunto #{core} CONJUNTO CENTRAL - 4032382" in compact
+
+    answer = AssistantDirectService(tools).answer("tem montada da 4031196RX?")["resposta"]
+    assert "Montada: temos" in answer
+
+
+def test_two_turbos_on_the_same_core_count_it_once(client, tools):
+    core = _create_product(client, "CONJUNTO CENTRAL - 4032382", {CANOAS: 1})
+    for nome in ("TURBO HOLSET HX55W - 4031196 MONTADO", "TURBO HOLSET HX55W - 4031196RX"):
+        _link(_create_product(client, nome, {}), core)
+    result = tools.search_by_code("4031196")
+    assert sum(1 for p in result["produtos"] if p.get("montada_no_conjunto")) == 1
+    assert "📍Canoas: 01 - 4031196 MONTADA" in result["texto_compacto"].splitlines()
+
+
+def test_assembled_turbo_without_core_stock_or_other_links(client, tools):
+    turbo = _create_product(client, "TURBO HOLSET HX55W - 4031196RX", {})
+    core = _create_product(client, "CONJUNTO CENTRAL - 4032382", {})
+    _link(turbo, core)
+    rx = next(p for p in tools.search_by_code("4031196RX")["produtos"] if p["id"] == turbo)
+    assert "montada_no_conjunto" not in rx
+
+    # Vinculo entre duas turbinas nao e montada.
+    other = _create_product(client, "TURBO HOLSET HX55W - 4047779RX", {})
+    twin = _create_product(client, "TURBO HOLSET HX55W - 4047779", {CANOAS: 2})
+    _link(other, twin)
+    rx = next(p for p in tools.search_by_code("4047779RX")["produtos"] if p["id"] == other)
+    assert "montada_no_conjunto" not in rx

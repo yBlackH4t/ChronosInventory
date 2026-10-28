@@ -64,15 +64,10 @@ class ProductRepository(BaseRepository):
     # Internal helpers: attach inventories to product dicts
     # ------------------------------------------------------------------
 
-    def _attach_inventories(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Dado uma lista de dicts de produto, carrega inventories do
-        produto_estoque e injeta como campo 'inventories': {loc_id: qty}.
-        """
-        if not products:
-            return products
-
-        product_ids = [p["id"] for p in products]
+    def _load_inventory_map(self, product_ids: List[int]) -> Dict[int, Dict[int, int]]:
+        """{produto_id: {location_id: quantidade}} dos locais ativos."""
+        if not product_ids:
+            return {}
         placeholders = ",".join("?" for _ in product_ids)
         rows = self._execute_query(
             f"""
@@ -83,17 +78,31 @@ class ProductRepository(BaseRepository):
             """,
             tuple(product_ids),
         )
-
-        # Build map: {produto_id: {location_id: quantidade}}
         inv_map: Dict[int, Dict[int, int]] = {}
         for row in rows:
-            pid = row["produto_id"]
-            lid = row["local_id"]
-            qty = int(row["quantidade"] or 0)
-            inv_map.setdefault(pid, {})[lid] = qty
+            inv_map.setdefault(row["produto_id"], {})[row["local_id"]] = int(row["quantidade"] or 0)
+        return inv_map
+
+    def _attach_inventories(self, products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Dado uma lista de dicts de produto, carrega inventories do
+        produto_estoque e injeta como campo 'inventories': {loc_id: qty}.
+
+        Produto vinculado a outro (ex.: turbo montado faturado pelo conjunto central)
+        recebe tambem 'produto_vinculado_inventories': o saldo do produto pai, so para
+        mostrar. Esse saldo continua sendo do pai e nao entra no total do filho.
+        """
+        if not products:
+            return products
+
+        inv_map = self._load_inventory_map([p["id"] for p in products])
+        parent_ids = sorted({int(p["produto_vinculado_id"]) for p in products if p.get("produto_vinculado_id")})
+        parent_map = self._load_inventory_map(parent_ids)
 
         for product in products:
             product["inventories"] = inv_map.get(product["id"], {})
+            parent_id = product.get("produto_vinculado_id")
+            product["produto_vinculado_inventories"] = parent_map.get(int(parent_id), {}) if parent_id else {}
 
         return products
 

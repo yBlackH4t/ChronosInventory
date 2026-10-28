@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field, ValidationError
 
 from app.services.assistant_common import MODE_DIRECT, collect_products, make_result
+from app.services.assistant_answer_format import available_stock
 from core.catalog.normalization import canonical_code, extract_codes_from_name, search_words
 
 LOG = logging.getLogger(__name__)
@@ -226,13 +227,14 @@ def execute_plan(items: list[RequestItem], tools: Any, compact: bool = False) ->
                     parts.append(answer)
                     products = output.get("produtos") or []
                     confirmed = [product for product in products if product.get("correspondencia") in ("exato", "familia", "igual_especialista")
-                                 and (not item.versoes or product.get("condicao", "nova") in item.versoes)]
+                                 and (not item.versoes or product.get("condicao", "nova") in item.versoes
+                                      or ("montada" in item.versoes and product.get("montada_no_conjunto")))]
                     if output.get("codigo_incompleto"):
                         entry["pendencias"] = ["codigo"]
                     entry["resultados"].append({"codigo": code, "status": "precisa_confirmar" if output.get("codigo_incompleto") else "encontrado" if any(
-                        product.get("estoque_total", 0) > 0 for product in confirmed) else "alternativas" if any(
-                        product.get("estoque_total", 0) > 0 for product in products) else "sem_estoque" if products else "sem_cadastro",
-                        "produtos": [{key: product.get(key) for key in ("id", "nome", "estoque_total", "estoque_por_local", "correspondencia", "condicao")}
+                        available_stock(product) > 0 for product in confirmed) else "alternativas" if any(
+                        available_stock(product) > 0 for product in products) else "sem_estoque" if products else "sem_cadastro",
+                        "produtos": [{key: product.get(key) for key in ("id", "nome", "estoque_total", "estoque_por_local", "correspondencia", "condicao", "montada_no_conjunto")}
                                      for product in products]})
                 except Exception:
                     LOG.exception("assistente: falha na consulta do pedido %s", item.id)

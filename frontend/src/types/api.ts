@@ -62,6 +62,9 @@ export type Product = {
   motivo_inativacao?: string | null;
   produto_vinculado_id?: number | null;
   produto_vinculado_nome?: string | null;
+  /** Saldo do produto pai do vínculo, só para mostrar (não entra em total_stock). */
+  produto_vinculado_inventories?: Record<number, number>;
+  produto_vinculado_estoque?: number;
   linked_count: number;
 };
 

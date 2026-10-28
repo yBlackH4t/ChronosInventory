@@ -33,6 +33,8 @@ class Product:
     produto_vinculado_id: Optional[int] = None
     produto_vinculado_nome: Optional[str] = None
     linked_count: int = 0
+    # Saldo do produto pai, so para mostrar (ex.: turbo montado faturado pelo conjunto).
+    produto_vinculado_inventories: Dict[int, int] = field(default_factory=dict)
     
     def __post_init__(self):
         """Validações após inicialização."""
@@ -140,6 +142,8 @@ class Product:
             'produto_vinculado_id': self.produto_vinculado_id,
             'produto_vinculado_nome': self.produto_vinculado_nome,
             'linked_count': self.linked_count,
+            'produto_vinculado_inventories': self.produto_vinculado_inventories,
+            'produto_vinculado_estoque': sum(self.produto_vinculado_inventories.values()),
         }
     
     @classmethod
@@ -164,6 +168,7 @@ class Product:
             produto_vinculado_id=data.get('produto_vinculado_id'),
             produto_vinculado_nome=data.get('produto_vinculado_nome'),
             linked_count=data.get('linked_count', 0),
+            produto_vinculado_inventories=data.get('produto_vinculado_inventories') or {},
         )
     
     def __str__(self) -> str:

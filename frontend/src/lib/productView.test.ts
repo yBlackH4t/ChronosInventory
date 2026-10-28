@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { detectBrand, detectCondition } from "./brands";
 import {
   applyMovementToProduct,
+  assembledViaCore,
   brandTitle,
   flashKindFor,
   locationColumns,
@@ -149,5 +150,33 @@ describe("productMonogram", () => {
     expect(productMonogram("TURBO HE500WG - 3782537", null)).toBe("TB");
     expect(productMonogram("1000-020-108 CONJ CENTRAL HX55", null)).toBe("CC");
     expect(productMonogram("06335008077 ABRACADEIRA", null)).toBeNull();
+  });
+});
+
+describe("assembledViaCore", () => {
+  const turbo = {
+    id: 906,
+    nome: "TURBO HOLSET HX55W - 4031196RX",
+    inventories: {},
+    total_stock: 0,
+    linked_count: 0,
+    produto_vinculado_id: 3699,
+    produto_vinculado_nome: "CONJUNTO CENTRAL - 4032382",
+    produto_vinculado_inventories: { 1: 1 },
+    produto_vinculado_estoque: 1,
+  };
+
+  it("mostra o saldo do conjunto no turbo vinculado a ele", () => {
+    expect(assembledViaCore(turbo)).toEqual({
+      coreId: 3699,
+      coreName: "CONJUNTO CENTRAL - 4032382",
+      inventories: { 1: 1 },
+      total: 1,
+    });
+  });
+
+  it("não vale para vínculo entre turbinas nem sem vínculo", () => {
+    expect(assembledViaCore({ ...turbo, produto_vinculado_nome: "TURBO HOLSET HX55W - 4031196" })).toBeNull();
+    expect(assembledViaCore({ ...turbo, produto_vinculado_id: null })).toBeNull();
   });
 });

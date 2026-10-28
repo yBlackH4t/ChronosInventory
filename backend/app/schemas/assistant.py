@@ -21,6 +21,8 @@ class ChatProductOut(BaseModel):
     categoria: str | None = None
     estoque_total: int
     estoque_por_local: dict[str, int]
+    # Turbo montado faturado pelo conjunto central: {id, nome, estoque_total, estoque_por_local} do conjunto.
+    montada_no_conjunto: dict[str, Any] | None = None
 
 
 class ChatOut(BaseModel):

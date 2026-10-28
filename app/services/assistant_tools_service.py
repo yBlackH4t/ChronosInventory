@@ -18,6 +18,7 @@ from datetime import date, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from app.services.assistant_answer_format import (
+    available_stock,
     display_code,
     format_application_answer,
     format_catalog_code_answer,
@@ -321,9 +322,30 @@ class AssistantToolsService:
                         entry["obs_especialista"] = item["obs"]
                     by_id[int(p["id"])] = entry
 
+        # Montada pelo conjunto so vale para o proprio codigo, e a mesma peca nao aparece duas vezes:
+        # o conjunto que ja aparece como montada sai da lista, a menos que o codigo seja o dele.
+        own_matches = (MATCH_EXACT, MATCH_FAMILY)
+        for product in list(by_id.values()):
+            assembled = product.get("montada_no_conjunto")
+            if not assembled:
+                continue
+            parent = by_id.get(assembled["id"])
+            if product["correspondencia"] not in own_matches or (parent and parent["correspondencia"] in own_matches):
+                product.pop("montada_no_conjunto")
+            elif parent:
+                by_id.pop(assembled["id"])
+
         products = sorted(
-            by_id.values(), key=lambda p: (_MATCH_RANK[p["correspondencia"]], -p["estoque_total"], p["nome"])
+            by_id.values(), key=lambda p: (_MATCH_RANK[p["correspondencia"]], -available_stock(p), p["nome"])
         )
+        # Dois turbos no mesmo conjunto (ex.: 4031196 e 4031196RX): a montada fica so no primeiro.
+        cores_shown: set = set()
+        for product in products:
+            assembled = product.get("montada_no_conjunto")
+            if assembled and assembled["id"] in cores_shown:
+                product.pop("montada_no_conjunto")
+            elif assembled:
+                cores_shown.add(assembled["id"])
 
         catalog_ids = [int(row["id"]) for row in self.catalog.search_catalog(code, limit=self.limits.code_catalog_items)]
         family = expand_family_codes([code])
@@ -347,7 +369,7 @@ class AssistantToolsService:
 
         result: Dict[str, Any] = {
             "codigo_pesquisado": code,
-            "temos_em_estoque": any(p["estoque_total"] > 0 for p in products),
+            "temos_em_estoque": any(available_stock(p) > 0 for p in products),
             "produtos": products[:self.limits.products],
         }
         if len(products) > self.limits.products:
@@ -701,7 +723,7 @@ class AssistantToolsService:
 
         catalog_items.sort(
             key=lambda i: (
-                -sum(p["estoque_total"] for p in i["nossos_produtos"]),
+                -sum(available_stock(p) for p in i["nossos_produtos"]),
                 0 if i["nossos_produtos"] else 1,
                 0 if i["atendemos_marca"] else 1,
                 0 if i["tipo"] == CATEGORY_TURBO else 1,
@@ -727,7 +749,7 @@ class AssistantToolsService:
                 f"Ha {len(turbo_options)} turbinas diferentes para essa aplicacao (mudam conforme {differs}). "
                 "Nao responda so 'sim': use o texto_pronto, que lista as opcoes."
             )
-        result["temos_em_estoque"] = any(p["estoque_total"] > 0 for i in catalog_items for p in i["nossos_produtos"])
+        result["temos_em_estoque"] = any(available_stock(p) > 0 for i in catalog_items for p in i["nossos_produtos"])
         result["fichas_catalogo"] = [self._public_item(i) for i in catalog_items[: self.limits.catalog_items]]
         if len(catalog_items) > self.limits.catalog_items:
             result["fichas_omitidas"] = len(catalog_items) - self.limits.catalog_items
@@ -800,13 +822,34 @@ class AssistantToolsService:
             qty = int(qty or 0)
             if qty and int(location_id) in locations:
                 stock[locations[int(location_id)]] = qty
-        return {
+        summary = {
             "id": int(product["id"]),
             "nome": product["nome"],
             "categoria": _product_category(product["nome"]),
             "estoque_total": sum(stock.values()),
             "estoque_por_local": stock,
         }
+        # Turbo montado faturado pelo conjunto central: o saldo e do conjunto (o pai do vinculo).
+        # Vai a parte, para nao somar no estoque_total do turbo.
+        parent_stock: Dict[str, int] = {}
+        for location_id, qty in (product.get("produto_vinculado_inventories") or {}).items():
+            qty = int(qty or 0)
+            if qty and int(location_id) in locations:
+                parent_stock[locations[int(location_id)]] = qty
+        parent_name = product.get("produto_vinculado_nome") or ""
+        if (
+            product.get("produto_vinculado_id")
+            and parent_stock
+            and summary["categoria"] == CATEGORY_TURBO
+            and _product_category(parent_name) == CATEGORY_CORE
+        ):
+            summary["montada_no_conjunto"] = {
+                "id": int(product["produto_vinculado_id"]),
+                "nome": parent_name,
+                "estoque_total": sum(parent_stock.values()),
+                "estoque_por_local": parent_stock,
+            }
+        return summary
 
     @staticmethod
     def _code_match(code: str, nome: str) -> str:
@@ -873,7 +916,7 @@ class AssistantToolsService:
                 by_item.setdefault(int(link["catalogo_produto_id"]), []).append(summary)
         for item in items:
             ours = by_item.get(item["id"], [])
-            ours.sort(key=lambda p: (-p["estoque_total"], p["nome"]))
+            ours.sort(key=lambda p: (-p["estoque_total"], -available_stock(p), p["nome"]))
             item["nossos_produtos"] = ours
 
     @staticmethod
