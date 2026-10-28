@@ -28,7 +28,8 @@
   font-weight: 650;
   letter-spacing: 0.01em;
   line-height: 1.45;
-  white-space: nowrap;
+  /* Código longo (lista com barra, 157.070000422) quebra em vez de vazar da ficha. */
+  overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
   box-shadow: 0 1px 0 rgba(15, 40, 60, 0.04);
 }
