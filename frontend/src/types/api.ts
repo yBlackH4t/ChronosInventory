@@ -866,8 +866,8 @@ export type ProductColumnsOut = {
   codigo?: string | null;
   codigo_digitado?: string | null;
   colunas: ProductColumn[];
-  aplicacoes: string[];
-  codigos_possiveis: string[];
+  aplicacoes?: string[];
+  codigos_possiveis?: string[];
   produtos_omitidos?: number;
 };
 
