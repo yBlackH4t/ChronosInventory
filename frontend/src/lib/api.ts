@@ -252,6 +252,15 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       return request<NfeConfig>(`/nfe/certificado`, { method: "DELETE", ...options }, baseUrl);
     },
 
+    // Aviso de remessa (matriz/filial) pelo robô do WhatsApp deste PC.
+    async enviarAvisoRemessa(payload: { numero: string; texto: string }, options: RequestInit = {}) {
+      return request<{ enviado: boolean }>(
+        `/nfe/aviso/enviar`,
+        { method: "POST", body: JSON.stringify(payload), ...options },
+        baseUrl,
+      );
+    },
+
     async listMovements(
       params: ListMovementsParams = {},
       options: RequestInit = {},

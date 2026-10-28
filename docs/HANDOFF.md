@@ -420,6 +420,14 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-28 — Claude — Aviso de remessa SC x RS no WhatsApp (2.7.15)
+- Branch `claude/project-thread-37xwog`. Nota entre matriz e filial com natureza de remessa/transferência
+  (ou CFOP x152/x949) vira `remessa_interna`: cada item tem Estoque, Serviço, Casco ou Garantia (lembrado
+  por código em `nfe_item_tipos_aviso`). Casco e garantia não movimentam.
+- Mensagem montada na tela (`frontend/src/lib/remessaAviso.ts`, com testes) e enviada por
+  `POST /nfe/aviso/enviar` (robô do WhatsApp deste PC, `NeonizeTransport.send_text`). Contatos em
+  `nfe_config.json` (`contatos_aviso`), editados em NF > Configurar.
+
 ### 2026-10-28 — Claude — Painel novo: Centro de comando (2.7.9)
 - Branch `claude/project-thread-ytbzeq`. O dono escolheu, entre 5 modelos, o "Centro de comando" com o
   gráfico de entradas e saídas do modelo "Fluxo" embaixo (modelos em `/mnt/project-files/dashboard/modelos/`).

@@ -1087,7 +1087,12 @@ export type NfeItemPreview = {
   confianca: "aprendido" | "codigo" | "duvida" | "nenhum";
   candidatos: NfeProduto[];
   ignorar: boolean;
+  /** Remessa entre matriz e filial: tipo sugerido da peça (o último escolhido para o código). */
+  tipo_aviso?: NfeTipoAviso;
 };
+
+/** Tipo da peça no aviso de remessa. Casco e garantia não entram no estoque. */
+export type NfeTipoAviso = "ESTOQUE" | "SERVICO" | "CASCO" | "GARANTIA";
 
 export type NfePreview = {
   chave: string;
@@ -1106,6 +1111,26 @@ export type NfePreview = {
   movimento_sugerido: Record<"SAIDA" | "ENTRADA", NfeMovimentoSugerido>;
   /** CNPJ salvo em "Configurar" que esta nota usa (escolhido sozinho). */
   loja?: NfeCnpj | null;
+  cfops?: string[];
+  /** Simples remessa/transferência entre matriz e filial: pede o tipo de cada peça e monta o aviso. */
+  remessa_interna?: boolean;
+  uf_origem?: string;
+  uf_destino?: string;
+  /** Remessa já lançada: o que foi confirmado em cada item (o aviso reaberto usa isto). */
+  aviso_salvo?: NfeAvisoItemSalvo[] | null;
+};
+
+export type NfeAvisoItemSalvo = {
+  item: number;
+  tipo_aviso: NfeTipoAviso;
+  quantidade: number;
+  produto_id: number | null;
+  produto_nome: string | null;
+};
+
+export type NfeContato = {
+  nome: string;
+  numero: string;
 };
 
 export type NfeCnpj = {
@@ -1124,7 +1149,7 @@ export type NfeMovimentoSugerido = {
 export type NfeBaixaIn = {
   tipo: "SAIDA" | "ENTRADA";
   location_id: number;
-  itens: { item: number; produto_id?: number; quantidade: number; ignorar?: boolean }[];
+  itens: { item: number; produto_id?: number; quantidade: number; ignorar?: boolean; tipo_aviso?: NfeTipoAviso }[];
   natureza?: NfeNatureza;
   local_externo?: string;
   motivo_ajuste?: string;
@@ -1152,6 +1177,7 @@ export type NfeConfig = {
   cnpjs?: NfeCnpj[];
   uf?: string;
   certificado?: { titular: string; cnpj: string | null; validade: string } | null;
+  contatos_aviso?: NfeContato[];
 };
 
 export type NfeConfigIn = {
@@ -1159,6 +1185,7 @@ export type NfeConfigIn = {
   cnpj_loja?: string | null;
   /** O primeiro e o desta loja. */
   cnpjs?: NfeCnpj[];
+  contatos_aviso?: NfeContato[];
 };
 
 export type NfeCertificadoIn = {

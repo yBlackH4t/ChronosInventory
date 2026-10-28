@@ -375,6 +375,25 @@ class NeonizeTransport:
         response = self.client.send_message(JIDToNonAD(me.JID), text)  # sem o numero do aparelho
         return response.ID or None
 
+    def send_text(self, phone: str, text: str) -> Optional[str]:
+        """Mensagem para um numero (ex.: aviso de remessa para o chefe). O WhatsApp diz o endereco
+        certo do numero (celular antigo sem o 9 na frente, por exemplo)."""
+        from neonize.utils.jid import build_jid
+
+        if self._me() is None:
+            return None
+        jid = None
+        try:
+            found = [r for r in self.client.is_on_whatsapp(f"+{phone}") if r.IsIn]
+            jid = found[0].JID if found else None
+        except Exception:
+            LOG.warning("whatsapp: nao deu para conferir o numero …%s; mandando direto", phone[-4:])
+            jid = build_jid(phone)
+        if jid is None:
+            raise LookupError("Este numero nao tem WhatsApp.")
+        response = self.client.send_message(jid, text)
+        return response.ID or None
+
     def download_audio(self, message: WaMessage) -> bytes:
         return self.client.download_any(message.raw.Message)
 
