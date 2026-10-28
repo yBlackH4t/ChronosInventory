@@ -1,6 +1,5 @@
 import {
   ActionIcon,
-  Button,
   Group,
   Menu,
   Pagination,
@@ -250,7 +249,7 @@ export function ProductsListTable({
   const totalLabel = shownLocations.length > 0 ? "Total" : "Saldo";
   // Colunas de largura fixa + 280px garantidos para o nome do produto.
   const tableMinWidth =
-    (compact ? 0 : 56) + 84 + shownLocations.length * 124 + (onlyLocation ? 150 : 96) + 140 + 12 + 320;
+    (compact ? 0 : 56) + 84 + shownLocations.length * 124 + (onlyLocation ? 150 : 96) + 140 + 112 + 320;
   const sortAria = (field: SortField) =>
     sort === field ? "ascending" : sort === `-${field}` ? "descending" : undefined;
   const firstShown = rows.length > 0 ? (page - 1) * Number(pageSize) + 1 : 0;
@@ -320,7 +319,7 @@ export function ProductsListTable({
                 )}
               </Table.Th>
               <Table.Th w={140} className="pm-th">Saídas 90 dias</Table.Th>
-              <Table.Th w={12} p={0}>
+              <Table.Th w={112}>
                 <VisuallyHidden>Ações</VisuallyHidden>
               </Table.Th>
             </Table.Tr>
@@ -447,24 +446,23 @@ export function ProductsListTable({
                     <SalesMiniBars weeks={visual.get(product.id)?.saidas_semanas} />
                   </Table.Td>
 
-                  <Table.Td className="pm-actions-cell">
+                  <Table.Td>
                     <Group
                       gap={4}
                       justify="flex-end"
                       wrap="nowrap"
-                      className="pm-actions pm-actions-hover pm-actions-float"
+                      className="pm-actions pm-actions-hover pm-actions-col"
                       onClick={(event) => event.stopPropagation()}
                     >
                       <Tooltip label="Movimentar estoque (tecla N)" openDelay={400}>
-                        <Button
-                          size="compact-sm"
+                        <ActionIcon
+                          size={30}
                           variant="light"
-                          leftSection={<IconArrowsExchange size={15} stroke={1.75} />}
                           onClick={() => onQuickMove?.(product)}
                           aria-label={`Movimentar estoque de ${product.nome} (tecla N)`}
                         >
-                          Movimentar
-                        </Button>
+                          <IconArrowsExchange size={17} stroke={1.75} />
+                        </ActionIcon>
                       </Tooltip>
                       <Tooltip label="Gerar etiqueta" openDelay={400}>
                         <ActionIcon size={30} onClick={() => onOpenSingleLabel(product.id)} aria-label={`Gerar etiqueta de ${product.nome}`}>

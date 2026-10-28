@@ -19,8 +19,7 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
-- **Em PR (2026-10-28):** 2.7.7 (#39), 2.7.8 montada (#41), 2.7.9 Painel (#40) e 2.7.10 aba Produtos em colunas (em cima da #41). Merge e tag só pelo dono.
-- **Base atual da main:** 2.7.4. Versão 2.7.5 em preparação na branch `codex/ia-estoque-garrett`; instalação na empresa ainda depende do dono.
+- **Base atual da main:** 2.7.9 (Painel, #40). Em PR: 2.7.7 (#39, lista de Produtos), 2.7.10 = montada (#41) + aba Produtos em colunas (#42, em cima da #41), as duas na mesma versão. Merge e tag só pelo dono.
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.
