@@ -420,6 +420,15 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-28 — Claude — Painel novo: Centro de comando (2.7.9)
+- Branch `claude/project-thread-ytbzeq`. O dono escolheu, entre 5 modelos, o "Centro de comando" com o
+  gráfico de entradas e saídas do modelo "Fluxo" embaixo (modelos em `/mnt/project-files/dashboard/modelos/`).
+- `frontend/src/components/dashboard/command/` substitui `dashboard/bento/`. Contas puras em
+  `frontend/src/lib/commandCenter.ts` (com testes). Coluna Sistemas usa rotas que já existiam:
+  `/health`, `/assistente/painel`, `/backup/base-oficial/status`, `/nfe/config`, `/backup/listar`.
+- Saiu do Painel: escolha de semana/mês e data, "Mais saídas" e o bloco do assistente (virou linhas
+  em Sistemas). Com movimento "Nenhum" nada se mexe.
+
 ### 2026-10-26 — Codex — Integração da IA com a main 2.7.4 e preparação da 2.7.5
 - Branch `codex/ia-estoque-garrett`. Trabalho de IA registrado em `5683696`; main 2.7.4
   integrada em `ef326ac`, preservando telas, cadastro da empresa, PIN e restrições do WhatsApp.
