@@ -68,3 +68,30 @@ def test_links_made_on_the_screen_show_up(client):
     assert by_key["conjunto"]["itens"][0]["rotulo"] == "Vinculado"
     assert [i["produto"]["id"] for i in by_key["similares"]["itens"]] == [twin]
     assert "montada" not in by_key
+
+
+def test_searching_the_core_shows_the_turbo_linked_to_it(client):
+    turbo = _create_product(client, "TURBO HOLSET HX40W - 4038790", {CANOAS: 1})
+    core = _create_product(client, "CONJUNTO CENTRAL - 4032382", {})
+    _link(turbo, core)
+
+    by_key = {col["chave"]: col for col in _columns(client, "4032382")["colunas"]}
+    assert [i["produto"]["id"] for i in by_key["conjunto"]["itens"]] == [core]
+    assert [i["produto"]["id"] for i in by_key["similares"]["itens"]] == [turbo]
+    assert by_key["similares"]["itens"][0]["rotulo"] == "Vinculado"
+
+
+def test_wide_search_says_how_many_products_were_left_out(client, monkeypatch):
+    from app.services import product_columns_service
+
+    monkeypatch.setattr(
+        product_columns_service,
+        "COLUMN_LIMITS",
+        product_columns_service.ResultLimits(products=2, code_catalog_items=3, applications_per_item=6),
+    )
+    for suffix in ("A", "B", "C"):
+        _create_product(client, f"TURBINA HOLSET HX55W 4031196 {suffix}", {CANOAS: 1})
+
+    data = _columns(client, "4031196")
+    assert sum(len(col["itens"]) for col in data["colunas"]) == 2
+    assert data["produtos_omitidos"] == 1

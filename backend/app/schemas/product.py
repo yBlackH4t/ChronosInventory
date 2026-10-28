@@ -201,3 +201,4 @@ class ProductColumnsOut(BaseModel):
     colunas: list[ProductColumn] = Field(default_factory=list)
     aplicacoes: list[str] = Field(default_factory=list)
     codigos_possiveis: list[str] = Field(default_factory=list)
+    produtos_omitidos: int = 0

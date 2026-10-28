@@ -111,18 +111,17 @@ class ProductColumnsService:
             result["codigo_digitado"] = found["codigo_digitado"]
         if found.get("codigos_possiveis"):
             result["codigos_possiveis"] = found["codigos_possiveis"]
+        if found.get("produtos_omitidos"):
+            # Busca ampla (prefixo, modelo): a tela avisa e manda para a lista, que pagina.
+            result["produtos_omitidos"] = found["produtos_omitidos"]
         return result
 
     def _add_links(self, found: List[Dict[str, Any]], groups: Dict[str, List[Dict[str, Any]]]) -> None:
-        """Produtos ligados pelo botao Vincular a peca pesquisada e que a busca nao trouxe: o pai
-        (conjunto sem saldo, ou outra turbina) e os filhos. Conjunto vai na coluna de conjunto e
-        turbina em similares."""
+        """Produtos ligados pelo botao Vincular a peca pesquisada (turbo ou conjunto) e que a busca
+        nao trouxe: o pai (conjunto sem saldo, ou outra turbina) e os filhos. Conjunto vai na coluna
+        de conjunto e turbina em similares."""
         shown = {entry["produto_id"] for entries in groups.values() for entry in entries}
-        own_ids = [
-            int(item["id"])
-            for item in found
-            if item["correspondencia"] in (MATCH_EXACT, MATCH_FAMILY) and item["categoria"] != CATEGORY_CORE
-        ]
+        own_ids = [int(item["id"]) for item in found if item["correspondencia"] in (MATCH_EXACT, MATCH_FAMILY)]
         linked: List[Dict[str, Any]] = []
         for row in self.products.get_by_ids(own_ids):
             if row.get("produto_vinculado_id"):

@@ -148,9 +148,16 @@ export default function ProductColumnsBoard({ codigo, locations, onShowList, ...
             </span>
           ))}
         </Group>
-        <Button variant="subtle" size="compact-sm" leftSection={<IconList size={15} />} onClick={onShowList}>
-          Ver em lista
-        </Button>
+        <Group gap="xs" wrap="nowrap">
+          {data.produtos_omitidos ? (
+            <Text size="sm" c="orange" fw={600}>
+              +{data.produtos_omitidos} produtos não couberam aqui
+            </Text>
+          ) : null}
+          <Button variant="subtle" size="compact-sm" leftSection={<IconList size={15} />} onClick={onShowList}>
+            Ver em lista
+          </Button>
+        </Group>
       </Group>
 
       <div className="pc-board" data-solo={solo || undefined} data-open={openItem ? true : undefined} key={codigo}>
@@ -191,7 +198,6 @@ export default function ProductColumnsBoard({ codigo, locations, onShowList, ...
                       weeks={visual.get(openItem.produto.id)?.saidas_semanas}
                       locations={locations}
                       onBack={() => setOpened(null)}
-                      primary={primary}
                       {...handlers}
                     />
                   ) : (
@@ -388,7 +394,6 @@ function ProductColumnFicha({
   weeks,
   locations,
   onBack,
-  primary,
   ...handlers
 }: Handlers & {
   item: ProductColumnItem;
@@ -398,7 +403,6 @@ function ProductColumnFicha({
   weeks?: number[];
   locations: InventoryLocation[];
   onBack: () => void;
-  primary: Product;
 }) {
   const product = item.produto;
   const nome = itemTitle(item);
@@ -500,7 +504,7 @@ function ProductColumnFicha({
           <Button variant="default" leftSection={<IconPencil size={16} />} onClick={() => handlers.onOpenEdit(product)}>
             Editar cadastro
           </Button>
-          <Button variant="default" leftSection={<IconLink size={16} />} onClick={() => handlers.onOpenLinks(primary)}>
+          <Button variant="default" leftSection={<IconLink size={16} />} onClick={() => handlers.onOpenLinks(product)}>
             Vincular
           </Button>
           <Button variant="subtle" leftSection={<IconId size={16} />} onClick={() => handlers.onOpenDetails(product)}>

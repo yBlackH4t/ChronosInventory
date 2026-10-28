@@ -868,6 +868,7 @@ export type ProductColumnsOut = {
   colunas: ProductColumn[];
   aplicacoes: string[];
   codigos_possiveis: string[];
+  produtos_omitidos?: number;
 };
 
 export type ProductVisualItem = {
