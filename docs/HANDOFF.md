@@ -1210,3 +1210,7 @@ npm run lint
 - Telas: `ProductColumnsBoard` (+ `lib/productColumns.ts`, `styles/product-columns.css`). `ProductsPage` usa as colunas quando a busca parece um código (`looksLikeCode`), com o seletor Colunas/Lista. Clicar num cartão abre a ficha na própria coluna; as outras viram faixas. Animações por CSS, desligadas em "Nenhum".
 - Testes: `backend/tests/test_product_columns.py`, `frontend/src/lib/productColumns.test.ts`.
 - O #42 foi mesclado na branch do #41 depois que o #41 já tinha entrado na main, e a tag v2.7.10 saiu só com a montada. As colunas entram na main por um PR novo, como 2.7.11.
+
+### 2026-10-28 — Claude Code — 2.7.12, correção da busca em colunas
+- Na 2.7.11, código sem resultado derrubava o app inteiro: `ok()` devolve o dicionário direto (sem os padrões do schema), `codigos_possiveis` não vinha e a tela lia `.length`. O serviço agora manda todos os campos sempre; a tela tolera a falta deles; `ColumnsErrorBoundary` troca as colunas por um aviso com "Ver em lista" em vez de derrubar o programa.
+- Teste: `test_empty_answer_still_has_every_field`.

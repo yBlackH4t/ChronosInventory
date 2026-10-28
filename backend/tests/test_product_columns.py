@@ -95,3 +95,12 @@ def test_wide_search_says_how_many_products_were_left_out(client, monkeypatch):
     data = _columns(client, "4031196")
     assert sum(len(col["itens"]) for col in data["colunas"]) == 2
     assert data["produtos_omitidos"] == 1
+
+
+def test_empty_answer_still_has_every_field(client):
+    # A tela lia codigos_possiveis.length sem resultado e o programa inteiro caía (2.7.11).
+    data = _columns(client, "1155988")
+    assert data["colunas"] == []
+    assert data["codigos_possiveis"] == []
+    assert data["aplicacoes"] == []
+    assert data["produtos_omitidos"] == 0

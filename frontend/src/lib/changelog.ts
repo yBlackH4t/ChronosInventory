@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.12",
+    "date": "2026-10-28",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Busca por código na aba Produtos derrubava o programa (\"Ocorreu um erro inesperado\") quando o código não achava nada, por exemplo enquanto o número ainda estava sendo digitado. Agora aparece \"Nada com o código\" com o botão \"Ver em lista\", e qualquer outro erro nas colunas mostra um aviso no lugar delas, sem fechar a tela."
+    ]
+  },
+  {
     "version": "2.7.11",
     "date": "2026-10-28",
     "title": "Novas funcionalidades",

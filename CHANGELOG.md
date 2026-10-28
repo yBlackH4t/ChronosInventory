@@ -26,6 +26,11 @@ Formato recomendado:
 
 
 
+## [2.7.12] - 2026-10-28
+
+### Fixed
+- **Busca por código na aba Produtos derrubava o programa ("Ocorreu um erro inesperado")** quando o código não achava nada, por exemplo enquanto o número ainda estava sendo digitado. Agora aparece "Nada com o código" com o botão "Ver em lista", e qualquer outro erro nas colunas mostra um aviso no lugar delas, sem fechar a tela.
+
 ## [2.7.11] - 2026-10-28
 
 ### Added

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Component, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { Badge, Button, Group, Skeleton, Text, Tooltip } from "@mantine/core";
 import {
   IconArrowLeft,
@@ -56,7 +56,43 @@ const colorVar = (key: ProductColumnKey) => `var(--mantine-color-${COLUMN_COLORS
 
 // Busca por código em colunas (2.7.11): nova, reman, montada, conjunto central e similares.
 // Clicar num cartão abre a ficha dentro da própria coluna; as outras viram faixas na lateral.
-export default function ProductColumnsBoard({ codigo, locations, onShowList, ...handlers }: Props) {
+export default function ProductColumnsBoard(props: Props) {
+  return (
+    <ColumnsErrorBoundary codigo={props.codigo} onShowList={props.onShowList}>
+      <ColumnsBoard {...props} />
+    </ColumnsErrorBoundary>
+  );
+}
+
+// Um erro nas colunas não pode derrubar o programa inteiro: mostra o aviso e o caminho para a lista.
+class ColumnsErrorBoundary extends Component<
+  { codigo: string; onShowList: () => void; children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: unknown): void {
+    console.error("Erro nas colunas da aba Produtos:", error);
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <EmptyState
+        message={`Não deu para mostrar ${this.props.codigo.toUpperCase()} em colunas`}
+        description={`Veja o resultado na lista. Detalhe para o suporte: ${this.state.error.message}`}
+        actionLabel="Ver em lista"
+        onAction={this.props.onShowList}
+      />
+    );
+  }
+}
+
+function ColumnsBoard({ codigo, locations, onShowList, ...handlers }: Props) {
   const { profileScopeKey } = useProfileScope();
   const query = useQuery({
     queryKey: ["produtos", profileScopeKey, "colunas", codigo],
@@ -65,6 +101,7 @@ export default function ProductColumnsBoard({ codigo, locations, onShowList, ...
   });
   const data = query.data?.data;
   const columns = useMemo(() => data?.colunas ?? [], [data]);
+  const aplicacoes = data?.aplicacoes ?? [];
   const ids = useMemo(() => columns.flatMap((col) => col.itens.map((item) => item.produto.id)), [columns]);
   const visual = useProductsVisual(ids);
   const [opened, setOpened] = useState<Opened | null>(null);
@@ -111,8 +148,8 @@ export default function ProductColumnsBoard({ codigo, locations, onShowList, ...
         illustrated
         message={`Nada com o código ${codigo.toUpperCase()}`}
         description={
-          data.codigos_possiveis.length > 0
-            ? `Será um destes? ${data.codigos_possiveis.join(", ")}`
+          (data.codigos_possiveis?.length ?? 0) > 0
+            ? `Será um destes? ${data.codigos_possiveis?.join(", ")}`
             : "Não achei essa peça nem equivalentes no cadastro e no catálogo."
         }
         actionLabel="Ver em lista"
@@ -194,7 +231,7 @@ export default function ProductColumnsBoard({ codigo, locations, onShowList, ...
                       item={openItem}
                       column={col}
                       others={columns.filter((other) => other.chave !== col.chave)}
-                      aplicacoes={data.aplicacoes}
+                      aplicacoes={aplicacoes}
                       weeks={visual.get(openItem.produto.id)?.saidas_semanas}
                       locations={locations}
                       onBack={() => setOpened(null)}
@@ -211,7 +248,7 @@ export default function ProductColumnsBoard({ codigo, locations, onShowList, ...
                             big={solo}
                             thumb={visual.get(item.produto.id)?.thumb_base64}
                             weeks={visual.get(item.produto.id)?.saidas_semanas}
-                            aplicacoes={solo ? data.aplicacoes : []}
+                            aplicacoes={solo ? aplicacoes : []}
                             locations={locations}
                             onOpen={solo ? undefined : () => setOpened({ column: col.chave, key: itemKey(col.chave, item) })}
                             {...handlers}

@@ -102,19 +102,17 @@ class ProductColumnsService:
             if items:
                 columns.append({"chave": key, "titulo": title, "itens": items})
 
-        result: Dict[str, Any] = {
+        # Todos os campos sempre presentes: a rota devolve o dicionario direto (ok() nao aplica os
+        # padroes do schema) e a tela le codigos_possiveis mesmo sem resultado.
+        return {
             "codigo": found.get("codigo_pesquisado"),
+            "codigo_digitado": found.get("codigo_digitado"),
             "colunas": columns,
             "aplicacoes": _applications(found.get("fichas_catalogo", [])),
-        }
-        if found.get("codigo_digitado"):
-            result["codigo_digitado"] = found["codigo_digitado"]
-        if found.get("codigos_possiveis"):
-            result["codigos_possiveis"] = found["codigos_possiveis"]
-        if found.get("produtos_omitidos"):
+            "codigos_possiveis": found.get("codigos_possiveis") or [],
             # Busca ampla (prefixo, modelo): a tela avisa e manda para a lista, que pagina.
-            result["produtos_omitidos"] = found["produtos_omitidos"]
-        return result
+            "produtos_omitidos": found.get("produtos_omitidos") or 0,
+        }
 
     def _add_links(self, found: List[Dict[str, Any]], groups: Dict[str, List[Dict[str, Any]]]) -> None:
         """Produtos ligados pelo botao Vincular a peca pesquisada (turbo ou conjunto) e que a busca
