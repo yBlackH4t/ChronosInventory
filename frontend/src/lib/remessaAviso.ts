@@ -35,13 +35,15 @@ function firstCodeToken(text: string): string | null {
   return token || null;
 }
 
-/** Código que vai na mensagem: o da peça no nome do produto (4032382, BC.0373); sem produto, o da nota. */
+function partCode(text: string | null | undefined): string | null {
+  if (!text) return null;
+  return findProductCode(text)?.value ?? firstCodeToken(text);
+}
+
+/** Código que vai na mensagem: o da peça (4032382, BC.0373) no nome do produto ou na descrição da nota;
+ * sem nenhum, o código do item na nota. */
 export function codigoDoAviso(produtoNome: string | null | undefined, descricao: string, codigoNota: string): string {
-  if (produtoNome) {
-    const code = findProductCode(produtoNome)?.value ?? firstCodeToken(produtoNome);
-    if (code) return code;
-  }
-  return firstCodeToken(descricao) ?? codigoNota;
+  return partCode(produtoNome) ?? partCode(descricao) ?? codigoNota;
 }
 
 export function saudacao(now: Date): string {

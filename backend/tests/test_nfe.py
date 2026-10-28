@@ -563,6 +563,11 @@ def test_shipment_between_branches_asks_each_part_type_and_casco_or_warranty_do_
     assert done.status_code == 201, done.text
     assert len(done.json()["data"]["movimentacoes"]) == 2
     assert (_stock(client, turbo), _stock(client, conjunto), _stock(client, garantia)) == (1, 1, 0)
+    salvo = client.get(f"/nfe/{CHAVE}").json()["data"]["aviso_salvo"]
+    assert [(i["tipo_aviso"], i["quantidade"], i["produto_nome"]) for i in salvo] == [
+        ("ESTOQUE", 1, "TURBO HOLSET 4032382"), ("SERVICO", 1, "CONJUNTO BC.0373"),
+        ("CASCO", 2, None), ("GARANTIA", 1, "TURBO HOLSET 4031195"),
+    ]
 
     # Na proxima remessa, cada codigo ja vem com o tipo escolhido.
     other = _fix_dv("43261003897158000285550020000145611821211025")
@@ -579,6 +584,9 @@ def test_shipment_between_branches_asks_each_part_type_and_casco_or_warranty_do_
     assert only.status_code == 201, only.text
     assert only.json()["data"]["movimentacoes"] == []
     assert client.get(f"/nfe/{other}").json()["data"]["ja_baixada"] is None
+    # A NF anterior continua anunciando o que foi confirmado nela (garantia), nao o tipo novo.
+    first = client.get(f"/nfe/{CHAVE}").json()["data"]["aviso_salvo"]
+    assert first[3]["tipo_aviso"] == "GARANTIA" and first[1]["tipo_aviso"] == "SERVICO"
 
 
 def test_sale_between_branches_is_not_a_shipment_notice(client, tmp_path):

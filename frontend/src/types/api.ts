@@ -1116,6 +1116,16 @@ export type NfePreview = {
   remessa_interna?: boolean;
   uf_origem?: string;
   uf_destino?: string;
+  /** Remessa já lançada: o que foi confirmado em cada item (o aviso reaberto usa isto). */
+  aviso_salvo?: NfeAvisoItemSalvo[] | null;
+};
+
+export type NfeAvisoItemSalvo = {
+  item: number;
+  tipo_aviso: NfeTipoAviso;
+  quantidade: number;
+  produto_id: number | null;
+  produto_nome: string | null;
 };
 
 export type NfeContato = {

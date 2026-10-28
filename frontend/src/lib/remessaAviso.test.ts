@@ -53,6 +53,7 @@ describe("aviso de remessa", () => {
     expect(codigoDoAviso("CONJUNTO BC.0373", "", "806")).toBe("BC.0373");
     expect(codigoDoAviso(null, "CASCO", "294")).toBe("294");
     expect(codigoDoAviso(null, "TURBO 4031195 REMANUFATURADO", "807")).toBe("4031195");
+    expect(codigoDoAviso(null, "TURBO HOLSET HX40 4032382", "805")).toBe("4032382");
   });
 
   it("saudação pela hora e o que fica fora do estoque", () => {

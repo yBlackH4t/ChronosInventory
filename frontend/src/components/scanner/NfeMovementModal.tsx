@@ -163,12 +163,26 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
       setNota(data);
       applyTipo(data, data.tipo_sugerido);
       const next: Record<number, RowState> = {};
+      // Remessa já lançada: volta o que foi confirmado nela (tipo, quantidade e produto), não a sugestão de hoje.
+      const salvos = new Map((data.aviso_salvo ?? []).map((s) => [s.item, s]));
       for (const item of data.itens) {
-        const tipoAviso = item.tipo_aviso ?? "ESTOQUE";
+        const salvo = salvos.get(item.item);
+        const tipoAviso = salvo?.tipo_aviso ?? item.tipo_aviso ?? "ESTOQUE";
+        let options = item.candidatos;
+        if (salvo?.produto_id && salvo.produto_nome && !options.some((o) => o.id === salvo.produto_id)) {
+          options = [{ id: salvo.produto_id, nome: salvo.produto_nome, ativo: true, estoque: {} }, ...options];
+        }
+        const produtoId = salvo
+          ? salvo.produto_id
+            ? String(salvo.produto_id)
+            : null
+          : item.produto_sugerido
+            ? String(item.produto_sugerido.id)
+            : null;
         next[item.item] = {
-          produtoId: item.produto_sugerido ? String(item.produto_sugerido.id) : null,
-          quantidade: item.quantidade ?? 1,
-          options: item.candidatos,
+          produtoId,
+          quantidade: salvo?.quantidade ?? item.quantidade ?? 1,
+          options,
           ignorar: data.remessa_interna ? foraDoEstoque(tipoAviso) : item.ignorar ?? false,
           tipoAviso,
         };
@@ -876,10 +890,10 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
                     </Alert>
                   )}
 
-                  {remessa && nota.ja_baixada && showAviso && <RemessaAvisoPanel texto={avisoTexto(nota)} />}
+                  {remessa && nota.aviso_salvo && showAviso && <RemessaAvisoPanel texto={avisoTexto(nota)} />}
 
                   <Group justify="flex-end">
-                    {remessa && nota.ja_baixada && !showAviso && (
+                    {remessa && nota.aviso_salvo && !showAviso && (
                       <Button
                         variant="default"
                         leftSection={<IconBrandWhatsapp size={16} />}

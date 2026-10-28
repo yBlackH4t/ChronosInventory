@@ -70,6 +70,15 @@ _SCHEMA = (
     )
     """,
     # Itens que nao sao estoque (ex.: CASCO, embalagem de transporte): a nota passa sem eles.
+    # O que foi confirmado na remessa (tipo e quantidade de cada item): reabrir o aviso da nota
+    # mostra isso, e nao a sugestao de hoje.
+    """
+    CREATE TABLE IF NOT EXISTS nfe_avisos (
+        chave TEXT PRIMARY KEY,
+        itens TEXT NOT NULL,
+        atualizado_em DATETIME NOT NULL
+    )
+    """,
     """
     CREATE TABLE IF NOT EXISTS nfe_item_tipos_aviso (
         codigo TEXT PRIMARY KEY,
@@ -418,6 +427,16 @@ def _internal_shipment(documento: NfeDocumento) -> bool:
     return any(item.cfop[1:] in CFOPS_REMESSA for item in documento.itens)
 
 
+def _saved_notice(row) -> Optional[List[Dict[str, Any]]]:
+    if row is None:
+        return None
+    try:
+        itens = json.loads(row["itens"] or "[]")
+    except (TypeError, ValueError):
+        return None
+    return itens if isinstance(itens, list) else None
+
+
 def _suggested_type(documento: NfeDocumento, cnpj_loja: Optional[str]) -> str:
     """Do ponto de vista desta loja: nota recebida e entrada; nota emitida segue o tpNF."""
     if cnpj_loja and documento.destinatario_documento == cnpj_loja and documento.emitente_cnpj != cnpj_loja:
@@ -501,6 +520,7 @@ class NfeService:
             _ensure_schema(conn)
             baixa = _active_baixa(conn, documento.chave)
             conn.commit()
+            aviso_row = conn.execute("SELECT itens FROM nfe_avisos WHERE chave = ?", (documento.chave,)).fetchone()
             itens = [self._suggest(conn, documento, item) for item in documento.itens]
         finally:
             conn.close()
@@ -535,6 +555,8 @@ class NfeService:
             ),
             "arquivo": documento.arquivo,
             "itens": itens,
+            # Remessa ja lancada: tipo, quantidade e produto de cada item como foram confirmados.
+            "aviso_salvo": _saved_notice(aviso_row),
         }
 
     def xml(self, code: str) -> Dict[str, Any]:
@@ -783,6 +805,29 @@ class NfeService:
                         (documento.emitente_cnpj, codigo, int(entry["produto_id"]), now),
                     )
 
+            if remessa:
+                aviso: List[Dict[str, Any]] = []
+                for n in sorted(chosen):
+                    entry = chosen[n]
+                    produto_id = entry.get("produto_id")
+                    nome = None
+                    if produto_id:
+                        row = conn.execute("SELECT nome FROM produtos WHERE id = ?", (int(produto_id),)).fetchone()
+                        nome = row["nome"] if row else None
+                    aviso.append({
+                        "item": n,
+                        "tipo_aviso": entry.get("tipo_aviso") or "ESTOQUE",
+                        "quantidade": int(entry.get("quantidade") or 1),
+                        "produto_id": int(produto_id) if produto_id else None,
+                        "produto_nome": nome,
+                    })
+                conn.execute(
+                    """
+                    INSERT INTO nfe_avisos (chave, itens, atualizado_em) VALUES (?, ?, ?)
+                    ON CONFLICT(chave) DO UPDATE SET itens = excluded.itens, atualizado_em = excluded.atualizado_em
+                    """,
+                    (documento.chave, json.dumps(aviso, ensure_ascii=False), now),
+                )
             # So casco/garantia: nada entrou no estoque, a nota fica livre (serviu so para o aviso).
             if records:
                 conn.execute(
