@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.13",
+    "date": "2026-10-28",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Código inteiro na lista, na ficha e nas etiquetas: códigos com ponto, traço ou letras grudados agora aparecem completos. Ex.: 157.070000422 (antes 070000422), 15.18552-1.A, ACR-01679, 812971-2, HX40-3596928. Nomes com vários códigos separados por barra mostram todos. Eram 329 peças do cadastro; nada muda no banco nem na busca."
+    ]
+  },
+  {
     "version": "2.7.11",
     "date": "2026-10-28",
     "title": "Novas funcionalidades",

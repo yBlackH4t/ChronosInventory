@@ -40,6 +40,21 @@ function tidy(text: string): string {
     .trim();
 }
 
+// O que vem grudado no código ainda é código: 157.070000422, ACR-01679, 812971-2, HX40-3596928.
+const CODE_CHAR = /[A-Za-z0-9.\-/]/;
+const CODE_EDGE_PUNCT = /[.\-/]/;
+
+/** Estende o trecho achado até o próximo espaço (ou parêntese), sem ponto/traço solto nas pontas. */
+function wholeCode(text: string, index: number, length: number): { index: number; value: string } {
+  let start = index;
+  let end = index + length;
+  while (start > 0 && CODE_CHAR.test(text[start - 1])) start--;
+  while (end < text.length && CODE_CHAR.test(text[end])) end++;
+  while (start < index && CODE_EDGE_PUNCT.test(text[start])) start++;
+  while (end > index + length && CODE_EDGE_PUNCT.test(text[end - 1])) end--;
+  return { index: start, value: text.slice(start, end) };
+}
+
 /** Onde está o código da peça no nome: o que aparece primeiro (o mais longo, se empatar). */
 export function findProductCode(nome: string): { index: number; value: string } | null {
   const text = nome ?? "";
@@ -55,7 +70,7 @@ export function findProductCode(nome: string): { index: number; value: string } 
       best = { index: match.index, value: match[0] };
     }
   }
-  return best;
+  return best && wholeCode(text, best.index, best.value.length);
 }
 
 export type NameWithCode = { before: string; code: string | null; after: string };

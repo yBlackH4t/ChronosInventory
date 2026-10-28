@@ -36,6 +36,20 @@ describe("splitProductCode", () => {
     expect(split("KIT REPARO TURBO GT20")).toEqual({ code: null, rest: "KIT REPARO TURBO GT20" });
   });
 
+  it("pega o código inteiro com o que vem grudado nele", () => {
+    expect(split("EMBREAGEM VISCOSA S660CW - 157.070000422")).toEqual({
+      code: "157.070000422",
+      rest: "EMBREAGEM VISCOSA S660CW",
+    });
+    expect(split("EMBREAGEM VISCOSA S610 15.18552-1.A").code).toBe("15.18552-1.A");
+    expect(split("ACR-01679 CONJUNTO CENTRAL GT45").code).toBe("ACR-01679");
+    expect(split("CONJUNTO CENTRAL GTB22V 812971-2 -SL.0851").code).toBe("812971-2");
+    expect(split("GEOMETRIA GTB1549LV (790179-2)- SL.1604").code).toBe("790179-2");
+    expect(split("TURBO HX40-3596928")).toEqual({ code: "HX40-3596928", rest: "TURBO" });
+    expect(split("TURBO HX55 - 4038616/5610131/5644541").code).toBe("4038616/5610131/5644541");
+    expect(split("ACR-02376- CONJUNTO CENTRAL").code).toBe("ACR-02376");
+  });
+
   it("arruma separadores que sobram", () => {
     expect(split("TURBO HX40W - 4038989")).toEqual({ code: "4038989", rest: "TURBO HX40W" });
     expect(split("TURBO HE200WG - 3799431 / 3785294")).toEqual({ code: "3799431", rest: "TURBO HE200WG / 3785294" });
