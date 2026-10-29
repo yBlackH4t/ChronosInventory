@@ -84,6 +84,18 @@ def _default_summary_factory() -> Any:
     return AssistantDailySummaryService()
 
 
+def _default_interview_factory() -> Any:
+    from app.services.assistant_interview_service import AssistantInterviewService
+
+    return AssistantInterviewService()
+
+
+def _default_is_publisher() -> bool:
+    from app.services.assistant_admin_service import AssistantAdminService
+
+    return AssistantAdminService().is_publisher()
+
+
 class WhatsAppService:
     _instance: Optional["WhatsAppService"] = None
     _instance_lock = threading.Lock()
@@ -104,7 +116,11 @@ class WhatsAppService:
         summary_factory: Optional[Callable[[], Any]] = None,
         official_config_reader: Optional[Callable[[], Dict[str, Any]]] = None,
         primary_health: Optional[Callable[[str], Dict[str, Any]]] = None,
+        interview_factory: Optional[Callable[[], Any]] = None,
+        is_publisher: Optional[Callable[[], bool]] = None,
     ) -> None:
+        self.interview_factory = interview_factory or _default_interview_factory
+        self.is_publisher = is_publisher or _default_is_publisher
         self.transport_factory = transport_factory
         self.bridge_factory = bridge_factory
         self.config_store = config_store or AssistantConfigStore()
@@ -167,6 +183,7 @@ class WhatsAppService:
         def loop() -> None:
             while not stop.wait(SUMMARY_CHECK_SECONDS):
                 self.send_summary_if_due()
+                self.send_interview_if_due()
 
         threading.Thread(target=loop, name="whatsapp-resumo", daemon=True).start()
 
@@ -191,6 +208,27 @@ class WhatsAppService:
             return True
         except Exception:
             LOG.exception("whatsapp: falha ao mandar o resumo diario")
+            return False
+
+    def send_interview_if_due(self) -> bool:
+        """
+        Perguntas do dia na "Mensagem para mim", na hora configurada. So no PC principal (o que
+        publica a base): e nele que a resposta vira conhecimento, com o /confirmar e o PIN.
+        """
+        transport = self._transport
+        if transport is None or self.state != STATE_CONNECTED or not self.should_answer():
+            return False
+        try:
+            interview = self.interview_factory()
+            if not interview.due() or not self.is_publisher():
+                return False
+            questions = interview.today()
+            if any(q["estado"] == "pendente" for q in questions):
+                transport.send_to_self(interview.build_text(questions))
+            interview.mark_sent()
+            return True
+        except Exception:
+            LOG.exception("whatsapp: falha ao mandar as perguntas do dia")
             return False
 
     def _discard_transport(self) -> None:

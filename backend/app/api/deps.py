@@ -59,6 +59,12 @@ def get_assistant_history_service():
     return AssistantHistoryService()
 
 
+def get_assistant_interview_service():
+    from app.services.assistant_interview_service import AssistantInterviewService
+
+    return AssistantInterviewService()
+
+
 def get_whatsapp_service():
     from app.services.whatsapp_service import WhatsAppService
 

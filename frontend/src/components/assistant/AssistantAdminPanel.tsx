@@ -27,6 +27,7 @@ import {
   IconHistory,
   IconInfoCircle,
   IconBrandWhatsapp,
+  IconMessageQuestion,
 } from "@tabler/icons-react";
 import {
   getAdminStatus,
@@ -35,6 +36,7 @@ import {
   setAdminPassword,
   getReviewList,
   listProposals,
+  getInterviewDay,
 } from "../../lib/assistantAdminApi";
 import {
   useAdminSession,
@@ -45,6 +47,7 @@ import AdminKnowledgeTab from "./AdminKnowledgeTab";
 import AdminHistoryTab from "./AdminHistoryTab";
 import AdminWhatsAppTab from "./AdminWhatsAppTab";
 import AdminExamplesTab from "./AdminExamplesTab";
+import AdminInterviewTab from "./AdminInterviewTab";
 import WhatsAppPinButton from "./WhatsAppPinButton";
 import { ASSISTANT_UNREACHABLE_MESSAGE } from "../../lib/notify";
 
@@ -84,6 +87,13 @@ export default function AssistantAdminPanel() {
   const { data: pendingProposals } = useQuery({
     queryKey: ["assistant-admin-proposals"],
     queryFn: () => listProposals("pendente"),
+    enabled: !!session.token && !!status?.maquina_publicadora,
+  });
+
+  // Mesma chave da aba "Perguntas do dia": o número no título acompanha as respostas.
+  const { data: interviewDay } = useQuery({
+    queryKey: ["assistant-interview"],
+    queryFn: getInterviewDay,
     enabled: !!session.token && !!status?.maquina_publicadora,
   });
 
@@ -403,6 +413,7 @@ export default function AssistantAdminPanel() {
 
   // Caso 4: Autenticado como Administrador!
   const pendingCount = (reviewItems?.length ?? 0) + (pendingProposals?.length ?? 0);
+  const interviewCount = interviewDay?.perguntas.filter((q) => q.estado === "pendente").length ?? 0;
 
   return (
     <Stack gap="md">
@@ -443,8 +454,21 @@ export default function AssistantAdminPanel() {
       </Paper>
 
       {/* Quatro abas internas do admin: Para revisar, Conhecimento, Histórico, WhatsApp */}
-      <Tabs defaultValue="revisao" variant="outline" radius="md">
+      <Tabs defaultValue="entrevista" variant="outline" radius="md">
         <Tabs.List mb="md">
+          <Tabs.Tab
+            value="entrevista"
+            leftSection={<IconMessageQuestion size={16} />}
+            rightSection={
+              interviewCount > 0 ? (
+                <Badge size="xs" circle>
+                  {interviewCount}
+                </Badge>
+              ) : undefined
+            }
+          >
+            Perguntas do dia
+          </Tabs.Tab>
           <Tabs.Tab
             value="revisao"
             leftSection={<IconListCheck size={16} />}
@@ -469,6 +493,10 @@ export default function AssistantAdminPanel() {
             WhatsApp
           </Tabs.Tab>
         </Tabs.List>
+
+        <Tabs.Panel value="entrevista">
+          <AdminInterviewTab />
+        </Tabs.Panel>
 
         <Tabs.Panel value="revisao">
           <AdminReviewTab />
