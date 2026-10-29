@@ -983,6 +983,31 @@ def test_backup_restore_roundtrip(client):
     assert after.json()["data"]["inventories"]["11"] == 1
 
 
+def test_restore_old_backup_completes_schema_without_restart(client):
+    """Backup de versao antiga (sem inventory_counts.contado) nao quebra o inventario."""
+    import sqlite3
+
+    _create_product(client, "Produto Restore Antigo", qtd_canoas=1, qtd_pf=0)
+    created = client.post("/inventario/sessoes", json={"nome": "Sessao antes", "location_id": 11})
+    assert created.status_code == 201
+
+    snap = client.post("/backup/criar")
+    backup_path = snap.json()["data"]["path"]
+    old = sqlite3.connect(backup_path)
+    old.execute("ALTER TABLE inventory_counts DROP COLUMN contado")
+    old.commit()
+    old.close()
+
+    restored = client.post("/backup/restaurar", json={"backup_name": os.path.basename(backup_path)})
+    assert restored.status_code == 200
+
+    sessions = client.get("/inventario/sessoes")
+    assert sessions.status_code == 200
+    session_id = sessions.json()["data"][0]["id"]
+    summary = client.get(f"/inventario/sessoes/{session_id}/resumo")
+    assert summary.status_code == 200
+
+
 def test_backup_pre_update_restore(client):
     product_id = _create_product(client, "Produto PreUpdate", qtd_canoas=2, qtd_pf=0)
 

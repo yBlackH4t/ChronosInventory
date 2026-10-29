@@ -91,6 +91,10 @@ class DatabaseConnection:
         except Exception as exc:
             raise DatabaseException(f"Erro ao conectar ao banco de dados: {exc}")
 
+    def ensure_schema(self) -> None:
+        """Completa o schema do banco ativo; usado depois de restaurar uma copia mais antiga."""
+        self._initialize_database()
+
     def _initialize_database(self) -> None:
         """
         Cria tabelas e indices necessarios.

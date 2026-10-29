@@ -617,6 +617,12 @@ class BackupService:
                 dst_conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
             except Exception:
                 pass
+            dst_conn.close()
+            dst_conn = None
+            # Copia de uma versao antiga pode nao ter colunas novas (ex.: inventory_counts.contado):
+            # completa o schema do banco ativo na hora, sem esperar reiniciar o Chronos.
+            if os.path.abspath(destination_db) == os.path.abspath(self.db_connection.get_database_path()):
+                self.db_connection.ensure_schema()
         except Exception as exc:
             raise FileOperationException(
                 f"Erro ao restaurar cópia '{source_snapshot}' para '{destination_db}': {exc}"
