@@ -26,6 +26,12 @@ Formato recomendado:
 
 
 
+## [2.7.19] - 2026-10-29
+
+### Added
+- **Fotos em lote:** em Importar > "Fotos em lote", escolha a pasta (ou arraste as fotos) e o Chronos coloca cada foto no produto pelo código no nome do arquivo: "178045.jpg" é a primeira foto e "178045_2.jpg", "178045_3.jpg"... são as extras. Antes de gravar, mostra para qual produto vai cada foto e quais arquivos não têm produto.
+- Foto que o produto já tem não entra de novo, a foto principal que o produto já tinha continua e cada produto guarda até 5 fotos. Vale também para códigos grudados no modelo ("S200G-12709880050").
+
 ## [2.7.18] - 2026-10-29
 
 ### Added

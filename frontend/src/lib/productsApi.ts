@@ -9,6 +9,8 @@ import type {
   ProductVisualItem,
   ProductImageUploadOut,
   ProductImagesUploadOut,
+  PhotoBatchItem,
+  PhotoBatchPreviewOut,
   ProductImageSetPrimaryOut,
   ProductStatusBulkIn,
   ProductStatusBulkOut,
@@ -216,6 +218,28 @@ export function createProductsApi({
           body: form,
           ...options,
         },
+        baseUrl,
+      );
+    },
+
+    async previewPhotoBatch(fileNames: string[], options: RequestInit = {}) {
+      return request<PhotoBatchPreviewOut>(
+        `/produtos/fotos-lote/previa`,
+        {
+          method: "POST",
+          body: JSON.stringify({ arquivos: fileNames }),
+          ...options,
+        },
+        baseUrl,
+      );
+    },
+
+    async importPhotoBatchFile(file: File, options: RequestInit = {}) {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      return request<PhotoBatchItem>(
+        `/produtos/fotos-lote`,
+        { method: "POST", body: form, ...options },
         baseUrl,
       );
     },

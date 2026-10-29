@@ -68,6 +68,8 @@ Observacao sobre IDs:
 - `POST /produtos/{id}/imagens` (upload multiplo via multipart `files`)
 - `PATCH /produtos/{id}/imagens/{image_id}/principal`
 - `DELETE /produtos/{id}/imagens/{image_id}`
+- `POST /produtos/fotos-lote/previa` (JSON `{"arquivos": ["178045.jpg", "178045_2.jpg"]}`: para qual produto vai cada foto, pelo codigo no nome do arquivo; nao grava)
+- `POST /produtos/fotos-lote` (multipart `file`: grava a foto em cada produto que cita o codigo; `resultados` = adicionada / ja_tinha / limite)
 
 Validacoes:
 - tipos: `image/jpeg`, `image/png`, `image/webp`

@@ -25,6 +25,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
+import PhotoBatchImport from "../components/products/PhotoBatchImport";
 import PageHeader from "../components/ui/PageHeader";
 import Panel from "../components/ui/Panel";
 import StatTile from "../components/ui/StatTile";
@@ -35,6 +36,7 @@ import { useLocations } from "../hooks/useLocations";
 const MAX_SIZE_BYTES = 50 * 1024 * 1024;
 
 export default function ImportPage() {
+  const [mode, setMode] = useState<"planilha" | "fotos">("planilha");
   const [activeStep, setActiveStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [analysisData, setAnalysisData] = useState<{
@@ -135,10 +137,27 @@ export default function ImportPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title="Importar planilha"
-        subtitle="Envie um Excel ou CSV, indique o que é cada coluna e importe produtos e saldos."
+        title={mode === "fotos" ? "Importar fotos" : "Importar planilha"}
+        subtitle={
+          mode === "fotos"
+            ? "Coloque as fotos de muitos produtos de uma vez, pelo código no nome do arquivo."
+            : "Envie um Excel ou CSV, indique o que é cada coluna e importe produtos e saldos."
+        }
       />
 
+      <SegmentedControl
+        w="fit-content"
+        value={mode}
+        onChange={(val) => setMode(val as typeof mode)}
+        data={[
+          { value: "planilha", label: "Planilha" },
+          { value: "fotos", label: "Fotos em lote" },
+        ]}
+      />
+
+      {mode === "fotos" ? (
+        <PhotoBatchImport />
+      ) : (
       <Stepper
         size="sm"
         active={activeStep}
@@ -426,6 +445,7 @@ export default function ImportPage() {
           )}
         </Stepper.Step>
       </Stepper>
+      )}
     </Stack>
   );
 }

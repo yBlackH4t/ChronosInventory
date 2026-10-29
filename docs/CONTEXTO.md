@@ -20,7 +20,8 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
 - **2.7.18 (2026-10-29, branch `claude/project-thread-3slo65`):** observações do cadastro da empresa (faz par, conjunto, substitui, código antigo) viram vínculos "pelo cadastro" na busca, no assistente e na coluna "Par do biturbo". Depois de instalar: reimportar o produtos_completos.csv na publicadora e publicar a base.
-- **Base atual da main:** 2.7.17 (#49; tags v2.7.13 a v2.7.17 pendentes, do dono). Em PR: 2.7.18 (#50). Nunca criar as tags v2.7.8 e v2.7.12. Merge e tag só pelo dono.
+- **2.7.19 (2026-10-29, branch `claude/project-thread-0jhj1z`):** fotos em lote em Importar > "Fotos em lote" (nome do arquivo = código; `178045.jpg`, `178045_2.jpg`...), sem duplicar, até 5 por produto (`app/services/photo_batch_service.py`).
+- **Base atual da main:** 2.7.18 (#50; tag v2.7.18 pendente, do dono, cobre 2.7.13 a 2.7.18). Em PR: 2.7.19. Nunca criar as tags v2.7.8 e v2.7.12. Merge e tag só pelo dono.
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.

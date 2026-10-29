@@ -126,7 +126,7 @@ export const ADMIN_NAV: NavGroup[] = [
         label: "Importar",
         to: "/importar",
         icon: IconFileImport,
-        description: "Importar planilhas de produtos e saldos",
+        description: "Importar planilhas de produtos e saldos, e fotos em lote",
       },
       {
         label: "Exportar",
