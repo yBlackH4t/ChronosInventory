@@ -38,6 +38,8 @@ class InventorySessionRecord:
     total_items: int
     counted_items: int
     divergent_items: int
+    # Itens que pedem contagem: saldo no sistema ou ja conferidos (o "0 de 0" fica fora).
+    to_count_items: int = 0
 
 
 @dataclass

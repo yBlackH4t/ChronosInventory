@@ -184,6 +184,9 @@ export function InventoryCountsTable({
                       placeholder={diverges ? "Obrigatório" : "—"}
                       disabled={!editable || !diverges}
                       aria-label="Motivo do ajuste"
+                      // Largura fixa: nome de produto longo espremia a coluna e cortava o motivo.
+                      w={210}
+                      comboboxProps={{ width: 230, position: "bottom-start" }}
                     />
                   </Table.Td>
                   <Table.Td>
@@ -199,6 +202,7 @@ export function InventoryCountsTable({
                       placeholder={diverges ? "Obrigatório" : "—"}
                       disabled={!editable || !diverges}
                       aria-label="Observação"
+                      w={240}
                     />
                   </Table.Td>
                   <Table.Td ta="right" c="dimmed" className="mono">

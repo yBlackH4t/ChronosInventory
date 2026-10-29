@@ -11,7 +11,7 @@ import dayjs from "dayjs";
 
 import type { InventorySessionOut } from "../../lib/api";
 import EmptyState from "../ui/EmptyState";
-import { sessionLocalLabel } from "../../lib/inventoryView";
+import { sessionItemsToCount, sessionLocalLabel, sessionProgress } from "../../lib/inventoryView";
 import { clickableRowProps } from "../../lib/clickableRow";
 
 type InventorySessionsTableProps = {
@@ -69,10 +69,7 @@ export function InventorySessionsTable({
                 label: session.status,
                 color: "var(--text-subtle)",
               };
-              const progress =
-                session.total_items > 0
-                  ? (session.counted_items / session.total_items) * 100
-                  : 0;
+              const progress = sessionProgress(session);
               return (
                 <Table.Tr
                   key={session.id}
@@ -119,7 +116,7 @@ export function InventorySessionsTable({
                         />
                       </div>
                       <Text size="xs" c="dimmed" className="num" w={96} ta="right">
-                        {Math.round(progress)}% · {session.counted_items}/{session.total_items}
+                        {Math.round(progress)}% · {session.counted_items}/{sessionItemsToCount(session)}
                       </Text>
                     </Group>
                   </Table.Td>

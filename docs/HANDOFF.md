@@ -420,6 +420,12 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-29 — Claude Code — 2.7.23: progresso do inventário
+- Branch: `claude/project-thread-0s9gwk`. Pedido do dono: sessão aparecia "100% contado" porque o modo bip zera tudo e "0 de 0" contava como conferido.
+- `inventory_counts.contado` (criada e preenchida em `core/database/connection.py`); `PUT /inventario/sessoes/{id}/itens` aceita `contado` (padrão true).
+- Resumo e sessão mandam `to_count_items`; "Não contados" = saldo no sistema e não contado; "Conferidos OK" só os contados.
+- Coluna Motivo em `components/inventory/InventoryCountsTable.tsx` com largura fixa.
+
 ### 2026-10-29 — Claude Code — 2.7.22: proteção de dados, bandeja e telas simples
 - Branch: `claude/project-thread-4hyxjk`. Pedido do dono depois da avaliação do sistema inteiro.
 - Pegar a base avisa o que só existe neste PC (`app/services/official_base_local_changes.py`).

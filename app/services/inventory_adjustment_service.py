@@ -39,6 +39,8 @@ class InventoryAdjustmentService:
 
                 motivo_ajuste = self.normalize_motivo_ajuste(item.get("motivo_ajuste"))
                 observacao = (item.get("observacao") or "").strip() or None
+                # Zerar o fisico no inicio do modo bip manda contado=False: nao e contagem.
+                contado = 1 if item.get("contado", True) else 0
 
                 row = cursor.execute(
                     """
@@ -63,11 +65,12 @@ class InventoryAdjustmentService:
                         divergencia = ?,
                         motivo_ajuste = ?,
                         observacao = ?,
+                        contado = ?,
                         applied_movement_id = NULL,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE session_id = ? AND produto_id = ?
                     """,
-                    (qtd_fisico, divergencia, motivo_ajuste, observacao, session_id, produto_id),
+                    (qtd_fisico, divergencia, motivo_ajuste, observacao, contado, session_id, produto_id),
                 )
 
             cursor.execute(

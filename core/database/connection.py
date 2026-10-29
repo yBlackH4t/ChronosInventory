@@ -91,6 +91,10 @@ class DatabaseConnection:
         except Exception as exc:
             raise DatabaseException(f"Erro ao conectar ao banco de dados: {exc}")
 
+    def ensure_schema(self) -> None:
+        """Completa o schema do banco ativo; usado depois de restaurar uma copia mais antiga."""
+        self._initialize_database()
+
     def _initialize_database(self) -> None:
         """
         Cria tabelas e indices necessarios.
@@ -234,6 +238,23 @@ class DatabaseConnection:
                 );
                 """
             )
+
+            # contado = item conferido de verdade (bipado ou digitado). Zerar o fisico ao iniciar
+            # o modo bip nao conta, e assim o progresso nao chega a 100% com "0 de 0".
+            cursor.execute("PRAGMA table_info(inventory_counts);")
+            count_columns = {row[1] for row in cursor.fetchall()}
+            if "contado" not in count_columns:
+                cursor.execute("ALTER TABLE inventory_counts ADD COLUMN contado INTEGER NOT NULL DEFAULT 0;")
+                # Sessoes antigas: so da para saber o que foi bipado (fisico acima de 0) ou editado.
+                cursor.execute(
+                    """
+                    UPDATE inventory_counts
+                    SET contado = 1
+                    WHERE qtd_fisico > 0 OR motivo_ajuste IS NOT NULL OR observacao IS NOT NULL
+                       OR (qtd_fisico IS NOT NULL AND session_id IN (
+                            SELECT id FROM inventory_sessions WHERE status <> 'ABERTO'))
+                    """
+                )
 
             # ── v2.1.0 Tables ────────────────────────────
             cursor.execute(

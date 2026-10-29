@@ -9,8 +9,20 @@ export function sessionLocalLabel(
   return session.location_id ? `Local #${session.location_id}` : "Sem local";
 }
 
-/** Quanto da sessão já foi contado, de 0 a 100. */
-export function sessionProgress(session: Pick<InventorySessionOut, "counted_items" | "total_items">): number {
-  if (!session.total_items) return 0;
-  return Math.min(100, Math.round((session.counted_items / session.total_items) * 100));
+/** Quantos itens pedem contagem: os com saldo no sistema e os já conferidos. */
+export function sessionItemsToCount(
+  session: Pick<InventorySessionOut, "to_count_items" | "total_items">,
+): number {
+  return session.to_count_items ?? session.total_items;
+}
+
+/** Quanto da contagem já foi feito, de 0 a 100. Item com 0 no sistema e não bipado não conta. */
+export function sessionProgress(
+  session: Pick<InventorySessionOut, "counted_items" | "to_count_items" | "total_items">,
+): number {
+  const toCount = sessionItemsToCount(session);
+  if (!toCount) return 0;
+  const percent = (session.counted_items / toCount) * 100;
+  // 100% só quando tudo foi contado de fato; 99,6% não arredonda para cima.
+  return Math.min(100, session.counted_items < toCount ? Math.floor(percent) : 100);
 }
