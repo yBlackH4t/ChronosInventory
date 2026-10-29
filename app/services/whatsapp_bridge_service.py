@@ -30,6 +30,7 @@ from typing import Any, Callable, Deque, Dict, List, Optional, Protocol, Tuple
 
 from app.services.assistant_answer_format import display_code
 from app.services.assistant_knowledge_service import check_single_code
+from app.services.assistant_spoken_numbers import spoken_digits_to_numbers
 from core.catalog.normalization import canonical_code, is_searchable_code
 from core.exceptions import ValidationException
 
@@ -236,6 +237,8 @@ class WhatsAppBridge:
                 self._note_to_self("Não consegui ler a mensagem: " + ("; ".join(problems) or "sem texto."))
                 return
             account = self._account()
+            # Codigo falado por extenso vira algarismos tambem para o atendimento (pedido em aberto).
+            parts = [spoken_digits_to_numbers(part) for part in parts]
             session, clarification = self.attendance.resolve(chat, target.sender, "\n".join(parts),
                 target.quoted_message_id, self.clock(), self.context_minutes() * 60, account)
             historico = session["historico"][-20:]

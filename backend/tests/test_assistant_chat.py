@@ -14,6 +14,7 @@ from app.services.assistant_common import MAX_TOOL_ROUNDS, NO_ANSWER_TEXT, REFUS
 from app.services.assistant_config_store import AssistantConfigStore
 from app.services.assistant_direct_service import HELP_TEXT, AssistantDirectService
 from app.services.assistant_requests import RequestItem
+from app.services.assistant_spoken_numbers import spoken_digits_to_numbers
 from app.services.assistant_tools_service import COMPACT_LIMITS
 from backend.app.api.deps import get_assistant_chat_service
 from test_assistant_tools import tools  # noqa: F401  (fixture: catalogo + produtos de teste)
@@ -266,6 +267,63 @@ def test_provider_none_answers_only_by_direct_search(tools, store):  # noqa: F81
     assert result["aviso"] is None
     assert fake.calls == []
 
+
+
+def test_code_spoken_in_words_becomes_digits(tools, store):  # noqa: F811
+    store.update(provedor="nenhum")
+    service = AssistantChatService(tools=tools, config_store=store, http_post=FakePost())
+    # "meia" = 6; o vendedor digitou o codigo como fala.
+    spoken = service.chat("tem a quatro zero três um um nove meia?")
+    assert spoken["resposta"].startswith("*4031196*: temos.")
+    mixed = service.chat("403 um um nove meia temos?")
+    assert mixed["resposta"].startswith("*4031196*: temos.")
+    pieces = service.chat("tem a quatrocentos e três, onze, noventa e seis?")
+    assert pieces["resposta"].startswith("*4031196*: temos.")
+    # Veiculo e motor falados respondem igual aos escritos com algarismos.
+    written = service.chat("temos turbina do scania 440 2015?")["resposta"]
+    assert written.startswith("Depende do motor:")
+    assert service.chat("temos turbina do scania quatrocentos e quarenta dois mil e quinze?")["resposta"] == written
+    # "essa" na mensagem seguinte usa o codigo falado da anterior.
+    historico = [{"papel": "usuario", "texto": "tem a quatro zero três um um nove meia?"},
+                 {"papel": "assistente", "texto": spoken["resposta"]}]
+    assert service.chat("temos essa daí?", historico)["resposta"].startswith("*4031196*: temos.")
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("tem a cinco quatro cinco cinco meia  zero nove?", "tem a 5455609?"),
+    ("Três-sete oito oito zero", "37880"),
+    # Virgula, quebra de linha e codigo ja escrito separam os pedidos.
+    ("tem 4031196, cinco quatro cinco cinco meia zero nove?", "tem 4031196, 5455609?"),
+    ("tem 4031196 cinco quatro cinco cinco meia zero nove?", "tem 4031196 5455609?"),
+    ("um um nove meia zero\nquatro zero tres um um", "11960\n40311"),
+    ("cinco quatro cinco cinco meia zero nove, quatro zero tres um um nove seis", "5455609, 4031196"),
+    # Numeros compostos, em pedacos.
+    ("quatrocentos e três, onze, noventa e cinco", "4031195"),
+    ("tem a quatrocentos e três onze noventa e seis?", "tem a 4031196?"),
+    ("cinco três dois sete, nove oito oito, sete um zero um", "53279887101"),
+    ("quarenta e cinco, cinquenta e cinco, sessenta, nove", "4555609"),
+    ("oitocentos e trinta e cinco mil e quinhentos", "835500"),
+    # Codigo escrito inteiro nao gruda no numero ao lado.
+    ("403 e 5455609", "403 e 5455609"),
+    # Veiculo, motor e letras falados.
+    ("scania quatrocentos e quarenta dois mil e quinze", "scania 440 2015"),
+    ("fh quinhentos e vinte", "fh 520"),
+    ("volvo fh cinco dois zero", "volvo fh 520"),
+    ("turbina do dê treze", "turbina do D 13"),
+    ("agá xis cinquenta e cinco", "HX 55"),
+    ("tem kê vinte e sete?", "tem K 27?"),
+    ("mwm quatro ponto dez", "mwm 4.10"),
+    ("dc treze euro cinco", "dc 13 euro 5"),
+    ("tem um turbo?", "tem um turbo?"),
+    ("tem dois?", "tem dois?"),
+    ("esse ele é de quem", "esse ele é de quem"),
+    ("tem uma quatro zero tres um um nove seis reman", "tem uma 4031196 reman"),
+    ("tem um turbo do scania 440?", "tem um turbo do scania 440?"),  # "um" sozinho e artigo
+    ("dois zero", "dois zero"),  # curto demais para ser codigo
+    ("4031196 e 5455609", "4031196 e 5455609"),
+])
+def test_spoken_digits_to_numbers(text, expected):
+    assert spoken_digits_to_numbers(text) == expected
 
 # ----------------------------------------------------------------------
 # Claude (API da Anthropic), com cliente simulado
