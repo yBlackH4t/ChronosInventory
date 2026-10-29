@@ -68,12 +68,18 @@ def build_code_index(products: List[Dict[str, Any]]) -> Dict[str, List[Dict[str,
 
 
 def _products_for_code(code: str, index: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    products = index.get(code, [])
-    if products or not (code.isdigit() and len(code) >= 6):
+    products = list(index.get(code, []))
+    if not (code.isdigit() and len(code) >= 6):
         return products
-    # Codigo grudado no modelo ("S200G-12709880050") nao sai como codigo do nome.
-    pattern = re.compile(rf"(?<!\d){code}(?!\d)")
-    return [p for p in index.get(_ALL_PRODUCTS, []) if pattern.search(p["nome"])]
+    # Codigo grudado no modelo ("S200G-12709880050") nao sai como codigo do nome. O numero
+    # tem que estar inteiro: "856457" nao pega "856457-009".
+    pattern = re.compile(rf"(?<!\d)(?<!\d[-./]){code}(?![-./]?\d)")
+    seen = {p["id"] for p in products}
+    for product in index.get(_ALL_PRODUCTS, []):
+        if product["id"] not in seen and pattern.search(product["nome"]):
+            products.append(product)
+            seen.add(product["id"])
+    return products
 
 
 def match_file(file_name: str, index: Dict[str, List[Dict[str, Any]]]) -> Dict[str, Any]:

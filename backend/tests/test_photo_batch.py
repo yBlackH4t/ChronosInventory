@@ -98,3 +98,14 @@ def test_code_glued_to_model_is_found(client):
     product = _create_product(client, "TURBO BORG S200G-12709880050")
     data = client.post("/produtos/fotos-lote/previa", json={"arquivos": ["12709880050.jpg"]}).json()["data"]
     assert [p["id"] for p in data["itens"][0]["produtos"]] == [product]
+
+
+def test_glued_and_spaced_codes_both_match_but_not_a_prefix(client):
+    glued = _create_product(client, "TURBO BORG S200G-12709880050")
+    spaced = _create_product(client, "TURBO BORG S200G 12709880050")
+    _create_product(client, "TURBO GARRETT 856457-009")
+    data = client.post(
+        "/produtos/fotos-lote/previa", json={"arquivos": ["12709880050.jpg", "856457.jpg"]}
+    ).json()["data"]
+    assert sorted(p["id"] for p in data["itens"][0]["produtos"]) == sorted([glued, spaced])
+    assert data["itens"][1]["status"] == "sem_produto"
