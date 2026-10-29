@@ -1241,3 +1241,11 @@ npm run lint
 - Branch: `claude/project-thread-2b8t5e`, a partir da main (2.7.15).
 - "tem a cinco quatro cinco cinco meia zero nove?" respondia "o catálogo só tem turbinas de marcas com que não trabalhamos": nenhum código com algarismos, então virava busca por veículo; e o código que a IA lia era descartado por `supported_codes`. Agora `spoken_digits_to_numbers` (`app/services/assistant_spoken_numbers.py`: dígito a dígito, números compostos, letras e veículo/motor falados) troca a sequência falada por algarismos na mensagem e no histórico do usuário (app e WhatsApp).
 - Testes: `test_code_spoken_in_words_becomes_digits`, `test_spoken_digits_to_numbers`.
+
+### 2026-10-29 — Claude Code — 2.7.17, perguntas do dia (modo entrevista da IA)
+
+- `app/services/assistant_interview_service.py`: a IA escolhe 5 dúvidas por dia (Para revisar, mesma ficha Master Power, nome do produto que junta dois códigos, aplicação do catálogo), as peças com estoque e saída primeiro, e guarda em `entrevista` no `assistente_historico.db`.
+- Respostas pelo fluxo de ensino que já existia (`AssistantTeachService`, `mark_reviewed`, "Não se aplica"); "não sei" volta em 30 dias.
+- Tela: Assistente > Admin > "Perguntas do dia" (`AdminInterviewTab.tsx`). WhatsApp: `/perguntas`, `/r`, `/confirmar <PIN>`, envio diário só no PC que publica a base.
+- Testes: `backend/tests/test_assistant_interview.py`.
+

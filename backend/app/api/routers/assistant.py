@@ -13,6 +13,7 @@ from app.services.assistant_chat_service import AssistantChatService
 from app.services.assistant_common import AssistantUnavailableError
 from app.services.assistant_daily_summary_service import AssistantDailySummaryService
 from app.services.assistant_history_service import AssistantHistoryService
+from app.services.assistant_interview_service import AssistantInterviewService
 from app.services.assistant_knowledge_service import AssistantKnowledgeService
 from app.services.assistant_knowledge_sync_service import AssistantKnowledgeSyncService
 from app.services.assistant_vision_service import MAX_IMAGE_BYTES, AssistantVisionService
@@ -22,6 +23,7 @@ from backend.app.api.deps import (
     get_assistant_chat_service,
     get_assistant_daily_summary_service,
     get_assistant_history_service,
+    get_assistant_interview_service,
     get_assistant_knowledge_service,
     get_assistant_knowledge_sync_service,
     get_assistant_vision_service,
@@ -89,6 +91,59 @@ def replace_interpretation_examples(payload: list[InterpretationExampleIn], requ
     values = sync.examples.replace([item.model_dump() for item in payload])
     sync.publish_in_background()
     return ok(values)
+
+
+# ----------------------------------------------------------------------
+# Perguntas do dia (modo entrevista): a IA pergunta ao especialista o que ela nao sabe
+# ----------------------------------------------------------------------
+
+
+class InterviewAnswerIn(BaseModel):
+    resposta: str = Field(min_length=1, max_length=20)
+    observacao: Optional[str] = Field(default=None, max_length=300)
+    codigo: Optional[str] = Field(default=None, max_length=60)
+
+
+class InterviewSettingsIn(BaseModel):
+    ativo: Optional[bool] = None
+    hora: Optional[str] = None
+    quantidade: Optional[int] = None
+
+
+def _interview_payload(interview: AssistantInterviewService, questions: list) -> dict:
+    return {"perguntas": questions, "config": interview.settings(), "texto_whatsapp": interview.build_text(questions)}
+
+
+@router.get("/entrevista")
+def interview_today(request: Request,
+                    admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                    interview: AssistantInterviewService = Depends(get_assistant_interview_service)):
+    admin.require(_admin_token(request))
+    return ok(_interview_payload(interview, interview.today()))
+
+
+@router.post("/entrevista/mais")
+def interview_more(request: Request,
+                   admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                   interview: AssistantInterviewService = Depends(get_assistant_interview_service)):
+    admin.require(_admin_token(request))
+    return ok(_interview_payload(interview, interview.more()))
+
+
+@router.post("/entrevista/{question_id}/responder")
+def interview_answer(question_id: int, payload: InterviewAnswerIn, request: Request,
+                     admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                     interview: AssistantInterviewService = Depends(get_assistant_interview_service)):
+    admin.require(_admin_token(request))
+    return ok(interview.answer(question_id, payload.resposta, payload.observacao, payload.codigo))
+
+
+@router.put("/entrevista/config")
+def interview_settings(payload: InterviewSettingsIn, request: Request,
+                       admin: AssistantAdminService = Depends(get_assistant_admin_service),
+                       interview: AssistantInterviewService = Depends(get_assistant_interview_service)):
+    admin.require(_admin_token(request))
+    return ok(interview.update_settings(ativo=payload.ativo, hora=payload.hora, quantidade=payload.quantidade))
 
 
 # ----------------------------------------------------------------------

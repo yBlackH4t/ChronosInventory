@@ -26,6 +26,13 @@ Formato recomendado:
 
 
 
+## [2.7.17] - 2026-10-29
+
+### Added
+- **Perguntas do dia (a IA pergunta para aprender):** todo dia o assistente escolhe 5 coisas que ainda não sabe e pergunta ao especialista em Assistente > Admin > "Perguntas do dia". As dúvidas saem do que perguntaram e ele não soube responder, de duas peças nossas na mesma ficha Master Power, de produtos cujo nome junta dois códigos e de aplicações do catálogo que podem estar erradas. Vem primeiro o que tem estoque e o que mais sai.
+- Responda com um toque: Igual, Similar (com observação), Diferente ou Não sei; "Qual peça serve no lugar?" aceita o código ou "Não temos"; aplicação aceita "Vai" ou "Não vai" (vira "Não se aplica"). Cada resposta vira conhecimento na hora, vai para os outros computadores e a próxima pergunta já leva isso em conta. "Não sei" volta só daqui a um mês. O saldo continua vindo do estoque.
+- No WhatsApp, as mesmas perguntas chegam na "Mensagem para mim" do computador principal, na hora escolhida (09:00 por padrão). Responda com /r 1 igual, /r 2 similar muda o atuador ou /r 3 nao sei e, no fim, /confirmar com o PIN para valer. /perguntas mostra as de hoje.
+
 ## [2.7.16] - 2026-10-29
 
 ### Fixed

@@ -1,5 +1,21 @@
 # Assistente de IA do Chronos — comece por aqui
 
+## Atualização 2.7.17 — 29/10/2026: perguntas do dia (modo entrevista)
+
+- Com a equipe pequena, pouca dúvida chega ao "Para revisar". Então a IA pergunta ao dono, todo
+  dia, 5 coisas que não sabe (Assistente > Admin > "Perguntas do dia" e "Mensagem para mim").
+- Fontes, nesta ordem: o que perguntaram e ela não soube (com a sugestão, vira "A e B são a mesma
+  peça?"; sem sugestão, "Qual peça nossa serve no lugar da X?"), dois produtos nossos na mesma
+  ficha Master Power, nome de produto que junta dois códigos e uma aplicação do catálogo por peça.
+  Peças com estoque e saída em 180 dias primeiro; no máximo 2 do mesmo tipo por dia.
+- Respostas usam o que já existia: igual/similar/diferente viram regra (`AssistantTeachService`),
+  "Não temos" conclui o código do "Para revisar", "Não vai" marca "Não se aplica". Não aprende
+  saldo. "Não sei" volta em 30 dias; as sem resposta passam para o dia seguinte.
+- WhatsApp: só no PC que publica a base, na hora configurada (09:00). `/r <nº> <resposta>` fica
+  "aguardando"; `/confirmar <PIN>` aplica tudo (o PIN protege como no `/aprovar`).
+- Código: `app/services/assistant_interview_service.py`, tabela `entrevista` no
+  `assistente_historico.db`, rotas `/assistente/entrevista*`, tela `AdminInterviewTab.tsx`.
+
 ## Atualização 2.7.5 — 26/10/2026
 
 - Branch `codex/ia-estoque-garrett`, main 2.7.4 integrada. Sem merge do PR, tag ou publicação.

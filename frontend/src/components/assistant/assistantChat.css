@@ -186,3 +186,31 @@
     opacity: 1;
   }
 }
+
+/* ==========================================================================
+   Perguntas do dia (2.7.17): a IA pergunta ao especialista. O cartão acende ao passar o
+   mouse e, respondido, fica mais apagado, para o olho ir direto ao que falta.
+   ========================================================================== */
+
+.interview-hero {
+  background:
+    radial-gradient(120% 140% at 0% 0%, var(--accent-soft), transparent 60%),
+    var(--mantine-color-body);
+}
+
+.interview-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.25s ease, transform 0.2s ease;
+}
+
+.interview-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.interview-card--done {
+  opacity: 0.72;
+}
+
+.interview-card--done:hover {
+  opacity: 1;
+}
