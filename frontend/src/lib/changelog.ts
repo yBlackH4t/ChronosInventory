@@ -10,6 +10,18 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.24",
+    "date": "2026-10-29",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Celular com três modos: no alto da tela do celular escolha Inventário (conta direto na sessão aberta, sem depender da tela do computador), Contagem (mostra o saldo por filial e soma numa lista do celular) ou NF-e (só lê a chave da DANFE e abre a nota no computador). O celular lembra o último modo.",
+      "Novo: −1 / +1 no celular: com várias peças iguais, leia uma vez e ajuste com os botões −1 e +1 ou digite a quantidade (ex.: 5). Também dá para continuar lendo peça por peça.",
+      "Novo: Digitar o código no celular: quando a etiqueta está rasgada ou não lê, digite o código (ou a chave da nota) no campo abaixo do botão da foto.",
+      "Correcao: Celular lê a etiqueta certa da caixa: a foto agora lê todos os códigos de barras da etiqueta e o Chronos fica só com o da peça. Garrett: o ITEM (876272-5017S), sem número de série e modelo. BorgWarner: 15.17559-2.A, sem EM7559, lote e EAN. Holset: 5457622, sem QTY, \"BR\" e CNPJ. Lixo como \"1\" e \"BR\" nunca é lido; se o código servir para mais de uma peça, o celular pergunta qual é.",
+      "Correcao: Tela de Inventário acompanha o celular: cada peça contada pelo celular aparece na hora na tela do computador."
+    ]
+  },
+  {
     "version": "2.7.23",
     "date": "2026-10-29",
     "title": "Correcao e estabilidade",

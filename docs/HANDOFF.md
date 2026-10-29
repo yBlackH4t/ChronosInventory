@@ -420,6 +420,12 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-29 — Claude Code — 2.7.24: celular lê a etiqueta certa e tem modos
+- Branch: `claude/project-thread-uaek4n` (sobre a 2.7.23). Pedido do dono: a foto da caixa lia o código errado (EM7559, "1", "BR") e o celular era confuso.
+- A página do celular (`backend/app/api/routers/scanner_page.py`) acha cada faixa de código de barras da foto e lê todas; `POST /api/scanner/ler` escolhe a peça pelo cadastro e pelos padrões Garrett/BorgWarner/Holset (`app/services/label_reader_service.py`).
+- Modos Inventário (`/api/scanner/inventario/...`, `InventoryService.count_one`), Contagem e NF-e; −1/+1 e quantidade digitada; a aba Inventário se atualiza pelo evento `chronos:inventario-celular` (`lib/useScanner.ts`).
+- Testes em `backend/tests/test_scanner_etiqueta.py`.
+
 ### 2026-10-29 — Claude Code — 2.7.23: progresso do inventário
 - Branch: `claude/project-thread-0s9gwk`. Pedido do dono: sessão aparecia "100% contado" porque o modo bip zera tudo e "0 de 0" contava como conferido.
 - `inventory_counts.contado` (criada e preenchida em `core/database/connection.py`); `PUT /inventario/sessoes/{id}/itens` aceita `contado` (padrão true).

@@ -61,6 +61,11 @@ class InventoryService:
     ) -> InventorySessionRecord:
         return self.adjustments.update_counts(session_id, items)
 
+    def count_one(
+        self, session_id: int, produto_id: int, delta: Optional[int] = None, quantidade: Optional[int] = None
+    ) -> dict:
+        return self.adjustments.count_one(session_id, produto_id, delta=delta, quantidade=quantidade)
+
     def close_session(self, session_id: int) -> InventorySessionRecord:
         return self.adjustments.close_session(session_id)
 

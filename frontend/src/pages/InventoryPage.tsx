@@ -24,7 +24,11 @@ import {
   saveTabState,
 } from "../state/tabStateCache";
 import { useLocations } from "../hooks/useLocations";
-import { useScanner } from "../lib/useScanner";
+import {
+  PHONE_INVENTORY_EVENT,
+  type PhoneInventoryDetail,
+  useScanner,
+} from "../lib/useScanner";
 import type {
   InventoryCountItemIn,
   InventoryCountOut,
@@ -103,6 +107,27 @@ export default function InventoryPage() {
       }
     });
   }, [listen, collectorModeActive]);
+
+  useEffect(() => {
+    const onPhoneCount = (event: Event) => {
+      const { sessionId, productId, qtdFisico } = (
+        event as CustomEvent<PhoneInventoryDetail>
+      ).detail;
+      // Edição pendente nesta tela fica com a quantidade do celular (motivo e observação ficam).
+      if (sessionId === selectedSessionId) {
+        setEdits((current) =>
+          productId in current
+            ? { ...current, [productId]: { ...current[productId], qtd_fisico: qtdFisico } }
+            : current,
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: ["inventory-session-items", sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", sessionId] });
+      void queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
+    };
+    window.addEventListener(PHONE_INVENTORY_EVENT, onPhoneCount);
+    return () => window.removeEventListener(PHONE_INVENTORY_EVENT, onPhoneCount);
+  }, [queryClient, selectedSessionId]);
 
   const sessionsQuery = useQuery<SuccessResponse<InventorySessionOut[]>>({
     queryKey: ["inventory-sessions", sessionPage],
