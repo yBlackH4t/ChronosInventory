@@ -9,7 +9,11 @@ const nfeListeners = new Set<ScannerListener>();
 let ws: WebSocket | null = null;
 // O celular contou uma peça direto na sessão de inventário: a tela aberta se atualiza.
 export const PHONE_INVENTORY_EVENT = "chronos:inventario-celular";
-export type PhoneInventoryDetail = { sessionId: number; productId: number };
+export type PhoneInventoryDetail = {
+  sessionId: number;
+  productId: number;
+  qtdFisico: number;
+};
 let reconnectTimer: number | null = null;
 
 export function useScanner() {
@@ -45,7 +49,11 @@ export function useScanner() {
             if (typeof data.inventario === "number") {
               window.dispatchEvent(
                 new CustomEvent<PhoneInventoryDetail>(PHONE_INVENTORY_EVENT, {
-                  detail: { sessionId: data.inventario, productId: Number(data.produto_id) },
+                  detail: {
+                    sessionId: data.inventario,
+                    productId: Number(data.produto_id),
+                    qtdFisico: Number(data.qtd_fisico),
+                  },
                 }),
               );
             } else if (data.code) {

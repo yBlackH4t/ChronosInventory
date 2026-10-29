@@ -110,14 +110,24 @@ export default function InventoryPage() {
 
   useEffect(() => {
     const onPhoneCount = (event: Event) => {
-      const { sessionId } = (event as CustomEvent<PhoneInventoryDetail>).detail;
+      const { sessionId, productId, qtdFisico } = (
+        event as CustomEvent<PhoneInventoryDetail>
+      ).detail;
+      // Edição pendente nesta tela fica com a quantidade do celular (motivo e observação ficam).
+      if (sessionId === selectedSessionId) {
+        setEdits((current) =>
+          productId in current
+            ? { ...current, [productId]: { ...current[productId], qtd_fisico: qtdFisico } }
+            : current,
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: ["inventory-session-items", sessionId] });
       void queryClient.invalidateQueries({ queryKey: ["inventory-session-summary", sessionId] });
       void queryClient.invalidateQueries({ queryKey: ["inventory-sessions"] });
     };
     window.addEventListener(PHONE_INVENTORY_EVENT, onPhoneCount);
     return () => window.removeEventListener(PHONE_INVENTORY_EVENT, onPhoneCount);
-  }, [queryClient]);
+  }, [queryClient, selectedSessionId]);
 
   const sessionsQuery = useQuery<SuccessResponse<InventorySessionOut[]>>({
     queryKey: ["inventory-sessions", sessionPage],

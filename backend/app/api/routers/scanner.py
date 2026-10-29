@@ -192,7 +192,7 @@ async def count_from_phone(
     item["contados"] = session.counted_items
     item["total_itens"] = session.to_count_items
     # A tela de Inventario aberta no computador se atualiza sozinha.
-    await _broadcast({"inventario": session_id, "produto_id": payload.produto_id})
+    await _broadcast({"inventario": session_id, "produto_id": payload.produto_id, "qtd_fisico": item["qtd_fisico"]})
     return item
 
 

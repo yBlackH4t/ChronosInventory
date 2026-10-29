@@ -439,10 +439,11 @@ SCANNER_PAGE = r"""
             renderSessionProgress();
             renderList();
         }
-        function renderSessionProgress(contados, total) {
-            const s = sessions.find((item) => item.id === sessionId);
+        function renderSessionProgress(contados, total, sid) {
+            const s = sessions.find((item) => item.id === (sid || sessionId));
             if (!s) return;
             if (contados !== undefined) { s.counted_items = contados; s.total_items = total; }
+            if (s.id !== sessionId) return;
             $('session-progress').textContent = `${s.counted_items.toLocaleString('pt-BR')} de ${s.total_items.toLocaleString('pt-BR')} itens contados`;
         }
         $('session-select').addEventListener('change', (event) => {
@@ -574,17 +575,20 @@ SCANNER_PAGE = r"""
         }
 
         async function countInventory(item, delta, absolute) {
-            if (!sessionId) { setStatus('Escolha a sessão de inventário primeiro.', 'error'); playBeep(false); return; }
+            // A sessao e fixada antes da chamada: trocar a sessao no meio nao mistura as contagens.
+            const sid = item.sessao || sessionId;
+            if (!sid) { setStatus('Escolha a sessão de inventário primeiro.', 'error'); playBeep(false); return; }
             try {
                 const body = { produto_id: item.id };
                 if (absolute !== undefined) body.quantidade = absolute; else body.delta = delta;
-                const data = await api(`/inventario/${sessionId}/contar`, body);
-                let row = invDone.find((t) => t.sessao === sessionId && t.id === item.id);
-                if (!row) { row = { sessao: sessionId, id: item.id }; }
+                const data = await api(`/inventario/${sid}/contar`, body);
+                let row = invDone.find((t) => t.sessao === sid && t.id === item.id);
+                if (!row) { row = { sessao: sid, id: item.id }; }
                 Object.assign(row, { nome: data.nome, qtd: data.qtd_fisico, sistema: data.qtd_sistema, codigo: item.codigo });
                 invDone = [row, ...invDone.filter((t) => t !== row)];
                 saveLists();
-                renderSessionProgress(data.contados, data.total_itens);
+                renderSessionProgress(data.contados, data.total_itens, sid);
+                if (sid !== sessionId || mode !== 'inventario') return;
                 renderList('p' + row.id);
                 showCounter(row, 'inventario');
                 setStatus(`Contado: ${data.qtd_fisico}`, 'ok');
