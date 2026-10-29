@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 
 from app.services.image_service import ImageService
 from app.services.movement_service import MovementService
+from app.services.photo_batch_service import PhotoBatchService
 from app.services.product_columns_service import ProductColumnsService
 from app.services.stock_service import StockService
 from backend.app.api.deps import get_image_service, get_movement_service, get_stock_service
@@ -23,6 +24,9 @@ from backend.app.schemas.product import (
     ProductImageSetPrimaryOut,
     ProductImageUploadOut,
     ProductImagesUploadOut,
+    PhotoBatchItem,
+    PhotoBatchPreviewIn,
+    PhotoBatchPreviewOut,
     ProductOut,
     ProductPatch,
     ProductStatusBulkIn,
@@ -367,6 +371,26 @@ def list_product_images(
             max_images=image_service.MAX_IMAGES_PER_PRODUCT,
         )
     )
+
+
+@router.post("/fotos-lote/previa", response_model=SuccessResponse[PhotoBatchPreviewOut])
+def preview_photo_batch(
+    payload: PhotoBatchPreviewIn,
+    image_service: ImageService = Depends(get_image_service),
+) -> SuccessResponse[PhotoBatchPreviewOut]:
+    """Para qual produto vai cada foto da pasta (pelo nome do arquivo), sem gravar nada."""
+    return ok(PhotoBatchPreviewOut(**PhotoBatchService(image_service).preview(payload.arquivos)))
+
+
+@router.post("/fotos-lote", response_model=SuccessResponse[PhotoBatchItem])
+async def import_photo_batch_file(
+    file: UploadFile = File(...),
+    image_service: ImageService = Depends(get_image_service),
+) -> SuccessResponse[PhotoBatchItem]:
+    """Uma foto da pasta: vai para os produtos do codigo do nome do arquivo."""
+    contents = await file.read()
+    item = PhotoBatchService(image_service).import_file(file.filename or "", contents)
+    return ok(PhotoBatchItem(**item))
 
 
 @router.post("/{product_id}/imagem", response_model=SuccessResponse[ProductImageUploadOut])

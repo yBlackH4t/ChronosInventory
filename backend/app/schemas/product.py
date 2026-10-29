@@ -202,3 +202,32 @@ class ProductColumnsOut(BaseModel):
     aplicacoes: list[str] = Field(default_factory=list)
     codigos_possiveis: list[str] = Field(default_factory=list)
     produtos_omitidos: int = 0
+
+
+class PhotoBatchPreviewIn(BaseModel):
+    arquivos: list[str] = Field(default_factory=list, max_length=5000)
+
+
+class PhotoBatchProduct(BaseModel):
+    id: int
+    nome: str
+
+
+class PhotoBatchResult(BaseModel):
+    produto_id: int
+    resultado: Literal["adicionada", "ja_tinha", "limite"]
+
+
+class PhotoBatchItem(BaseModel):
+    arquivo: str
+    codigo: str
+    numero: int
+    status: Literal["ok", "sem_codigo", "sem_produto", "nao_e_imagem", "muitos_produtos"]
+    produtos: list[PhotoBatchProduct] = Field(default_factory=list)
+    resultados: list[PhotoBatchResult] = Field(default_factory=list)
+
+
+class PhotoBatchPreviewOut(BaseModel):
+    itens: list[PhotoBatchItem]
+    arquivos_ok: int
+    produtos: int

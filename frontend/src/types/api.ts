@@ -276,6 +276,31 @@ export type ProductImagesUploadOut = {
   max_images: number;
 };
 
+export type PhotoBatchStatus =
+  | "ok"
+  | "sem_codigo"
+  | "sem_produto"
+  | "nao_e_imagem"
+  | "muitos_produtos";
+
+export type PhotoBatchItem = {
+  arquivo: string;
+  codigo: string;
+  numero: number;
+  status: PhotoBatchStatus;
+  produtos: { id: number; nome: string }[];
+  resultados: {
+    produto_id: number;
+    resultado: "adicionada" | "ja_tinha" | "limite";
+  }[];
+};
+
+export type PhotoBatchPreviewOut = {
+  itens: PhotoBatchItem[];
+  arquivos_ok: number;
+  produtos: number;
+};
+
 export type ProductImageSetPrimaryOut = {
   id: number;
   message: string;

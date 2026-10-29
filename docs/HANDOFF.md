@@ -1257,3 +1257,9 @@ npm run lint
 - Aba Produtos: coluna `par` ("Par do biturbo", sem botão de vincular); conjunto e substituto do cadastro nas colunas de conjunto e similares.
 - Precisa reimportar o produtos_completos.csv na máquina que publica a base e depois "Publicar base".
 - Testes: `test_reads_pair_core_replacement_and_old_code`, `test_search_shows_the_biturbo_pair_and_the_core`.
+
+### 2026-10-29 — Claude Code — 2.7.19, fotos em lote
+- Branch: `claude/project-thread-0jhj1z`, a partir da main (2.7.18).
+- `app/services/photo_batch_service.py`: o nome do arquivo é o código (`178045.jpg`, `178045_2.jpg`, `178045 (3).jpg`, `178045-4.jpg`; sufixo de até 2 dígitos, para não cortar `856457-009`). Vai para todo produto cujo nome cita o código exato (`codes_cited_in_name`, sem nova/reman), com busca de reserva pelo número grudado no modelo (`S200G-12709880050`). Código em mais de 5 produtos fica de fora (kit). Não duplica (sha1 da foto já normalizada), respeita o limite de 5 e não troca a principal que o produto já tinha.
+- Rotas `POST /produtos/fotos-lote/previa` e `POST /produtos/fotos-lote`. Tela: Importar > "Fotos em lote" (`PhotoBatchImport.tsx`): pasta inteira ou arrastar, prévia (arquivo -> produto, sem produto), envio uma a uma com barra de progresso.
+- Testes: `backend/tests/test_photo_batch.py`.
