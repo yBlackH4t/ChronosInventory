@@ -26,6 +26,11 @@ Formato recomendado:
 
 
 
+## [2.7.16] - 2026-10-29
+
+### Fixed
+- **Assistente entende código falado por extenso:** "tem a cinco quatro cinco cinco meia zero nove?" agora vira 5455609 ("meia" = 6), no app e no WhatsApp. Vale também para código metade em número e metade por extenso, como "403 um um nove cinco". Antes a pergunta virava busca por veículo e a resposta não tinha nada a ver. "Uma turbina", "duas peças" e números curtos continuam como estão.
+
 ## [2.7.15] - 2026-10-28
 
 ### Added

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from typing import Any, Dict, List, Optional
 
 MAX_TOOL_ROUNDS = 6
@@ -134,6 +135,55 @@ def collect_products(output: Dict[str, Any], found: Dict[int, Dict[str, Any]]) -
         }
         if product.get("montada_no_conjunto"):
             found[int(product["id"])]["montada_no_conjunto"] = product["montada_no_conjunto"]
+
+
+# Codigo falado por extenso ("cinco quatro cinco cinco meia zero nove" = 5455609). "Uma" e
+# "duas" ficam de fora: na fala sao quantidade ou artigo ("uma turbina", "duas pecas").
+SPOKEN_DIGITS = {
+    "ZERO": "0", "UM": "1", "DOIS": "2", "TRES": "3", "QUATRO": "4", "CINCO": "5",
+    "SEIS": "6", "MEIA": "6", "SETE": "7", "OITO": "8", "NOVE": "9",
+}
+MIN_SPOKEN_DIGIT_WORDS = 2
+MIN_SPOKEN_CODE_DIGITS = 5
+_SPOKEN_TOKEN = re.compile(r"[^\W\d_]+|\d+")
+_SPOKEN_GAP = re.compile(r"[\s,\-]+")
+
+
+def _spoken_digit(token: str) -> Optional[str]:
+    if token.isdigit():
+        return token
+    plain = unicodedata.normalize("NFKD", token).encode("ascii", "ignore").decode().upper()
+    return SPOKEN_DIGITS.get(plain)
+
+
+def spoken_digits_to_numbers(text: str) -> str:
+    """
+    Troca o codigo falado por extenso pelos algarismos: "tem a cinco quatro cinco cinco meia
+    zero nove?" -> "tem a 5455609?"; "403 um um nove cinco" -> "4031195". So junta uma sequencia
+    com pelo menos 2 numeros por extenso e 5 digitos: "um turbo", "dois zero" ficam como estao.
+    """
+    if not text:
+        return text
+    runs: List[List[Any]] = []
+    previous_end = None
+    for match in _SPOKEN_TOKEN.finditer(text):
+        digit = _spoken_digit(match.group())
+        if digit is None:
+            previous_end = None
+            continue
+        joined_to_previous = previous_end is not None and _SPOKEN_GAP.fullmatch(text[previous_end:match.start()])
+        if joined_to_previous:
+            runs[-1].append((match, digit))
+        else:
+            runs.append([(match, digit)])
+        previous_end = match.end()
+    for run in reversed(runs):
+        words = sum(1 for match, _ in run if not match.group().isdigit())
+        digits = "".join(digit for _, digit in run)
+        if words < MIN_SPOKEN_DIGIT_WORDS or len(digits) < MIN_SPOKEN_CODE_DIGITS:
+            continue
+        text = text[:run[0][0].start()] + digits + text[run[-1][0].end():]
+    return text
 
 
 def _normalize(text: str) -> str:
