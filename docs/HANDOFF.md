@@ -420,6 +420,15 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-28 — Claude Code — Release mais rápido (testes em paralelo)
+- Branch: `claude/project-thread-1tkomm`. Pedido: o release ainda demora (2.7.11: 12 min, testes do
+  backend 3 min 39 s com 347 testes).
+- `pytest-xdist` (`-n auto`) no release e no CI: 54 s → 19 s no Linux, sem mudar nenhum teste.
+- `release.yml` em 4 jobs: `backend-tests` (Windows), `frontend-tests` (lint + vitest, Ubuntu) e
+  `build` rodam juntos; `build` guarda os arquivos como artefato e `publish` só cria a GitHub
+  Release se os três passarem. O instalador não muda.
+- Aviso "eslint@9 deprecated": só aviso; ESLint 10 fica para outro momento.
+
 ### 2026-10-28 — Claude — Aviso de remessa SC x RS no WhatsApp (2.7.15)
 - Branch `claude/project-thread-37xwog`. Nota entre matriz e filial com natureza de remessa/transferência
   (ou CFOP x152/x949) vira `remessa_interna`: cada item tem Estoque, Serviço, Casco ou Garantia (lembrado

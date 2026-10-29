@@ -35,7 +35,7 @@ jobs:
         run: ruff check .
 
       - name: Run backend tests
-        run: python -m pytest -q
+        run: python -m pytest -q -n auto
 
   frontend-build:
     runs-on: ubuntu-latest
