@@ -140,6 +140,8 @@ Regras:
 - `POST /backup/base-oficial/aplicar` e `/backup/base-oficial-servidor/aplicar`: depois de trocar o banco, devolvem as fotos desta maquina aos produtos que ficaram sem foto (`fotos_mantidas`, `produtos_com_fotos_mantidas`).
 - 2.7.22: `POST /backup/base-oficial/aplicar` e `/backup/base-oficial-servidor/aplicar` respondem 409 `lancamentos_locais` (detalhes: `movimentacoes`, `produtos`, `exemplos`) quando este computador tem lancamentos que a base nao tem; repita com `?descartar_lancamentos_locais=true` para confirmar. A resposta traz `lancamentos_locais_descartados`.
 - 2.7.22: `POST /api/scanner/barcode` vindo da rede exige o cabecalho `X-Chronos-Pareamento` (codigo do QR; `GET /api/scanner/ip` so o devolve para este computador) e devolve `produtos` com o saldo por filial.
+- 2.7.24: `POST /api/scanner/ler` recebe `{"codigos": [...]}` (todos os codigos de barras da foto) e devolve `situacao` (`produto`, `escolher`, `nenhum` ou `nf`), `produtos` (id, nome, codigo_lido, total, locais), `chave`, `ignorados` e `sugestao`. Escolhe o codigo da peca: etiqueta CI-<id>, depois codigo do nome do produto, modelo so se nada mais bater; "1", "BR", links, EAN e CNPJ nunca viram leitura (`app/services/label_reader_service.py`).
+- 2.7.24: `GET /api/scanner/inventario/sessoes` lista as sessoes abertas; `POST /api/scanner/inventario/{id}/contar` com `{"produto_id", "delta"}` (+1/-1) ou `{"produto_id", "quantidade"}` conta direto na sessao (marca `contado`) e avisa a tela pelo WebSocket (`{"inventario": id, "produto_id"}`). Os dois exigem o pareamento como o `/barcode`.
 - `POST /import/excel`
 - `POST /export/produtos` (stream `.xlsx`)
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)

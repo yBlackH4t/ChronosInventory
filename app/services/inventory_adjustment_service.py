@@ -89,6 +89,65 @@ class InventoryAdjustmentService:
         finally:
             conn.close()
 
+    def count_one(
+        self,
+        session_id: int,
+        produto_id: int,
+        delta: Optional[int] = None,
+        quantidade: Optional[int] = None,
+    ) -> dict:
+        """
+        Contagem pelo celular: soma (delta +1/-1) ou define a quantidade de um item.
+        Item ainda nao contado comeca do zero; motivo e observacao ficam como estavam.
+        """
+        conn = self.db.get_connection()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            self.session_service.ensure_session_open(conn, session_id)
+            row = conn.execute(
+                """
+                SELECT c.qtd_sistema, c.qtd_fisico, c.motivo_ajuste, p.nome
+                FROM inventory_counts c
+                JOIN produtos p ON p.id = c.produto_id
+                WHERE c.session_id = ? AND c.produto_id = ?
+                """,
+                (session_id, produto_id),
+            ).fetchone()
+            if not row:
+                raise ValidationException("Esta peça não está nesta sessão de inventário.")
+            atual = row["qtd_fisico"]
+            if quantidade is not None:
+                novo = int(quantidade)
+            else:
+                novo = int(atual or 0) + int(delta or 0)
+            novo = max(0, novo)
+            qtd_sistema = int(row["qtd_sistema"])
+            divergencia = novo - qtd_sistema
+            motivo = row["motivo_ajuste"] if divergencia != 0 else None
+            conn.execute(
+                """
+                UPDATE inventory_counts
+                SET qtd_fisico = ?, divergencia = ?, motivo_ajuste = ?, contado = 1,
+                    applied_movement_id = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE session_id = ? AND produto_id = ?
+                """,
+                (novo, divergencia, motivo, session_id, produto_id),
+            )
+            conn.execute("UPDATE inventory_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?", (session_id,))
+            conn.commit()
+            return {
+                "produto_id": int(produto_id),
+                "nome": str(row["nome"]),
+                "qtd_sistema": qtd_sistema,
+                "qtd_fisico": novo,
+                "divergencia": divergencia,
+            }
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def close_session(self, session_id: int):
         conn = self.db.get_connection()
         cursor = conn.cursor()
