@@ -625,6 +625,7 @@ export type OfficialBaseApplyOut = {
   restart_required: boolean;
   fotos_mantidas?: number;
   produtos_com_fotos_mantidas?: number;
+  lancamentos_locais_descartados?: number;
 };
 
 export type LocalShareServerOut = {

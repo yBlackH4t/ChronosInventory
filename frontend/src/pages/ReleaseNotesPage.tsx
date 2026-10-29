@@ -1,4 +1,5 @@
 import { Badge, Group, List, Stack, Text } from "@mantine/core";
+import { IconSparkles } from "@tabler/icons-react";
 
 import PageHeader from "../components/ui/PageHeader";
 import { RELEASE_ENTRIES } from "../lib/changelog";
@@ -7,6 +8,7 @@ export default function ReleaseNotesPage() {
   return (
     <Stack gap="lg" maw={860}>
       <PageHeader
+        icon={IconSparkles}
         title="Novidades"
         subtitle="Histórico de mudanças do Chronos Inventory."
       />

@@ -1,14 +1,9 @@
 import { useEffect } from "react";
-import { Button, Group, Stack, Text } from "@mantine/core";
-import { modals } from "@mantine/modals";
+import { Button, Group, Text } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { api } from "../lib/apiClient";
-import { isTauri } from "../lib/tauri";
-import {
-  getReleaseNotesFromManifest,
-  getReleaseNotesPreview,
-} from "../lib/updaterNotes";
 
+import { openUpdateDialog } from "../components/shell/openUpdateDialog";
+import { isTauri } from "../lib/tauri";
 
 export function useTauriUpdater() {
   useEffect(() => {
@@ -16,138 +11,26 @@ export function useTauriUpdater() {
     if (!isTauri()) return;
 
     let cancelled = false;
-    
 
     const run = async () => {
       try {
         const updater = await import("@tauri-apps/plugin-updater");
-        const process = await import("@tauri-apps/plugin-process");
-
-        
-
         const update = await updater.check();
-        if (cancelled) return;
-
-        if (!update) {
-          return;
-        }
-
-        const version = update.version ?? "nova";
-        const notes = getReleaseNotesFromManifest(
-          { body: update.body },
-        );
-        const notesPreview = getReleaseNotesPreview(notes);
-
-        const installNow = async (notificationId: string) => {
-          let backupCreated = false;
-          try {
-            await api.backupCreatePreUpdate();
-            backupCreated = true;
-            notifications.update({
-              id: notificationId,
-              title: "Atualizando...",
-              message: "Baixando e instalando a nova versão.",
-              loading: true,
-              autoClose: false,
-            });
-            await update.download();
-            // Fecha o backend antes de instalar: senao ele fica rodando com a versao antiga e
-            // segura a porta 8000 ("Atualização incompleta" na 2.4.0).
-            try {
-              const { invoke } = await import("@tauri-apps/api/core");
-              await invoke("kill_backend");
-            } catch (e) {
-              console.error("Falha ao fechar o backend antes do update:", e);
-            }
-            await update.install();
-            await process.relaunch();
-          } catch (err) {
-            const message =
-              err instanceof Error ? err.message : "Erro inesperado";
-            notifications.update({
-              id: notificationId,
-              title: "Falha ao atualizar",
-              message,
-              color: "danger",
-              loading: false,
-              autoClose: false,
-            });
-            if (backupCreated) {
-              modals.openConfirmModal({
-                title: "Voltar aos dados de antes da atualização?",
-                children: (
-                  <Text size="sm">
-                    A instalação falhou. Deseja restaurar automaticamente o
-                    cópia de segurança feita antes de atualizar?
-                  </Text>
-                ),
-                labels: { confirm: "Restaurar", cancel: "Depois" },
-                confirmProps: { color: "warning" },
-                onConfirm: async () => {
-                  try {
-                    await api.backupRestorePreUpdate();
-                    notifications.show({
-                      title: "Dados restaurados",
-                      message: "Dados de antes da atualização restaurados.",
-                      color: "success",
-                    });
-                  } catch (restoreError) {
-                    const restoreMessage =
-                      restoreError instanceof Error
-                        ? restoreError.message
-                        : "Erro inesperado";
-                    notifications.show({
-                      title: "Falha ao restaurar",
-                      message: restoreMessage,
-                      color: "danger",
-                    });
-                  }
-                },
-              });
-            }
-          }
-        };
+        if (cancelled || !update) return;
 
         const id = notifications.show({
-          title: "Nova versão disponível",
+          title: "Nova versão do Chronos",
           message: (
             <Group gap="xs" wrap="wrap">
-              <Text size="sm">
-                Atualizacao {version} disponivel. {notesPreview}
-              </Text>
+              <Text size="sm">A versão {update.version} está pronta para instalar.</Text>
               <Button
                 size="xs"
-                variant="default"
-                onClick={async () => {
-                  modals.openConfirmModal({
-                    title: `Nova versão ${version}`,
-                    children: (
-                      <Stack gap="xs">
-                        <Text size="sm">
-                          Deseja instalar esta atualização agora?
-                        </Text>
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          style={{
-                            whiteSpace: "pre-wrap",
-                            maxHeight: 260,
-                            overflowY: "auto",
-                          }}
-                        >
-                          {notes}
-                        </Text>
-                      </Stack>
-                    ),
-                    labels: { confirm: "Atualizar agora", cancel: "Depois" },
-                    onConfirm: () => installNow(id),
-                  });
+                onClick={() => {
+                  notifications.hide(id);
+                  openUpdateDialog(update);
                 }}
               >
-                Ver detalhes
-              </Button>
-              <Button size="xs" onClick={() => installNow(id)}>
-                Atualizar agora
+                Atualizar
               </Button>
             </Group>
           ),
@@ -163,7 +46,6 @@ export function useTauriUpdater() {
 
     return () => {
       cancelled = true;
-      
     };
   }, []);
 }

@@ -51,7 +51,7 @@ class OfficialBasePublicationHelper:
             Path(latest_zip_path).parent.mkdir(parents=True, exist_ok=True)
             Path(history_zip_path).parent.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
-            raise FileOperationException(f"Nao foi possivel preparar o destino da base oficial: {exc}") from exc
+            raise FileOperationException(f"Não foi possível preparar o destino da base oficial: {exc}") from exc
 
         with tempfile.TemporaryDirectory(prefix="chronos_official_base_publish_") as tmp_dir:
             snapshot_path = os.path.join(tmp_dir, DB_NAME)
@@ -98,7 +98,7 @@ class OfficialBasePublicationHelper:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception as exc:
-            raise ValidationException(f"Manifesto da base oficial invalido: {exc}") from exc
+            raise ValidationException(f"Manifesto da base oficial inválido: {exc}") from exc
 
         return self.parse_manifest_payload(data)
 
@@ -128,7 +128,7 @@ class OfficialBasePublicationHelper:
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 if DB_NAME not in zf.namelist():
-                    raise ValidationException(f"A base oficial nao contem '{DB_NAME}'.")
+                    raise ValidationException(f"A base oficial não contém '{DB_NAME}'.")
                 with zf.open(DB_NAME) as src, open(extracted_path, "wb") as dst:
                     dst.write(src.read())
         except ValidationException:
@@ -155,7 +155,7 @@ class OfficialBasePublicationHelper:
             self.ensure_path_under_root(target_str, allowed_root)
 
         if not allow_missing and not manifest_obj.exists():
-            raise ValidationException("A publicacao selecionada nao foi encontrada.")
+            raise ValidationException("A publicação selecionada não foi encontrada.")
 
         try:
             if manifest_obj.exists():
@@ -163,7 +163,7 @@ class OfficialBasePublicationHelper:
             if zip_obj.exists():
                 zip_obj.unlink()
         except Exception as exc:
-            raise FileOperationException(f"Nao foi possivel excluir a base publicada: {exc}") from exc
+            raise FileOperationException(f"Não foi possível excluir a base publicada: {exc}") from exc
 
         return {
             "manifest_deleted": not manifest_obj.exists(),
@@ -177,7 +177,7 @@ class OfficialBasePublicationHelper:
         try:
             target.relative_to(history_dir)
         except ValueError as exc:
-            raise ValidationException("Apenas publicacoes do historico podem ser excluidas por item.") from exc
+            raise ValidationException("Apenas publicações do histórico podem ser excluídas por item.") from exc
         return target
 
     def ensure_path_under_root(self, target_path: str, base_dir: str) -> None:
@@ -186,7 +186,7 @@ class OfficialBasePublicationHelper:
         try:
             target.relative_to(root)
         except ValueError as exc:
-            raise ValidationException("Caminho de publicacao invalido para exclusao.") from exc
+            raise ValidationException("Caminho de publicação inválido para exclusão.") from exc
 
     def read_database_summary(self, db_path: str) -> Dict[str, int]:
         summary = {
@@ -245,5 +245,5 @@ class OfficialBasePublicationHelper:
         if not text:
             return None
         if len(text) > max_length:
-            raise ValidationException("Valor excede o tamanho maximo permitido.")
+            raise ValidationException("Valor excede o tamanho máximo permitido.")
         return text

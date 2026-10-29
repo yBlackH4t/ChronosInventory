@@ -198,7 +198,12 @@ export default function AssistantPage() {
       style={{ flexDirection: "column" }}
     >
       <Group justify="space-between" mb="xs">
-        <Title order={3}>Assistente de IA</Title>
+        <Group gap="sm" wrap="nowrap">
+          <span className="ts-header-icon" aria-hidden="true">
+            <IconMessageChatbot size={24} stroke={1.6} />
+          </span>
+          <Title order={3}>Assistente de IA</Title>
+        </Group>
         {activeTab === "chat" && (
           <Group gap="xs">
             <SuggestProposalButton />
@@ -265,11 +270,20 @@ export default function AssistantPage() {
             <ScrollArea viewportRef={scrollRef} style={{ flex: 1, paddingRight: "10px" }} offsetScrollbars>
               <Stack gap="md" pb="sm">
                 {messages.length === 0 ? (
-                  <Stack align="center" mt="xl" gap="sm">
-                    <Text c="dimmed">O que você gostaria de saber?</Text>
-                    <Group justify="center">
+                  <Stack align="center" mt="xl" gap="md">
+                    <span className="ts-orb" aria-hidden="true">
+                      <IconMessageChatbot size={30} stroke={1.5} />
+                    </span>
+                    <Text fw={600}>O que você gostaria de saber?</Text>
+                    <Group justify="center" className="ts-suggestions">
                       {suggestions.map((suggestion, idx) => (
-                        <Button key={idx} variant="default" size="sm" onClick={() => handleSuggestionClick(suggestion)}>
+                        <Button
+                          key={idx}
+                          variant="default"
+                          size="sm"
+                          style={{ animationDelay: `${120 + idx * 70}ms` }}
+                          onClick={() => handleSuggestionClick(suggestion)}
+                        >
                           {suggestion}
                         </Button>
                       ))}

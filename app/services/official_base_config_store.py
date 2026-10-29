@@ -170,7 +170,7 @@ class OfficialBaseConfigStore:
     def normalize_role(self, role: str) -> str:
         value = str(role or "").strip().lower()
         if value not in self.allowed_roles:
-            raise ValidationException("Papel invalido. Use 'publisher' ou 'consumer'.")
+            raise ValidationException("Papel inválido. Use 'publisher' ou 'consumer'.")
         return value
 
     def normalize_machine_label(self, machine_label: Optional[str]) -> str:

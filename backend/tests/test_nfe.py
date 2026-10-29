@@ -81,7 +81,7 @@ def test_scanning_the_danfe_previews_and_writes_off_the_items(client, tmp_path):
 
     # A mesma nota nao baixa duas vezes.
     again = client.post(f"/nfe/{CHAVE}/baixa", json=body)
-    assert again.status_code == 400 and "ja foi baixada" in again.json()["error"]["message"]
+    assert again.status_code == 400 and "já foi baixada" in again.json()["error"]["message"]
     assert _stock(client, turbo) == 1
     assert client.get(f"/nfe/{CHAVE}").json()["data"]["ja_baixada"]["tipo"] == "SAIDA"
 
@@ -119,7 +119,7 @@ def test_not_found_cancelled_and_insufficient_stock(client, tmp_path):
 
     missing = _fix_dv("43261003897158000285550020000999991821211020")
     response = client.get(f"/nfe/{missing}")
-    assert response.status_code == 404 and "nao encontrado" in response.json()["error"]["message"]
+    assert response.status_code == 404 and "não encontrado" in response.json()["error"]["message"]
 
     (vendas / f"110111{CHAVE}01-procEventoNFe.xml").write_bytes(
         f"<procEventoNFe><evento><infEvento><chNFe>{CHAVE}</chNFe><tpEvento>110111</tpEvento>"
@@ -237,7 +237,7 @@ def test_sefaz_answers_are_explained(client, tmp_path, monkeypatch):
     monkeypatch.setattr(nfe_sefaz, "download_nfe", lambda *a, **k: next(answers))
 
     resumo = client.get(f"/nfe/{ENTRADA}")
-    assert resumo.status_code == 400 and "ciencia da operacao" in resumo.json()["error"]["message"]
+    assert resumo.status_code == 400 and "ciência da operação" in resumo.json()["error"]["message"]
     blocked = client.get(f"/nfe/{ENTRADA}")
     assert blocked.status_code == 404 and "Espere 1 hora" in blocked.json()["error"]["message"]
 

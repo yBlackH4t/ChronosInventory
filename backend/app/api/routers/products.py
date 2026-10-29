@@ -68,7 +68,7 @@ def _parse_sort(sort: str | None) -> tuple[str, str]:
 
     allowed = {"id", "nome", "total_stock"}
     if field not in allowed:
-        raise ValidationException("Parametro 'sort' invalido.")
+        raise ValidationException("Parâmetro 'sort' inválido.")
 
     return field, direction
 
@@ -82,14 +82,14 @@ def _parse_movement_sort(sort: str | None) -> tuple[str, str]:
 
     allowed = {"data", "tipo", "quantidade", "id"}
     if field not in allowed:
-        raise ValidationException("Parametro 'sort' invalido.")
+        raise ValidationException("Parâmetro 'sort' inválido.")
 
     return field, direction
 
 
 def _validate_upload_file(file: UploadFile, contents: bytes) -> None:
     if file.content_type not in _ALLOWED_IMAGE_TYPES:
-        raise ValidationException("Tipo de imagem invalido. Use JPEG, PNG ou WEBP.")
+        raise ValidationException("Tipo de imagem inválido. Use JPEG, PNG ou WEBP.")
     if not contents:
         raise ValidationException("Arquivo vazio.")
     if len(contents) > _MAX_IMAGE_SIZE:
@@ -187,9 +187,9 @@ def products_visual_summary(
     try:
         product_ids = list(dict.fromkeys(int(part) for part in ids.split(",") if part.strip()))
     except ValueError as exc:
-        raise ValidationException("ids invalidos.") from exc
+        raise ValidationException("ids inválidos.") from exc
     if len(product_ids) > 100:
-        raise ValidationException("No maximo 100 produtos por vez.")
+        raise ValidationException("No máximo 100 produtos por vez.")
     weekly = movement_service.get_weekly_saidas(product_ids, date.today(), weeks=13)
     items = []
     for pid in product_ids:
@@ -336,7 +336,7 @@ def get_product_image(
 ) -> SuccessResponse[ProductImageOut]:
     image_bytes = image_service.get_photo_bytes(product_id)
     if not image_bytes:
-        raise HTTPException(status_code=404, detail="Imagem nao encontrada.")
+        raise HTTPException(status_code=404, detail="Imagem não encontrada.")
 
     encoded = base64.b64encode(image_bytes).decode("ascii")
     return ok(ProductImageOut(image_base64=encoded))
@@ -459,7 +459,7 @@ def set_primary_product_image(
 ) -> SuccessResponse[ProductImageSetPrimaryOut]:
     changed = image_service.set_primary_photo(product_id, image_id)
     if not changed:
-        raise HTTPException(status_code=404, detail="Imagem nao encontrada.")
+        raise HTTPException(status_code=404, detail="Imagem não encontrada.")
 
     return ok(ProductImageSetPrimaryOut(id=image_id, message="Imagem principal definida"))
 
@@ -472,7 +472,7 @@ def delete_product_image(
 ):
     removed = image_service.delete_photo_by_id(product_id, image_id)
     if not removed:
-        raise HTTPException(status_code=404, detail="Imagem nao encontrada.")
+        raise HTTPException(status_code=404, detail="Imagem não encontrada.")
     return ok({"id": image_id, "message": "Imagem removida"})
 
 

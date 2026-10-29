@@ -15,6 +15,7 @@ from app.services.official_base_config_store import OfficialBaseConfigStore
 from app.services.official_base_publication_helper import OfficialBasePublicationHelper
 from app.services.official_base_status_service import OfficialBaseStatusService
 from app.services.local_share_service import LocalShareService
+from app.services.official_base_local_changes import guard_local_changes
 from app.services.product_photo_recovery import copy_missing_product_photos
 from core.constants import APP_VERSION, DATE_FORMAT_FILE
 from core.database.connection import DatabaseConnection
@@ -99,7 +100,7 @@ class OfficialBaseService:
     def publish_official_base(self, notes: Optional[str] = None) -> Dict[str, Any]:
         config = self.config_store.load()
         if config["role"] != "publisher":
-            raise ValidationException("Esta maquina nao esta configurada para publicar base oficial.")
+            raise ValidationException("Esta máquina não está configurada para publicar base oficial.")
         base_dir = str(config["official_base_dir"] or "").strip()
         if not base_dir:
             raise ValidationException("Configure a pasta da base oficial antes de publicar.")
@@ -140,11 +141,11 @@ class OfficialBaseService:
     ) -> Dict[str, Any]:
         config = self.config_store.load()
         if config["role"] != "publisher":
-            raise ValidationException("Esta maquina nao esta configurada para excluir bases publicadas.")
+            raise ValidationException("Esta máquina não está configurada para excluir bases publicadas.")
 
         base_dir = str(config["official_base_dir"] or "").strip()
         if not base_dir:
-            raise ValidationException("Configure a pasta da base oficial antes de excluir publicacoes.")
+            raise ValidationException("Configure a pasta da base oficial antes de excluir publicações.")
 
         if delete_latest:
             latest_paths = self.config_store.latest_paths(
@@ -165,7 +166,7 @@ class OfficialBaseService:
 
         manifest_value = self.config_store.normalize_optional_text(manifest_path, 2048)
         if not manifest_value:
-            raise ValidationException("Informe a publicacao que deve ser removida.")
+            raise ValidationException("Informe a publicação que deve ser removida.")
 
         safe_manifest = self.publication_helper.validate_managed_publication_path(
             manifest_value, base_dir, self._history_dirname
@@ -190,7 +191,7 @@ class OfficialBaseService:
             "message": "Publicacao historica excluida com sucesso.",
         }
 
-    def apply_official_base(self) -> Dict[str, Any]:
+    def apply_official_base(self, allow_local_loss: bool = False) -> Dict[str, Any]:
         config = self.config_store.load()
         base_dir = str(config["official_base_dir"] or "").strip()
         if not base_dir:
@@ -201,9 +202,9 @@ class OfficialBaseService:
         )
         manifest = self.publication_helper.read_manifest(latest_paths["manifest"])
         if not manifest:
-            raise ValidationException("Manifesto da base oficial nao encontrado.")
+            raise ValidationException("Manifesto da base oficial não encontrado.")
         if not os.path.isfile(latest_paths["zip"]):
-            raise ValidationException("Arquivo zip da base oficial nao encontrado.")
+            raise ValidationException("Arquivo zip da base oficial não encontrado.")
 
         min_app_version = str(manifest.get("min_app_version") or "0.0.0")
         if Validators.parse_version(APP_VERSION) < Validators.parse_version(min_app_version):
@@ -213,14 +214,10 @@ class OfficialBaseService:
 
         expected_hash = str(manifest.get("database_sha256") or "").strip()
         if not expected_hash:
-            raise ValidationException("Manifesto da base oficial esta sem checksum.")
+            raise ValidationException("A base oficial publicada está incompleta. Publique de novo na máquina principal.")
         current_hash = self.publication_helper.sha256_file(latest_paths["zip"])
         if current_hash.lower() != expected_hash.lower():
-            raise ValidationException("Checksum da base oficial nao confere. A importacao foi cancelada.")
-
-        ok, pre_restore_path = self.backup_service.create_automatic_backup(prefix="backup_pre_base_oficial")
-        if not ok:
-            raise FileOperationException("Falha ao criar backup de seguranca antes da importacao da base oficial.")
+            raise ValidationException("A base oficial chegou diferente do que foi publicado. A importação foi cancelada; publique de novo.")
 
         db_path = self.db_connection.get_database_path()
         with tempfile.TemporaryDirectory(prefix="chronos_official_base_apply_") as tmp_dir:
@@ -228,18 +225,24 @@ class OfficialBaseService:
 
             integrity = self.backup_service._run_integrity_check(extracted_db)
             if integrity.lower() != "ok":
-                raise ValidationException(f"Base oficial invalida para restauracao: {integrity}")
+                raise ValidationException(f"Base oficial inválida para restauração: {integrity}")
 
             table_check = self.backup_service._validate_required_tables(extracted_db)
             if not table_check["ok"]:
                 missing = ", ".join(str(item) for item in table_check["missing_tables"])
                 raise ValidationException(f"Base oficial incompleta. Tabelas ausentes: {missing}")
 
+            local_changes = guard_local_changes(db_path, extracted_db, allow_local_loss)
+
+            ok, pre_restore_path = self.backup_service.create_automatic_backup(prefix="backup_pre_base_oficial")
+            if not ok:
+                raise FileOperationException("Falha ao criar backup de segurança antes da importação da base oficial.")
+
             try:
                 self.backup_service._restore_sqlite_snapshot(extracted_db, db_path)
                 final_validation = self.backup_service.validate_backup()
                 if not final_validation["ok"]:
-                    raise FileOperationException("Integridade do banco restaurado falhou apos aplicar a base oficial.")
+                    raise FileOperationException("Integridade do banco restaurado falhou após aplicar a base oficial.")
             except Exception as exc:
                 self.backup_service._restore_sqlite_snapshot(pre_restore_path, db_path)
                 raise FileOperationException(
@@ -262,6 +265,7 @@ class OfficialBaseService:
             "restart_required": True,
             "fotos_mantidas": photos["fotos_copiadas"],
             "produtos_com_fotos_mantidas": photos["produtos_recuperados"],
+            "lancamentos_locais_descartados": int(local_changes["movimentacoes"]),
         }
 
     @staticmethod
@@ -318,7 +322,7 @@ class OfficialBaseService:
     def publish_server_official_base(self, notes: Optional[str] = None) -> Dict[str, Any]:
         config = self.config_store.load()
         if config["role"] != "publisher":
-            raise ValidationException("Esta maquina nao esta configurada para publicar base oficial.")
+            raise ValidationException("Esta máquina não está configurada para publicar base oficial.")
 
         paths = self.local_share_service.get_official_paths()
         timestamp = datetime.now().strftime(DATE_FORMAT_FILE)
@@ -358,7 +362,7 @@ class OfficialBaseService:
     ) -> Dict[str, Any]:
         config = self.config_store.load()
         if config["role"] != "publisher":
-            raise ValidationException("Esta maquina nao esta configurada para excluir bases publicadas.")
+            raise ValidationException("Esta máquina não está configurada para excluir bases publicadas.")
 
         paths = self.local_share_service.get_official_paths()
         allowed_root = paths["root"]
@@ -379,7 +383,7 @@ class OfficialBaseService:
 
         manifest_value = self.config_store.normalize_optional_text(manifest_path, 2048)
         if not manifest_value:
-            raise ValidationException("Informe a publicacao que deve ser removida.")
+            raise ValidationException("Informe a publicação que deve ser removida.")
 
         safe_manifest = self.publication_helper.validate_managed_publication_path(
             manifest_value, allowed_root, self._history_dirname
@@ -400,7 +404,9 @@ class OfficialBaseService:
             "message": "Publicacao historica do servidor local excluida com sucesso.",
         }
 
-    def apply_server_official_base(self, server_url: Optional[str] = None) -> Dict[str, Any]:
+    def apply_server_official_base(
+        self, server_url: Optional[str] = None, allow_local_loss: bool = False
+    ) -> Dict[str, Any]:
         config = self.config_store.load()
         normalized_url = self.local_share_service.normalize_server_url(server_url or config["remote_server_url"])
         manifest = self.publication_helper.parse_remote_manifest(
@@ -413,10 +419,6 @@ class OfficialBaseService:
                 f"Atualize o aplicativo para {min_app_version} ou superior antes de importar esta base oficial."
             )
 
-        ok, pre_restore_path = self.backup_service.create_automatic_backup(prefix="backup_pre_base_oficial")
-        if not ok:
-            raise FileOperationException("Falha ao criar backup de seguranca antes da importacao da base oficial.")
-
         db_path = self.db_connection.get_database_path()
         with tempfile.TemporaryDirectory(prefix="chronos_official_base_remote_apply_") as tmp_dir:
             zip_path = os.path.join(tmp_dir, self._zip_filename)
@@ -425,23 +427,29 @@ class OfficialBaseService:
             expected_hash = str(manifest.get("database_sha256") or "").strip()
             current_hash = self.publication_helper.sha256_file(zip_path)
             if not expected_hash or current_hash.lower() != expected_hash.lower():
-                raise ValidationException("Checksum da base oficial remota nao confere. A importacao foi cancelada.")
+                raise ValidationException("A base oficial chegou diferente do que foi publicado. A importação foi cancelada; tente de novo.")
 
             extracted_db = self.publication_helper.extract_database(zip_path, tmp_dir)
             integrity = self.backup_service._run_integrity_check(extracted_db)
             if integrity.lower() != "ok":
-                raise ValidationException(f"Base oficial remota invalida para restauracao: {integrity}")
+                raise ValidationException(f"Base oficial remota inválida para restauração: {integrity}")
 
             table_check = self.backup_service._validate_required_tables(extracted_db)
             if not table_check["ok"]:
                 missing = ", ".join(str(item) for item in table_check["missing_tables"])
                 raise ValidationException(f"Base oficial remota incompleta. Tabelas ausentes: {missing}")
 
+            local_changes = guard_local_changes(db_path, extracted_db, allow_local_loss)
+
+            ok, pre_restore_path = self.backup_service.create_automatic_backup(prefix="backup_pre_base_oficial")
+            if not ok:
+                raise FileOperationException("Falha ao criar backup de segurança antes da importação da base oficial.")
+
             try:
                 self.backup_service._restore_sqlite_snapshot(extracted_db, db_path)
                 final_validation = self.backup_service.validate_backup()
                 if not final_validation["ok"]:
-                    raise FileOperationException("Integridade do banco restaurado falhou apos aplicar a base oficial.")
+                    raise FileOperationException("Integridade do banco restaurado falhou após aplicar a base oficial.")
             except Exception as exc:
                 self.backup_service._restore_sqlite_snapshot(pre_restore_path, db_path)
                 raise FileOperationException(
@@ -464,4 +472,5 @@ class OfficialBaseService:
             "restart_required": True,
             "fotos_mantidas": photos["fotos_copiadas"],
             "produtos_com_fotos_mantidas": photos["produtos_recuperados"],
+            "lancamentos_locais_descartados": int(local_changes["movimentacoes"]),
         }

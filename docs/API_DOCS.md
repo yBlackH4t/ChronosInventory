@@ -138,6 +138,8 @@ Regras:
 - `POST /backup/restaurar` (501)
 - `POST /backup/recuperar-fotos` `{backup_name}`: copia as fotos do backup so para produtos hoje sem foto (mesmo id e nome, ou nome unico); o resto do banco nao muda. Devolve `produtos_recuperados`, `fotos_copiadas`, `produtos_ja_com_foto`, `produtos_nao_encontrados` e `safety_backup`.
 - `POST /backup/base-oficial/aplicar` e `/backup/base-oficial-servidor/aplicar`: depois de trocar o banco, devolvem as fotos desta maquina aos produtos que ficaram sem foto (`fotos_mantidas`, `produtos_com_fotos_mantidas`).
+- 2.7.22: `POST /backup/base-oficial/aplicar` e `/backup/base-oficial-servidor/aplicar` respondem 409 `lancamentos_locais` (detalhes: `movimentacoes`, `produtos`, `exemplos`) quando este computador tem lancamentos que a base nao tem; repita com `?descartar_lancamentos_locais=true` para confirmar. A resposta traz `lancamentos_locais_descartados`.
+- 2.7.22: `POST /api/scanner/barcode` vindo da rede exige o cabecalho `X-Chronos-Pareamento` (codigo do QR; `GET /api/scanner/ip` so o devolve para este computador) e devolve `produtos` com o saldo por filial.
 - `POST /import/excel`
 - `POST /export/produtos` (stream `.xlsx`)
 - `POST /relatorios/estoque.pdf` (stream `.pdf`)

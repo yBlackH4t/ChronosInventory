@@ -121,7 +121,7 @@ class StockService:
         """
         product_data = self.product_repo.get_by_id(product_id)
         if not product_data:
-            raise ProductNotFoundException(f"Produto {product_id} nao encontrado.")
+            raise ProductNotFoundException(f"Produto {product_id} não encontrado.")
         return Product.from_dict(product_data)
 
     def get_product_by_name(self, product_name: str) -> Product:
@@ -295,7 +295,7 @@ class StockService:
         for raw_id in ids:
             pid = int(raw_id)
             if pid <= 0:
-                raise ValidationException("ID de produto invalido na operacao em lote.")
+                raise ValidationException("ID de produto inválido na operação em lote.")
             valid_ids.append(pid)
 
         motivo = (motivo_inativacao or "").strip() or None

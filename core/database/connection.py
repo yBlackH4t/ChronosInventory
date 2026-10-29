@@ -294,6 +294,28 @@ class DatabaseConnection:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produto_estoque_quantidade ON produto_estoque(quantidade);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_nome ON locais(nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_locais_ativo ON locais(ativo);")
+            # Trava no proprio banco contra saldo negativo (o Python ja confere antes; isto pega
+            # qualquer caminho que escape). Um saldo que ja estava negativo pode subir ate zero.
+            cursor.execute(
+                """
+                CREATE TRIGGER IF NOT EXISTS trg_produto_estoque_sem_negativo_insert
+                BEFORE INSERT ON produto_estoque
+                WHEN NEW.quantidade < 0
+                BEGIN
+                    SELECT RAISE(ABORT, 'Saldo não pode ficar negativo.');
+                END;
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TRIGGER IF NOT EXISTS trg_produto_estoque_sem_negativo_update
+                BEFORE UPDATE OF quantidade ON produto_estoque
+                WHEN NEW.quantidade < 0 AND NEW.quantidade < OLD.quantidade
+                BEGIN
+                    SELECT RAISE(ABORT, 'Saldo não pode ficar negativo.');
+                END;
+                """
+            )
             # Indices redundantes: a coluna ja e o comeco de outro indice (ou da chave primaria),
             # que o SQLite usa do mesmo jeito. So ocupavam espaco e deixavam a escrita mais lenta.
             for redundant in (

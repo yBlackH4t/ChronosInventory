@@ -379,7 +379,7 @@ class WhatsAppService:
         transport = self._transport
         if transport is None or self.state != STATE_CONNECTED:
             raise ValidationException(
-                "O robo do WhatsApp nao esta conectado neste PC. Use 'Copiar' e cole a mensagem no WhatsApp."
+                "O robô do WhatsApp não está conectado neste PC. Use 'Copiar' e cole a mensagem no WhatsApp."
             )
         try:
             message_id = transport.send_text(phone, text)
@@ -387,9 +387,9 @@ class WhatsAppService:
             raise ValidationException(str(exc)) from exc
         except Exception as exc:
             LOG.exception("whatsapp: falha ao mandar o aviso")
-            raise ValidationException("O WhatsApp nao aceitou a mensagem agora. Tente de novo ou use 'Copiar'.") from exc
+            raise ValidationException("O WhatsApp não aceitou a mensagem agora. Tente de novo ou use 'Copiar'.") from exc
         if not message_id:
-            raise ValidationException("O robo do WhatsApp nao esta conectado neste PC. Use 'Copiar'.")
+            raise ValidationException("O robô do WhatsApp não está conectado neste PC. Use 'Copiar'.")
 
     # ------------------------------------------------------------------
     # Callbacks do transport

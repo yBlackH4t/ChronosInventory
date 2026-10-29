@@ -491,7 +491,7 @@ class MovementRepository(BaseRepository):
     ) -> List[Dict[str, Any]]:
         expr = self._BUCKET_EXPR.get(bucket)
         if not expr:
-            raise DatabaseException("Bucket invalido para serie temporal.")
+            raise DatabaseException("Bucket inválido para série temporal.")
         saida_liquida = self._saida_liquida_expr("m")
 
         query = f"""
@@ -524,7 +524,7 @@ class MovementRepository(BaseRepository):
     ) -> List[Dict[str, Any]]:
         expr = self._BUCKET_EXPR.get(bucket)
         if not expr:
-            raise DatabaseException("Bucket invalido para serie temporal.")
+            raise DatabaseException("Bucket inválido para série temporal.")
         saida_liquida = self._saida_liquida_expr("m")
 
         params: List[Any] = []
@@ -584,7 +584,7 @@ class MovementRepository(BaseRepository):
         """
         expr = self._BUCKET_EXPR.get(bucket)
         if not expr:
-            raise DatabaseException("Bucket invalido para serie temporal.")
+            raise DatabaseException("Bucket inválido para série temporal.")
 
         if location_id is not None:
             # Current total for this location from produto_estoque

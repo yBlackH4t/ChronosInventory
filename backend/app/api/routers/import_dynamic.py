@@ -44,17 +44,17 @@ _FILE_ID_RE = re.compile(r"^import_\d{8}_\d{6}_[^\\/]+$")
 def _resolve_temp_import(file_id: str) -> str:
     """Maps a file_id returned by /analyze back to its temp file, never outside it."""
     if not _FILE_ID_RE.match(file_id or "") or os.path.basename(file_id) != file_id:
-        raise ValidationException("Arquivo de importacao invalido. Faca o upload novamente.")
+        raise ValidationException("Arquivo de importação inválido. Faça o upload novamente.")
     temp_dir = os.path.realpath(FileUtils.get_temp_directory())
     temp_path = os.path.realpath(os.path.join(temp_dir, file_id))
     if os.path.dirname(temp_path) != temp_dir:
-        raise ValidationException("Arquivo de importacao invalido. Faca o upload novamente.")
+        raise ValidationException("Arquivo de importação inválido. Faça o upload novamente.")
     return temp_path
 
 def _validate_extension(filename: str) -> None:
     ext = os.path.splitext(filename)[1].lower()
     if ext not in SUPPORTED_EXCEL_EXTENSIONS and ext != ".csv":
-        raise ValidationException("Extensao invalida. Use .xlsx, .xls ou .csv.")
+        raise ValidationException("Extensão inválida. Use .xlsx, .xls ou .csv.")
 
 def get_dynamic_import_service(
     movement_service = Depends(get_movement_service),

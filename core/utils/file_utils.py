@@ -234,7 +234,7 @@ class FileUtils:
             os.makedirs(dirpath, exist_ok=True)
         except Exception as exc:
             raise FileOperationException(
-                f"Erro ao criar diretorio {dirpath}: {exc}"
+                f"Erro ao criar pasta {dirpath}: {exc}"
             ) from exc
 
     @staticmethod

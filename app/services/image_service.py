@@ -32,7 +32,7 @@ class ImageService:
 
     def list_photos(self, product_id: int) -> List[Dict]:
         if not self.product_repo.exists(product_id):
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+            raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
         return self.product_repo.list_product_images(product_id)
 
     def get_photo_by_id(self, product_id: int, image_id: int) -> Optional[Dict]:

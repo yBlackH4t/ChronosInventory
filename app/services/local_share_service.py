@@ -190,18 +190,18 @@ class LocalShareService:
         try:
             response = requests.get(url, timeout=10, headers=self._auth_headers())
         except requests.RequestException as exc:
-            raise ValidationException(f"Nao foi possivel conectar a maquina publicadora: {exc}") from exc
+            raise ValidationException(f"Não foi possível conectar a máquina publicadora: {exc}") from exc
         self._raise_for_auth(response)
         if response.status_code == HTTPStatus.NOT_FOUND:
-            raise ValidationException("A maquina publicadora ainda nao publicou o conhecimento do assistente.")
+            raise ValidationException("A máquina publicadora ainda não publicou o conhecimento do assistente.")
         if response.status_code != HTTPStatus.OK:
-            raise ValidationException(f"A maquina publicadora respondeu {response.status_code} ao enviar o conhecimento.")
+            raise ValidationException(f"A máquina publicadora respondeu {response.status_code} ao enviar o conhecimento.")
         try:
             payload = response.json()
         except Exception as exc:
-            raise ValidationException(f"Conhecimento recebido invalido: {exc}") from exc
+            raise ValidationException(f"Conhecimento recebido inválido: {exc}") from exc
         if not isinstance(payload, dict):
-            raise ValidationException("Conhecimento recebido invalido.")
+            raise ValidationException("Conhecimento recebido inválido.")
         return payload
 
     def send_remote_proposal(self, server_url: str, proposal: dict[str, Any]) -> dict[str, Any]:
@@ -210,12 +210,12 @@ class LocalShareService:
         try:
             response = requests.post(url, json=proposal, timeout=10, headers=self._auth_headers())
         except requests.RequestException as exc:
-            raise ValidationException(f"Nao foi possivel conectar a maquina publicadora: {exc}") from exc
+            raise ValidationException(f"Não foi possível conectar a máquina publicadora: {exc}") from exc
         if response.status_code == HTTPStatus.UNAUTHORIZED:
             raise ValidationException(WRONG_TOKEN_MESSAGE)
         if response.status_code == HTTPStatus.NOT_FOUND:
             raise ValidationException(
-                "A maquina publicadora ainda nao recebe sugestoes: atualize o Chronos dela para a versao 2.4.2 ou mais nova."
+                "A máquina publicadora ainda não recebe sugestoes: atualize o Chronos dela para a versão 2.4.2 ou mais nova."
             )
         try:
             payload = response.json()
@@ -223,7 +223,7 @@ class LocalShareService:
             payload = {}
         if response.status_code != HTTPStatus.OK:
             message = payload.get("erro") if isinstance(payload, dict) else None
-            raise ValidationException(message or f"A maquina publicadora respondeu {response.status_code}.")
+            raise ValidationException(message or f"A máquina publicadora respondeu {response.status_code}.")
         return payload if isinstance(payload, dict) else {}
 
     def start_server(self, machine_label: str, publisher_name: str, port: int) -> dict[str, Any]:
@@ -256,7 +256,7 @@ class LocalShareService:
                 httpd = _GuardedHTTPServer(("0.0.0.0", normalized_port), handler)
             except OSError as exc:
                 raise FileOperationException(
-                    f"Nao foi possivel iniciar o servidor local na porta {normalized_port}: {exc}"
+                    f"Não foi possível iniciar o servidor local na porta {normalized_port}: {exc}"
                 ) from exc
 
             cls._server = httpd
@@ -359,7 +359,7 @@ class LocalShareService:
         try:
             value = int(port or self._default_port)
         except (TypeError, ValueError) as exc:
-            raise ValidationException("Porta do servidor local invalida.") from exc
+            raise ValidationException("Porta do servidor local inválida.") from exc
 
         if value < 1024 or value > 65535:
             raise ValidationException("Use uma porta entre 1024 e 65535 para o servidor local.")
@@ -368,15 +368,15 @@ class LocalShareService:
     def normalize_server_url(self, raw_url: Optional[str]) -> str:
         value = str(raw_url or "").strip()
         if not value:
-            raise ValidationException("Informe o endereco do servidor remoto.")
+            raise ValidationException("Informe o endereço do servidor remoto.")
         if "://" not in value:
             value = f"http://{value}"
 
         parsed = urlparse(value)
         if parsed.scheme not in {"http", "https"}:
-            raise ValidationException("Use um endereco HTTP ou HTTPS valido para o servidor remoto.")
+            raise ValidationException("Use um endereço HTTP ou HTTPS válido para o servidor remoto.")
         if not parsed.netloc:
-            raise ValidationException("Endereco do servidor remoto invalido.")
+            raise ValidationException("Endereço do servidor remoto inválido.")
         return value.rstrip("/")
 
     def fetch_remote_status(self, server_url: str) -> dict[str, Any]:
@@ -384,7 +384,7 @@ class LocalShareService:
         try:
             response = requests.get(url, timeout=5, headers=self._auth_headers())
         except requests.RequestException as exc:
-            raise ValidationException(f"Nao foi possivel conectar ao servidor remoto: {exc}") from exc
+            raise ValidationException(f"Não foi possível conectar ao servidor remoto: {exc}") from exc
 
         self._raise_for_auth(response)
         if response.status_code != HTTPStatus.OK:
@@ -395,10 +395,10 @@ class LocalShareService:
         try:
             payload = response.json()
         except Exception as exc:
-            raise ValidationException(f"Resposta invalida do servidor remoto: {exc}") from exc
+            raise ValidationException(f"Resposta inválida do servidor remoto: {exc}") from exc
 
         if not isinstance(payload, dict):
-            raise ValidationException("Resposta invalida do servidor remoto.")
+            raise ValidationException("Resposta inválida do servidor remoto.")
         # senha_ok False: publicadora de versao antiga. Senha exigida e nenhuma aqui: tambem nao entra.
         if payload.get("senha_ok") is False or (payload.get("senha_exigida") and not self.configured_token()):
             raise ValidationException(WRONG_TOKEN_MESSAGE)
@@ -411,11 +411,11 @@ class LocalShareService:
         try:
             response = requests.get(url, timeout=10, headers=self._auth_headers())
         except requests.RequestException as exc:
-            raise ValidationException(f"Nao foi possivel consultar o manifesto remoto: {exc}") from exc
+            raise ValidationException(f"Não foi possível consultar o manifesto remoto: {exc}") from exc
 
         self._raise_for_auth(response)
         if response.status_code == HTTPStatus.NOT_FOUND:
-            raise ValidationException("O servidor remoto ainda nao publicou essa base.")
+            raise ValidationException("O servidor remoto ainda não publicou essa base.")
         if response.status_code != HTTPStatus.OK:
             raise ValidationException(
                 f"Servidor remoto respondeu {response.status_code} ao consultar o manifesto."
@@ -424,10 +424,10 @@ class LocalShareService:
         try:
             payload = response.json()
         except Exception as exc:
-            raise ValidationException(f"Manifesto remoto invalido: {exc}") from exc
+            raise ValidationException(f"Manifesto remoto inválido: {exc}") from exc
 
         if not isinstance(payload, dict):
-            raise ValidationException("Manifesto remoto invalido.")
+            raise ValidationException("Manifesto remoto inválido.")
         return payload
 
     def download_remote_snapshot(self, server_url: str, kind: str, target_path: str) -> str:
@@ -436,12 +436,12 @@ class LocalShareService:
         try:
             response = requests.get(url, timeout=SNAPSHOT_TIMEOUT, stream=True, headers=self._auth_headers())
         except requests.RequestException as exc:
-            raise ValidationException(f"Nao foi possivel baixar a base remota: {exc}") from exc
+            raise ValidationException(f"Não foi possível baixar a base remota: {exc}") from exc
 
         with response:
             self._raise_for_auth(response)
             if response.status_code == HTTPStatus.NOT_FOUND:
-                raise ValidationException("O servidor remoto ainda nao publicou essa base.")
+                raise ValidationException("O servidor remoto ainda não publicou essa base.")
             if response.status_code != HTTPStatus.OK:
                 raise ValidationException(
                     f"Servidor remoto respondeu {response.status_code} ao baixar a base."
@@ -475,7 +475,7 @@ class LocalShareService:
                 raise
             except Exception as exc:
                 self._remove_partial(target_path)
-                raise FileOperationException(f"Nao foi possivel salvar a base remota: {exc}") from exc
+                raise FileOperationException(f"Não foi possível salvar a base remota: {exc}") from exc
 
         return target_path
 
@@ -496,7 +496,7 @@ class LocalShareService:
     def _normalize_kind(self, kind: str) -> str:
         value = str(kind or "").strip().lower()
         if value not in {"official", "compare"}:
-            raise ValidationException("Tipo de snapshot invalido.")
+            raise ValidationException("Tipo de cópia inválido.")
         return value
 
     def _build_handler(self, context: dict[str, Any]) -> type[BaseHTTPRequestHandler]:

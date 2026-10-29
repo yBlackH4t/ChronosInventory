@@ -6,6 +6,7 @@ restaurar backups com fallback e exportar pacote de diagnostico.
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 import tempfile
@@ -15,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from app.services import backup_assistant_files as assistant_files
 from app.services.backup_diagnostics_service import BackupDiagnosticsService
 from app.services.backup_second_copy import BackupSecondCopy
 from app.services.product_photo_recovery import copy_missing_product_photos
@@ -24,6 +26,8 @@ from core.database.repositories.product_repository import ProductRepository
 from core.exceptions import FileOperationException, ValidationException
 from core.utils.file_utils import FileUtils
 from core.utils.validators import Validators
+
+LOG = logging.getLogger(__name__)
 
 # Copias de seguranca feitas antes de uma operacao (atualizar, restaurar, aplicar base oficial,
 # recuperar fotos). Cada uma e o banco inteiro com as fotos; ficam so as ultimas de cada tipo.
@@ -88,11 +92,21 @@ class BackupService:
             backup_path = os.path.join(self.backups_dir, backup_name)
             self._create_sqlite_snapshot(self.db_connection.get_database_path(), backup_path)
         except Exception as exc:
-            raise FileOperationException(f"Erro ao criar backup automatico: {exc}") from exc
+            raise FileOperationException(f"Erro ao criar backup automático: {exc}") from exc
+        try:
+            assistant_files.save_with_backup(backup_path)
+        except Exception:
+            # O backup do estoque ja esta salvo; o do assistente nao pode derruba-lo.
+            LOG.exception("backup: falha ao copiar os bancos do assistente")
         if prefix in SAFETY_COPY_PREFIXES:
             self.cleanup_safety_copies(prefix)
         self.second_copy.sync()
         return True, backup_path
+
+    @staticmethod
+    def _delete_backup_file(path: str) -> None:
+        FileUtils.delete_file(path)
+        assistant_files.delete_with_backup(path)
 
     def cleanup_safety_copies(self, prefix: Optional[str] = None) -> int:
         """Deixa so as SAFETY_COPIES_KEPT copias mais novas de cada tipo (ou so do tipo `prefix`)."""
@@ -103,7 +117,7 @@ class BackupService:
             same_kind = [item for item in items if str(item.get("name", "")).startswith(f"{current}_")]
             for item in same_kind[SAFETY_COPIES_KEPT:]:
                 try:
-                    FileUtils.delete_file(str(item["path"]))
+                    self._delete_backup_file(str(item["path"]))
                     deleted += 1
                 except Exception:
                     continue
@@ -147,7 +161,7 @@ class BackupService:
     def restore_latest_pre_update_backup(self) -> Dict[str, object]:
         name = self.get_latest_pre_update_backup_name()
         if not name:
-            raise ValidationException("Nenhum backup pre-update disponivel para restauracao.")
+            raise ValidationException("Nenhum backup pre-update disponível para restauração.")
         return self.restore_backup(name)
 
     def list_backups(self) -> List[str]:
@@ -192,7 +206,7 @@ class BackupService:
 
         for backup_path in backups_to_delete:
             try:
-                FileUtils.delete_file(backup_path)
+                self._delete_backup_file(backup_path)
                 deleted_count += 1
             except Exception:
                 pass
@@ -225,7 +239,7 @@ class BackupService:
         else:
             metadata = self.list_backups_metadata()
             if not metadata:
-                raise ValidationException("Nenhum backup disponivel para teste.")
+                raise ValidationException("Nenhum backup disponível para teste.")
             source_path = str(metadata[0]["path"])
             backup_name = str(metadata[0]["name"])
 
@@ -255,12 +269,12 @@ class BackupService:
         validation = self.validate_backup(backup_name)
         if not validation["ok"]:
             raise ValidationException(
-                f"Backup '{backup_name}' invalido para restauracao: {validation['result']}"
+                f"Backup '{backup_name}' inválido para restauração: {validation['result']}"
             )
 
         ok, pre_restore_path = self.create_automatic_backup(prefix="backup_pre_restore")
         if not ok:
-            raise FileOperationException("Falha ao criar backup de seguranca antes da restauracao.")
+            raise FileOperationException("Falha ao criar backup de segurança antes da restauração.")
 
         db_path = self.db_connection.get_database_path()
         try:
@@ -268,8 +282,12 @@ class BackupService:
             final_validation = self.validate_backup()
             if not final_validation["ok"]:
                 raise FileOperationException(
-                    "Integridade do banco restaurado falhou apos restauracao."
+                    "Integridade do banco restaurado falhou após restauração."
                 )
+            try:
+                assistant_files.restore_from_backup(source_path)
+            except Exception:
+                LOG.exception("backup: falha ao voltar os bancos do assistente de %s", source_path)
 
             return {
                 "restored_from": source_path,
@@ -280,7 +298,7 @@ class BackupService:
         except Exception as exc:
             self._restore_sqlite_snapshot(pre_restore_path, db_path)
             raise FileOperationException(
-                f"Falha na restauracao. Banco anterior foi recuperado do backup de seguranca. Erro: {exc}"
+                f"Falha na restauração. Banco anterior foi recuperado do backup de segurança. Erro: {exc}"
             ) from exc
 
     def recover_photos_from_backup(self, backup_name: str) -> Dict[str, object]:
@@ -292,12 +310,12 @@ class BackupService:
         validation = self.validate_backup(backup_name)
         if not validation["ok"]:
             raise ValidationException(
-                f"Backup '{backup_name}' invalido: {validation['result']}"
+                f"Backup '{backup_name}' inválido: {validation['result']}"
             )
 
         ok, safety_path = self.create_automatic_backup(prefix="backup_pre_recuperar_fotos")
         if not ok:
-            raise FileOperationException("Falha ao criar backup de seguranca antes de recuperar as fotos.")
+            raise FileOperationException("Falha ao criar backup de segurança antes de recuperar as fotos.")
 
         result = copy_missing_product_photos(source_path, self.db_connection.get_database_path())
         return {"backup_name": backup_name, "safety_backup": safety_path, **result}
@@ -339,17 +357,17 @@ class BackupService:
         weekday: int = 0,
     ) -> Dict[str, object]:
         if hour < 0 or hour > 23:
-            raise ValidationException("Hora invalida para backup automatico. Use 0-23.")
+            raise ValidationException("Hora inválida para backup automático. Use 0-23.")
         if minute < 0 or minute > 59:
-            raise ValidationException("Minuto invalido para backup automatico. Use 0-59.")
+            raise ValidationException("Minuto inválido para backup automático. Use 0-59.")
         if retention_days not in {7, 15, 30}:
-            raise ValidationException("Retencao invalida. Use 7, 15 ou 30 dias.")
+            raise ValidationException("Retenção inválida. Use 7, 15 ou 30 dias.")
         schedule_mode_value = self._normalize_schedule_mode(schedule_mode, "")
         if schedule_mode_value not in {"DAILY", "WEEKLY"}:
-            raise ValidationException("Frequencia invalida. Use DAILY ou WEEKLY.")
+            raise ValidationException("Frequência inválida. Use DAILY ou WEEKLY.")
         weekday_value = self._normalize_weekday(weekday, -1)
         if weekday_value < 0:
-            raise ValidationException("Dia da semana invalido. Use 0 (segunda) ate 6 (domingo).")
+            raise ValidationException("Dia da semana inválido. Use 0 (segunda) até 6 (domingo).")
 
         self._set_system_value("backup_auto_enabled", "1" if enabled else "0")
         self._set_system_value("backup_auto_hour", str(hour))
@@ -396,7 +414,7 @@ class BackupService:
         try:
             ok, path = self.create_automatic_backup(prefix="backup_auto")
             if not ok:
-                raise FileOperationException("Falha ao gerar backup automatico.")
+                raise FileOperationException("Falha ao gerar backup automático.")
             deleted = self.cleanup_auto_backups_by_retention(int(cfg.get("retention_days") or self._default_retention_days))
             if deleted:
                 self.second_copy.sync()
@@ -449,7 +467,7 @@ class BackupService:
             if age_seconds <= threshold_seconds:
                 continue
             try:
-                FileUtils.delete_file(str(item["path"]))
+                self._delete_backup_file(str(item["path"]))
                 deleted += 1
             except Exception:
                 continue
@@ -458,10 +476,10 @@ class BackupService:
     def _resolve_backup_path(self, backup_name: str) -> str:
         sanitized = Validators.sanitize_filename(backup_name)
         if not sanitized.endswith(".db"):
-            raise ValidationException("Nome de backup invalido. Informe um arquivo .db.")
+            raise ValidationException("Nome de backup inválido. Informe um arquivo .db.")
         path = os.path.join(self.backups_dir, sanitized)
         if not os.path.isfile(path):
-            raise ValidationException(f"Backup '{sanitized}' nao encontrado.")
+            raise ValidationException(f"Backup '{sanitized}' não encontrado.")
         return path
 
     def _read_system_text(self, key: str, default: Optional[str] = None) -> Optional[str]:
@@ -579,7 +597,7 @@ class BackupService:
                 src_conn.backup(dst_conn)
         except Exception as exc:
             raise FileOperationException(
-                f"Erro ao criar snapshot do banco para '{destination_path}': {exc}"
+                f"Erro ao criar cópia do banco para '{destination_path}': {exc}"
             ) from exc
         finally:
             if dst_conn is not None:
@@ -601,7 +619,7 @@ class BackupService:
                 pass
         except Exception as exc:
             raise FileOperationException(
-                f"Erro ao restaurar snapshot '{source_snapshot}' para '{destination_db}': {exc}"
+                f"Erro ao restaurar cópia '{source_snapshot}' para '{destination_db}': {exc}"
             ) from exc
         finally:
             if dst_conn is not None:

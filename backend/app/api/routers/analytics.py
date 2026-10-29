@@ -38,7 +38,7 @@ _ALLOWED_MOVEMENT_TYPE = {"ENTRADA", "SAIDA"}
 def _validate_bucket(bucket: str) -> str:
     value = bucket.lower()
     if value not in _ALLOWED_BUCKET:
-        raise ValidationException("Bucket invalido. Use day, week ou month.")
+        raise ValidationException("Bucket inválido. Use day, week ou month.")
     return value
 
 
@@ -50,7 +50,7 @@ def _validate_dates(date_from: date, date_to: date) -> None:
 def _validate_movement_type(tipo: str) -> str:
     value = tipo.upper()
     if value not in _ALLOWED_MOVEMENT_TYPE:
-        raise ValidationException("tipo invalido. Use ENTRADA ou SAIDA.")
+        raise ValidationException("tipo inválido. Use ENTRADA ou SAIDA.")
     return value
 
 

@@ -356,7 +356,7 @@ class CatalogImportService:
         except Exception as exc:
             dest_conn.rollback()
             logger.error("Erro na importacao do catalogo: %s", exc, exc_info=True)
-            raise DatabaseException(f"Falha ao importar catalogo: {exc}") from exc
+            raise DatabaseException(f"Falha ao importar catálogo: {exc}") from exc
         finally:
             src_conn.close()
             dest_conn.close()

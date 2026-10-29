@@ -142,7 +142,7 @@ class PhotoBatchService:
             with Image.open(BytesIO(file_bytes)) as img:
                 normalized = self.image_service._normalize_image(img)
         except Exception as exc:
-            raise ValidationException(f"Nao consegui abrir a imagem: {exc}")
+            raise ValidationException(f"Não consegui abrir a imagem: {exc}")
         digest = hashlib.sha1(normalized).hexdigest()
 
         for product in item["produtos"]:

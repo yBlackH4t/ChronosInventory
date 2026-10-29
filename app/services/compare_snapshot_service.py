@@ -138,7 +138,7 @@ class CompareSnapshotService:
 
         manifest_value = str(manifest_path or "").strip()
         if not manifest_value:
-            raise ValidationException("Informe o snapshot que deve ser removido.")
+            raise ValidationException("Informe a cópia que deve ser removida.")
 
         safe_manifest = self._validate_history_manifest_path(manifest_value, allowed_root)
         zip_candidate = self.resolve_history_zip_path(safe_manifest)
@@ -175,7 +175,7 @@ class CompareSnapshotService:
                     zip_path.unlink()
             except Exception as exc:
                 raise FileOperationException(
-                    f"Nao foi possivel aplicar a retencao do historico de snapshots: {exc}"
+                    f"Não foi possível aplicar a retencao do histórico de cópias: {exc}"
                 ) from exc
 
     def write_manifest(self, path: str, payload: Dict[str, Any]) -> None:
@@ -190,7 +190,7 @@ class CompareSnapshotService:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except Exception as exc:
-            raise ValidationException(f"Manifesto do snapshot de comparacao invalido: {exc}") from exc
+            raise ValidationException(f"Manifesto da cópia de comparação inválido: {exc}") from exc
 
         return self.parse_manifest_payload(data)
 
@@ -246,7 +246,7 @@ class CompareSnapshotService:
             if zip_obj.exists():
                 zip_obj.unlink()
         except Exception as exc:
-            raise FileOperationException(f"Nao foi possivel excluir o snapshot publicado: {exc}") from exc
+            raise FileOperationException(f"Não foi possível excluir a cópia publicada: {exc}") from exc
 
     def _validate_history_manifest_path(self, manifest_path: str, allowed_root: str) -> Path:
         target = Path(manifest_path).resolve(strict=False)
@@ -255,7 +255,7 @@ class CompareSnapshotService:
         try:
             target.relative_to(history_dir)
         except ValueError as exc:
-            raise ValidationException("Apenas snapshots do historico podem ser excluidos por item.") from exc
+            raise ValidationException("Apenas cópias do histórico podem ser excluídos por item.") from exc
         return target
 
     def _ensure_path_under_root(self, target_path: str, allowed_root: str) -> None:
@@ -264,7 +264,7 @@ class CompareSnapshotService:
         try:
             target.relative_to(root)
         except ValueError as exc:
-            raise ValidationException("Caminho de snapshot invalido para exclusao.") from exc
+            raise ValidationException("Caminho de cópia inválido para exclusão.") from exc
 
     def _build_unique_history_paths(self, history_dir: str, timestamp: str) -> tuple[str, str]:
         history_root = Path(history_dir)

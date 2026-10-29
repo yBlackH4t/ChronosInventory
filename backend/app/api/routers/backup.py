@@ -298,9 +298,10 @@ def official_base_delete_publication(
 
 @router.post("/base-oficial/aplicar", response_model=SuccessResponse[OfficialBaseApplyOut])
 def official_base_apply(
+    descartar_lancamentos_locais: bool = Query(default=False),
     official_base_service: OfficialBaseService = Depends(get_official_base_service),
 ) -> SuccessResponse[OfficialBaseApplyOut]:
-    result = official_base_service.apply_official_base()
+    result = official_base_service.apply_official_base(allow_local_loss=descartar_lancamentos_locais)
     return ok(OfficialBaseApplyOut(**result))
 
 
@@ -362,7 +363,10 @@ def official_base_server_delete_publication(
 @router.post("/base-oficial-servidor/aplicar", response_model=SuccessResponse[OfficialBaseApplyOut])
 def official_base_server_apply(
     server_url: Optional[str] = Query(default=None, min_length=1, max_length=500),
+    descartar_lancamentos_locais: bool = Query(default=False),
     official_base_service: OfficialBaseService = Depends(get_official_base_service),
 ) -> SuccessResponse[OfficialBaseApplyOut]:
-    result = official_base_service.apply_server_official_base(server_url=server_url)
+    result = official_base_service.apply_server_official_base(
+        server_url=server_url, allow_local_loss=descartar_lancamentos_locais
+    )
     return ok(OfficialBaseApplyOut(**result))

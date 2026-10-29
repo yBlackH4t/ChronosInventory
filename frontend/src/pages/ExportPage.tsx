@@ -1,5 +1,10 @@
 import { Button, Divider, Group, Stack, Text } from "@mantine/core";
-import { IconDownload, IconReportAnalytics, IconTable } from "@tabler/icons-react";
+import {
+  IconDownload,
+  IconReportAnalytics,
+  IconTable,
+  IconFileExport,
+} from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
@@ -43,6 +48,7 @@ export default function ExportPage() {
   return (
     <Stack gap="lg">
       <PageHeader
+        icon={IconFileExport}
         title="Exportar"
         subtitle="Planilhas para auditoria, análise e envio externo."
       />

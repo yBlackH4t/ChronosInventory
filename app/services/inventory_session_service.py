@@ -26,7 +26,7 @@ class InventorySessionService:
     def create_session(self, nome: str, location_id: int, observacao: str | None) -> InventorySessionRecord:
         nome = (nome or "").strip()
         if not nome:
-            raise ValidationException("Nome da sessao de inventario e obrigatorio.")
+            raise ValidationException("Nome da sessão de inventário é obrigatório.")
         observacao = observacao.strip() if observacao else None
 
         conn = self.db.get_connection()
@@ -247,13 +247,13 @@ class InventorySessionService:
             (session_id,),
         ).fetchone()
         if not row:
-            raise ValidationException("Sessao de inventario nao encontrada.")
+            raise ValidationException("Sessão de inventário não encontrada.")
         return self.row_to_session(row)
 
     def ensure_session_exists(self, conn, session_id: int) -> None:
         row = conn.execute("SELECT id FROM inventory_sessions WHERE id = ?", (session_id,)).fetchone()
         if not row:
-            raise ValidationException("Sessao de inventario nao encontrada.")
+            raise ValidationException("Sessão de inventário não encontrada.")
 
     def ensure_session_open(self, conn, session_id: int):
         row = conn.execute(
@@ -261,16 +261,16 @@ class InventorySessionService:
             (session_id,),
         ).fetchone()
         if not row:
-            raise ValidationException("Sessao de inventario nao encontrada.")
+            raise ValidationException("Sessão de inventário não encontrada.")
         if str(row["status"]).upper() != INVENTORY_STATUS_ABERTO:
-            raise ValidationException("Sessao de inventario nao esta aberta para alteracoes.")
+            raise ValidationException("Sessão de inventário não está aberta para alterações.")
         return row
 
     @staticmethod
     def normalize_local(local: str) -> str:
         local = (local or "").strip().upper()
         if local not in INVENTORY_LOCAL_VALIDOS:
-            raise ValidationException("Local invalido para inventario. Use CANOAS ou PF.")
+            raise ValidationException("Local inválido para inventário. Use CANOAS ou PF.")
         return local
 
     @staticmethod
@@ -278,7 +278,7 @@ class InventorySessionService:
         value = str(status_filter or "ALL").strip().upper()
         if value not in INVENTORY_STATUS_FILTERS:
             raise ValidationException(
-                "Filtro de inventario invalido. Use ALL, DIVERGENT, MATCHED, MISSING, SURPLUS, NOT_COUNTED, PENDING ou APPLIED."
+                "Filtro de inventário inválido. Use ALL, DIVERGENT, MATCHED, MISSING, SURPLUS, NOT_COUNTED, PENDING ou APPLIED."
             )
         return value
 

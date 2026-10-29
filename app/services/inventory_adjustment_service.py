@@ -35,7 +35,7 @@ class InventoryAdjustmentService:
                 produto_id = int(item["produto_id"])
                 qtd_fisico = int(item["qtd_fisico"])
                 if qtd_fisico < 0:
-                    raise ValidationException("Contagem fisica nao pode ser negativa.")
+                    raise ValidationException("Contagem física não pode ser negativa.")
 
                 motivo_ajuste = self.normalize_motivo_ajuste(item.get("motivo_ajuste"))
                 observacao = (item.get("observacao") or "").strip() or None
@@ -49,7 +49,7 @@ class InventoryAdjustmentService:
                     (session_id, produto_id),
                 ).fetchone()
                 if not row:
-                    raise ValidationException(f"Produto {produto_id} nao pertence a sessao de inventario.")
+                    raise ValidationException(f"Produto {produto_id} não pertence a sessão de inventário.")
 
                 qtd_sistema = int(row[0])
                 divergencia = qtd_fisico - qtd_sistema
@@ -93,13 +93,13 @@ class InventoryAdjustmentService:
             conn.execute("BEGIN IMMEDIATE")
             row = cursor.execute("SELECT id, status FROM inventory_sessions WHERE id = ?", (session_id,)).fetchone()
             if not row:
-                raise ValidationException("Sessao de inventario nao encontrada.")
+                raise ValidationException("Sessão de inventário não encontrada.")
 
             status = str(row["status"]).upper()
             if status == INVENTORY_STATUS_APLICADO:
-                raise ValidationException("Sessao aplicada nao pode ser fechada.")
+                raise ValidationException("Sessão aplicada não pode ser fechada.")
             if status == INVENTORY_STATUS_FECHADO:
-                raise ValidationException("Sessao de inventario ja esta fechada.")
+                raise ValidationException("Sessão de inventário já está fechada.")
 
             cursor.execute(
                 """
@@ -132,11 +132,11 @@ class InventoryAdjustmentService:
                 (session_id,),
             ).fetchone()
             if not row:
-                raise ValidationException("Sessao de inventario nao encontrada.")
+                raise ValidationException("Sessão de inventário não encontrada.")
 
             status = str(row["status"]).upper()
             if status == INVENTORY_STATUS_APLICADO:
-                raise ValidationException("Sessao aplicada nao pode ser excluida.")
+                raise ValidationException("Sessão aplicada não pode ser excluída.")
 
             applied_row = cursor.execute(
                 """
@@ -148,7 +148,7 @@ class InventoryAdjustmentService:
                 (session_id,),
             ).fetchone()
             if int(applied_row["total"] or 0) > 0:
-                raise ValidationException("Sessao com ajustes aplicados nao pode ser excluida.")
+                raise ValidationException("Sessão com ajustes aplicados não pode ser excluída.")
 
             cursor.execute("DELETE FROM inventory_sessions WHERE id = ?", (session_id,))
             conn.commit()
@@ -194,7 +194,7 @@ class InventoryAdjustmentService:
                 (session_id,),
             ).fetchall()
             if not rows:
-                raise ValidationException("Nenhuma divergencia pendente para aplicar na sessao.")
+                raise ValidationException("Nenhuma divergência pendente para aplicar na sessão.")
 
             movement_ids: List[int] = []
             data_hora = datetime.now().strftime(DATE_FORMAT_DB)
@@ -206,9 +206,9 @@ class InventoryAdjustmentService:
                 observacao = (row["observacao"] or "").strip()
 
                 if not motivo_ajuste:
-                    raise ValidationException(f"Motivo obrigatorio para aplicar ajuste no produto '{produto_nome}'.")
+                    raise ValidationException(f"Motivo obrigatório para aplicar ajuste no produto '{produto_nome}'.")
                 if not observacao:
-                    raise ValidationException(f"Observacao obrigatoria para aplicar ajuste no produto '{produto_nome}'.")
+                    raise ValidationException(f"Observação obrigatória para aplicar ajuste no produto '{produto_nome}'.")
 
                 quantidade = abs(divergencia)
                 tipo = "ENTRADA" if divergencia > 0 else "SAIDA"
@@ -289,6 +289,6 @@ class InventoryAdjustmentService:
         motivo = str(motivo).strip().upper()
         if motivo not in MOTIVOS_AJUSTE_VALIDOS:
             raise ValidationException(
-                "Motivo de ajuste invalido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
+                "Motivo de ajuste inválido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
             )
         return motivo
