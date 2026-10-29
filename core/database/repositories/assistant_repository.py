@@ -163,7 +163,7 @@ class AssistantRepository(BaseRepository):
         marks = _placeholders(codes)
         return self._execute_query(
             f"""
-            SELECT origem, origem_norm, tipo, numero, numero_norm, observacao
+            SELECT origem, origem_norm, tipo, numero, numero_norm, observacao, material
             FROM cadastro_relacoes
             WHERE origem_norm IN ({marks}) OR numero_norm IN ({marks})
             ORDER BY id

@@ -647,21 +647,23 @@ def build_relations(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         own = part_codes(item)
         if not own or not item["linhas"]:
             continue
-        origin_raw, origin = own[0]
         family = set(expand_family_codes([code for _, code in own]))
         details = parse_details(item["linhas"], item_kind(item["nome"]) or KIND_TURBO)
         for rel in details["relacoes"]:
             target = rel["numero_norm"]
             if target in family or set(expand_family_codes([target])) & family:
                 continue
-            key = (origin, rel["tipo"], target)
-            if key in seen:
-                continue
-            seen.add(key)
-            rows.append({
-                "origem": origin_raw[:60], "origem_norm": origin, "tipo": rel["tipo"], "numero": rel["numero"],
-                "numero_norm": target, "observacao": (rel.get("observacao") or None), "material": item["cd_material"],
-            })
+            # Uma linha por codigo da peca ("3770052/4309099"): a busca por qualquer um acha a relacao.
+            for origin_raw, origin in own:
+                key = (origin, rel["tipo"], target)
+                if key in seen:
+                    continue
+                seen.add(key)
+                rows.append({
+                    "origem": origin_raw[:60], "origem_norm": origin, "tipo": rel["tipo"], "numero": rel["numero"],
+                    "numero_norm": target, "observacao": (rel.get("observacao") or None),
+                    "material": item["cd_material"],
+                })
     return rows
 
 

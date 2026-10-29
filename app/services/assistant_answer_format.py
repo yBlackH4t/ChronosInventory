@@ -83,6 +83,9 @@ def _assembled_text(product: Dict[str, Any]) -> Optional[str]:
 def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[str]:
     match = product.get("correspondencia")
     note = product.get("obs_especialista")
+    if match == MATCH_CATALOG and product.get("obs_cadastro"):
+        # Mesmo quando a ficha diz que e a mesma peca, a ressalva escrita no cadastro aparece.
+        return f"{product['obs_cadastro']}, pelo cadastro da empresa; conferir"
     if match == MATCH_CATALOG and not catalog_note:
         return None
     if match == MATCH_FAMILY:
@@ -92,8 +95,6 @@ def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[
         return f"igual, segundo o especialista: {note}" if note else "igual, segundo o especialista"
     if match == MATCH_EXPERT_SIMILAR:
         return f"similar: {note}" if note else "similar, segundo o especialista; conferir"
-    if match == MATCH_CATALOG and product.get("obs_cadastro"):
-        return f"{product['obs_cadastro']}, pelo cadastro da empresa; conferir"
     if match == MATCH_CATALOG:
         return "equivalente pelo catálogo, conferir"
     return None

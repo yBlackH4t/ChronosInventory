@@ -335,9 +335,14 @@ class AssistantToolsService:
             if link["tipo"] not in (REL_SAME, REL_SIMILAR):
                 continue
             for summary in link["produtos"]:
-                if summary["id"] in by_id:
-                    continue
                 note = "igual" if link["tipo"] == REL_SAME else "similar"
+                current = by_id.get(summary["id"])
+                if current:
+                    # Ja achado pelo catalogo: fica a ressalva escrita no cadastro ("somente para Scania").
+                    if current["correspondencia"] == MATCH_CATALOG and not current.get("obs_cadastro"):
+                        current["obs_cadastro"] = f"{note}: {link['obs']}" if link.get("obs") else note
+                        current.setdefault("codigo_relacionado", link["codigo"])
+                    continue
                 by_id[summary["id"]] = {
                     **summary,
                     "correspondencia": MATCH_CATALOG,
@@ -614,7 +619,9 @@ class AssistantToolsService:
                     note = None  # "PEQUENO HX27W" fala do codigo pesquisado, nao do par dele
             if other_norm in family or other_norm in blocked:
                 continue
-            key = (kind, other_norm)
+            # A peca do outro lado com varios codigos ("3770052/4309099") aparece uma vez so.
+            reverse = row["origem_norm"] not in family
+            key = (kind, f"#{row['material']}" if reverse and row.get("material") else other_norm)
             if key in links:
                 links[key]["obs"] = links[key]["obs"] or note
                 continue
@@ -625,7 +632,18 @@ class AssistantToolsService:
             ]
             links[key] = {"tipo": kind, "codigo": other, "codigo_norm": other_norm,
                           "obs": note, "produtos": products}
-        result = list(links.values())
+        # Os dois lados escreveram o mesmo par ("A faz par com B" e "B faz par com A"): uma linha so.
+        result: List[Dict[str, Any]] = []
+        for link in links.values():
+            ids = {p["id"] for p in link["produtos"]}
+            twin = next((
+                kept for kept in result
+                if ids and kept["tipo"] == link["tipo"] and {p["id"] for p in kept["produtos"]} == ids
+            ), None)
+            if twin:
+                twin["obs"] = twin["obs"] or link["obs"]
+            else:
+                result.append(link)
         # "Faz par" escrito errado num dos lados (846016-5002 diz 883860-5013, que nao existe; a
         # 883860-5003 diz 846016-5002): fica o codigo que temos, com o mesmo comeco Garrett.
         pairs = [link for link in result if link["tipo"] == REL_PAIR]

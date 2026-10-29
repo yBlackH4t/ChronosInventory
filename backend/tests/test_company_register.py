@@ -317,10 +317,11 @@ def test_search_shows_the_biturbo_pair_and_the_core(client, tools):  # noqa: F81
     _create_product(client, "TURBO GARRETT 883860-5003S", {CANOAS: 1})
     _create_product(client, "TURBO HE300FG - 3770052/4309099", {CANOAS: 2})
     _create_product(client, "CONJUNTO CENTRAL HE300FG MAIOR - BC.0237", {CANOAS: 3})
+    scania = _create_product(client, "TURBO GARRETT 716639-5001S", {CANOAS: 1})
     small, big, core = 3657, 512, 1741
     service, _ = _service()
     result = service.apply(CSV_RELATIONS, criar_produtos=False)
-    assert result["relacoes_por_tipo"]["PAR"] == 4
+    assert result["relacoes_por_tipo"]["PAR"] == 6
 
     # O 846016 diz "883860-5013", que nao existe: fica o 883860-5003, que diz 846016-5002.
     text = tools.search_by_code("883860-5003")["texto_pronto"]
@@ -334,6 +335,10 @@ def test_search_shows_the_biturbo_pair_and_the_core(client, tools):  # noqa: F81
     assert "• Faz par (biturbo) com *3770052* (GRANDE HE300FG) (pelo cadastro): *TURBO HE300FG - 3770052/4309099* — 2 em Canoas" in text
     assert "Vai no turbo *3770052*" in tools.search_by_code("BC.0237")["texto_pronto"]
     assert "Conjunto central *BC.0237* (pelo cadastro)" in tools.search_by_code("3770052")["texto_pronto"]
+    # O outro codigo da mesma peca tambem acha o par e o conjunto, e o par aparece uma vez so.
+    other_code = tools.search_by_code("4309099")["texto_pronto"]
+    assert "Conjunto central *BC.0237* (pelo cadastro)" in other_code and "Faz par (biturbo) com *2843674*" in other_code
+    assert tools.search_by_code("2843674")["texto_pronto"].count("Faz par") == 1
 
     columns = client.get("/produtos/colunas", params={"codigo": "2843674"}).json()["data"]
     by_key = {col["chave"]: col for col in columns["colunas"]}
@@ -343,6 +348,12 @@ def test_search_shows_the_biturbo_pair_and_the_core(client, tools):  # noqa: F81
     by_key = {col["chave"]: col for col in columns["colunas"]}
     assert [i["produto"]["id"] for i in by_key["conjunto"]["itens"]] == [core]
     assert small not in [i["produto"]["id"] for col in columns["colunas"] for i in col["itens"]]
+
+    # Similar ja achado pela ficha do catalogo: a ressalva do cadastro continua junto.
+    s400 = tools.search_by_code("14009900000")
+    (similar,) = [p for p in s400["produtos"] if p["id"] == scania]
+    assert similar["obs_cadastro"] == "similar: SOMENTE PARA SCANIA"
+    assert "similar: SOMENTE PARA SCANIA, pelo cadastro da empresa; conferir" in s400["texto_pronto"]
 
     assert service.remove()["fichas_removidas"] >= 1
     assert "relacoes_cadastro" not in tools.search_by_code("883860-5003")
