@@ -33,6 +33,12 @@ Formato recomendado:
 - Responda com um toque: Igual, Similar (com observação), Diferente ou Não sei; "Qual peça serve no lugar?" aceita o código ou "Não temos"; aplicação aceita "Vai" ou "Não vai" (vira "Não se aplica"). Cada resposta vira conhecimento na hora, vai para os outros computadores e a próxima pergunta já leva isso em conta. "Não sei" volta só daqui a um mês. O saldo continua vindo do estoque.
 - No WhatsApp, as mesmas perguntas chegam na "Mensagem para mim" do computador principal, na hora escolhida (09:00 por padrão). Responda com /r 1 igual, /r 2 similar muda o atuador ou /r 3 nao sei e, no fim, /confirmar com o PIN para valer. /perguntas mostra as de hoje.
 
+## [2.7.16] - 2026-10-29
+
+### Fixed
+- **Assistente entende código falado por extenso:** "tem a cinco quatro cinco cinco meia zero nove?" agora vira 5455609 ("meia" = 6), no app e no WhatsApp. Também entende o código dito em pedaços, como "quatrocentos e três, onze, noventa e cinco" (4031195), e metade em número e metade por extenso, como "403 um um nove cinco". Antes a pergunta virava busca por veículo e a resposta não tinha nada a ver. "Uma turbina", "duas peças", "fh quinhentos e vinte" e anos como "dois mil e quinze" continuam como estão; vários códigos separados por vírgula ou em linhas diferentes continuam sendo pedidos separados.
+- **Veículo, motor e letras falados:** "scania quatrocentos e quarenta dois mil e quinze" responde igual a "scania 440 2015"; também "fh quinhentos e vinte" (FH 520), "dê treze" (D13), "mwm quatro ponto dez" (4.10), "agá xis cinquenta e cinco" (HX55) e "kê vinte e sete" (K27). "Tem dois?", "tem um turbo?" e palavras como "de", "esse" e "ele" continuam como estão.
+
 ## [2.7.15] - 2026-10-28
 
 ### Added

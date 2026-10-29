@@ -34,6 +34,7 @@ from app.services.assistant_common import (
 )
 from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
+from app.services.assistant_spoken_numbers import spoken_digits_to_numbers
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_interpreter_service import AssistantInterpreter
 from app.services.assistant_requests import execute_plan, literal_plan, needs_plan, pending_fields
@@ -257,6 +258,13 @@ class AssistantChatService:
     def _answer(self, mensagem: str, historico: List[Dict[str, str]], tools: Any, canal: str = "app") -> Dict[str, Any]:
         config = self.config_store.load()
         provider = config["provedor"]
+        # "cinco quatro cinco cinco meia zero nove" vira 5455609 antes de tudo: a busca e a
+        # conferencia dos codigos da IA so reconhecem codigo escrito em algarismos.
+        mensagem = spoken_digits_to_numbers(mensagem)
+        historico = [
+            {**item, "texto": spoken_digits_to_numbers(str(item.get("texto") or ""))} if item.get("papel") == "usuario" else item
+            for item in historico
+        ]
         try:
             approved = self.examples.resolve(mensagem)
         except Exception:
