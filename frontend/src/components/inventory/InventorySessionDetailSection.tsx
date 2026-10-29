@@ -18,7 +18,7 @@ import type {
   InventorySessionSummaryOut,
   InventoryStatusFilter,
 } from "../../lib/api";
-import { sessionLocalLabel, sessionProgress } from "../../lib/inventoryView";
+import { sessionItemsToCount, sessionLocalLabel, sessionProgress } from "../../lib/inventoryView";
 import ProgressRing from "../ui/ProgressRing";
 import "../../styles/vidro-telas.css";
 import { InventoryCollectorPanel } from "./InventoryCollectorPanel";
@@ -166,7 +166,7 @@ export function InventorySessionDetailSection({
             {session.nome}
           </Text>
           <Text size="sm" c="dimmed" className="num">
-            {session.counted_items.toLocaleString("pt-BR")} de {session.total_items.toLocaleString("pt-BR")} itens
+            {session.counted_items.toLocaleString("pt-BR")} de {sessionItemsToCount(session).toLocaleString("pt-BR")} itens
             contados · {session.divergent_items.toLocaleString("pt-BR")} com diferença
           </Text>
           <Group gap={6} mt={2}>

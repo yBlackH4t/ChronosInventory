@@ -34,6 +34,7 @@ def _to_session_out(session) -> InventorySessionOut:
         applied_at=session.applied_at,
         total_items=session.total_items,
         counted_items=session.counted_items,
+        to_count_items=session.to_count_items,
         divergent_items=session.divergent_items,
     )
 

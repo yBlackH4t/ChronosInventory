@@ -47,6 +47,7 @@ class InventorySessionOut(BaseModel):
     total_items: int
     counted_items: int
     divergent_items: int
+    to_count_items: int = 0
 
 
 class InventoryCountItemIn(BaseModel):
@@ -56,6 +57,8 @@ class InventoryCountItemIn(BaseModel):
     qtd_fisico: int = Field(ge=0)
     motivo_ajuste: Optional[AdjustmentReason] = None
     observacao: Optional[str] = Field(default=None, max_length=200)
+    # False so no "zerar fisico" do modo bip: o item continua para contar.
+    contado: bool = True
 
 
 class InventoryCountsUpdateIn(BaseModel):
@@ -80,6 +83,7 @@ class InventorySessionSummaryOut(BaseModel):
     session_id: int
     total_items: int
     counted_items: int
+    to_count_items: int = 0
     divergent_items: int
     matched_items: int
     missing_items: int

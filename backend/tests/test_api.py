@@ -2188,6 +2188,64 @@ def test_inventory_session_summary_and_filters(client):
     assert matched_id in matched_ids
 
 
+def test_inventory_progress_ignores_zeroed_items_until_counted(client):
+    """Zerar o fisico no modo bip nao conta; item com 0 no sistema nao entra no progresso."""
+    with_stock_a = _create_product(client, "Produto Progresso A", qtd_canoas=2, qtd_pf=0)
+    with_stock_b = _create_product(client, "Produto Progresso B", qtd_canoas=1, qtd_pf=0)
+    no_stock = _create_product(client, "Produto Progresso Zerado", qtd_canoas=0, qtd_pf=0)
+
+    created = client.post("/inventario/sessoes", json={"nome": "Inventario Progresso", "location_id": 11})
+    session_id = created.json()["data"]["id"]
+    rows = client.get(f"/inventario/sessoes/{session_id}/itens?page=1&page_size=100").json()["data"]
+    total_rows = len(rows)
+    with_stock_total = sum(1 for row in rows if row["qtd_sistema"] > 0)
+
+    # Inicio do modo bip: tudo zerado, nada contado.
+    zeroed = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={"items": [{"produto_id": row["produto_id"], "qtd_fisico": 0, "contado": False} for row in rows]},
+    )
+    assert zeroed.status_code == 200
+    session = zeroed.json()["data"]
+    assert session["total_items"] == total_rows
+    assert session["to_count_items"] == with_stock_total
+    assert session["counted_items"] == 0
+
+    summary = client.get(f"/inventario/sessoes/{session_id}/resumo").json()["data"]
+    assert summary["not_counted_items"] == with_stock_total
+    assert summary["matched_items"] == 0
+
+    # Bipa A (bate) e B (falta 1, conferido com 0); o zerado do sistema nao e bipado.
+    bip = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={"items": [{"produto_id": with_stock_a, "qtd_fisico": 2}, {"produto_id": with_stock_b, "qtd_fisico": 0}]},
+    )
+    session = bip.json()["data"]
+    assert session["counted_items"] == 2
+    assert session["to_count_items"] == with_stock_total
+
+    not_counted = client.get(
+        f"/inventario/sessoes/{session_id}/itens?status_filter=NOT_COUNTED&page=1&page_size=100"
+    ).json()["data"]
+    not_counted_ids = {row["produto_id"] for row in not_counted}
+    assert with_stock_a not in not_counted_ids
+    assert with_stock_b not in not_counted_ids
+    assert no_stock not in not_counted_ids
+
+    matched = client.get(
+        f"/inventario/sessoes/{session_id}/itens?status_filter=MATCHED&page=1&page_size=100"
+    ).json()["data"]
+    assert {row["produto_id"] for row in matched} == {with_stock_a}
+
+    # Achou uma peca que o sistema dizia 0: passa a contar no progresso.
+    found = client.put(
+        f"/inventario/sessoes/{session_id}/itens",
+        json={"items": [{"produto_id": no_stock, "qtd_fisico": 1}]},
+    ).json()["data"]
+    assert found["counted_items"] == 3
+    assert found["to_count_items"] == with_stock_total + 1
+
+
 def test_inventory_session_can_be_closed_and_deleted(client):
     product_id = _create_product(client, "Produto Inventario Fechar", qtd_canoas=2, qtd_pf=0)
 

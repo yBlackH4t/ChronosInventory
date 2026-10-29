@@ -676,6 +676,8 @@ export type InventorySessionOut = {
   applied_at?: string | null;
   total_items: number;
   counted_items: number;
+  /** Itens que pedem contagem: com saldo no sistema ou já conferidos (o "0 de 0" fica fora). */
+  to_count_items?: number;
   divergent_items: number;
 };
 
@@ -683,6 +685,7 @@ export type InventorySessionSummaryOut = {
   session_id: number;
   total_items: number;
   counted_items: number;
+  to_count_items?: number;
   divergent_items: number;
   matched_items: number;
   missing_items: number;
@@ -719,6 +722,8 @@ export type InventoryCountItemIn = {
   qtd_fisico: number;
   motivo_ajuste?: InventoryAdjustmentReason | null;
   observacao?: string | null;
+  /** false ao zerar o físico no início do modo bip: o item segue para contar. */
+  contado?: boolean;
 };
 
 export type InventoryCountsUpdateIn = {

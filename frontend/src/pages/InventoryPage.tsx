@@ -439,6 +439,7 @@ export default function InventoryPage() {
           items: chunk.map((item) => ({
             produto_id: item.produto_id,
             qtd_fisico: 0,
+            contado: false,
           })),
         });
       }

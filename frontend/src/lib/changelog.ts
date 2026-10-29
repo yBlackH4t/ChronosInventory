@@ -10,6 +10,15 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.23",
+    "date": "2026-10-29",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Progresso do inventário de verdade: o anel e o \"X de Y itens contados\" agora contam só os itens que têm saldo no sistema (e os que você achou a mais). Item com 0 no sistema e 0 no físico não conta mais como contado, e zerar o físico ao iniciar o modo bip não vale como contagem: o anel começa em 0% e sobe a cada item bipado ou digitado. \"Não contados\" mostra o que ainda falta bipar.",
+      "Correcao: Coluna Motivo do inventário: a caixa de motivo não fica mais espremida com nome de produto grande; a lista de motivos abre inteira (Avaria, Perda, Correção de inventário, Erro operacional, Transferência)."
+    ]
+  },
+  {
     "version": "2.7.22",
     "date": "2026-10-29",
     "title": "Melhorias e correcoes",

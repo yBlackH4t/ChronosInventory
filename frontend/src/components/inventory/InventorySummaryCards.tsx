@@ -47,7 +47,8 @@ export function InventorySummaryCards({
     },
   ];
 
-  const total = summary.total_items;
+  // Base das porcentagens: só os itens que pedem contagem (o "0 de 0" fica fora).
+  const total = summary.to_count_items ?? summary.total_items;
 
   return (
     <div className="stat-grid">

@@ -82,7 +82,8 @@ class InventorySessionService:
                        s.updated_at,
                        s.applied_at,
                        COUNT(c.id) AS total_items,
-                       COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL THEN 1 ELSE 0 END), 0) AS counted_items,
+                       COALESCE(SUM(CASE WHEN c.contado = 1 THEN 1 ELSE 0 END), 0) AS counted_items,
+                       COALESCE(SUM(CASE WHEN c.qtd_sistema > 0 OR c.contado = 1 THEN 1 ELSE 0 END), 0) AS to_count_items,
                        COALESCE(SUM(CASE WHEN COALESCE(c.divergencia, 0) <> 0 THEN 1 ELSE 0 END), 0) AS divergent_items
                 FROM inventory_sessions s
                 LEFT JOIN inventory_counts c ON c.session_id = s.id
@@ -119,12 +120,13 @@ class InventorySessionService:
                 """
                 SELECT
                     COUNT(*) AS total_items,
-                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL THEN 1 ELSE 0 END), 0) AS counted_items,
+                    COALESCE(SUM(CASE WHEN c.contado = 1 THEN 1 ELSE 0 END), 0) AS counted_items,
+                       COALESCE(SUM(CASE WHEN c.qtd_sistema > 0 OR c.contado = 1 THEN 1 ELSE 0 END), 0) AS to_count_items,
                     COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0 THEN 1 ELSE 0 END), 0) AS divergent_items,
-                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) = 0 THEN 1 ELSE 0 END), 0) AS matched_items,
+                    COALESCE(SUM(CASE WHEN c.contado = 1 AND COALESCE(c.divergencia, 0) = 0 THEN 1 ELSE 0 END), 0) AS matched_items,
                     COALESCE(SUM(CASE WHEN COALESCE(c.divergencia, 0) < 0 THEN 1 ELSE 0 END), 0) AS missing_items,
                     COALESCE(SUM(CASE WHEN COALESCE(c.divergencia, 0) > 0 THEN 1 ELSE 0 END), 0) AS surplus_items,
-                    COALESCE(SUM(CASE WHEN c.qtd_fisico IS NULL THEN 1 ELSE 0 END), 0) AS not_counted_items,
+                    COALESCE(SUM(CASE WHEN c.contado = 0 AND c.qtd_sistema > 0 THEN 1 ELSE 0 END), 0) AS not_counted_items,
                     COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0 AND c.applied_movement_id IS NULL THEN 1 ELSE 0 END), 0) AS pending_items,
                     COALESCE(SUM(CASE WHEN c.applied_movement_id IS NOT NULL THEN 1 ELSE 0 END), 0) AS applied_items
                 FROM inventory_counts c
@@ -136,6 +138,7 @@ class InventorySessionService:
                 "session_id": int(session_id),
                 "total_items": int(row["total_items"] or 0),
                 "counted_items": int(row["counted_items"] or 0),
+                "to_count_items": int(row["to_count_items"] or 0),
                 "divergent_items": int(row["divergent_items"] or 0),
                 "matched_items": int(row["matched_items"] or 0),
                 "missing_items": int(row["missing_items"] or 0),
@@ -169,13 +172,14 @@ class InventorySessionService:
             if status_filter == "DIVERGENT":
                 where.append("c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0")
             elif status_filter == "MATCHED":
-                where.append("c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) = 0")
+                where.append("c.contado = 1 AND COALESCE(c.divergencia, 0) = 0")
             elif status_filter == "MISSING":
                 where.append("COALESCE(c.divergencia, 0) < 0")
             elif status_filter == "SURPLUS":
                 where.append("COALESCE(c.divergencia, 0) > 0")
             elif status_filter == "NOT_COUNTED":
-                where.append("c.qtd_fisico IS NULL")
+                # O que falta contar: tem saldo no sistema e ninguem bipou nem digitou.
+                where.append("c.contado = 0 AND c.qtd_sistema > 0")
             elif status_filter == "PENDING":
                 where.append("c.qtd_fisico IS NOT NULL AND COALESCE(c.divergencia, 0) <> 0 AND c.applied_movement_id IS NULL")
             elif status_filter == "APPLIED":
@@ -237,7 +241,8 @@ class InventorySessionService:
                    s.updated_at,
                    s.applied_at,
                    COUNT(c.id) AS total_items,
-                   COALESCE(SUM(CASE WHEN c.qtd_fisico IS NOT NULL THEN 1 ELSE 0 END), 0) AS counted_items,
+                   COALESCE(SUM(CASE WHEN c.contado = 1 THEN 1 ELSE 0 END), 0) AS counted_items,
+                       COALESCE(SUM(CASE WHEN c.qtd_sistema > 0 OR c.contado = 1 THEN 1 ELSE 0 END), 0) AS to_count_items,
                    COALESCE(SUM(CASE WHEN COALESCE(c.divergencia, 0) <> 0 THEN 1 ELSE 0 END), 0) AS divergent_items
             FROM inventory_sessions s
             LEFT JOIN inventory_counts c ON c.session_id = s.id
@@ -295,6 +300,7 @@ class InventorySessionService:
             applied_at=datetime.fromisoformat(str(row["applied_at"])) if row["applied_at"] else None,
             total_items=int(row["total_items"] or 0),
             counted_items=int(row["counted_items"] or 0),
+            to_count_items=int(row["to_count_items"] or 0),
             divergent_items=int(row["divergent_items"] or 0),
         )
 
