@@ -848,8 +848,9 @@ class AssistantInterviewService:
         conn = self._connect()
         try:
             item["numero"] = int(conn.execute(
-                "SELECT COUNT(*) FROM entrevista WHERE dia = ? AND id <= ? AND estado <> ?",
-                (item["dia"], item["id"], STATE_DROPPED),
+                # Conta tambem as descartadas: o numero ja foi para o WhatsApp e o /r 3 de quem
+                # respondeu depois nao pode cair na pergunta seguinte.
+                "SELECT COUNT(*) FROM entrevista WHERE dia = ? AND id <= ?", (item["dia"], item["id"]),
             ).fetchone()[0])
         finally:
             conn.close()

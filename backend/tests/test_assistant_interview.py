@@ -296,11 +296,17 @@ def test_whatsapp_service_sends_the_questions_once_a_day(interview):
 def test_pairs_the_company_already_relates_are_not_asked(interview, client):  # noqa: F811
     # A nova e a reman (RX) da mesma peca, e o nome de um produto nosso que ja junta os dois
     # codigos: os dados da empresa ja dizem. Antes perguntava "3797851 e 4031196RX".
-    ficha = next(q for q in interview.today() if q["tipo"] == KIND_FICHA)
+    questions = interview.today()
+    before = {q["id"]: q["numero"] for q in questions}
+    ficha = next(q for q in questions if q["tipo"] == KIND_FICHA)
+    assert ficha["numero"] < max(before.values())  # ha pergunta depois dela
     _create_product(client, "TURBO HOLSET HX55W - 4044318/4031196RX", {CANOAS: 1})
 
     interview.clock.when = datetime(2026, 10, 29, 15, 0)  # mesmo dia: a pendente sai da lista
-    assert ficha["id"] not in [q["id"] for q in interview.today()]
+    after = interview.today()
+    assert ficha["id"] not in [q["id"] for q in after]
+    # Os numeros ja mandados pelo WhatsApp nao mudam (o /r 3 continua sendo a pergunta 3).
+    assert all(q["numero"] == before[q["id"]] for q in after)
     interview.clock.when = datetime(2026, 10, 30, 9, 0)
     assert all(q["tipo"] != KIND_FICHA for q in interview.more())
 
