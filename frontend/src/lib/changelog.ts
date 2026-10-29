@@ -10,6 +10,16 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.20",
+    "date": "2026-10-29",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Perguntas do dia não perguntam mais o que a empresa já sabe: a \"3797851 e 4031196RX são a mesma peça?\" saiu. Quando o nome de um produto nosso já junta os dois códigos, uma nota já ligou os dois ou as observações do cadastro já dizem \"similar\", a pergunta não aparece, e a que já estava na lista some sozinha. O RX continua sendo a reman da mesma peça.",
+      "Correcao: \"Mesma ficha Master Power\" agora usa só as fichas do catálogo Master Power, não as do cadastro da empresa.",
+      "Correcao: Código reman aparece como \"4031196RX (reman)\" nas perguntas."
+    ]
+  },
+  {
     "version": "2.7.19",
     "date": "2026-10-29",
     "title": "Novas funcionalidades",
