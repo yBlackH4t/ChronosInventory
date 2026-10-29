@@ -1239,5 +1239,5 @@ npm run lint
 
 ### 2026-10-29 — Claude Code — 2.7.16, código falado por extenso no assistente
 - Branch: `claude/project-thread-2b8t5e`, a partir da main (2.7.15).
-- "tem a cinco quatro cinco cinco meia zero nove?" respondia "o catálogo só tem turbinas de marcas com que não trabalhamos": nenhum código com algarismos, então virava busca por veículo; e o código que a IA lia era descartado por `supported_codes`. Agora `spoken_digits_to_numbers` (`app/services/assistant_spoken_numbers.py`, dígito a dígito e números compostos) troca a sequência falada por algarismos na mensagem e no histórico do usuário (app e WhatsApp).
+- "tem a cinco quatro cinco cinco meia zero nove?" respondia "o catálogo só tem turbinas de marcas com que não trabalhamos": nenhum código com algarismos, então virava busca por veículo; e o código que a IA lia era descartado por `supported_codes`. Agora `spoken_digits_to_numbers` (`app/services/assistant_spoken_numbers.py`: dígito a dígito, números compostos, letras e veículo/motor falados) troca a sequência falada por algarismos na mensagem e no histórico do usuário (app e WhatsApp).
 - Testes: `test_code_spoken_in_words_becomes_digits`, `test_spoken_digits_to_numbers`.

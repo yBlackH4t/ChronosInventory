@@ -279,6 +279,10 @@ def test_code_spoken_in_words_becomes_digits(tools, store):  # noqa: F811
     assert mixed["resposta"].startswith("*4031196*: temos.")
     pieces = service.chat("tem a quatrocentos e três, onze, noventa e seis?")
     assert pieces["resposta"].startswith("*4031196*: temos.")
+    # Veiculo e motor falados respondem igual aos escritos com algarismos.
+    written = service.chat("temos turbina do scania 440 2015?")["resposta"]
+    assert written.startswith("Depende do motor:")
+    assert service.chat("temos turbina do scania quatrocentos e quarenta dois mil e quinze?")["resposta"] == written
     # "essa" na mensagem seguinte usa o codigo falado da anterior.
     historico = [{"papel": "usuario", "texto": "tem a quatro zero três um um nove meia?"},
                  {"papel": "assistente", "texto": spoken["resposta"]}]
@@ -299,10 +303,20 @@ def test_code_spoken_in_words_becomes_digits(tools, store):  # noqa: F811
     ("cinco três dois sete, nove oito oito, sete um zero um", "53279887101"),
     ("quarenta e cinco, cinquenta e cinco, sessenta, nove", "4555609"),
     ("oitocentos e trinta e cinco mil e quinhentos", "835500"),
-    # Veiculo, ano e quantidade continuam como estao.
-    ("fh quinhentos e vinte", "fh quinhentos e vinte"),
-    ("scania quatrocentos e quarenta dois mil e quinze", "scania quatrocentos e quarenta dois mil e quinze"),
+    # Codigo escrito inteiro nao gruda no numero ao lado.
     ("403 e 5455609", "403 e 5455609"),
+    # Veiculo, motor e letras falados.
+    ("scania quatrocentos e quarenta dois mil e quinze", "scania 440 2015"),
+    ("fh quinhentos e vinte", "fh 520"),
+    ("volvo fh cinco dois zero", "volvo fh 520"),
+    ("turbina do dê treze", "turbina do D 13"),
+    ("agá xis cinquenta e cinco", "HX 55"),
+    ("tem kê vinte e sete?", "tem K 27?"),
+    ("mwm quatro ponto dez", "mwm 4.10"),
+    ("dc treze euro cinco", "dc 13 euro 5"),
+    ("tem um turbo?", "tem um turbo?"),
+    ("tem dois?", "tem dois?"),
+    ("esse ele é de quem", "esse ele é de quem"),
     ("tem uma quatro zero tres um um nove seis reman", "tem uma 4031196 reman"),
     ("tem um turbo do scania 440?", "tem um turbo do scania 440?"),  # "um" sozinho e artigo
     ("dois zero", "dois zero"),  # curto demais para ser codigo
