@@ -40,7 +40,13 @@ from app.services.assistant_common import (  # noqa: F401  (reexportados para qu
     MATCH_FAMILY,
 )
 from app.services.assistant_knowledge_service import SOURCE_EXPERT, SOURCE_FAMILY, AssistantKnowledgeService
-from core.catalog.company_register import SOURCE_CODE as REGISTER_SOURCE_CODE
+from core.catalog.company_register import (
+    REL_PAIR,
+    REL_SAME,
+    REL_SIMILAR,
+    REVERSE_RELATION,
+    SOURCE_CODE as REGISTER_SOURCE_CODE,
+)
 from core.catalog.own_fichas import OWN_SOURCE_CODE
 from core.catalog.normalization import (
     canonical_code,
@@ -322,6 +328,24 @@ class AssistantToolsService:
                         entry["obs_especialista"] = item["obs"]
                     by_id[int(p["id"])] = entry
 
+        # Cadastro da empresa (2.7.18): igual/similar escritos nas observacoes entram como
+        # equivalente; par do biturbo, conjunto e substituto vao a parte (nao sao a mesma peca).
+        register_links = self._register_relations(code, blocked, locations)
+        for link in register_links:
+            if link["tipo"] not in (REL_SAME, REL_SIMILAR):
+                continue
+            for summary in link["produtos"]:
+                if summary["id"] in by_id:
+                    continue
+                note = "igual" if link["tipo"] == REL_SAME else "similar"
+                by_id[summary["id"]] = {
+                    **summary,
+                    "correspondencia": MATCH_CATALOG,
+                    "codigo_relacionado": link["codigo"],
+                    "condicao": product_condition(summary["nome"], link["codigo_norm"]),
+                    "obs_cadastro": f"{note}: {link['obs']}" if link.get("obs") else note,
+                }
+
         # Montada pelo conjunto so vale para o proprio codigo, e a mesma peca nao aparece duas vezes:
         # o conjunto que ja aparece como montada sai da lista, a menos que o codigo seja o dele.
         own_matches = (MATCH_EXACT, MATCH_FAMILY)
@@ -383,6 +407,11 @@ class AssistantToolsService:
         ]
         if taught:
             result["conhecimento_especialista"] = taught
+        others = [link for link in register_links if link["tipo"] not in (REL_SAME, REL_SIMILAR)]
+        if others:
+            result["relacoes_cadastro"] = [
+                {**link, "produtos": [p for p in link["produtos"] if p["id"] not in by_id]} for link in others
+            ]
         result["fichas_catalogo"] = [self._public_item(i) for i in catalog_items]
         if other_codes:
             result["outros_codigos_no_texto"] = other_codes
@@ -562,6 +591,51 @@ class AssistantToolsService:
                     # "MP530W" -> "MP530w", como o catalogo escreve
                     return f"{master_a[:2]}{master_a[2:].lower()} / {' / '.join(shared)}"
         return None
+
+    def _register_relations(self, code: str, blocked: set, locations: Dict[int, str]) -> List[Dict[str, Any]]:
+        """
+        O que as observacoes do cadastro da empresa dizem deste codigo, dos dois lados: "A faz par
+        com B" vale para B; "A substitui B" vira "B pode ser trocada por A". Cada relacao vem com os
+        nossos produtos ativos do outro codigo: [{tipo, codigo, codigo_norm, obs, produtos}].
+        """
+        family = set(expand_family_codes([code]))
+        try:
+            rows = self.repository.get_register_relations(sorted(family))
+        except Exception:
+            return []  # banco sem a tabela (versao antiga): segue sem
+        links: "OrderedDict[Tuple[str, str], Dict[str, Any]]" = OrderedDict()
+        for row in rows:
+            note = row.get("observacao")
+            if row["origem_norm"] in family:
+                kind, other, other_norm = row["tipo"], row["numero"], row["numero_norm"]
+            else:
+                kind, other, other_norm = REVERSE_RELATION.get(row["tipo"], row["tipo"]), row["origem"], row["origem_norm"]
+                if kind == REL_PAIR:
+                    note = None  # "PEQUENO HX27W" fala do codigo pesquisado, nao do par dele
+            if other_norm in family or other_norm in blocked:
+                continue
+            key = (kind, other_norm)
+            if key in links:
+                links[key]["obs"] = links[key]["obs"] or note
+                continue
+            products = [
+                self._product_summary(p, locations)
+                for p in self._our_products_for_code(other_norm)
+                if int(p.get("ativo", 1) or 0)
+            ]
+            links[key] = {"tipo": kind, "codigo": other, "codigo_norm": other_norm,
+                          "obs": note, "produtos": products}
+        result = list(links.values())
+        # "Faz par" escrito errado num dos lados (846016-5002 diz 883860-5013, que nao existe; a
+        # 883860-5003 diz 846016-5002): fica o codigo que temos, com o mesmo comeco Garrett.
+        pairs = [link for link in result if link["tipo"] == REL_PAIR]
+        for link in pairs:
+            if not link["produtos"] and any(
+                other is not link and other["produtos"] and other["codigo_norm"][:6] == link["codigo_norm"][:6]
+                for other in pairs
+            ):
+                result.remove(link)
+        return result
 
     def _our_products_for_code(self, code: str) -> List[Dict[str, Any]]:
         """Nossos produtos (ativos e inativos) com o codigo ou a versao nova/reman dele."""

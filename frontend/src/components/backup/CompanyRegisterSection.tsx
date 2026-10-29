@@ -322,6 +322,16 @@ export function CompanyRegisterSection() {
                 {preview.fichas_atuais > 0 &&
                   ` As ${preview.fichas_atuais} fichas da importação anterior são trocadas pelas do arquivo.`}
               </Text>
+              {preview.relacoes_por_tipo && (preview.relacoes ?? 0) > 0 && (
+                <Text size="xs" c="dimmed">
+                  Lido das observações: {count(preview.relacoes_por_tipo.PAR)} "faz par" (biturbo),{" "}
+                  {count(preview.relacoes_por_tipo.CONJUNTO)} conjuntos centrais de turbos,{" "}
+                  {count(preview.relacoes_por_tipo.TURBO)} turbos de conjuntos,{" "}
+                  {count((preview.relacoes_por_tipo.SUBSTITUI ?? 0) + (preview.relacoes_por_tipo.TROCAR_POR ?? 0))} substitutos,{" "}
+                  {count(preview.relacoes_por_tipo.IGUAL)} iguais e códigos antigos e {count(preview.relacoes_por_tipo.SIMILAR)}{" "}
+                  similares. Aparecem na busca e no assistente marcados "pelo cadastro".
+                </Text>
+              )}
               {preview.exemplos_produtos_novos.length > 0 && (
                 <Stack gap={4}>
                   <Text size="xs" c="dimmed">

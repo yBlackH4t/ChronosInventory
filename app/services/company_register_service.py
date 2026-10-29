@@ -84,7 +84,7 @@ class CompanyRegisterService:
         }
         built = register.build_fichas(items, mp_codes)
         return {"items": items, "fichas": built["fichas"], "ignorados": built["ignorados"],
-                "ids": register.plan_ids(conn, items)}
+                "relacoes": register.build_relations(items), "ids": register.plan_ids(conn, items)}
 
     def preview(self, data: bytes) -> Dict[str, Any]:
         """O que a importacao faria, sem gravar nada."""
@@ -119,6 +119,10 @@ class CompanyRegisterService:
             "fichas_atuais": int(current_fichas),
             "aplicacoes": sum(len(f["aplicacoes"]) for f in fichas),
             "codigos": sum(len(f["codigos"]) for f in fichas),
+            "relacoes": len(plan["relacoes"]),
+            "relacoes_por_tipo": {
+                tipo: sum(1 for r in plan["relacoes"] if r["tipo"] == tipo) for tipo in register.RELATION_TYPES
+            },
             "ignorados": plan["ignorados"],
         }
 
@@ -144,7 +148,7 @@ class CompanyRegisterService:
             plan = self._plan(conn, data)  # de novo, ja com o banco travado
             ids_plan = plan["ids"] if criar_produtos else {**plan["ids"], "criar": []}
             done = register.apply_ids(conn, ids_plan, NEW_PRODUCT_NOTE)
-            register.replace_all(conn, plan["fichas"])
+            register.replace_all(conn, plan["fichas"], plan["relacoes"])
             conn.commit()
         except Exception:
             conn.rollback()
@@ -157,13 +161,14 @@ class CompanyRegisterService:
         return summary
 
     def remove(self) -> Dict[str, Any]:
-        """Tira as fichas do cadastro (os produtos cadastrados pela importacao continuam)."""
+        """Tira as fichas e as relacoes do cadastro (os produtos cadastrados pela importacao continuam)."""
         if not self.can_edit()["pode_editar"]:
             raise OwnFichaReadOnlyError(READ_ONLY_REASON)
         conn = self.db.get_connection()
         try:
             self._ensure_schema(conn)
             removed = conn.execute("DELETE FROM cadastro_fichas").rowcount
+            conn.execute("DELETE FROM cadastro_relacoes")
             conn.commit()
         finally:
             conn.close()

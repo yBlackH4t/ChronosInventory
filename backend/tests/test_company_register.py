@@ -245,3 +245,104 @@ def test_ids_and_names_follow_the_store_system(client):
     again = service.apply(ID_CSV)
     assert (again["nomes_trocados"], again["ids_trocados"], again["produtos_criados"]) == (0, 0, 0)
     assert again["iguais"] == 11
+
+
+# Observacoes reais do arquivo da loja (2.7.18): faz par, conjunto, substitui, codigo antigo.
+CSV_RELATIONS = (
+    "CD_MATERIAL;DS_MATERIAL;CD_IDENTIFICACAO;VL_VENDA;DS_OBS;DS_PRODUCAO;;;;\r\n"
+    "-----------;-----------;----------------;--------;------;-----------;;;;\r\n"
+    "4249;TURBO GARRETT 883860-5003S;883860-5003S;.0000000;NULL;FRONTIER BITURBO 190 CV / MASTER 2.3L BI-TURBO DIESEL 2017 - GT2260S;;;;\r\n"
+    "*FAZ PAR COM 846016-5002*;;;;;;;;;\r\n"
+    "3657;TURBO GARRETT GT1238MZ - 846016-5002S;846016-5002S;.0000000;NULL;BI-TURBO - RENAULT, MASTER ENERGY DCI 145 / 165;;;;\r\n"
+    "*FAZ PAR COM 883860-5013*;;;;;;;;;\r\n"
+    "512;TURBO HE300FG - 3770052/4309099;3770052;.0000000;NULL;CAMINHAO MAN 8150E - MOTOR: CUMMINS ISF 3.8;;;;\r\n"
+    "TURBINA GRANDE, FAZ PAR COM O TURBO PEQUENO HX27W 2843674;;;;;;;;;\r\n"
+    "CONJUNTOS: SL.2444 / BC.0237;;;;;;;;;\r\n"
+    "513;TURBO HX27W - 4309098 / 2843674;2843674;.0000000;NULL;CAMINHAO MAN 8150E - MOTOR: CUMMINS ISF 3.8;;;;\r\n"
+    "TURBO PEQUENO, FAZ PAR COM O TURBO;;;;;;;;;\r\n"
+    "GRANDE HE300FG 3770052;;;;;;;;;\r\n"
+    "1741;CONJUNTO CENTRAL HE300FG MAIOR - BC.0237;BC.0237;.0000000;NULL;VW 8160 DELIVERY ISF 3.8L BI-TURBO CONJUNTO MAIOR;;;;\r\n"
+    "46;TURBO S2A-204 - 798644;798644;.0000000;NULL;GM D20 INTERC - MOTOR: Q20B 4.236V;;;;\r\n"
+    "SUBSTITUIR PELO TURBO GARRETT;;;;;;;;;\r\n"
+    "704944-5001 OU O TURBO BORG 797332;;;;;;;;;\r\n"
+    "4442;TURBO GARRETT - 821785-5005S;821785-5005S;.0000000;NULL;FIAT TORO 2.0 16V MULTIJET / ANTIGO: 821785-5002S;;;;\r\n"
+    "7;TURBO BORG S400 14009900000;14009900000;.0000000;NULL;SCANIA KT 112 - MOTOR: DSC11;;;;\r\n"
+    "SIMILAR GARRETT 716639-5001S (SOMENTE PARA SCANIA);;;;;;;;;\r\n"
+    "NAO TEMOS CONJUNTO!;;;;;;;;;\r\n"
+).encode("cp1252")
+
+
+def test_reads_pair_core_replacement_and_old_code():
+    items = {i["cd_material"]: i for i in register.read_items(CSV_RELATIONS)}
+
+    # "FAZ PAR" nao e mais aplicacao: vira relacao, e a anotacao fica na ficha.
+    details = register.parse_details(items[4249]["linhas"])
+    assert [a["veiculo"] for a in details["aplicacoes"]] == ["FRONTIER BITURBO 190 CV / MASTER 2.3L BI-TURBO DIESEL 2017 - GT2260S"]
+    assert [(r["tipo"], r["numero"]) for r in details["relacoes"]] == [("PAR", "846016-5002")]
+    assert details["codigos"] == []  # o par nao e a mesma peca: fica fora dos codigos da ficha
+    assert details["notas"] == ["FAZ PAR COM 846016-5002"]
+
+    # O codigo do par na linha de baixo; o conjunto do turbo nao entra nos codigos da ficha.
+    details = register.parse_details(items[513]["linhas"])
+    assert [(r["tipo"], r["numero"], r["observacao"]) for r in details["relacoes"]] == [("PAR", "3770052", "GRANDE HE300FG")]
+    assert [a["veiculo"] for a in details["aplicacoes"]] == ["CAMINHAO MAN 8150E"]
+    details = register.parse_details(items[512]["linhas"])
+    assert [(r["tipo"], r["numero"]) for r in details["relacoes"]] == [
+        ("PAR", "2843674"), ("CONJUNTO", "SL.2444"), ("CONJUNTO", "BC.0237"),
+    ]
+    assert details["codigos"] == []
+
+    # "Substituir pelo turbo Garrett" com os codigos na linha de baixo; "antigo" e a mesma peca.
+    details = register.parse_details(items[46]["linhas"])
+    assert [(r["tipo"], r["numero"]) for r in details["relacoes"]] == [("TROCAR_POR", "704944-5001"), ("TROCAR_POR", "797332")]
+    details = register.parse_details(items[4442]["linhas"])
+    assert [(c["fabricante"], c["numero"]) for c in details["codigos"]] == [("CODIGO ANTIGO", "821785-5002S")]
+    assert [a["veiculo"] for a in details["aplicacoes"]] == ["FIAT TORO 2.0 16V MULTIJET"]
+
+    # Ressalva do similar vai junto; "nao temos conjunto" e anotacao, nao aplicacao.
+    details = register.parse_details(items[7]["linhas"])
+    assert [(r["tipo"], r["numero"], r["observacao"]) for r in details["relacoes"]] == [
+        ("SIMILAR", "716639-5001S", "SOMENTE PARA SCANIA"),
+    ]
+    assert details["notas"] == ["NAO TEMOS CONJUNTO!"]
+    assert [a["veiculo"] for a in details["aplicacoes"]] == ["SCANIA KT 112"]
+
+    rows = register.build_relations(list(items.values()))
+    assert ("3770052", "PAR", "2843674") in {(r["origem_norm"], r["tipo"], r["numero_norm"]) for r in rows}
+
+
+def test_search_shows_the_biturbo_pair_and_the_core(client, tools):  # noqa: F811
+    # A importacao poe os produtos no numero da loja (CD_MATERIAL).
+    _create_product(client, "TURBO GARRETT GT1238MZ - 846016-5002S", {CANOAS: 1})
+    _create_product(client, "TURBO GARRETT 883860-5003S", {CANOAS: 1})
+    _create_product(client, "TURBO HE300FG - 3770052/4309099", {CANOAS: 2})
+    _create_product(client, "CONJUNTO CENTRAL HE300FG MAIOR - BC.0237", {CANOAS: 3})
+    small, big, core = 3657, 512, 1741
+    service, _ = _service()
+    result = service.apply(CSV_RELATIONS, criar_produtos=False)
+    assert result["relacoes_por_tipo"]["PAR"] == 4
+
+    # O 846016 diz "883860-5013", que nao existe: fica o 883860-5003, que diz 846016-5002.
+    text = tools.search_by_code("883860-5003")["texto_pronto"]
+    assert "FAZ PAR" not in text
+    assert "• Faz par (biturbo) com *846016-5002* (pelo cadastro): *TURBO GARRETT GT1238MZ - 846016-5002S* — 1 em Canoas" in text
+    pair = tools.search_by_code("846016-5002")
+    assert [r["codigo"] for r in pair["relacoes_cadastro"]] == ["883860-5003S"]
+
+    # O turbo pequeno acha o grande e o conjunto do grande; o conjunto acha o turbo dele.
+    text = tools.search_by_code("2843674")["texto_pronto"]
+    assert "• Faz par (biturbo) com *3770052* (GRANDE HE300FG) (pelo cadastro): *TURBO HE300FG - 3770052/4309099* — 2 em Canoas" in text
+    assert "Vai no turbo *3770052*" in tools.search_by_code("BC.0237")["texto_pronto"]
+    assert "Conjunto central *BC.0237* (pelo cadastro)" in tools.search_by_code("3770052")["texto_pronto"]
+
+    columns = client.get("/produtos/colunas", params={"codigo": "2843674"}).json()["data"]
+    by_key = {col["chave"]: col for col in columns["colunas"]}
+    assert [i["produto"]["id"] for i in by_key["par"]["itens"]] == [big]
+    assert by_key["par"]["itens"][0]["rotulo"] == "Faz par"
+    columns = client.get("/produtos/colunas", params={"codigo": "3770052"}).json()["data"]
+    by_key = {col["chave"]: col for col in columns["colunas"]}
+    assert [i["produto"]["id"] for i in by_key["conjunto"]["itens"]] == [core]
+    assert small not in [i["produto"]["id"] for col in columns["colunas"] for i in col["itens"]]
+
+    assert service.remove()["fichas_removidas"] >= 1
+    assert "relacoes_cadastro" not in tools.search_by_code("883860-5003")

@@ -26,6 +26,17 @@ Formato recomendado:
 
 
 
+## [2.7.18] - 2026-10-29
+
+### Added
+- **Observações do cadastro da empresa viram vínculos:** ao importar o produtos_completos.csv (Backup > Catálogo > Cadastro da empresa), o Chronos lê as anotações de cada item e separa: "faz par com" (biturbo), o conjunto central do turbo, o turbo do conjunto, "substitui", "substituir pelo", igual e código antigo, e similares com a ressalva escrita junto ("somente para Scania", "rotor titânio").
+- Na busca e no assistente aparecem marcados "pelo cadastro": "Faz par (biturbo) com 846016-5002: 1 em Canoas", "Conjunto central BC.0237", "Pode ser trocada pela 704944-5001". O par vale dos dois lados e, quando um lado está escrito errado (846016 diz 883860-5013, que não existe), fica o código que temos.
+- Na aba Produtos, a busca por código ganha a coluna "Par do biturbo", e conjunto e substituto do cadastro aparecem nas colunas de conjunto e similares.
+- Também vale para as peças que já têm ficha Master Power e para as outras peças (embreagem viscosa, válvula, atuador).
+
+### Fixed
+- **"FAZ PAR COM", "SUBSTITUI", "CÓDIGO ANTIGO", "NÃO TEMOS CONJUNTO" e os códigos dos conjuntos apareciam como aplicação do turbo** (ex.: 883860-5003S). Agora ficam como anotação da ficha, e o conjunto e o par não contam mais como a mesma peça na busca. Marca dos códigos corrigida (JRONE, Bullcharger, Refone, reman, código antigo).
+
 ## [2.7.15] - 2026-10-28
 
 ### Added

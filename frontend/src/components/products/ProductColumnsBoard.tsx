@@ -266,13 +266,13 @@ function ColumnsBoard({ codigo, locations, onShowList, ...handlers }: Props) {
                             />
                           ))}
                         </div>
-                      ) : (
+                      ) : LINK_LABEL[col.chave] ? (
                         <LinkButton
                           label={LINK_LABEL[col.chave]}
                           color={colorVar(col.chave)}
                           onClick={() => handlers.onOpenLinks(primary)}
                         />
-                      )}
+                      ) : null}
                     </>
                   )}
                 </>

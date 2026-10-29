@@ -92,6 +92,8 @@ def _match_note(product: Dict[str, Any], catalog_note: bool = True) -> Optional[
         return f"igual, segundo o especialista: {note}" if note else "igual, segundo o especialista"
     if match == MATCH_EXPERT_SIMILAR:
         return f"similar: {note}" if note else "similar, segundo o especialista; conferir"
+    if match == MATCH_CATALOG and product.get("obs_cadastro"):
+        return f"{product['obs_cadastro']}, pelo cadastro da empresa; conferir"
     if match == MATCH_CATALOG:
         return "equivalente pelo catálogo, conferir"
     return None
@@ -269,6 +271,42 @@ def format_code_compact(code_label: str, output: Dict[str, Any], locations: List
     return "\n".join(lines)
 
 
+# Relacoes escritas nas observacoes do cadastro da empresa (2.7.18), como aparecem na resposta.
+REGISTER_LABELS = (
+    ("PAR", "Faz par (biturbo) com"),
+    ("CONJUNTO", "Conjunto central"),
+    ("TURBO", "Vai no turbo"),
+    ("SUBSTITUI", "Serve no lugar da"),
+    ("TROCAR_POR", "Pode ser trocada pela"),
+)
+MAX_REGISTER_LINES = 3
+
+
+def register_lines(relations: List[Dict[str, Any]]) -> List[str]:
+    """
+    "• Faz par (biturbo) com *846016-5002S* (pelo cadastro): *TURBO ...* — 1 em Canoas". Conjunto e
+    turbo so os que temos cadastrados (a lista do cadastro e longa); par e substituto sempre.
+    """
+    lines: List[str] = []
+    for kind, label in REGISTER_LABELS:
+        links = [r for r in relations if r["tipo"] == kind]
+        if kind in ("CONJUNTO", "TURBO"):
+            links = [r for r in links if r.get("produtos")]
+        links.sort(key=lambda r: -sum(available_stock(p) for p in r.get("produtos") or []))
+        for link in links[:MAX_REGISTER_LINES]:
+            products = link.get("produtos") or []
+            with_stock = [p for p in products if available_stock(p) > 0]
+            if with_stock:
+                have = "; ".join(f"*{p['nome']}* — {stock_text(p)}" for p in with_stock[:2])
+            elif products:
+                have = "não temos em estoque"
+            else:
+                have = "não temos cadastrada"
+            note = f" ({link['obs']})" if link.get("obs") else ""
+            lines.append(f"• {label} *{link['codigo']}*{note} (pelo cadastro): {have}")
+    return lines
+
+
 def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
     """Resposta para buscar_por_codigo. `code_label` e o codigo como a pessoa escreveu."""
     if "erro" in output:
@@ -328,6 +366,8 @@ def format_code_answer(code_label: str, output: Dict[str, Any]) -> str:
         kind = "igual" if relation.get("relacao") == "igual" else "similar"
         note = f" ({relation['obs']})" if relation.get("obs") else ""
         lines.append(f"• {kind.capitalize()} segundo o especialista: {display_code(relation['codigo'])}{note} — não temos")
+
+    lines += register_lines(output.get("relacoes_cadastro") or [])
 
     if items:
         item = items[0]

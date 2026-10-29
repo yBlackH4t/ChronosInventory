@@ -23,7 +23,7 @@ import re
 import sqlite3
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
-from core.catalog.normalization import canonical_code, extract_codes_from_name, is_searchable_code
+from core.catalog.normalization import canonical_code, expand_family_codes, extract_codes_from_name, is_searchable_code
 from core.exceptions import ValidationException
 
 SOURCE_CODE = "CADASTRO"
@@ -51,22 +51,73 @@ _ACCENT_FIXES = (
 
 # Onde comeca um trecho que nao e aplicacao: codigos similares/originais ou anotacao tecnica.
 _REF_START = re.compile(
-    r"(?<![A-Z0-9])(?:SIMILAR(?:ES)?|EQUIVALENTE|CONJUNTOS?\s+(?:CENTRAL\s+)?JRONE|CONJ\.?\s+JRONE|"
-    r"C[OÓ?]D(?:IGO)?\.?\s+(?:OEM|ORIGINAL)|OEM|OE|ORIGINAL\s+MONTADORA|REF(?:ER[EÊ]NCIA)?\.?|"
-    r"CONJUNTO\s*:|BULLCHARGER|REFONE)(?![A-Z])"
+    r"(?<![A-Z0-9])(?:SIMILAR(?:ES)?|EQUIVALENTE|"
+    r"C[OÓ?]D(?:IGO)?\.?\s+(?:OEM|ORIGINAL|MASTER\s+POWER|ALTERNATIVO)|OEM|OE|ORIGINAL\s+MONTADORA|"
+    r"REF(?:ER[EÊ]NCIA)?\.?|COMPATIBILIDADE|BULLCHARGER|REFONE)(?![A-Z])"
 )
-_NOTE_START = re.compile(r"(?<![A-Z0-9])(?:EIXO|ROTOR|OBS\.?|N[AÃ?]O\s+TEMOS)(?![A-Z])")
+_NOTE_START = re.compile(
+    r"(?<![A-Z0-9])(?:EIXO|ROTOR|OBS\.?|OBSERVA[CÇ?][AÃ?]O|(?:GARRETT?\s+E\s+HOLSET\s+)?N[AÃ?]O\s+TEMOS|"
+    r"N[AÃ?]O\s+(?:VENDE|EXISTE|[EÉ]\s+(?:APLIC|O\s+CONJ))|ATEN[CÇ?][AÃ?]O|NECESS[AÁ?]RIO|TEM\s+QUE|URG[EÊ?]NCIA|"
+    r"SOMENTE\s+(?:TROCA|USAR|EIXO)|PRATO|\*{3,})(?![A-Z])"
+)
+
+# Relacoes que o texto descreve entre esta peca e outra (2.7.18). So similar e igual dizem que e
+# "a mesma ficha"; as outras (par do biturbo, conjunto, substitui) ficam em cadastro_relacoes.
+REL_SIMILAR = "SIMILAR"  # serve, de outra marca ("SIMILAR GARRETT 806589-5001S", "EQUIVALENTE")
+REL_SAME = "IGUAL"  # igual, mesmo, codigo antigo, reman
+REL_PAIR = "PAR"  # biturbo: faz par com o outro turbo (grande + pequeno)
+REL_CORE = "CONJUNTO"  # turbo -> o conjunto central dele
+REL_TURBO = "TURBO"  # conjunto -> o turbo onde ele vai
+REL_REPLACES = "SUBSTITUI"  # esta peca serve no lugar da outra
+REL_REPLACED_BY = "TROCAR_POR"  # esta peca pode ser trocada pela outra
+RELATION_TYPES = (REL_SIMILAR, REL_SAME, REL_PAIR, REL_CORE, REL_TURBO, REL_REPLACES, REL_REPLACED_BY)
+# Visto do outro codigo: A faz par com B = B faz par com A; A substitui B = B pode ser trocada por A.
+REVERSE_RELATION = {
+    REL_SIMILAR: REL_SIMILAR, REL_SAME: REL_SAME, REL_PAIR: REL_PAIR, REL_CORE: REL_TURBO, REL_TURBO: REL_CORE,
+    REL_REPLACES: REL_REPLACED_BY, REL_REPLACED_BY: REL_REPLACES,
+}
+
+_BRAND_PREFIX = r"(?:(?:JRONE|J\s?RONE|BORG|HOLSET|GARRETT?|IMPORTADOS?|REFONE)\s*:?\s*)?"
+_CODE_AHEAD = r"(?=\s*[:\-]?\s*" + _BRAND_PREFIX + r"(?:BC\.|SL\.|ACR-|IMP\s+|[A-Z]{1,2})?\d[\d.\-]?\d)"
+# (tipo, padrao). Num empate na mesma posicao vale o primeiro da lista.
+_RELATION_MARKS = (
+    ("par", re.compile(r"(?<![A-Z])(?:FAZ\s+PAR(?:\s+COM)?|PAR\s+COM)(?![A-Z])\s*:?(?:\s*O\s+TURBO(?![A-Z]))?")),
+    ("trocar", re.compile(
+        r"(?<![A-Z])(?:[EÉ?]\s+)?(?:POSS[IÍ?]VEL\s+)?SUBSTITUIR\s+PEL[OA](?:\s+TURBO)?|"
+        r"PODE\s+SER\s+INSTALAD[OA]")),
+    ("subst", re.compile(
+        r"(?<![A-Z])(?:SUBSTITUI(?:\s+O(?:\s+(?:TURBO|CONJUNTO(?:\s+CENTRAL)?))?(?:\s+ORIGINAL)?)?(?![A-Z])\s*:?|"
+        r"PODE\s+SER\s+APLICADO\s+NO\s+LUGAR\s+D[OA]|D[AÁ?]\s+PARA\s+ADAPTAR\s+NO\s+LUGAR\s+D[OA]|"
+        r"PODE\s+SE\s+ADAPTAR)")),
+    ("turbo", re.compile(
+        r"(?<![A-Z])(?:APLICA-?SE\s+NOS?\s+TURBOS?|SE\s+APLICA\s+NO(?:\s+BI-?TURBO)?|TURBOS?\s+DE\s+ENCAIXE|"
+        r"CONJUNTO\s+DA(?=\s+\d)|CONJUNTO(?:\s+CENTRAL)?\s+(?:PARA\s+O(?:\s+TURBO)?|APLICA\s+NO)|"
+        r"TURBO\s*/\s*OEM|(?<![/])TURBOS?(?=\s*:))(?![A-Z])\s*:?")),
+    ("igual", re.compile(
+        r"(?<![A-Z])(?:IGUAL(?:\s+(?:A\s+DA|AO|A|CONJUNTO))?|O\s+MESMO|MESMOS?(?:\s+C[OÓ?]DIGOS?(?:\s+BORG)?|\s+TURBO)?|"
+        r"(?:PN\s+TURBO\s+)?ANTIGOS?|C[OÓ?]D(?:IGO)?S?\.?\s+ANTIGOS?(?:\s+DA\s+[A-Z]+)?|REMAN)(?![A-Z])\s*:?" + _CODE_AHEAD
+        + r"|MESMOS?\s+C[OÓ?]DIGOS?(?:\s+BORG)?\s*:?\s*$")),
+    ("conj", re.compile(
+        r"(?<![A-Z])(?:CONJUNTOS?\s+(?:APLIC[A-Z]+|DE\s+ENCAIXE)[^:]{0,40}:|MONTAR(?=\s+(?:JRONE|J\s?RONE|BC\.|SL\.))|(?:CONJ(?:UNTO)?S?\.?|CONUNTO)(?!\s*MONTAD)"
+        r"(?:\s+CENTRA(?:L|IS))?(?:\s+(?:IMPORTADOS?|SIMILAR(?:ES)?|REMAN))*)(?![A-Z])\s*:?" + _CODE_AHEAD)),
+)
+_RELATION_KIND = {"par": REL_PAIR, "trocar": REL_REPLACED_BY, "subst": REL_REPLACES, "turbo": REL_TURBO,
+                  "igual": REL_SAME, "conj": REL_CORE}
 _MOTOR = re.compile(
     r"(?<![A-Z])MOTOR(?:IZA[CÇ?][AÃ?]O)?(?!\s+(?:TRASEIRO|DIANTEIRO|MAR[IÍ?]TIMO|ESTACION|DE\s))\s*:?\s*"
 )
-_LEADING_LABEL = re.compile(r"^\s*APLICA-?SE(?:\s+TAMB[EÉ?]M)?\s*:?\s*")
+_LEADING_LABEL = re.compile(
+    r"^\s*(?:APLICA-?SE(?:\s+TAMB[EÉ?]M)?\s*:?|APLICA[CÇ?][AÃ?]O\s*:|-?\s*CONJUNTO\s+MONTADO\s*-?|"
+    r"TURBINA\s+(?:GRANDE|PEQUENA)\s*,?|TURBO\s+(?:GRANDE|PEQUENO)\s*,?)\s*"
+)
 # Linha tecnica (medidas, conexoes) ou aviso interno: vai para a observacao, nao e aplicacao.
 _TECH_LINE = re.compile(
     r"^(?:FAM[IÍ?]LIA|ENTRADA|SA[IÍ?]DA|DI[AÂ?]METRO|PRATO|CARCA[CÇ?]A|PALHETAS?|ROTOR|EIXO|MEDIDAS?|"
-    r"SENTIDO|MATERIAL|#NOME|N[AÃ?]O\s+EXISTE|SOMENTE\s+TROCA|CONJUNTOS?\s*:?$|CONJUNTOS?\s+JRONE)"
+    r"SENTIDO|MATERIAL|#NOME|#VALOR|N[AÃ?]O\s+EXISTE|SOMENTE\s+TROCA|CONJUNTOS?\s*:?$|"
+    r"URG[EÊ?]NCIA|CINTA\s|C[OÓ?]DIGO\s+(?:ALTERNATIVO|INTERNO)\s*:?$|COMPATIBILIDADE\s*:?/?$)"
 )
 # "EIXO: 42/49,95 / ROTOR: 39,4/56" e o comeco da anotacao; o texto que vem depois volta a ser aplicacao.
-_MEASURES = re.compile(r"^(?:(?:EIXO|ROTOR)[A-Z ]*:?\s*[\d.,/xX*\s:-]*(?:MM)?\s*/?\s*)+")
+_MEASURES = re.compile(r"^(?:(?:EIXO|ROTOR)[A-ZÀ-Ü? ]*:?\s*[\d.,/xX*\s:-]*(?:MM)?\s*/?\s*)+")
 _SCIENTIFIC = re.compile(r"^-?\d+(?:[.,]\d+)?E[+-]?\d+$")
 _CONTINUES = ("/", "-", ",", ":", "+")
 
@@ -77,9 +128,20 @@ _BRAND_MODELS = (
     (re.compile(r"(?<![A-Z0-9])(?:K\d{2}|S[1-5]\d{2}|S[1-5][A-Z]{1,3}|B[1-3]\d|BV\d)"), "BORGWARNER"),
 )
 _LABEL_MAKERS = (
-    ("HOLSET", "HOLSET"), ("GARRETT", "GARRETT"), ("BORG", "BORGWARNER"), ("JRONE", "JRONE"),
+    ("HOLSET", "HOLSET"), ("GARRETT", "GARRETT"), ("GARRET", "GARRETT"), ("BORG", "BORGWARNER"),
+    ("BORGWARNER", "BORGWARNER"), ("JRONE", "JRONE"), ("RONE", "JRONE"), ("BULLCHARGER", "BULLCHARGER"),
+    ("REFONE", "REFONE"), ("REMAN", "REMAN"), ("ANTIGO", "CODIGO ANTIGO"), ("ANTIGOS", "CODIGO ANTIGO"),
     ("OEM", "OEM"), ("ORIGINAL", "OEM"), ("MONTADORA", "OEM"), ("OE", "OEM"),
     ("MASTER", "MASTER POWER"), ("BIAGIO", "BIAGIO"), ("MAHLE", "MAHLE"),
+)
+# Marca pelo jeito do numero, quando o texto nao diz: Garrett 806589-5001S, BorgWarner 53299887201,
+# Bullcharger BC.0219, JRONE 1000-030-118T, Refone (IMP) 7100-002-0070.
+_CODE_MAKERS = (
+    (re.compile(r"^\d{6}-\d{4}[A-Z]?$"), "GARRETT"),
+    (re.compile(r"^(?:53|54|10|11|12|13|14|70|90)\d{9}$"), "BORGWARNER"),
+    (re.compile(r"^BC\.\d{3,4}"), "BULLCHARGER"),
+    (re.compile(r"^(?:1000|1100|1102|1200|2300|2063)-\d{3}-\d{3}"), "JRONE"),
+    (re.compile(r"^(?:7100|7003|7004|7110|7101|7320)-\d{3}-\d{4}"), "REFONE"),
 )
 
 
@@ -193,7 +255,7 @@ def codes_with_text(text: str) -> List[Tuple[str, str]]:
     """[(como esta escrito, canonico)] dos codigos de peca de um texto, na ordem."""
     out: List[Tuple[str, str]] = []
     seen: Set[str] = set()
-    for token in re.split(r"\s+-\s+|[\s/,;()\[\]]+", text):
+    for token in re.split(r"\s+-\s+|[\s/,;:()\[\]*\\]+", text):
         token = token.strip(" .-:*")
         code = canonical_code(token)
         if is_searchable_code(code) and code not in seen:
@@ -218,23 +280,129 @@ def _label_maker(label: str, default: str) -> str:
     return default
 
 
-def _split_segments(line: str) -> Tuple[str, List[Tuple[str, str]]]:
+def code_maker(raw: str, default: str) -> str:
+    for pattern, maker in _CODE_MAKERS:
+        if pattern.match(raw):
+            return maker
+    return default
+
+
+def is_relation_code(raw: str, code: str) -> bool:
+    """Numero de peca que pode ser o outro lado de uma relacao (nao modelo, ano nem medida)."""
+    if not is_searchable_code(code) or _MODEL.match(code):
+        return False
+    if code.isdigit():
+        return len(code) >= 5
+    return sum(ch.isdigit() for ch in code) >= 4
+
+
+def _paren_depth(line: str, position: int) -> int:
+    return line[:position].count("(") - line[:position].count(")")
+
+
+def _marks(line: str, kind: str) -> List[Tuple[int, int, str]]:
+    """Onde comeca cada trecho que nao e aplicacao: [(inicio, fim do rotulo, tipo)]."""
+    found: List[Tuple[int, int, int, str]] = []
+    for order, (name, pattern) in enumerate(_RELATION_MARKS):
+        if name == "turbo" and kind != KIND_CORE:
+            continue  # "TURBO:" so diz o turbo de um conjunto
+        for m in pattern.finditer(line):
+            found.append((m.start(), order, m.end(), name))
+    for m in _REF_START.finditer(line):
+        found.append((m.start(), len(_RELATION_MARKS), m.start(), "ref"))
+    for m in _NOTE_START.finditer(line):
+        # Dentro de parenteses e ressalva do codigo ("(ATENCAO, POSICAO ONIBUS)"), nao anotacao nova.
+        if _paren_depth(line, m.start()) <= 0:
+            found.append((m.start(), len(_RELATION_MARKS) + 1, m.start(), "nota"))
+    found.sort()
+    marks: List[Tuple[int, int, str]] = []
+    last_end = -1
+    turbo_seen = False
+    for start, _, end, name in found:
+        if kind == KIND_CORE and name == "igual" and (turbo_seen or line[start:end].startswith("MESMO")):
+            # Num conjunto, "MESMO CODIGOS BORG: ..." e os "ANTIGOS"/"REMAN" depois de "TURBO/OEM:"
+            # sao os turbos onde ele vai, nao o proprio conjunto.
+            name = "turbo"
+        turbo_seen = turbo_seen or name == "turbo"
+        if start < last_end:
+            continue  # sobreposto ao rotulo anterior
+        if marks and marks[-1][2] in ("par", "trocar", "subst") and name == "nota":
+            continue  # "PODE SE ADAPTAR X, POREM TEM QUE..." : a ressalva fica com a relacao
+        if name == "conj" and kind == KIND_CORE:
+            name = "ref"  # num conjunto, "CONJUNTO: BC.0182" sao os conjuntos de outras marcas
+        marks.append((start, end, name))
+        last_end = end
+    return marks
+
+
+def _split_segments(line: str, kind: str = KIND_TURBO) -> Tuple[str, List[Tuple[str, str]]]:
     """Separa a aplicacao (comeco da linha) dos trechos de codigos e anotacoes: (aplicacao, [(tipo, trecho)])."""
-    marks = sorted(
-        [(m.start(), "ref") for m in _REF_START.finditer(line)] + [(m.start(), "nota") for m in _NOTE_START.finditer(line)]
-    )
+    marks = _marks(line, kind)
     if not marks:
         return line, []
     application = line[: marks[0][0]]
     segments = []
-    for index, (start, kind) in enumerate(marks):
-        end = marks[index + 1][0] if index + 1 < len(marks) else len(line)
-        segments.append((kind, line[start:end].strip(" -/;")))
+    for index, (start, end, name) in enumerate(marks):
+        stop = marks[index + 1][0] if index + 1 < len(marks) else len(line)
+        if name in ("ref", "nota"):
+            segments.append((name, line[start:stop].strip(" -/;")))
+        else:
+            segments.append((name, (line[start:end] + "\x00" + line[end:stop]).strip(" -/;")))
     return application, segments
 
 
+def _code_note(text: str, raw: str) -> Optional[str]:
+    """A ressalva escrita logo depois do codigo: "53279887213 (ROTOR TITANIO)" -> "ROTOR TITANIO"."""
+    at = text.find(raw)
+    if at < 0:
+        return None
+    rest = text[at + len(raw):].lstrip(" *")
+    if rest.startswith("("):
+        depth, end = 0, None
+        for i, ch in enumerate(rest):
+            depth += ch == "("
+            depth -= ch == ")"
+            if depth == 0:
+                end = i
+                break
+        note = rest[1:end] if end else rest[1:]
+        note = note.strip(" ,(")
+        if re.search(r"[A-Z]{3}", note):
+            return note[:MAX_FIELD]
+    return None
+
+
+def _relation_rows(kind: str, label: str, body: str, default_maker: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Optional[str]]:
+    """Trecho de uma relacao -> (codigos para a ficha, relacoes, ressalva do trecho)."""
+    codes: List[Dict[str, Any]] = []
+    relations: List[Dict[str, Any]] = []
+    found = [(raw, code) for raw, code in codes_with_text(body) if is_relation_code(raw, code)]
+    rest = body
+    for raw, _ in found:
+        rest = rest.replace(raw, " ")
+    rest = re.sub(r"\([^)]*\)?", " ", rest)
+    words = " ".join(rest.replace("*", " ").split()).strip(" ,.-/;:")
+    words = re.sub(r"^(?:E|OU)\s*,?\s+", "", words).strip(" ,")
+    segment_note = words[:MAX_FIELD] if re.search(r"[A-Z]{4}", words) else None
+    cursor = 0
+    for raw, code in found:
+        at = body.find(raw, cursor)
+        before = body[cursor:at] if at >= 0 else ""
+        cursor = at + len(raw) if at >= 0 else cursor
+        maker = _label_maker(before, "") or _label_maker(label, "") or code_maker(raw, default_maker)
+        note = _code_note(body, raw)
+        if kind in (REL_SIMILAR, REL_SAME):
+            codes.append({"fabricante": maker, "numero": raw[:60], "numero_norm": code})
+        relations.append({"tipo": kind, "numero": raw[:60], "numero_norm": code, "observacao": note,
+                          "fabricante": maker})
+    if kind in (REL_PAIR, REL_REPLACES, REL_REPLACED_BY) and segment_note:
+        for relation in relations:
+            relation["observacao"] = relation["observacao"] or segment_note
+    return codes, relations, segment_note
+
+
 def _application(text: str) -> Optional[Dict[str, Optional[str]]]:
-    text = _LEADING_LABEL.sub("", text).strip(" -/;:")
+    text = _LEADING_LABEL.sub("", text.replace("*", " ")).strip(" -/;:")
     if not text:
         return None
     match = _MOTOR.search(text)
@@ -256,17 +424,23 @@ def _only_codes(line: str) -> bool:
                                 not re.fullmatch(r"\d{4,5}[A-Z]?", t) for t in tokens)
 
 
-def parse_details(lines: Iterable[str]) -> Dict[str, Any]:
+def parse_details(lines: Iterable[str], kind: str = KIND_TURBO) -> Dict[str, Any]:
     """
-    Texto livre das aplicacoes -> {aplicacoes, codigos, notas}. Uma aplicacao junta as linhas ate
-    o motor ("MASSEY FERGUSON MF7350 / 7370 /" + "7415 MOTOR: 620DS"); o texto depois de
+    Texto livre das aplicacoes -> {aplicacoes, codigos, relacoes, notas}. Uma aplicacao junta as
+    linhas ate o motor ("MASSEY FERGUSON MF7350 / 7370 /" + "7415 MOTOR: 620DS"); o texto depois de
     SIMILAR / OE / CONJUNTO JRONE vira codigo; EIXO, ROTOR e OBS viram anotacao.
+
+    Relacoes (2.7.18): "FAZ PAR COM", "SUBSTITUI", "SUBSTITUIR PELO", "IGUAL", "CODIGO ANTIGO",
+    o conjunto central do turbo e o turbo do conjunto. Par, conjunto e substituto nao entram nos
+    codigos da ficha: nao sao a mesma peca.
     """
     applications: List[Dict[str, Optional[str]]] = []
     codes: List[Dict[str, str]] = []
+    relations: List[Dict[str, Any]] = []
     notes: List[str] = []
     buffer: List[str] = []
     waiting_motor = False
+    carry: Optional[str] = None  # relacao cujo codigo ficou na linha de baixo
 
     def flush() -> None:
         nonlocal waiting_motor
@@ -285,20 +459,76 @@ def parse_details(lines: Iterable[str]) -> Dict[str, Any]:
         buffer.clear()
         waiting_motor = False
 
+    def add_note(text: str) -> None:
+        text = text.replace("\x00", " ").strip(" -/;*")
+        text = " ".join(text.split())
+        if text and text not in notes:
+            notes.append(text)
+
+    def add_relation(name: str, text: str) -> bool:
+        """Grava o trecho de uma relacao; False se nao tinha codigo (pode estar na linha de baixo)."""
+        label, _, body = text.partition("\x00")
+        rel_kind = REL_SIMILAR if name == "ref" else _RELATION_KIND[name]
+        found, rels, _ = _relation_rows(rel_kind, label, body if _ else label, "OUTRO")
+        for code in found:
+            codes.append({k: code[k] for k in ("fabricante", "numero", "numero_norm")})
+        for rel in rels:
+            relations.append(rel)
+        if rel_kind not in (REL_SIMILAR, REL_SAME) and (rels or not body.strip()):
+            add_note(text)  # a anotacao continua aparecendo na ficha, inteira
+        return bool(rels)
+
+    def add_ref(segment: str, label_from: str = "") -> None:
+        found = codes_with_text(segment)
+        label = label_from or (segment.split(found[0][0])[0] if found else segment)
+        maker = _label_maker(label, "OUTRO")
+        similar = bool(re.match(r"(?:SIMILAR|EQUIVALENTE)", label))
+        for raw, code in found:
+            at = segment.find(raw)
+            near = _label_maker(segment[max(0, at - 14):at], "")
+            made = near or (maker if maker != "OUTRO" else code_maker(raw, "OUTRO"))
+            codes.append({"fabricante": made, "numero": raw[:60], "numero_norm": code})
+            if similar and is_relation_code(raw, code):
+                relations.append({"tipo": REL_SIMILAR, "numero": raw[:60], "numero_norm": code,
+                                  "observacao": _code_note(segment, raw), "fabricante": made})
+
+    def starts_with_code(text: str) -> bool:
+        first = codes_with_text(text.split(" ", 1)[0]) if text.strip() else []
+        return bool(first) and is_relation_code(*first[0])
+
     lines = list(lines)
+    last_kind: Optional[str] = None  # tipo do ultimo trecho da linha de cima (lista de codigos que continua)
     for index, line in enumerate(lines):
-        if _TECH_LINE.match(line):
+        previous_kind, last_kind = last_kind, None
+        if previous_kind not in (None, "par", "subst", "trocar") and not carry and starts_with_code(line.strip(" /-*")):
+            # "SIMILARES BORG 53279887227 /" + "70000175096 / 90000175096 (ATENCAO, POSICAO ONIBUS)"
             flush()
-            if line not in notes:
-                notes.append(line)
+            application, segments = _split_segments(line, kind)
+            if previous_kind in ("ref", "similar"):
+                add_ref(application, "SIMILAR" if previous_kind == "similar" else "OEM")
+            else:
+                add_relation(previous_kind, "\x00" + application)
+            last_kind = previous_kind
+            application = ""
+        elif carry:
+            name, carry = carry, None
+            application, segments = _split_segments(line, kind)
+            if application.strip():
+                add_relation(name, "\x00" + application)
+                last_kind = name
+                application = ""
+        elif _TECH_LINE.match(line):
+            flush()
+            add_note(line)
             continue
-        if _only_codes(line):
+        elif _only_codes(line):
             # So codigos ("1000-030-200T + 1102-017-009"), sem nome de veiculo.
             flush()
             for raw, code in codes_with_text(line):
-                codes.append({"fabricante": "OUTRO", "numero": raw[:60], "numero_norm": code})
+                codes.append({"fabricante": code_maker(raw, "OUTRO"), "numero": raw[:60], "numero_norm": code})
             continue
-        application, segments = _split_segments(line)
+        else:
+            application, segments = _split_segments(line, kind)
         application = application.strip()
         if application:
             buffer.append(application)
@@ -318,8 +548,9 @@ def parse_details(lines: Iterable[str]) -> Dict[str, Any]:
                 flush()
         if segments:
             flush()
-        for kind, segment in segments:
-            if kind == "nota":
+        for position, (name, segment) in enumerate(segments):
+            if name == "nota":
+                last_kind = None
                 measures = _MEASURES.match(segment)
                 rest = segment[measures.end():].strip(" -/;") if measures and measures.end() else ""
                 if rest and re.search(r"[A-Z]{3}", rest) and not _NOTE_START.match(rest):
@@ -327,16 +558,17 @@ def parse_details(lines: Iterable[str]) -> Dict[str, Any]:
                     app = _application(rest)
                     if app and app not in applications:
                         applications.append(app)
-                if segment and segment not in notes:
-                    notes.append(segment)
+                add_note(segment)
                 continue
-            found = codes_with_text(segment)
-            label = segment.split(found[0][0])[0] if found else segment
-            maker = _label_maker(label, "OUTRO")
-            for raw, code in found:
-                codes.append({"fabricante": maker, "numero": raw[:60], "numero_norm": code})
+            if name == "ref":
+                add_ref(segment)
+                last_kind = "similar" if re.match(r"(?:SIMILAR|EQUIVALENTE)", segment) else "ref"
+                continue
+            last_kind = name
+            if not add_relation(name, segment) and position == len(segments) - 1:
+                carry = name
     flush()
-    return {"aplicacoes": applications, "codigos": codes, "notas": notes}
+    return {"aplicacoes": applications, "codigos": codes, "relacoes": relations, "notas": notes}
 
 
 def build_fichas(items: List[Dict[str, Any]], catalog_codes: Set[str]) -> Dict[str, Any]:
@@ -358,7 +590,7 @@ def build_fichas(items: List[Dict[str, Any]], catalog_codes: Set[str]) -> Dict[s
         if any(code in catalog_codes for _, code in codes):
             skipped["no_catalogo_master_power"] += 1
             continue
-        details = parse_details(item["linhas"])
+        details = parse_details(item["linhas"], kind)
         if not details["aplicacoes"] and not details["codigos"]:
             skipped["sem_aplicacao"] += 1
             continue
@@ -398,6 +630,41 @@ def build_fichas(items: List[Dict[str, Any]], catalog_codes: Set[str]) -> Dict[s
     return {"fichas": list(fichas.values()), "ignorados": skipped}
 
 
+def part_codes(item: Dict[str, Any]) -> List[Tuple[str, str]]:
+    """Os numeros de peca do item (sem o modelo, como GT1238MZ), o do campo do codigo primeiro."""
+    return [(raw, code) for raw, code in own_codes(item) if is_relation_code(raw, code)]
+
+
+def build_relations(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Relacoes escritas nas observacoes de todos os itens (turbo, conjunto e as outras pecas, com ou
+    sem ficha Master Power): [{origem, origem_norm, tipo, numero, numero_norm, observacao, material}].
+    A relacao com o proprio codigo (ou a versao nova/reman dele) sai.
+    """
+    rows: List[Dict[str, Any]] = []
+    seen: Set[Tuple[str, str, str]] = set()
+    for item in items:
+        own = part_codes(item)
+        if not own or not item["linhas"]:
+            continue
+        origin_raw, origin = own[0]
+        family = set(expand_family_codes([code for _, code in own]))
+        details = parse_details(item["linhas"], item_kind(item["nome"]) or KIND_TURBO)
+        for rel in details["relacoes"]:
+            target = rel["numero_norm"]
+            if target in family or set(expand_family_codes([target])) & family:
+                continue
+            key = (origin, rel["tipo"], target)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append({
+                "origem": origin_raw[:60], "origem_norm": origin, "tipo": rel["tipo"], "numero": rel["numero"],
+                "numero_norm": target, "observacao": (rel.get("observacao") or None), "material": item["cd_material"],
+            })
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # 3. Guardar e copiar para o catalogo
 # ---------------------------------------------------------------------------
@@ -419,8 +686,20 @@ def list_fichas(conn: sqlite3.Connection) -> List[Dict[str, Any]]:
     ]
 
 
-def replace_all(conn: sqlite3.Connection, fichas: List[Dict[str, Any]]) -> None:
-    """Troca as fichas do cadastro desta maquina pelas do arquivo novo. Nao faz commit."""
+def replace_all(
+    conn: sqlite3.Connection, fichas: List[Dict[str, Any]], relations: Optional[List[Dict[str, Any]]] = None
+) -> None:
+    """Troca as fichas (e as relacoes) do cadastro desta maquina pelas do arquivo novo. Nao faz commit."""
+    if relations is not None:
+        conn.execute("DELETE FROM cadastro_relacoes")
+        conn.executemany(
+            """
+            INSERT INTO cadastro_relacoes (origem, origem_norm, tipo, numero, numero_norm, observacao, material)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [(r["origem"], r["origem_norm"], r["tipo"], r["numero"], r["numero_norm"], r.get("observacao"),
+              r.get("material")) for r in relations],
+        )
     conn.execute("DELETE FROM cadastro_fichas")
     conn.executemany(
         """

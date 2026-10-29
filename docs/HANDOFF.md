@@ -1236,3 +1236,12 @@ npm run lint
 ### 2026-10-28 — Claude Code — 2.7.14, correção da busca em colunas (era 2.7.12; o #44 entrou antes como 2.7.13)
 - Na 2.7.11, código sem resultado derrubava o app inteiro: `ok()` devolve o dicionário direto (sem os padrões do schema), `codigos_possiveis` não vinha e a tela lia `.length`. O serviço agora manda todos os campos sempre; a tela tolera a falta deles; `ColumnsErrorBoundary` troca as colunas por um aviso com "Ver em lista" em vez de derrubar o programa.
 - Teste: `test_empty_answer_still_has_every_field`.
+
+### 2026-10-29 — Claude Code — 2.7.18, observações do cadastro da empresa viram vínculos
+- Branch: `claude/project-thread-3slo65`, a partir da main (2.7.15). 2.7.16 (#48) e 2.7.17 (#49) estão em PR; esta é a 2.7.18.
+- `core/catalog/company_register.py`: `parse_details(linhas, kind)` separa as observações por tipo (`_RELATION_MARKS`): PAR (faz par), CONJUNTO (conjunto do turbo), TURBO (turbo do conjunto, inclusive "MESMO CODIGOS BORG" num conjunto), SUBSTITUI, TROCAR_POR, IGUAL (igual, mesmo, código antigo, reman) e SIMILAR (com a ressalva entre parênteses). Código na linha de baixo e lista de códigos que continua na linha seguinte são tratados. Par, conjunto e substituto saem dos códigos da ficha e das aplicações; a anotação fica na observação da ficha. Marca pelo jeito do número (`_CODE_MAKERS`).
+- `build_relations(items)`: todas as peças (com ou sem ficha Master Power, inclusive embreagem/válvula) -> tabela `cadastro_relacoes` (migration_v2_4_0_knowledge). Na planilha real: 2.752 relações (1.759 similar, 552 conjunto, 358 turbo, 54 igual, 11 par, 18 substitui/trocar). Aplicações que eram anotação: de 599 para 157 (o resto é a descrição do próprio conjunto).
+- Busca (`AssistantToolsService._register_relations`): lê dos dois lados (`REVERSE_RELATION`). Igual/similar entram como equivalente com `obs_cadastro`; o resto vai em `relacoes_cadastro` e no texto (`register_lines`). Par escrito errado de um lado (846016 -> 883860-5013) cai quando há outro par com o mesmo começo que temos.
+- Aba Produtos: coluna `par` ("Par do biturbo", sem botão de vincular); conjunto e substituto do cadastro nas colunas de conjunto e similares.
+- Precisa reimportar o produtos_completos.csv na máquina que publica a base e depois "Publicar base".
+- Testes: `test_reads_pair_core_replacement_and_old_code`, `test_search_shows_the_biturbo_pair_and_the_core`.
