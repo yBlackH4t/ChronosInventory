@@ -206,6 +206,19 @@ def test_unreadable_photo_marks_a_warning(setup):
     assert "Não consegui ler o código na foto" in s.transport.to_self[-1]
 
 
+def test_unreadable_photo_does_not_drop_the_text_sent_with_it(setup):
+    # O chefe encaminha chassi, veiculo e uma foto do motor sem codigo legivel.
+    s = setup
+    s.bridge.vision = FakeVision(error=AssistantUnavailableError("Não consegui ler o código na foto."))
+    _msg(s, BOSS, "v1", BOSS, text="93ZM2SSH0L8833775")
+    _msg(s, BOSS, "v2", BOSS, text="IVECO / 600S44T 6X2", dt=2)
+    _msg(s, BOSS, "v3", BOSS, image=True, dt=2)
+    _react(s, BOSS, "v2")
+    assert s.chat.calls[-1]["mensagem"] == "93ZM2SSH0L8833775\nIVECO / 600S44T 6X2"
+    assert s.transport.replies and s.transport.reactions[-1] == ("v2", "")
+    assert "respondi pelo texto" in s.transport.to_self[-1]
+
+
 def test_only_the_teams_robot_reaction_triggers(setup):
     s = setup
     _msg(s, BOSS, "m1", BOSS, text="tem a 4031196?")

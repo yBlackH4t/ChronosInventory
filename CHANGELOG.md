@@ -26,6 +26,11 @@ Formato recomendado:
 
 
 
+## [2.7.21] - 2026-10-29
+
+### Fixed
+- **WhatsApp:** foto sem código legível não faz mais o robô desistir. Quando a foto vem junto com texto (ex.: chassi, "IVECO / 600S44T 6X2" e a foto do motor), ele responde pelo texto e avisa na "Mensagem para mim" que não leu a foto. Só dá ⚠️ quando não sobra nada para ler.
+
 ## [2.7.20] - 2026-10-29
 
 ### Fixed

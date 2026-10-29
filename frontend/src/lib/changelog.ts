@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.21",
+    "date": "2026-10-29",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: WhatsApp: foto sem código legível não faz mais o robô desistir. Quando a foto vem junto com texto (ex.: chassi, \"IVECO / 600S44T 6X2\" e a foto do motor), ele responde pelo texto e avisa na \"Mensagem para mim\" que não leu a foto. Só dá ⚠️ quando não sobra nada para ler."
+    ]
+  },
+  {
     "version": "2.7.20",
     "date": "2026-10-29",
     "title": "Correcao e estabilidade",

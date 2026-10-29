@@ -231,15 +231,19 @@ class WhatsAppBridge:
             )
             return
         try:
-            parts, problems = [], []
+            parts, problems, photo_problems = [], [], []
             for message in group:
-                text = self._text_of(message, transcribe=True, problems=problems)
+                text = self._text_of(message, transcribe=True,
+                                     problems=photo_problems if message.is_image else problems)
                 if text:
                     parts.append(text)
+            # Foto sem codigo legivel nao derruba o texto que veio junto (chassi, veiculo, motor).
             if problems or not parts:
                 self.transport.react(target, ERROR_REACTION)
-                self._note_to_self("Não consegui ler a mensagem: " + ("; ".join(problems) or "sem texto."))
+                self._note_to_self("Não consegui ler a mensagem: " + ("; ".join(problems + photo_problems) or "sem texto."))
                 return
+            if photo_problems:
+                self._note_to_self("Não consegui ler o código da foto; respondi pelo texto que veio junto.")
             account = self._account()
             # Codigo falado por extenso vira algarismos tambem para o atendimento (pedido em aberto).
             parts = [spoken_digits_to_numbers(part) for part in parts]
