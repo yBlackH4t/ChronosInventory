@@ -1237,6 +1237,11 @@ npm run lint
 - Na 2.7.11, código sem resultado derrubava o app inteiro: `ok()` devolve o dicionário direto (sem os padrões do schema), `codigos_possiveis` não vinha e a tela lia `.length`. O serviço agora manda todos os campos sempre; a tela tolera a falta deles; `ColumnsErrorBoundary` troca as colunas por um aviso com "Ver em lista" em vez de derrubar o programa.
 - Teste: `test_empty_answer_still_has_every_field`.
 
+### 2026-10-29 — Claude Code — 2.7.16, código falado por extenso no assistente
+- Branch: `claude/project-thread-2b8t5e`, a partir da main (2.7.15).
+- "tem a cinco quatro cinco cinco meia zero nove?" respondia "o catálogo só tem turbinas de marcas com que não trabalhamos": nenhum código com algarismos, então virava busca por veículo; e o código que a IA lia era descartado por `supported_codes`. Agora `spoken_digits_to_numbers` (`app/services/assistant_spoken_numbers.py`: dígito a dígito, números compostos, letras e veículo/motor falados) troca a sequência falada por algarismos na mensagem e no histórico do usuário (app e WhatsApp).
+- Testes: `test_code_spoken_in_words_becomes_digits`, `test_spoken_digits_to_numbers`.
+
 ### 2026-10-29 — Claude Code — 2.7.18, observações do cadastro da empresa viram vínculos
 - Branch: `claude/project-thread-3slo65`, a partir da main (2.7.15). 2.7.16 (#48) e 2.7.17 (#49) estão em PR; esta é a 2.7.18.
 - `core/catalog/company_register.py`: `parse_details(linhas, kind)` separa as observações por tipo (`_RELATION_MARKS`): PAR (faz par), CONJUNTO (conjunto do turbo), TURBO (turbo do conjunto, inclusive "MESMO CODIGOS BORG" num conjunto), SUBSTITUI, TROCAR_POR, IGUAL (igual, mesmo, código antigo, reman) e SIMILAR (com a ressalva entre parênteses). Código na linha de baixo e lista de códigos que continua na linha seguinte são tratados. Par, conjunto e substituto saem dos códigos da ficha e das aplicações; a anotação fica na observação da ficha. Marca pelo jeito do número (`_CODE_MAKERS`).

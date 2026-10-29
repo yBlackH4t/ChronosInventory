@@ -37,6 +37,12 @@ Formato recomendado:
 ### Fixed
 - **"FAZ PAR COM", "SUBSTITUI", "CÓDIGO ANTIGO", "NÃO TEMOS CONJUNTO" e os códigos dos conjuntos apareciam como aplicação do turbo** (ex.: 883860-5003S). Agora ficam como anotação da ficha, e o conjunto e o par não contam mais como a mesma peça na busca. Marca dos códigos corrigida (JRONE, Bullcharger, Refone, reman, código antigo).
 
+## [2.7.16] - 2026-10-29
+
+### Fixed
+- **Assistente entende código falado por extenso:** "tem a cinco quatro cinco cinco meia zero nove?" agora vira 5455609 ("meia" = 6), no app e no WhatsApp. Também entende o código dito em pedaços, como "quatrocentos e três, onze, noventa e cinco" (4031195), e metade em número e metade por extenso, como "403 um um nove cinco". Antes a pergunta virava busca por veículo e a resposta não tinha nada a ver. "Uma turbina", "duas peças", "fh quinhentos e vinte" e anos como "dois mil e quinze" continuam como estão; vários códigos separados por vírgula ou em linhas diferentes continuam sendo pedidos separados.
+- **Veículo, motor e letras falados:** "scania quatrocentos e quarenta dois mil e quinze" responde igual a "scania 440 2015"; também "fh quinhentos e vinte" (FH 520), "dê treze" (D13), "mwm quatro ponto dez" (4.10), "agá xis cinquenta e cinco" (HX55) e "kê vinte e sete" (K27). "Tem dois?", "tem um turbo?" e palavras como "de", "esse" e "ele" continuam como estão.
+
 ## [2.7.15] - 2026-10-28
 
 ### Added
