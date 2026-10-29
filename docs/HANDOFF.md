@@ -1236,3 +1236,11 @@ npm run lint
 ### 2026-10-28 — Claude Code — 2.7.14, correção da busca em colunas (era 2.7.12; o #44 entrou antes como 2.7.13)
 - Na 2.7.11, código sem resultado derrubava o app inteiro: `ok()` devolve o dicionário direto (sem os padrões do schema), `codigos_possiveis` não vinha e a tela lia `.length`. O serviço agora manda todos os campos sempre; a tela tolera a falta deles; `ColumnsErrorBoundary` troca as colunas por um aviso com "Ver em lista" em vez de derrubar o programa.
 - Teste: `test_empty_answer_still_has_every_field`.
+
+### 2026-10-29 — Claude Code — 2.7.17, perguntas do dia (modo entrevista da IA)
+
+- `app/services/assistant_interview_service.py`: a IA escolhe 5 dúvidas por dia (Para revisar, mesma ficha Master Power, nome do produto que junta dois códigos, aplicação do catálogo), as peças com estoque e saída primeiro, e guarda em `entrevista` no `assistente_historico.db`.
+- Respostas pelo fluxo de ensino que já existia (`AssistantTeachService`, `mark_reviewed`, "Não se aplica"); "não sei" volta em 30 dias.
+- Tela: Assistente > Admin > "Perguntas do dia" (`AdminInterviewTab.tsx`). WhatsApp: `/perguntas`, `/r`, `/confirmar <PIN>`, envio diário só no PC que publica a base.
+- Testes: `backend/tests/test_assistant_interview.py`.
+

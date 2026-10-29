@@ -66,7 +66,9 @@ HELP_TEXT = (
     "  (vira uma proposta; só vale depois que o admin aprovar no app)\n"
     "• /pendentes: o que está esperando revisão do admin\n"
     "• /enviar <nº> ou /descartar <nº>: o rascunho da resposta (modo revisar antes de enviar)\n"
-    "• /resumo: o que zerou, o que mais saiu e o que pediram e não temos"
+    "• /resumo: o que zerou, o que mais saiu e o que pediram e não temos\n"
+    "• /perguntas: as perguntas do dia que eu faço para aprender\n"
+    "  responda /r <nº> igual|similar|diferente|nao sei e depois /confirmar <PIN>"
 )
 
 
@@ -129,10 +131,12 @@ class WhatsAppBridge:
         run_async: Optional[Callable[[Callable[[], None]], Any]] = None,
         vision: Any = None,
         summary: Any = None,
+        interview: Any = None,
         review_enabled: Optional[Callable[[], bool]] = None,
         context_minutes: Optional[Callable[[], int]] = None,
     ) -> None:
         self.summary = summary  # resumo diario (/resumo); criado so quando usado
+        self.interview = interview  # perguntas do dia (/perguntas, /r, /confirmar)
         if chat_service is None:
             from app.services.assistant_chat_service import AssistantChatService
 
@@ -402,6 +406,12 @@ class WhatsAppBridge:
                 reply = self._pending()
             elif name == "/resumo":
                 reply = self._summary().build_text()
+            elif name in ("/perguntas", "/entrevista"):
+                reply = self._interview().build_text()
+            elif name in ("/r", "/responder", "/resposta"):
+                reply = self._interview_answer(parts[1:])
+            elif name == "/confirmar":
+                reply = self._interview_confirm(parts[1:])
             else:
                 reply = HELP_TEXT
         except Exception:
@@ -415,6 +425,43 @@ class WhatsAppBridge:
 
             self.summary = AssistantDailySummaryService(history=self.history)
         return self.summary
+
+    def _interview(self) -> Any:
+        if self.interview is None:
+            from app.services.assistant_interview_service import AssistantInterviewService
+
+            self.interview = AssistantInterviewService(history=self.history)
+        return self.interview
+
+    def _interview_answer(self, args: List[str]) -> str:
+        if len(args) < 2 or not args[0].lstrip("#").rstrip(".)").isdigit():
+            return "Use assim: /r 1 igual (o número aparece em /perguntas)"
+        return self._interview().answer_by_number(int(args[0].lstrip("#").rstrip(".)")), " ".join(args[1:]))
+
+    def _interview_confirm(self, args: List[str]) -> str:
+        """/confirmar <PIN>: o que foi respondido com /r vira conhecimento (como o /aprovar)."""
+        admin = self._admin()
+        if not admin.is_publisher():
+            return "Confirmar só no PC principal (o que publica a base)."
+        if not admin.has_whatsapp_pin():
+            return PIN_MISSING_TEXT
+        if not args:
+            return "Falta o PIN. Use assim: /confirmar 1234"
+        if admin.whatsapp_pin_blocked():
+            return "PIN errado várias vezes. Confirmar pelo WhatsApp fica bloqueado por 10 minutos."
+        if not admin.check_whatsapp_pin(args[0]):
+            return "PIN incorreto."
+        done = self._interview().confirm_waiting()
+        if not done:
+            return "Nenhuma resposta esperando. Responda com /r 1 igual (veja em /perguntas)."
+        return "\n".join(f"{item.get('numero', '')}. {item.get('resultado') or ''}".strip() for item in done)
+
+    def _admin(self) -> Any:
+        if self.admin is None:
+            from app.services.assistant_admin_service import AssistantAdminService
+
+            self.admin = AssistantAdminService()
+        return self.admin
 
     def list_sessions(self) -> List[Dict[str, Any]]:
         self.attendance.expire(self.clock(), self.context_minutes() * 60)
@@ -479,11 +526,7 @@ class WhatsAppBridge:
     def _decide(self, name: str, args: List[str]) -> str:
         if not args or not args[0].lstrip("#").isdigit():
             return f"Use assim: {name} 3 1234 (o número aparece em /pendentes; depois, o seu PIN)"
-        from app.services.assistant_admin_service import AssistantAdminService
-
-        if self.admin is None:
-            self.admin = AssistantAdminService()
-        admin = self.admin
+        admin = self._admin()
         if not admin.is_publisher():
             return "Aprovar e recusar só no PC principal (o que publica a base)."
         # Quem pega o celular desbloqueado nao aprova nada sem o PIN (Assistente > Admin).

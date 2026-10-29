@@ -152,3 +152,45 @@ export interface DailySummaryUpdate {
 }
 
 
+
+/** Perguntas do dia (modo entrevista): a IA pergunta ao especialista o que ela não sabe. */
+export type InterviewKind = "revisar_par" | "revisar" | "ficha" | "cadastro" | "aplicacao";
+export type InterviewState = "pendente" | "aguardando" | "respondida" | "nao_sei";
+
+export interface InterviewQuestion {
+  id: number;
+  numero: number;
+  tipo: InterviewKind;
+  codigo_a: string;
+  codigo_b: string | null;
+  produto_id: number | null;
+  dados: Record<string, string | null>;
+  pergunta: string;
+  motivo: string | null;
+  dia: string;
+  estado: InterviewState;
+  resposta: string | null;
+  codigo_resposta: string | null;
+  observacao: string | null;
+  resultado: string | null;
+  opcoes: { valor: string; rotulo: string }[];
+}
+
+export interface InterviewSettings {
+  ativo: boolean;
+  hora: string;
+  quantidade: number;
+  ultimo_envio: string | null;
+}
+
+export interface InterviewDay {
+  perguntas: InterviewQuestion[];
+  config: InterviewSettings;
+  texto_whatsapp: string;
+}
+
+export interface InterviewAnswer {
+  resposta: string;
+  observacao?: string | null;
+  codigo?: string | null;
+}

@@ -193,6 +193,10 @@ Rotas marcadas com (admin) exigem o header `X-Admin-Token` (devolvido pelo login
 ### Resumo diario (Mensagem para mim)
 - `GET /assistente/resumo` - `{ texto, ativo, hora, ultimo_envio }`: o resumo de hoje (zeraram desde ontem, mais sairam em 7 dias, perguntaram e nao temos em 7 dias) e a configuracao.
 - `PUT /assistente/resumo` (admin) - `{ ativo?, hora? ("HH:MM") }`. Com o WhatsApp do app conectado, o resumo vai sozinho para a "Mensagem para mim" uma vez por dia, depois da hora. Comando `/resumo` manda na hora.
+- `GET /assistente/entrevista` (admin, 2.7.17) - `{ perguntas, config, texto_whatsapp }`: as perguntas do dia (modo entrevista). Cria na primeira vez do dia, levando as que ficaram sem resposta. Cada pergunta: `{ id, numero, tipo (revisar_par|revisar|ficha|cadastro|aplicacao), codigo_a, codigo_b, pergunta, motivo, estado (pendente|aguardando|respondida|nao_sei), opcoes, resposta, resultado }`.
+- `POST /assistente/entrevista/mais` (admin) - outra rodada de perguntas hoje.
+- `POST /assistente/entrevista/{id}/responder` (admin) - `{ resposta (igual|similar|diferente|nao_sei|nao_temos|sim|nao), observacao?, codigo? }`. Igual/similar/diferente viram regra do especialista (publicada); `nao_temos` conclui o codigo do "Para revisar"; `nao` numa aplicacao marca "Nao se aplica"; `nao_sei` volta em 30 dias.
+- `PUT /assistente/entrevista/config` (admin) - `{ ativo?, hora? ("HH:MM"), quantidade? (1 a 10) }`. No PC que publica a base, com o WhatsApp conectado, as perguntas vao para a "Mensagem para mim" uma vez por dia. Comandos: `/perguntas`, `/r <n> <resposta>` (fica aguardando) e `/confirmar <PIN>` (aplica).
 
 ### WhatsApp (modo copiloto)
 Todas (admin): o QR code conecta o WhatsApp da empresa ao Chronos.

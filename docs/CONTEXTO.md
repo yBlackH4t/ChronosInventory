@@ -19,6 +19,8 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
+- **2.7.17 em PR (29/10):** perguntas do dia (a IA pergunta ao dono o que não sabe, no app e no
+  WhatsApp). Depende de nada; o #48 (2.7.16) é independente.
 - **Base atual da main:** 2.7.14 (#45 sobre a 2.7.13 #44; tags pendentes). Em PR: 2.7.15 (#46), aviso de remessa SC x RS no WhatsApp (tela da NF). Nunca criar a tag v2.7.12. Merge e tag só pelo dono.
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).

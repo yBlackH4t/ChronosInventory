@@ -18,6 +18,10 @@ import type {
   WhatsAppDraft,
   DailySummary,
   DailySummaryUpdate,
+  InterviewAnswer,
+  InterviewDay,
+  InterviewQuestion,
+  InterviewSettings,
 } from "../types/assistantAdmin";
 
 export const ADMIN_TOKEN_HEADER = "X-Admin-Token";
@@ -76,6 +80,65 @@ export const closeWhatsAppAttendance = (id: number) =>
 // ---------------------------------------------------------------------------
 
 const MOCK_TOKEN = "mock-admin-token";
+
+const PAIR_OPTIONS = [
+  { valor: "igual", rotulo: "Igual" },
+  { valor: "similar", rotulo: "Similar" },
+  { valor: "diferente", rotulo: "Diferente" },
+  { valor: "nao_sei", rotulo: "Não sei" },
+];
+
+const mockInterview = {
+  config: { ativo: true, hora: "09:00", quantidade: 5, ultimo_envio: null } as InterviewSettings,
+  questions: [
+    {
+      id: 1, numero: 1, tipo: "revisar", codigo_a: "3785479", codigo_b: null, produto_id: null, dados: {},
+      pergunta: "Qual peça nossa serve no lugar da *3785479*?",
+      motivo: "Perguntaram 3x e não achei no estoque nem no que você me ensinou.",
+      dia: "2026-10-29", estado: "pendente", resposta: null, codigo_resposta: null, observacao: null, resultado: null,
+      opcoes: [
+        { valor: "igual", rotulo: "Igual a…" },
+        { valor: "similar", rotulo: "Similar a…" },
+        { valor: "nao_temos", rotulo: "Não temos" },
+        { valor: "nao_sei", rotulo: "Não sei" },
+      ],
+    },
+    {
+      id: 2, numero: 2, tipo: "ficha", codigo_a: "4031195", codigo_b: "5351848", produto_id: 12, dados: { ficha: "805314" },
+      pergunta: "*4031195* e *5351848* são a mesma peça?",
+      motivo: "As duas estão na mesma ficha Master Power (805314 · MP530w), mas a mesma ficha não quer dizer que são iguais. Temos 2 da 4031195.",
+      dia: "2026-10-29", estado: "pendente", resposta: null, codigo_resposta: null, observacao: null, resultado: null,
+      opcoes: PAIR_OPTIONS,
+    },
+    {
+      id: 3, numero: 3, tipo: "revisar_par", codigo_a: "4031196", codigo_b: "5455609", produto_id: 31, dados: {},
+      pergunta: "*4031196* e *5455609* são a mesma peça?",
+      motivo: "Perguntaram 2x a 4031196 e não soube responder; perguntaram se é igual. Temos 1 da 5455609.",
+      dia: "2026-10-29", estado: "respondida", resposta: "similar", codigo_resposta: null, observacao: "muda o atuador",
+      resultado: "✅ Aprendido: *4031196* similar *5455609* (muda o atuador). Vale para todos a partir de agora.",
+      opcoes: PAIR_OPTIONS,
+    },
+    {
+      id: 4, numero: 4, tipo: "cadastro", codigo_a: "53279907101", codigo_b: "53279907210", produto_id: 44, dados: {},
+      pergunta: "*53279907101* e *53279907210* são a mesma peça?",
+      motivo: "O cadastro junta as duas no produto \"TURBO K27 - 53279907101/7210\". Hoje eu digo \"provavelmente iguais\".",
+      dia: "2026-10-29", estado: "pendente", resposta: null, codigo_resposta: null, observacao: null, resultado: null,
+      opcoes: PAIR_OPTIONS,
+    },
+    {
+      id: 5, numero: 5, tipo: "aplicacao", codigo_a: "4031196", codigo_b: null, produto_id: 31,
+      dados: { ficha: "805314", veiculo: "Volvo FH 520" },
+      pergunta: "A *4031196* vai no *Volvo FH 520* (MD13 460/480/500/520 HP Euro 5)?",
+      motivo: "Está na ficha Master Power 805314, e o catálogo tem aplicações erradas.",
+      dia: "2026-10-29", estado: "pendente", resposta: null, codigo_resposta: null, observacao: null, resultado: null,
+      opcoes: [
+        { valor: "sim", rotulo: "Vai, está certo" },
+        { valor: "nao", rotulo: "Não vai" },
+        { valor: "nao_sei", rotulo: "Não sei" },
+      ],
+    },
+  ] as InterviewQuestion[],
+};
 
 const mock = {
   publicadora: true,
@@ -319,6 +382,61 @@ export async function syncKnowledge(): Promise<KnowledgeSyncStatus> {
 // ---------------------------------------------------------------------------
 // Revisão ("Para revisar")
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Perguntas do dia (modo entrevista)
+// ---------------------------------------------------------------------------
+
+function mockInterviewDay(): InterviewDay {
+  return {
+    perguntas: mockInterview.questions.map((q) => ({ ...q })),
+    config: { ...mockInterview.config },
+    texto_whatsapp: "*Perguntas do dia*",
+  };
+}
+
+export async function getInterviewDay(): Promise<InterviewDay> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    mockRequireAdmin();
+    return mockInterviewDay();
+  }
+  return adminRequest<InterviewDay>("/entrevista");
+}
+
+export async function moreInterviewQuestions(): Promise<InterviewDay> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    return mockInterviewDay();
+  }
+  return adminRequest<InterviewDay>("/entrevista/mais", { method: "POST" });
+}
+
+export async function answerInterviewQuestion(id: number, body: InterviewAnswer): Promise<InterviewQuestion> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    const question = mockInterview.questions.find((q) => q.id === id);
+    if (!question) throw new AssistantApiError("validation_error", 422, "Pergunta não encontrada.");
+    Object.assign(question, {
+      estado: body.resposta === "nao_sei" ? "nao_sei" : "respondida",
+      resposta: body.resposta,
+      observacao: body.observacao ?? null,
+      codigo_resposta: body.codigo ?? null,
+      resultado: body.resposta === "nao_sei" ? "Tudo bem, pergunto de novo daqui a um mês." : "✅ Aprendido. Vale para todos a partir de agora.",
+    });
+    return { ...question };
+  }
+  return adminRequest<InterviewQuestion>(`/entrevista/${id}/responder`, { method: "POST", body });
+}
+
+export async function updateInterviewSettings(body: Partial<InterviewSettings>): Promise<InterviewSettings> {
+  if (isMockEnabled()) {
+    await mockDelay();
+    Object.assign(mockInterview.config, body);
+    return { ...mockInterview.config };
+  }
+  return adminRequest<InterviewSettings>("/entrevista/config", { method: "PUT", body });
+}
 
 export async function getReviewList(): Promise<ReviewItem[]> {
   if (isMockEnabled()) {
