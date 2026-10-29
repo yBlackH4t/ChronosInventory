@@ -1,5 +1,5 @@
 // Aba Produtos em colunas (2.7.11): a busca por código abre colunas (nova, reman, montada,
-// conjunto central, similares). Lógica pura, sem React, para testar.
+// conjunto central, par do biturbo, similares). Lógica pura, sem React, para testar.
 
 import type { InventoryLocation, ProductColumn, ProductColumnItem, ProductColumnKey } from "./api";
 
@@ -9,6 +9,7 @@ export const COLUMN_COLORS: Record<ProductColumnKey, string> = {
   reman: "orange",
   montada: "violet",
   conjunto: "cyan",
+  par: "teal",
   similares: "pink",
 };
 
@@ -24,6 +25,8 @@ export const LINK_LABEL: Record<ProductColumnKey, string> = {
   reman: "Vincular reman",
   montada: "Vincular montada",
   conjunto: "Vincular conjunto",
+  // O par do biturbo vem das observações do cadastro da empresa; não tem botão de vincular.
+  par: "",
   similares: "Vincular similar",
 };
 

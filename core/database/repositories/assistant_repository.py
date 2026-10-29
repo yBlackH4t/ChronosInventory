@@ -156,6 +156,21 @@ class AssistantRepository(BaseRepository):
         )
         return [str(row["codigo"]) for row in rows]
 
+    def get_register_relations(self, codes: List[str]) -> List[Dict[str, Any]]:
+        """Relacoes do cadastro da empresa (faz par, conjunto, substitui...) que citam estes codigos, dos dois lados."""
+        if not codes:
+            return []
+        marks = _placeholders(codes)
+        return self._execute_query(
+            f"""
+            SELECT origem, origem_norm, tipo, numero, numero_norm, observacao, material
+            FROM cadastro_relacoes
+            WHERE origem_norm IN ({marks}) OR numero_norm IN ({marks})
+            ORDER BY id
+            """,
+            tuple(codes) * 2,
+        )
+
     def known_codes(self, codes: List[str]) -> set:
         """Quais destes codigos a empresa conhece: estao no nome de um produto nosso ou na base de conhecimento."""
         if not codes:

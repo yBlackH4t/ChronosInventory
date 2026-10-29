@@ -28,6 +28,7 @@ COLUMNS = (
     ("reman", "Turbina reman"),
     ("montada", "Turbina montada"),
     ("conjunto", "Conjunto central"),
+    ("par", "Par do biturbo"),
     ("similares", "Similares"),
 )
 
@@ -40,6 +41,16 @@ RELATION_LABELS = {
 RELATION_ASSEMBLED = "montada_no_conjunto"
 # Vinculo feito na tela (botao Vincular): o turbo aponta para outro produto.
 RELATION_LINK = "vinculo"
+
+# Relacoes das observacoes do cadastro da empresa (2.7.18): (coluna, rotulo) de cada tipo.
+RELATION_REGISTER = "cadastro"
+REGISTER_COLUMNS = {
+    "PAR": ("par", "Faz par"),
+    "CONJUNTO": ("conjunto", "Pelo cadastro"),
+    "TURBO": ("similares", "Usa este conjunto"),
+    "SUBSTITUI": ("similares", "Serve no lugar"),
+    "TROCAR_POR": ("similares", "Pode trocar por"),
+}
 
 # A tela mostra tudo que achou do codigo, nao o resumo curto do assistente.
 COLUMN_LIMITS = ResultLimits(products=80, code_catalog_items=3, applications_per_item=6)
@@ -61,12 +72,15 @@ class ProductColumnsService:
 
         for item in found.get("produtos", []):
             own = item["correspondencia"] in (MATCH_EXACT, MATCH_FAMILY)
+            label = None if own else RELATION_LABELS.get(item["correspondencia"])
+            if item.get("obs_cadastro"):
+                label = "Igual (cadastro)" if item["obs_cadastro"].startswith("igual") else "Similar (cadastro)"
             entry = {
                 "produto_id": item["id"],
                 "relacao": item["correspondencia"],
-                "rotulo": None if own else RELATION_LABELS.get(item["correspondencia"]),
+                "rotulo": label,
                 "codigo_relacionado": item.get("codigo_relacionado"),
-                "obs": item.get("obs_especialista"),
+                "obs": item.get("obs_especialista") or item.get("obs_cadastro"),
             }
             if item["categoria"] == CATEGORY_CORE:
                 groups["conjunto"].append(entry)
@@ -92,6 +106,7 @@ class ProductColumnsService:
                 )
 
         self._add_links(found.get("produtos", []), groups)
+        self._add_register_relations(found.get("relacoes_cadastro", []), groups)
 
         ids = sorted({entry["produto_id"] for entries in groups.values() for entry in entries})
         by_id = {int(row["id"]): Product.from_dict(row).to_dict() for row in self.products.get_by_ids(ids)}
@@ -140,6 +155,27 @@ class ProductColumnsService:
                     "obs": None,
                 }
             )
+
+
+    @staticmethod
+    def _add_register_relations(relations: List[Dict[str, Any]], groups: Dict[str, List[Dict[str, Any]]]) -> None:
+        """Par do biturbo, conjunto, substituto e turbo do conjunto escritos no cadastro da empresa."""
+        shown = {entry["produto_id"] for entries in groups.values() for entry in entries}
+        for link in relations:
+            column, label = REGISTER_COLUMNS.get(link["tipo"], ("similares", "Pelo cadastro"))
+            for product in link.get("produtos") or []:
+                if product["id"] in shown:
+                    continue
+                shown.add(product["id"])
+                groups[column].append(
+                    {
+                        "produto_id": product["id"],
+                        "relacao": RELATION_REGISTER,
+                        "rotulo": label,
+                        "codigo_relacionado": None,
+                        "obs": link.get("obs"),
+                    }
+                )
 
 
 def _applications(fichas: List[Dict[str, Any]]) -> List[str]:

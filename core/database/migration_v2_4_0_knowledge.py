@@ -87,6 +87,23 @@ KNOWLEDGE_SCHEMA_SQL = (
         importado_em DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """,
+    # Relacoes escritas nas observacoes do cadastro da empresa (2.7.18): faz par (biturbo),
+    # conjunto central do turbo, turbo do conjunto, substitui, igual e similar. Origem = o codigo
+    # do item do arquivo; numero = o outro codigo. Ver core/catalog/company_register.py.
+    """
+    CREATE TABLE IF NOT EXISTS cadastro_relacoes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        origem TEXT NOT NULL,
+        origem_norm TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        numero TEXT NOT NULL,
+        numero_norm TEXT NOT NULL,
+        observacao TEXT,
+        material INTEGER
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_cadastro_relacoes_origem ON cadastro_relacoes(origem_norm)",
+    "CREATE INDEX IF NOT EXISTS idx_cadastro_relacoes_numero ON cadastro_relacoes(numero_norm)",
 )
 
 

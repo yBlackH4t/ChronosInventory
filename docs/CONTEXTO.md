@@ -19,9 +19,8 @@ App desktop de estoque para Windows, **offline-first**, de uma distribuidora de 
 | Telas | React + TypeScript + Mantine + TanStack Query | `frontend/src` |
 | Desktop e instalador | Tauri, com o backend empacotado (PyInstaller) | `frontend/src-tauri`, `build_backend.ps1` |
 
-- **2.7.17 em PR (#49, 29/10):** perguntas do dia (a IA pergunta ao dono o que não sabe, no app e no
-  WhatsApp), já com a 2.7.16 da main dentro.
-- **Base atual da main:** 2.7.16 (#48; tags v2.7.13 a v2.7.16 pendentes, do dono). Nunca criar as tags v2.7.8 e v2.7.12. Merge e tag só pelo dono.
+- **2.7.18 (2026-10-29, branch `claude/project-thread-3slo65`):** observações do cadastro da empresa (faz par, conjunto, substitui, código antigo) viram vínculos "pelo cadastro" na busca, no assistente e na coluna "Par do biturbo". Depois de instalar: reimportar o produtos_completos.csv na publicadora e publicar a base.
+- **Base atual da main:** 2.7.17 (#49; tags v2.7.13 a v2.7.17 pendentes, do dono). Em PR: 2.7.18 (#50). Nunca criar as tags v2.7.8 e v2.7.12. Merge e tag só pelo dono.
 - **Base oficial:** uma máquina "publica a base" e as outras "consomem", por uma pasta
   compartilhada ou pelo servidor local da publicadora (porta 8765).
 - Mapa do código em `docs/PROJECT_MAP.md`; rotas em `docs/API_DOCS.md`.

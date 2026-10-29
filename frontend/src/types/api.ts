@@ -239,6 +239,9 @@ export type CompanyRegisterPreview = {
   fichas_atuais: number;
   aplicacoes: number;
   codigos: number;
+  /** Relações escritas nas observações (2.7.18): faz par, conjunto, substitui, igual, similar. */
+  relacoes?: number;
+  relacoes_por_tipo?: Record<string, number>;
   ignorados: {
     outras_pecas: number;
     sem_codigo: number;
@@ -842,11 +845,12 @@ export type ProductStockHistoryPoint = {
 };
 
 /** Coluna da busca por código na aba Produtos (2.7.10). */
-export type ProductColumnKey = "nova" | "reman" | "montada" | "conjunto" | "similares";
+export type ProductColumnKey = "nova" | "reman" | "montada" | "conjunto" | "par" | "similares";
 
 export type ProductColumnItem = {
   produto: Product;
-  /** exato, familia, igual_especialista, similar_especialista, equivalente_catalogo ou montada_no_conjunto. */
+  /** exato, familia, igual_especialista, similar_especialista, equivalente_catalogo, montada_no_conjunto,
+   * vinculo ou cadastro (relação escrita nas observações do cadastro da empresa: par, conjunto, substitui). */
   relacao: string;
   rotulo?: string | null;
   codigo_relacionado?: string | null;
