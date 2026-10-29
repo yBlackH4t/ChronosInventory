@@ -63,6 +63,7 @@ STATE_PENDING = "pendente"
 STATE_WAITING = "aguardando"  # respondida no WhatsApp, espera o /confirmar com o PIN
 STATE_ANSWERED = "respondida"
 STATE_UNSURE = "nao_sei"
+STATE_DROPPED = "descartada"  # ja se sabia (os dados da empresa ligam o par); nao aparece mais
 
 ANSWER_SAME, ANSWER_SIMILAR, ANSWER_DIFFERENT = "igual", "similar", "diferente"
 ANSWER_UNSURE = "nao_sei"
@@ -127,6 +128,12 @@ def _main_code(name: str) -> Optional[Tuple[str, str]]:
     return None
 
 
+def _shown(code: str) -> str:
+    """'4031196RX' -> '4031196RX (reman)': o RX da Holset e a remanufaturada da mesma peca."""
+    text = display_code(code)
+    return f"{text} (reman)" if text.upper().endswith("RX") and canonical_code(text) != text.upper() else text
+
+
 def _upper_text(text: str) -> str:
     return " ".join(str(text or "").upper().split())
 
@@ -182,6 +189,8 @@ class AssistantInterviewService:
         self.clock = clock
         self._hide_application = hide_application or self._hide_in_catalog
         self._relations_cache: Dict[str, Set[str]] = {}
+        self._register_links: Optional[Dict[str, Set[str]]] = None
+        self._graph: Any = None
 
     # ------------------------------------------------------------------
     # Dependencias (criadas so quando usadas)
@@ -245,10 +254,34 @@ class AssistantInterviewService:
         try:
             if not conn.execute("SELECT 1 FROM entrevista WHERE dia = ? LIMIT 1", (day,)).fetchone():
                 self._fill(conn, day, self.settings()["quantidade"])
-            rows = conn.execute("SELECT * FROM entrevista WHERE dia = ? ORDER BY id", (day,)).fetchall()
+            self._drop_already_known(conn, day)
+            rows = conn.execute(
+                "SELECT * FROM entrevista WHERE dia = ? AND estado <> ? ORDER BY id", (day, STATE_DROPPED)
+            ).fetchall()
         finally:
             conn.close()
         return [self._public(row) for row in rows]
+
+    def _drop_already_known(self, conn: sqlite3.Connection, day: str) -> None:
+        """
+        Pergunta ainda sem resposta sobre um par que ja se sabe (ensinado depois, ou que os dados
+        da empresa ja ligam, como a 3797851 e a 4031196RX) sai da lista sem incomodar ninguem.
+        """
+        rows = conn.execute(
+            "SELECT id, tipo, codigo_a, codigo_b FROM entrevista WHERE dia = ? AND estado = ? AND tipo IN (?, ?)",
+            (day, STATE_PENDING, KIND_FICHA, KIND_REVIEW_PAIR),
+        ).fetchall()
+        if not rows:
+            return
+        self._relations_cache, self._register_links, self._graph = {}, None, None
+        known = [
+            row["id"] for row in rows
+            if self._known(row["codigo_a"], row["codigo_b"])
+            or (row["tipo"] == KIND_FICHA and self._company_relates(row["codigo_a"], row["codigo_b"]))
+        ]
+        if known:
+            conn.executemany("UPDATE entrevista SET estado = ? WHERE id = ?", [(STATE_DROPPED, qid) for qid in known])
+            conn.commit()
 
     def more(self) -> List[Dict[str, Any]]:
         """"Mais perguntas": outra rodada hoje, para quem tem tempo."""
@@ -302,6 +335,8 @@ class AssistantInterviewService:
         """Escolhe as duvidas: as de maior peso, no maximo 2 de cada tipo (se houver de outros)."""
         skip = set(skip)
         self._relations_cache = {}
+        self._register_links: Optional[Dict[str, Set[str]]] = None
+        self._graph: Any = None
         candidates: List[Dict[str, Any]] = []
         for source in (self._review_candidates, self._ficha_candidates, self._registry_candidates,
                        self._application_candidates):
@@ -370,6 +405,31 @@ class AssistantInterviewService:
             self._relations_cache[a] = known
         return bool(self._relations_cache[a] & _family([b]))
 
+    def _company_relates(self, a: str, b: str) -> bool:
+        """
+        Os dados da empresa ja ligam A e B: um produto que cita os dois no nome
+        ("3797851/4031196"), um item de NF-e ou as observacoes do cadastro ("SIMILAR HOLSET
+        3797851 4031196"). Com o RX tirado (4031196RX = reman da 4031196), a nova e a reman
+        entram pelo mesmo caminho. Nao vale perguntar o que a empresa ja escreveu.
+        """
+        a, b = canonical_code(a), canonical_code(b)
+        if self._register_links is None:
+            self._register_links = {}
+            try:
+                rows = self._query("SELECT origem_norm, numero_norm FROM cadastro_relacoes")
+            except Exception:  # cadastro da empresa ainda nao importado nesta maquina
+                rows = []
+            for row in rows:
+                x, y = str(row["origem_norm"] or ""), str(row["numero_norm"] or "")
+                self._register_links.setdefault(x, set()).add(y)
+                self._register_links.setdefault(y, set()).add(x)
+        family_b = _family([b])
+        if any(self._register_links.get(x, set()) & family_b for x in _family([a])):
+            return True
+        if self._graph is None:
+            self._graph = self.knowledge.graph()
+        return bool(self._graph.path(a, b))
+
     def _review_candidates(self) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
         for item in self.history.review_items(limit=30):
@@ -386,7 +446,7 @@ class AssistantInterviewService:
                     "codigo_a": code,
                     "codigo_b": other["codigo"],
                     "produto_id": other.get("produto_id"),
-                    "pergunta": f"*{display_code(code)}* e *{display_code(other['codigo'])}* são a mesma peça?",
+                    "pergunta": f"*{_shown(code)}* e *{_shown(other['codigo'])}* são a mesma peça?",
                     "motivo": (
                         f"Perguntaram se a {display_code(code)} é igual à {display_code(other['codigo'])} e eu não tinha certeza."
                         if other["motivo"] == "perguntaram se é igual"
@@ -399,7 +459,7 @@ class AssistantInterviewService:
                     "chave": f"revisar|{canonical_code(code)}",
                     "tipo": KIND_REVIEW_OPEN,
                     "codigo_a": code,
-                    "pergunta": f"Qual peça nossa serve no lugar da *{display_code(code)}*?",
+                    "pergunta": f"Qual peça nossa serve no lugar da *{_shown(code)}*?",
                     "motivo": f"{asked} e não achei no estoque nem no que você me ensinou.",
                     "peso": 90000 + times * 100,
                 })
@@ -415,8 +475,9 @@ class AssistantInterviewService:
             SELECT v.produto_id, cp.codigo AS ficha, cp.modelo, p.nome
             FROM produto_catalogo_vinculo v
             JOIN catalogo_produtos cp ON cp.id = v.catalogo_produto_id
+            JOIN catalogo_fontes f ON f.id = cp.fonte_id
             JOIN produtos p ON p.id = v.produto_id
-            WHERE v.status <> 'REJEITADO' AND p.ativo = 1
+            WHERE v.status <> 'REJEITADO' AND p.ativo = 1 AND f.codigo = 'MASTER_POWER'
             """
         )
         by_ficha: Dict[str, List[Dict[str, Any]]] = {}
@@ -436,7 +497,8 @@ class AssistantInterviewService:
                 continue
             for other in [m for m in members if m["produto_id"] != top["produto_id"]][:3]:
                 other_code = _main_code(other["nome"])
-                if not other_code or self._known(top_code[0], other_code[0]):
+                if (not other_code or self._known(top_code[0], other_code[0])
+                        or self._company_relates(top_code[0], other_code[0])):
                     continue
                 stock = int(priority[int(top["produto_id"])]["estoque"] or 0)
                 model = f" · {top['modelo']}" if top.get("modelo") else ""
@@ -447,7 +509,7 @@ class AssistantInterviewService:
                     "codigo_b": other_code[1],
                     "produto_id": int(top["produto_id"]),
                     "dados": {"ficha": ficha},
-                    "pergunta": f"*{display_code(top_code[1])}* e *{display_code(other_code[1])}* são a mesma peça?",
+                    "pergunta": f"*{_shown(top_code[1])}* e *{_shown(other_code[1])}* são a mesma peça?",
                     "motivo": (
                         f"As duas estão na mesma ficha Master Power ({ficha}{model}), mas a mesma ficha "
                         f"não quer dizer que são iguais."
@@ -478,7 +540,7 @@ class AssistantInterviewService:
                     "codigo_a": main[1],
                     "codigo_b": _as_written(name, other),
                     "produto_id": int(product["id"]),
-                    "pergunta": f"*{display_code(main[1])}* e *{display_code(other)}* são a mesma peça?",
+                    "pergunta": f"*{_shown(main[1])}* e *{_shown(other)}* são a mesma peça?",
                     "motivo": f"O cadastro junta as duas no produto \"{name}\". Hoje eu digo \"provavelmente iguais\".",
                     "peso": 30000 + product["peso"],
                 })
@@ -531,7 +593,7 @@ class AssistantInterviewService:
                     "codigo_a": main[1],
                     "produto_id": int(product["id"]),
                     "dados": data,
-                    "pergunta": f"A *{display_code(main[1])}* vai no *{vehicle}*" + (f" ({engine})" if engine else "") + "?",
+                    "pergunta": f"A *{_shown(main[1])}* vai no *{vehicle}*" + (f" ({engine})" if engine else "") + "?",
                     "motivo": f"Está na ficha Master Power {app['ficha']}, e o catálogo tem aplicações erradas.",
                     "peso": 10000 + product["peso"],
                 })
@@ -786,7 +848,8 @@ class AssistantInterviewService:
         conn = self._connect()
         try:
             item["numero"] = int(conn.execute(
-                "SELECT COUNT(*) FROM entrevista WHERE dia = ? AND id <= ?", (item["dia"], item["id"])
+                "SELECT COUNT(*) FROM entrevista WHERE dia = ? AND id <= ? AND estado <> ?",
+                (item["dia"], item["id"], STATE_DROPPED),
             ).fetchone()[0])
         finally:
             conn.close()

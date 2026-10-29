@@ -291,3 +291,22 @@ def test_whatsapp_service_sends_the_questions_once_a_day(interview):
     other._transport, other.state = _Transport(), STATE_CONNECTED
     interview.config_store = other.config_store
     assert other.send_interview_if_due() is False  # PC que nao publica a base nao pergunta
+
+
+def test_pairs_the_company_already_relates_are_not_asked(interview, client):  # noqa: F811
+    # A nova e a reman (RX) da mesma peca, e o nome de um produto nosso que ja junta os dois
+    # codigos: os dados da empresa ja dizem. Antes perguntava "3797851 e 4031196RX".
+    ficha = next(q for q in interview.today() if q["tipo"] == KIND_FICHA)
+    _create_product(client, "TURBO HOLSET HX55W - 4044318/4031196RX", {CANOAS: 1})
+
+    interview.clock.when = datetime(2026, 10, 29, 15, 0)  # mesmo dia: a pendente sai da lista
+    assert ficha["id"] not in [q["id"] for q in interview.today()]
+    interview.clock.when = datetime(2026, 10, 30, 9, 0)
+    assert all(q["tipo"] != KIND_FICHA for q in interview.more())
+
+
+def test_reman_code_is_shown_as_reman():
+    from app.services.assistant_interview_service import _shown
+
+    assert _shown("4031196RX") == "4031196RX (reman)"
+    assert _shown("4031196") == "4031196"
