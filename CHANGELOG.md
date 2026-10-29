@@ -31,6 +31,13 @@ Formato recomendado:
 ### Fixed
 - **WhatsApp:** foto sem código legível não faz mais o robô desistir. Quando a foto vem junto com texto (ex.: chassi, "IVECO / 600S44T 6X2" e a foto do motor), ele responde pelo texto e avisa na "Mensagem para mim" que não leu a foto. Só dá ⚠️ quando não sobra nada para ler.
 
+## [2.7.20] - 2026-10-29
+
+### Fixed
+- **Perguntas do dia não perguntam mais o que a empresa já sabe:** a "3797851 e 4031196RX são a mesma peça?" saiu. Quando o nome de um produto nosso já junta os dois códigos, uma nota já ligou os dois ou as observações do cadastro já dizem "similar", a pergunta não aparece, e a que já estava na lista some sozinha. O RX continua sendo a reman da mesma peça.
+- "Mesma ficha Master Power" agora usa só as fichas do catálogo Master Power, não as do cadastro da empresa.
+- Código reman aparece como "4031196RX (reman)" nas perguntas.
+
 ## [2.7.19] - 2026-10-29
 
 ### Added
