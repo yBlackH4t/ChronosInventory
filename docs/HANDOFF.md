@@ -1263,3 +1263,8 @@ npm run lint
 - `app/services/photo_batch_service.py`: o nome do arquivo é o código (`178045.jpg`, `178045_2.jpg`, `178045 (3).jpg`, `178045-4.jpg`; sufixo de até 2 dígitos, para não cortar `856457-009`). Vai para todo produto cujo nome cita o código exato (`codes_cited_in_name`, sem nova/reman), com busca de reserva pelo número grudado no modelo (`S200G-12709880050`). Código em mais de 5 produtos fica de fora (kit). Não duplica (sha1 da foto já normalizada), respeita o limite de 5 e não troca a principal que o produto já tinha.
 - Rotas `POST /produtos/fotos-lote/previa` e `POST /produtos/fotos-lote`. Tela: Importar > "Fotos em lote" (`PhotoBatchImport.tsx`): pasta inteira ou arrastar, prévia (arquivo -> produto, sem produto), envio uma a uma com barra de progresso.
 - Testes: `backend/tests/test_photo_batch.py`.
+
+### 2026-10-29 — Claude Code — 2.7.21, foto sem código não derruba o texto no WhatsApp
+- Branch: `claude/project-thread-4zlxci`, a partir da main (2.7.19; 2.7.20 está no PR #52).
+- `WhatsAppBridge._answer_locked`: falha ao ler uma foto do grupo (mensagens do mesmo contato em até 3 min) não descarta mais os textos; responde pelo texto e avisa na "Mensagem para mim". Áudio não transcrito continua bloqueando (pode ser a própria pergunta).
+- Teste: `test_unreadable_photo_does_not_drop_the_text_sent_with_it` em `backend/tests/test_whatsapp_bridge.py`.
