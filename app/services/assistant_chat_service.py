@@ -25,7 +25,6 @@ from app.services.assistant_common import (
     MODE_AI,
     MODE_DIRECT,
     AssistantUnavailableError,
-    spoken_digits_to_numbers,
     cited_products,
     history_messages,
     keeps_ready_texts,
@@ -35,6 +34,7 @@ from app.services.assistant_common import (
 )
 from app.services.assistant_config_store import PROVIDERS, AssistantConfigStore
 from app.services.assistant_direct_service import AssistantDirectService
+from app.services.assistant_spoken_numbers import spoken_digits_to_numbers
 from app.services.assistant_history_service import AssistantHistoryService
 from app.services.assistant_interpreter_service import AssistantInterpreter
 from app.services.assistant_requests import execute_plan, literal_plan, needs_plan, pending_fields

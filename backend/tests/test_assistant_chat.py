@@ -10,10 +10,11 @@ import pytest
 import requests
 
 from app.services.assistant_chat_service import AssistantChatService
-from app.services.assistant_common import MAX_TOOL_ROUNDS, NO_ANSWER_TEXT, REFUSAL_TEXT, spoken_digits_to_numbers
+from app.services.assistant_common import MAX_TOOL_ROUNDS, NO_ANSWER_TEXT, REFUSAL_TEXT
 from app.services.assistant_config_store import AssistantConfigStore
 from app.services.assistant_direct_service import HELP_TEXT, AssistantDirectService
 from app.services.assistant_requests import RequestItem
+from app.services.assistant_spoken_numbers import spoken_digits_to_numbers
 from app.services.assistant_tools_service import COMPACT_LIMITS
 from backend.app.api.deps import get_assistant_chat_service
 from test_assistant_tools import tools  # noqa: F401  (fixture: catalogo + produtos de teste)
@@ -276,6 +277,8 @@ def test_code_spoken_in_words_becomes_digits(tools, store):  # noqa: F811
     assert spoken["resposta"].startswith("*4031196*: temos.")
     mixed = service.chat("403 um um nove meia temos?")
     assert mixed["resposta"].startswith("*4031196*: temos.")
+    pieces = service.chat("tem a quatrocentos e três, onze, noventa e seis?")
+    assert pieces["resposta"].startswith("*4031196*: temos.")
     # "essa" na mensagem seguinte usa o codigo falado da anterior.
     historico = [{"papel": "usuario", "texto": "tem a quatro zero três um um nove meia?"},
                  {"papel": "assistente", "texto": spoken["resposta"]}]
@@ -284,7 +287,22 @@ def test_code_spoken_in_words_becomes_digits(tools, store):  # noqa: F811
 
 @pytest.mark.parametrize("text, expected", [
     ("tem a cinco quatro cinco cinco meia  zero nove?", "tem a 5455609?"),
-    ("Três-sete, oito oito zero", "37880"),
+    ("Três-sete oito oito zero", "37880"),
+    # Virgula, quebra de linha e codigo ja escrito separam os pedidos.
+    ("tem 4031196, cinco quatro cinco cinco meia zero nove?", "tem 4031196, 5455609?"),
+    ("tem 4031196 cinco quatro cinco cinco meia zero nove?", "tem 4031196 5455609?"),
+    ("um um nove meia zero\nquatro zero tres um um", "11960\n40311"),
+    ("cinco quatro cinco cinco meia zero nove, quatro zero tres um um nove seis", "5455609, 4031196"),
+    # Numeros compostos, em pedacos.
+    ("quatrocentos e três, onze, noventa e cinco", "4031195"),
+    ("tem a quatrocentos e três onze noventa e seis?", "tem a 4031196?"),
+    ("cinco três dois sete, nove oito oito, sete um zero um", "53279887101"),
+    ("quarenta e cinco, cinquenta e cinco, sessenta, nove", "4555609"),
+    ("oitocentos e trinta e cinco mil e quinhentos", "835500"),
+    # Veiculo, ano e quantidade continuam como estao.
+    ("fh quinhentos e vinte", "fh quinhentos e vinte"),
+    ("scania quatrocentos e quarenta dois mil e quinze", "scania quatrocentos e quarenta dois mil e quinze"),
+    ("403 e 5455609", "403 e 5455609"),
     ("tem uma quatro zero tres um um nove seis reman", "tem uma 4031196 reman"),
     ("tem um turbo do scania 440?", "tem um turbo do scania 440?"),  # "um" sozinho e artigo
     ("dois zero", "dois zero"),  # curto demais para ser codigo

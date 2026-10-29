@@ -29,8 +29,8 @@ from dataclasses import dataclass
 from typing import Any, Callable, Deque, Dict, List, Optional, Protocol, Tuple
 
 from app.services.assistant_answer_format import display_code
-from app.services.assistant_common import spoken_digits_to_numbers
 from app.services.assistant_knowledge_service import check_single_code
+from app.services.assistant_spoken_numbers import spoken_digits_to_numbers
 from core.catalog.normalization import canonical_code, is_searchable_code
 from core.exceptions import ValidationException
 
