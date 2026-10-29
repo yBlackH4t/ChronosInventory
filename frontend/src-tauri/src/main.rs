@@ -8,11 +8,19 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream},
     path::PathBuf,
     process::Command as StdCommand,
-    sync::Mutex,
+    sync::{
+        atomic::{AtomicBool, AtomicU16, AtomicU32, Ordering},
+        Mutex,
+    },
     time::{Duration, Instant, SystemTime},
 };
 
-use tauri::{Manager, RunEvent};
+use serde::{Deserialize, Serialize};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
+};
 use tauri_plugin_shell::{
     process::{CommandChild, CommandEvent},
     ShellExt,
@@ -22,7 +30,29 @@ use tokio::time::sleep;
 struct BackendState(Mutex<Option<CommandChild>>);
 
 const SIDECAR_NAME: &str = "estoque_backend";
-const SIDECAR_ENV_PORT: &str = "8000";
+const DEFAULT_BACKEND_PORT: u16 = 8000;
+// Se outro programa ocupar a 8000, o backend usa a primeira livre desta faixa.
+const FALLBACK_PORTS: std::ops::RangeInclusive<u16> = 8001..=8099;
+// O backend que cai sozinho e religado ate este numero de vezes por sessao.
+const MAX_BACKEND_RESTARTS: u32 = 5;
+// Ao abrir com o Windows: comeca escondido na bandeja.
+const TRAY_START_ARG: &str = "--bandeja";
+const AUTOSTART_REG_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
+const AUTOSTART_REG_VALUE: &str = "Chronos Inventory";
+
+static BACKEND_PORT: AtomicU16 = AtomicU16::new(DEFAULT_BACKEND_PORT);
+// Ligado quando o proprio app encerra o backend (fechar, atualizar, reiniciar): nao religa.
+static BACKEND_STOPPING: AtomicBool = AtomicBool::new(false);
+static BACKEND_RESTARTS: AtomicU32 = AtomicU32::new(0);
+static QUITTING: AtomicBool = AtomicBool::new(false);
+
+fn backend_port() -> u16 {
+    BACKEND_PORT.load(Ordering::SeqCst)
+}
+
+fn backend_url(path: &str) -> String {
+    format!("http://127.0.0.1:{}{}", backend_port(), path)
+}
 const SIDECAR_ENV_APP_PROD: &str = "prod";
 const SIDECAR_ENV_APP_DEV: &str = "dev";
 
@@ -74,6 +104,188 @@ fn remove_legacy_logs() {
     if log_path() != std::env::temp_dir().join("chronos_inventory_tauri.log") {
         let _ = fs::remove_file(std::env::temp_dir().join("chronos_inventory_tauri.log"));
     }
+}
+
+// Preferencias do programa (nao do estoque): ficam ao lado do log, por computador.
+#[derive(Serialize, Deserialize, Clone)]
+struct DesktopPrefs {
+    #[serde(default = "default_true")]
+    fechar_para_bandeja: bool,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+impl Default for DesktopPrefs {
+    fn default() -> Self {
+        Self {
+            fechar_para_bandeja: true,
+        }
+    }
+}
+
+fn prefs_path() -> PathBuf {
+    log_path()
+        .parent()
+        .and_then(|logs| logs.parent())
+        .map(|dir| dir.join("desktop.json"))
+        .unwrap_or_else(|| std::env::temp_dir().join("chronos_desktop.json"))
+}
+
+fn load_prefs() -> DesktopPrefs {
+    fs::read_to_string(prefs_path())
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
+}
+
+fn save_prefs(prefs: &DesktopPrefs) -> Result<(), String> {
+    let path = prefs_path();
+    if let Some(parent) = path.parent() {
+        let _ = create_dir_all(parent);
+    }
+    let text = serde_json::to_string_pretty(prefs).map_err(|e| e.to_string())?;
+    fs::write(path, text).map_err(|e| e.to_string())
+}
+
+#[cfg(target_os = "windows")]
+fn hidden_command(program: &str) -> StdCommand {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let mut cmd = StdCommand::new(program);
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
+
+#[cfg(target_os = "windows")]
+fn autostart_enabled() -> bool {
+    hidden_command("reg")
+        .args(["query", AUTOSTART_REG_KEY, "/v", AUTOSTART_REG_VALUE])
+        .output()
+        .map(|out| out.status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn autostart_enabled() -> bool {
+    false
+}
+
+#[cfg(target_os = "windows")]
+fn set_autostart_enabled(enabled: bool) -> Result<(), String> {
+    let output = if enabled {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let command = format!("\"{}\" {}", exe.display(), TRAY_START_ARG);
+        hidden_command("reg")
+            .args([
+                "add",
+                AUTOSTART_REG_KEY,
+                "/v",
+                AUTOSTART_REG_VALUE,
+                "/t",
+                "REG_SZ",
+                "/d",
+                command.as_str(),
+                "/f",
+            ])
+            .output()
+    } else {
+        if !autostart_enabled() {
+            return Ok(());
+        }
+        hidden_command("reg")
+            .args(["delete", AUTOSTART_REG_KEY, "/v", AUTOSTART_REG_VALUE, "/f"])
+            .output()
+    }
+    .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        log_line(&format!("abrir com o Windows: {enabled}"));
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn set_autostart_enabled(_enabled: bool) -> Result<(), String> {
+    Err("Disponivel so no Windows.".to_string())
+}
+
+#[derive(Serialize)]
+struct DesktopSettings {
+    fechar_para_bandeja: bool,
+    abrir_com_windows: bool,
+    porta_backend: u16,
+}
+
+#[tauri::command]
+fn desktop_settings() -> DesktopSettings {
+    DesktopSettings {
+        fechar_para_bandeja: load_prefs().fechar_para_bandeja,
+        abrir_com_windows: autostart_enabled(),
+        porta_backend: backend_port(),
+    }
+}
+
+#[tauri::command]
+fn set_desktop_settings(
+    fechar_para_bandeja: Option<bool>,
+    abrir_com_windows: Option<bool>,
+) -> Result<DesktopSettings, String> {
+    if let Some(value) = fechar_para_bandeja {
+        let mut prefs = load_prefs();
+        prefs.fechar_para_bandeja = value;
+        save_prefs(&prefs)?;
+    }
+    if let Some(value) = abrir_com_windows {
+        set_autostart_enabled(value)?;
+    }
+    Ok(desktop_settings())
+}
+
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
+}
+
+fn quit_app(app: &tauri::AppHandle) {
+    QUITTING.store(true, Ordering::SeqCst);
+    stop_backend(app, "tray_quit");
+    app.exit(0);
+}
+
+fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "abrir", "Abrir o Chronos", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "sair", "Sair do Chronos", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+    let mut builder = TrayIconBuilder::with_id("chronos")
+        .tooltip("Chronos Inventory")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "abrir" => show_main_window(app),
+            "sair" => quit_app(app),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    builder.build(app)?;
+    Ok(())
 }
 
 async fn wait_for_health(url: &str, timeout: Duration) -> bool {
@@ -172,7 +384,7 @@ fn spawn_backend(
         SIDECAR_ENV_APP_PROD
     };
     let mut envs = HashMap::from([
-        ("PORT".to_string(), SIDECAR_ENV_PORT.to_string()),
+        ("PORT".to_string(), backend_port().to_string()),
         ("APP_ENV".to_string(), app_env.to_string()),
         // Evita logs em cp1252 que quebram parser UTF-8 do Tauri.
         ("PYTHONUTF8".to_string(), "1".to_string()),
@@ -186,7 +398,7 @@ fn spawn_backend(
     log_line(&format!(
         "spawn sidecar: name={} PORT={} APP_ENV={} CHRONOS_APP_DIR={}",
         SIDECAR_NAME,
-        SIDECAR_ENV_PORT,
+        backend_port(),
         app_env,
         envs.get("CHRONOS_APP_DIR")
             .cloned()
@@ -197,7 +409,71 @@ fn spawn_backend(
     Ok((child, rx))
 }
 
+fn start_backend(app: &tauri::AppHandle) {
+    BACKEND_STOPPING.store(false, Ordering::SeqCst);
+    match spawn_backend(app) {
+        Ok((child, mut rx)) => {
+            log_line("Backend iniciado");
+            *app.state::<BackendState>().0.lock().unwrap() = Some(child);
+            let handle = app.clone();
+            tauri::async_runtime::spawn(async move {
+                while let Some(event) = rx.recv().await {
+                    match event {
+                        CommandEvent::Stdout(line) => {
+                            log_line(&format!("backend stdout: {}", String::from_utf8_lossy(&line)));
+                        }
+                        CommandEvent::Stderr(line) => {
+                            log_line(&format!("backend stderr: {}", String::from_utf8_lossy(&line)));
+                        }
+                        CommandEvent::Error(err) => {
+                            log_line(&format!("backend error: {err}"));
+                        }
+                        CommandEvent::Terminated(payload) => {
+                            log_line(&format!(
+                                "backend terminated: code={:?} signal={:?}",
+                                payload.code, payload.signal
+                            ));
+                            restart_backend_after_crash(&handle).await;
+                        }
+                        _ => {}
+                    }
+                }
+            });
+        }
+        Err(err) => {
+            log_line(&format!("Falha ao iniciar backend: {err}"));
+        }
+    }
+}
+
+// O backend caiu sem o app pedir: religa (o robo do WhatsApp e o backup moram nele).
+async fn restart_backend_after_crash(app: &tauri::AppHandle) {
+    if BACKEND_STOPPING.load(Ordering::SeqCst) || QUITTING.load(Ordering::SeqCst) {
+        return;
+    }
+    let attempt = BACKEND_RESTARTS.fetch_add(1, Ordering::SeqCst) + 1;
+    if attempt > MAX_BACKEND_RESTARTS {
+        log_line("backend caiu de novo; limite de religamentos atingido");
+        let _ = app.emit("backend-status", "parado");
+        return;
+    }
+    app.state::<BackendState>().0.lock().unwrap().take();
+    let _ = app.emit("backend-status", "religando");
+    log_line(&format!("religando o backend (tentativa {attempt})"));
+    sleep(Duration::from_secs(2)).await;
+    if BACKEND_STOPPING.load(Ordering::SeqCst) || QUITTING.load(Ordering::SeqCst) {
+        return;
+    }
+    if !wait_backend_port_release(Duration::from_secs(5)) {
+        force_kill_backend_processes();
+    }
+    start_backend(app);
+    let ok = wait_for_health(&backend_url("/health"), Duration::from_secs(30)).await;
+    let _ = app.emit("backend-status", if ok { "ok" } else { "parado" });
+}
+
 fn stop_backend(app: &tauri::AppHandle, reason: &str) {
+    BACKEND_STOPPING.store(true, Ordering::SeqCst);
     let child = app.state::<BackendState>().0.lock().unwrap().take();
     if let Some(child) = child {
         match child.kill() {
@@ -217,15 +493,19 @@ fn stop_backend(app: &tauri::AppHandle, reason: &str) {
     }
 }
 
-fn is_backend_port_free() -> bool {
-    // O backend escuta em 0.0.0.0:8000, e no Windows o bind em 127.0.0.1:8000 funciona mesmo
-    // assim: o teste dizia "livre" com o backend antigo rodando (2.3.0 -> 2.4.0). Quem atende
-    // uma conexao em 127.0.0.1:8000 ocupa a porta.
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8000));
+fn is_port_free(port: u16) -> bool {
+    // O backend escuta em 0.0.0.0, e no Windows o bind em 127.0.0.1 funciona mesmo assim: o
+    // teste dizia "livre" com o backend antigo rodando (2.3.0 -> 2.4.0). Quem atende uma
+    // conexao na porta ocupa a porta.
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
     if TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok() {
         return false;
     }
-    TcpListener::bind(("127.0.0.1", 8000)).is_ok()
+    TcpListener::bind(("0.0.0.0", port)).is_ok() && TcpListener::bind(("127.0.0.1", port)).is_ok()
+}
+
+fn is_backend_port_free() -> bool {
+    is_port_free(backend_port())
 }
 
 fn wait_backend_port_release(timeout: Duration) -> bool {
@@ -281,7 +561,7 @@ fn force_kill_backend_processes() {}
 
 fn ensure_backend_slot_available() {
     if is_backend_port_free() {
-        log_line("startup: porta 8000 livre");
+        log_line(&format!("startup: porta {} livre", backend_port()));
         return;
     }
 
@@ -291,8 +571,16 @@ fn ensure_backend_slot_available() {
 
     if wait_backend_port_release(Duration::from_secs(4)) {
         log_line("startup: porta 8000 liberada apos limpeza preventiva");
-    } else {
-        log_line("startup: porta 8000 continua ocupada apos limpeza preventiva");
+        return;
+    }
+
+    // Outro programa (nao um Chronos antigo) usa a 8000: o backend vai para outra porta.
+    match FALLBACK_PORTS.clone().find(|port| is_port_free(*port)) {
+        Some(port) => {
+            BACKEND_PORT.store(port, Ordering::SeqCst);
+            log_line(&format!("startup: porta 8000 ocupada por outro programa; usando {port}"));
+        }
+        None => log_line("startup: nenhuma porta livre entre 8001 e 8099; tentando a 8000"),
     }
 }
 
@@ -302,7 +590,7 @@ fn kill_backend(app: tauri::AppHandle) -> Result<(), String> {
     stop_backend(&app, "kill_backend_command");
 
     if !wait_backend_port_release(Duration::from_secs(3)) {
-        log_line("porta 8000 ainda ocupada apos stop_backend, forcando kill");
+        log_line("porta do backend ainda ocupada apos stop_backend, forcando kill");
         force_kill_backend_processes();
         std::thread::sleep(Duration::from_millis(300));
     }
@@ -315,13 +603,13 @@ fn restart_app(app: tauri::AppHandle) -> Result<(), String> {
     stop_backend(&app, "restart_app_command");
 
     if !wait_backend_port_release(Duration::from_secs(3)) {
-        log_line("porta 8000 ainda ocupada apos stop_backend");
+        log_line("porta do backend ainda ocupada apos stop_backend");
         force_kill_backend_processes();
         std::thread::sleep(Duration::from_millis(300));
     }
 
     if !wait_backend_port_release(Duration::from_secs(3)) {
-        log_line("porta 8000 ainda ocupada antes do restart; prosseguindo mesmo assim");
+        log_line("porta do backend ainda ocupada antes do restart; prosseguindo mesmo assim");
     }
 
     app.restart();
@@ -334,75 +622,82 @@ fn main() {
         log_line(&format!("panic: {info}"));
     }));
 
+    let start_in_tray = std::env::args().any(|arg| arg == TRAY_START_ARG);
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![restart_app, kill_backend])
+        .invoke_handler(tauri::generate_handler![
+            restart_app,
+            kill_backend,
+            desktop_settings,
+            set_desktop_settings
+        ])
         .manage(BackendState(Mutex::new(None)))
-        .setup(|app| {
+        .setup(move |app| {
             remove_legacy_logs();
             log_line("App setup iniciado");
             log_startup_paths(app);
             ensure_backend_slot_available();
-            let window = match app.get_webview_window("main") {
-                Some(win) => win,
+
+            // A janela e criada aqui (create: false no tauri.conf) para a tela saber a porta do
+            // backend antes do primeiro pedido.
+            let config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "main")
+                .cloned();
+            let window = match config {
+                Some(config) => WebviewWindowBuilder::from_config(app.handle(), &config)?
+                    .initialization_script(format!(
+                        "window.__CHRONOS_API_PORT__ = {};",
+                        backend_port()
+                    ))
+                    .visible(false)
+                    .build()?,
                 None => {
-                    log_line("Janela principal nao encontrada (label 'main').");
-                    return Ok(());
+                    log_line("Configuracao da janela principal nao encontrada (label 'main').");
+                    WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                        .visible(false)
+                        .build()?
                 }
             };
 
-            window.hide()?;
-
-            match spawn_backend(app.handle()) {
-                Ok((child, mut rx)) => {
-                    log_line("Backend iniciado");
-                    *app.state::<BackendState>().0.lock().unwrap() = Some(child);
-                    tauri::async_runtime::spawn(async move {
-                        while let Some(event) = rx.recv().await {
-                            match event {
-                                CommandEvent::Stdout(line) => {
-                                    log_line(&format!("backend stdout: {}", String::from_utf8_lossy(&line)));
-                                }
-                                CommandEvent::Stderr(line) => {
-                                    log_line(&format!("backend stderr: {}", String::from_utf8_lossy(&line)));
-                                }
-                                CommandEvent::Error(err) => {
-                                    log_line(&format!("backend error: {err}"));
-                                }
-                                CommandEvent::Terminated(payload) => {
-                                    log_line(&format!(
-                                        "backend terminated: code={:?} signal={:?}",
-                                        payload.code, payload.signal
-                                    ));
-                                }
-                                _ => {}
-                            }
-                        }
-                    });
-                }
-                Err(err) => {
-                    log_line(&format!("Falha ao iniciar backend: {err}"));
-                }
+            if let Err(err) = build_tray(app.handle()) {
+                log_line(&format!("Falha ao criar o icone da bandeja: {err}"));
             }
+
+            start_backend(app.handle());
 
             let window_clone = window.clone();
             tauri::async_runtime::spawn(async move {
-                let ok =
-                    wait_for_health("http://127.0.0.1:8000/health", Duration::from_secs(20)).await;
+                let ok = wait_for_health(&backend_url("/health"), Duration::from_secs(20)).await;
                 if !ok {
                     log_line("Backend healthcheck falhou. Mostrando UI mesmo assim.");
                 }
-                let _ = window_clone.show();
+                if start_in_tray {
+                    log_line("aberto com o Windows: fica na bandeja");
+                } else {
+                    let _ = window_clone.show();
+                }
             });
 
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
+                if !QUITTING.load(Ordering::SeqCst) && load_prefs().fechar_para_bandeja {
+                    // Continua ligado na bandeja: robo do WhatsApp, backup e servidor da base.
+                    api.prevent_close();
+                    let _ = window.hide();
+                    log_line("janela escondida na bandeja");
+                    return;
+                }
                 stop_backend(&app, "close_requested");
             }
         })

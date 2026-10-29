@@ -84,7 +84,7 @@ class CatalogSyncService:
         except Exception as exc:
             conn.rollback()
             logger.error("Erro na sincronizacao do catalogo: %s", exc, exc_info=True)
-            raise DatabaseException(f"Falha na sincronizacao: {exc}") from exc
+            raise DatabaseException(f"Falha na sincronização: {exc}") from exc
         finally:
             conn.close()
 

@@ -1081,7 +1081,12 @@ def test_official_base_config_status_and_publish_apply(client, tmp_path):
     assert product_a in ids_before
     assert product_b in ids_before
 
-    applied = client.post("/backup/base-oficial/aplicar")
+    # O produto B so existe aqui: pegar a base pede confirmacao antes de apagar.
+    blocked = client.post("/backup/base-oficial/aplicar")
+    assert blocked.status_code == 409
+    assert blocked.json()["error"]["details"]["produtos"] == 1
+
+    applied = client.post("/backup/base-oficial/aplicar?descartar_lancamentos_locais=true")
     assert applied.status_code == 200
     applied_data = applied.json()["data"]
     assert applied_data["restart_required"] is True
@@ -1235,9 +1240,14 @@ def test_official_base_local_server_publish_and_apply(client):
         assert product_a in ids_before
         assert product_b in ids_before
 
-        applied = client.post(f"/backup/base-oficial-servidor/aplicar?server_url={server_url}")
-        print("APPLIED JSON:", applied.json())
-        assert applied.status_code == 200
+        blocked = client.post(f"/backup/base-oficial-servidor/aplicar?server_url={server_url}")
+        assert blocked.status_code == 409
+        assert blocked.json()["error"]["code"] == "lancamentos_locais"
+
+        applied = client.post(
+            f"/backup/base-oficial-servidor/aplicar?server_url={server_url}&descartar_lancamentos_locais=true"
+        )
+        assert applied.status_code == 200, applied.text
         applied_data = applied.json()["data"]
         assert applied_data["restart_required"] is True
         assert applied_data["publisher_machine"] == "PC-SERVIDOR"

@@ -51,14 +51,14 @@ class StockProfileService:
     def create_profile(self, name: str, profile_id: Optional[str] = None) -> Dict[str, object]:
         normalized_name = str(name or "").strip()
         if len(normalized_name) < 2:
-            raise ValidationException("Nome do estoque invalido. Use ao menos 2 caracteres.")
+            raise ValidationException("Nome do estoque inválido. Use ao menos 2 caracteres.")
 
         registry = self._load_registry()
         final_id = self._normalize_profile_id(profile_id or normalized_name)
         if final_id == self._default_profile_id:
             raise ValidationException("ID reservado. Escolha outro identificador para o estoque.")
         if any(str(item.get("id")) == final_id for item in registry["profiles"]):
-            raise ValidationException("Ja existe um estoque com esse identificador.")
+            raise ValidationException("Já existe um estoque com esse identificador.")
 
         now = self._iso_now()
         profile_entry = {
@@ -79,7 +79,7 @@ class StockProfileService:
         registry = self._load_registry()
         exists = any(str(item.get("id")) == pid for item in registry["profiles"])
         if not exists:
-            raise ValidationException("Estoque nao encontrado para ativacao.")
+            raise ValidationException("Estoque não encontrado para ativação.")
 
         current = str(registry["active_profile_id"])
         if current == pid:
@@ -112,22 +112,22 @@ class StockProfileService:
     def delete_profile(self, profile_id: str) -> Dict[str, object]:
         pid = self._normalize_profile_id(profile_id, allow_default=True)
         if pid == self._default_profile_id:
-            raise ValidationException("O estoque Principal nao pode ser removido.")
+            raise ValidationException("O estoque Principal não pode ser removido.")
 
         registry = self._load_registry()
         current = str(registry["active_profile_id"])
         if current == pid:
-            raise ValidationException("Nao e possivel remover o estoque ativo. Ative outro perfil antes.")
+            raise ValidationException("Não é possível remover o estoque ativo. Ative outro perfil antes.")
 
         existing = next((item for item in registry["profiles"] if str(item.get("id")) == pid), None)
         if not existing:
-            raise ValidationException("Estoque nao encontrado para remocao.")
+            raise ValidationException("Estoque não encontrado para remoção.")
 
         profile_dir = self._profile_dir(pid)
         profiles_root = os.path.abspath(self.profiles_dir)
         profile_dir_abs = os.path.abspath(profile_dir)
         if not profile_dir_abs.startswith(profiles_root + os.sep):
-            raise ValidationException("Remocao bloqueada por seguranca para esta pasta de estoque.")
+            raise ValidationException("Remoção bloqueada por segurança para esta pasta de estoque.")
 
         registry["profiles"] = [item for item in registry["profiles"] if str(item.get("id")) != pid]
         self._save_registry(registry)
@@ -251,7 +251,7 @@ class StockProfileService:
         value = re.sub(r"[^a-z0-9_-]+", "-", value)
         value = re.sub(r"-{2,}", "-", value).strip("-_")
         if not value:
-            raise ValidationException("ID do estoque invalido.")
+            raise ValidationException("ID do estoque inválido.")
         if len(value) > 40:
             value = value[:40]
         if value == self._default_profile_id and not allow_default:

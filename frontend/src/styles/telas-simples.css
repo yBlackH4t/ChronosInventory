@@ -1,0 +1,329 @@
+/* ==========================================================================
+   Telas simples (2.7.22): ícone animado no cabeçalho das telas que ainda não
+   tinham o visual novo, painel de situação com frases curtas e botões grandes
+   de ação (Backup e Configurações). Só classes ts-*.
+   No nível "Nenhum" a regra global de global.css tira transições e animações.
+   ========================================================================== */
+
+/* ---------- Ícone do cabeçalho ---------- */
+.ts-header-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-button);
+  isolation: isolate;
+}
+
+.ts-header-icon::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: 17px;
+  background: conic-gradient(from 0deg, transparent 0 55%, var(--accent) 75%, #a5f3fc 88%, transparent 100%);
+  opacity: 0.55;
+}
+
+:root[data-motion="completo"] .ts-header-icon::before {
+  animation: ts-spin 6s linear infinite;
+}
+
+:root[data-motion="completo"] .ts-header-icon {
+  animation: ts-pop 0.5s var(--ease-out) backwards;
+}
+
+@keyframes ts-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ts-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7) rotate(-8deg);
+  }
+}
+
+/* ---------- Painel de situação ---------- */
+.ts-status {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px 22px;
+  align-items: center;
+  padding: 22px 24px;
+  border-radius: var(--radius-glass);
+  background-color: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+}
+
+.ts-status::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(600px 160px at 0% 0%, color-mix(in srgb, var(--ts-tone, var(--success)) 14%, transparent), transparent 70%);
+}
+
+.ts-status[data-tone="ok"] {
+  --ts-tone: var(--success);
+}
+
+.ts-status[data-tone="atencao"] {
+  --ts-tone: var(--warning);
+}
+
+.ts-status-badge {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: var(--ts-tone, var(--success));
+  background: color-mix(in srgb, var(--ts-tone, var(--success)) 14%, transparent);
+}
+
+.ts-status-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ts-tone, var(--success)) 45%, transparent);
+}
+
+:root[data-motion="completo"] .ts-status-badge::after {
+  animation: ts-ripple 2.6s var(--ease-out) infinite;
+}
+
+@keyframes ts-ripple {
+  from {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+
+.ts-status-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.ts-status-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.ts-status-lines b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- Botões grandes de ação ---------- */
+.ts-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.ts-action {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  width: 100%;
+  min-height: 108px;
+  padding: 18px;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  border-radius: var(--radius-glass);
+  background-color: var(--surface);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-glass);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out), border-color 0.18s;
+}
+
+.ts-action:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: var(--shadow-lift);
+}
+
+:root[data-motion="completo"] .ts-action:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+
+/* Brilho que atravessa o botão no mouse. */
+.ts-action::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, color-mix(in srgb, var(--accent) 12%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%);
+}
+
+:root[data-motion="completo"] .ts-action:hover:not(:disabled)::before {
+  transition: transform 0.7s var(--ease-out);
+  transform: translateX(100%);
+}
+
+.ts-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ts-action:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.ts-action[data-tone="perigo"] .ts-action-icon {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.ts-action-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+
+.ts-action-title {
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.ts-action-text {
+  margin-top: 4px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* ---------- Seção com título pequeno ---------- */
+.ts-section-label {
+  font-size: 0.75rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+/* ---------- Botão "Opções avançadas" ---------- */
+.ts-advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 18px;
+  font: inherit;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-glass);
+  border: 1px dashed var(--border-strong);
+  background: transparent;
+}
+
+.ts-advanced-toggle:hover {
+  background: var(--surface-hover);
+}
+
+.ts-advanced-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ts-advanced-toggle svg {
+  transition: transform 0.2s var(--ease-out);
+}
+
+.ts-advanced-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* ---------- Linha de opção com interruptor ---------- */
+.ts-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+}
+
+.ts-option + .ts-option {
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .ts-status {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Assistente: orbe da conversa vazia ---------- */
+.ts-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--accent-gradient);
+  box-shadow: var(--shadow-button);
+}
+
+.ts-orb::before,
+.ts-orb::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  opacity: 0;
+}
+
+:root[data-motion="completo"] .ts-orb::before {
+  animation: ts-ripple 2.8s var(--ease-out) infinite;
+}
+
+:root[data-motion="completo"] .ts-orb::after {
+  animation: ts-ripple 2.8s var(--ease-out) 1.4s infinite;
+}
+
+:root[data-motion="completo"] .ts-suggestions > * {
+  animation: vs-fade-in 0.4s var(--ease-out) backwards;
+}

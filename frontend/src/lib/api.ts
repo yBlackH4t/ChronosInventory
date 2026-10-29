@@ -53,7 +53,8 @@ export * from "../types/api";
 type QueryValue = string | number | boolean | null | undefined;
 
 const DEFAULT_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_URL ||
+  `http://127.0.0.1:${(window as { __CHRONOS_API_PORT__?: number }).__CHRONOS_API_PORT__ || 8000}`;
 
 function buildQuery(params: Record<string, QueryValue>): string {
   const usp = new URLSearchParams();
@@ -546,9 +547,12 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
       );
     },
 
-    async officialBaseApply(options: RequestInit = {}) {
+    async officialBaseApply(
+      params: { descartar_lancamentos_locais?: boolean } = {},
+      options: RequestInit = {},
+    ) {
       return request<OfficialBaseApplyOut>(
-        `/backup/base-oficial/aplicar`,
+        `/backup/base-oficial/aplicar${buildQuery(params)}`,
         {
           method: "POST",
           ...options,
@@ -628,7 +632,7 @@ export function createApiClient(baseUrl: string = DEFAULT_BASE_URL) {
     },
 
     async officialBaseServerApply(
-      params: { server_url?: string | null } = {},
+      params: { server_url?: string | null; descartar_lancamentos_locais?: boolean } = {},
       options: RequestInit = {},
     ) {
       const query = buildQuery(params);

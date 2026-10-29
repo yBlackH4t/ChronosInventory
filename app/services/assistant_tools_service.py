@@ -287,7 +287,7 @@ class AssistantToolsService:
             typed = next((t for t in typed.replace(",", " ").split() if canonical_code(t) == code), code)
         if len(code) < 4 or not any(ch.isdigit() for ch in code):
             raise ValidationException(
-                "Codigo muito curto. Informe o numero da peca (ex.: 4031196, 466646-5041S)."
+                "Código muito curto. Informe o número da peça (ex.: 4031196, 466646-5041S)."
             )
 
         locations = self.repository.get_location_labels()
@@ -544,7 +544,7 @@ class AssistantToolsService:
         codes = [canonical_code(t) for t in typed]
         for raw, code in zip(typed, codes):
             if len(code) < 4 or not any(ch.isdigit() for ch in code):
-                raise ValidationException(f"Codigo invalido: {raw!r}. Informe os numeros das duas pecas.")
+                raise ValidationException(f"Código inválido: {raw!r}. Informe os números das duas peças.")
         relation = self.knowledge.relation_between(codes[0], codes[1])
         labels = [display_code(t) for t in typed]
         result: Dict[str, Any] = {
@@ -669,7 +669,7 @@ class AssistantToolsService:
         codes = extract_codes_from_name(typed, expand_family=False)
         code = codes[0] if codes else canonical_code(typed)
         if len(code) < 4 or not any(ch.isdigit() for ch in code):
-            raise ValidationException("Codigo muito curto. Informe o numero da peca (ex.: 4031196, 409300-5031).")
+            raise ValidationException("Código muito curto. Informe o número da peça (ex.: 4031196, 409300-5031).")
         typed = next((t for t in re.split(r"[\s,;/()]+", typed) if canonical_code(t) == code), code)
         return code, typed
 
@@ -859,7 +859,7 @@ class AssistantToolsService:
     def product_details(self, produto_id: int) -> Dict[str, Any]:
         product = self.products.get_by_id(int(produto_id))
         if not product:
-            raise ValidationException(f"Produto {produto_id} nao encontrado.")
+            raise ValidationException(f"Produto {produto_id} não encontrado.")
 
         summary = self._product_summary(product, self.repository.get_location_labels())
         summary["ativo"] = bool(product.get("ativo", 1))

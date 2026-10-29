@@ -95,7 +95,7 @@ class StockMovementValidator:
         valid_operations = ["ENTRADA", "SAIDA", "TRANSF", "TRANSFERENCIA"]
         if operation_type.upper() not in valid_operations:
             raise ValidationException(
-                f"Tipo de operacao invalido. Use: {', '.join(valid_operations)}"
+                f"Tipo de operação inválido. Use: {', '.join(valid_operations)}"
             )
         
         # Valida quantidade

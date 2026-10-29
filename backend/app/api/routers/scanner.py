@@ -1,11 +1,16 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from fastapi import APIRouter, Header, HTTPException, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from app.services.stock_service import StockService
 from backend.app.api.deps import get_stock_service
+from core.database.connection import DatabaseConnection
+from core.utils.file_utils import FileUtils
 import ipaddress
+import logging
 import os
+import secrets
 import socket
+import threading
 
 router = APIRouter(prefix="/api/scanner", tags=["Scanner"])
 
@@ -31,6 +36,71 @@ def _is_loopback(host: str | None) -> bool:
 
 class BarcodePayload(BaseModel):
     code: str
+
+
+# Pareamento: o QR da tela leva um codigo desta maquina; so o celular que leu o QR consegue mandar
+# codigos para a tela aberta (antes, qualquer aparelho do Wi-Fi conseguia). O codigo fica num
+# arquivo da pasta do app para continuar valendo quando o Chronos reabre.
+PAIRING_FILE = "scanner_pareamento.txt"
+PAIRING_HEADER = "X-Chronos-Pareamento"
+_pairing_lock = threading.Lock()
+LOG = logging.getLogger(__name__)
+MAX_PRODUCTS_SHOWN = 3
+
+
+def pairing_code() -> str:
+    path = os.path.join(FileUtils.get_app_directory(), PAIRING_FILE)
+    with _pairing_lock:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                code = handle.read().strip()
+            if len(code) >= 8:
+                return code
+        except OSError:
+            pass
+        code = secrets.token_urlsafe(9)
+        try:
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(code)
+        except OSError:
+            LOG.warning("scanner: nao consegui gravar o codigo de pareamento")
+        return code
+
+
+def _location_names() -> dict[int, str]:
+    conn = DatabaseConnection().get_connection()
+    try:
+        rows = conn.execute("SELECT id, COALESCE(NULLIF(label, ''), nome) FROM locais WHERE ativo = 1").fetchall()
+    finally:
+        conn.close()
+    return {int(row[0]): str(row[1]) for row in rows}
+
+
+def _stock_lookup(stock_service: StockService, code: str) -> list[dict]:
+    """Saldo por filial do que foi lido, para mostrar no proprio celular."""
+    term = code.strip()
+    if term.upper().startswith("CI-") and term[3:].isdigit():
+        term = f"#{int(term[3:])}"
+    products = stock_service.get_all_products(term)
+    if not products:
+        return []
+    names = _location_names()
+    found = []
+    for product in products[:MAX_PRODUCTS_SHOWN]:
+        locais = [
+            {"local": names.get(location_id, f"Local {location_id}"), "quantidade": int(quantity)}
+            for location_id, quantity in sorted(product.inventories.items())
+            if location_id in names
+        ]
+        found.append(
+            {
+                "id": product.id,
+                "nome": product.nome,
+                "total": sum(item["quantidade"] for item in locais),
+                "locais": locais,
+            }
+        )
+    return found
 
 HTML_CONTENT = """
 <!DOCTYPE html>
@@ -153,7 +223,29 @@ HTML_CONTENT = """
         #start-overlay .title { font-size: 1.5rem; font-weight: 700; }
         #start-overlay .hint { color: var(--muted); font-size: 0.9rem; text-align: center; max-width: 320px; }
         #start-overlay .primary-btn { max-width: 320px; }
+        /* Saldo do que acabou de ser lido. */
+        .stock-card { margin-top: 12px; padding: 14px 16px; display: none; }
+        .stock-card.show { display: block; animation: stock-in 0.35s var(--ease-out); }
+        .stock-item + .stock-item { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+        .stock-name { font-weight: 600; font-size: 0.95rem; line-height: 1.35; }
+        .stock-total { margin-top: 4px; color: var(--muted); font-size: 0.85rem; }
+        .stock-total b { color: var(--text); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+        .stock-total.zero b { color: var(--danger); }
+        .stock-places { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .stock-place {
+            padding: 4px 10px; border-radius: 999px; font-size: 0.82rem;
+            border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04);
+            font-variant-numeric: tabular-nums;
+        }
+        .stock-place b { color: var(--accent); }
+        .pair-warning {
+            display: none; margin-top: 12px; padding: 14px 16px; color: var(--danger);
+            font-weight: 600; text-align: center;
+        }
+        .pair-warning.show { display: block; }
+        @keyframes stock-in { from { opacity: 0; transform: translateY(6px); } }
         @media (prefers-reduced-motion: reduce) {
+            .stock-card.show { animation: none; }
             .history-list li.hit { animation: hit-fade 0.4s ease-out 1 forwards; }
             .beep-toggle .knob, .beep-toggle .knob::after { transition: none; }
         }
@@ -182,6 +274,8 @@ HTML_CONTENT = """
     </div>
 
     <div class="status" id="status-text" role="status" aria-live="polite">Apontando câmera...</div>
+    <div id="stock-card" class="stock-card card" aria-live="polite"></div>
+    <div id="pair-warning" class="pair-warning card">Este celular não está pareado. Leia de novo o QR code na tela do computador (botão do celular no alto do Chronos).</div>
 
     <div class="history-container card">
         <div class="history-title">Últimos lidos</div>
@@ -411,6 +505,54 @@ HTML_CONTENT = """
           }));
         }
 
+        // Codigo de pareamento: vem no QR (?p=...) e fica guardado para as proximas vezes.
+        const pairWarning = document.getElementById('pair-warning');
+        const stockCard = document.getElementById('stock-card');
+        const pairingCode = (() => {
+            const fromUrl = new URLSearchParams(window.location.search).get('p') || '';
+            try {
+                if (fromUrl) localStorage.setItem('chronos.pareamento', fromUrl);
+                return fromUrl || localStorage.getItem('chronos.pareamento') || '';
+            } catch (e) {
+                return fromUrl;
+            }
+        })();
+
+        function el(tag, className, text) {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text !== undefined) node.textContent = String(text);
+            return node;
+        }
+
+        // Saldo por filial do que foi lido (textContent: nada do banco vira HTML).
+        function renderStock(produtos) {
+            stockCard.replaceChildren();
+            if (!produtos.length) {
+                stockCard.appendChild(el('div', 'stock-total', 'Nenhum produto com esse código no estoque.'));
+                stockCard.classList.add('show');
+                return;
+            }
+            produtos.forEach((item) => {
+                const box = el('div', 'stock-item');
+                box.appendChild(el('div', 'stock-name', `#${item.id} ${item.nome}`));
+                const total = el('div', 'stock-total' + (item.total > 0 ? '' : ' zero'), 'Total: ');
+                total.appendChild(el('b', '', item.total));
+                box.appendChild(total);
+                const places = el('div', 'stock-places');
+                (item.locais || []).forEach((place) => {
+                    const chip = el('span', 'stock-place', `${place.local}: `);
+                    chip.appendChild(el('b', '', place.quantidade));
+                    places.appendChild(chip);
+                });
+                box.appendChild(places);
+                stockCard.appendChild(box);
+            });
+            stockCard.classList.remove('show');
+            void stockCard.offsetWidth;
+            stockCard.classList.add('show');
+        }
+
         function sendBarcode(code) {
             if (isProcessing) return;
             isProcessing = true;
@@ -425,12 +567,20 @@ HTML_CONTENT = """
 
             fetch('/api/scanner/barcode', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-Chronos-Pareamento': pairingCode },
                 body: JSON.stringify({ code: code })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    pairWarning.classList.add('show');
+                    throw new Error('nao pareado');
+                }
+                return response.json();
+            })
             .then(data => {
+                pairWarning.classList.remove('show');
                 setStatus(`Lido: ${data.display_name}`, 'ok');
+                renderStock(data.produtos || []);
                 
                 // Adicionar ao histórico
                 const li = document.createElement('li');
@@ -455,7 +605,7 @@ HTML_CONTENT = """
                 setTimeout(() => { isProcessing = false; setStatus('Pronto para o próximo...', ''); }, 1000);
             })
             .catch(err => {
-                setStatus('Erro de conexão!', 'error');
+                setStatus(String(err && err.message) === 'nao pareado' ? 'Celular não pareado' : 'Erro de conexão!', 'error');
                 setTimeout(() => { isProcessing = false; setStatus('Tente novamente...', ''); }, 2000);
             });
         }
@@ -474,9 +624,20 @@ def get_scanner_app():
     return HTML_CONTENT
 
 @router.post("/barcode")
-async def receive_barcode(payload: BarcodePayload, stock_service: StockService = Depends(get_stock_service)):
+async def receive_barcode(
+    payload: BarcodePayload,
+    request: Request,
+    pareamento: str | None = Header(default=None, alias=PAIRING_HEADER),
+    stock_service: StockService = Depends(get_stock_service),
+):
     """Recebe o código de barras do celular e dispara via WebSocket para o Desktop"""
-    
+    client_host = request.client.host if request.client else None
+    if not _is_loopback(client_host) and not secrets.compare_digest(pareamento or "", pairing_code()):
+        raise HTTPException(
+            status_code=403,
+            detail="Celular não pareado. Leia de novo o QR code na tela do computador.",
+        )
+
     # Buscar nome do produto para o histórico do celular
     display_name = payload.code
     code_upper = payload.code.upper()
@@ -513,7 +674,16 @@ async def receive_barcode(payload: BarcodePayload, stock_service: StockService =
         if ws in connected_desktops:
             connected_desktops.remove(ws)
             
-    return {"status": "ok", "code": payload.code, "display_name": display_name}
+    produtos: list[dict] = []
+    if not chave:
+        try:
+            produtos = _stock_lookup(stock_service, payload.code)
+        except Exception:
+            LOG.exception("scanner: falha ao buscar o saldo de %s", payload.code)
+    if len(produtos) == 1:
+        display_name = produtos[0]["nome"]
+
+    return {"status": "ok", "code": payload.code, "display_name": display_name, "produtos": produtos}
 
 @router.websocket("/ws")
 async def scanner_websocket(websocket: WebSocket):
@@ -532,11 +702,15 @@ async def scanner_websocket(websocket: WebSocket):
             connected_desktops.remove(websocket)
 
 @router.get("/ip")
-def get_local_ip():
+def get_local_ip(request: Request):
     """Descobre o IP local da máquina na rede Wi-Fi (para o QR code do celular)."""
     port = os.getenv("PORT", "8000")
     ip = _default_route_ipv4() or _first_private_ipv4()
-    return {"ip": f"http://{ip or '127.0.0.1'}:{port}"}
+    result = {"ip": f"http://{ip or '127.0.0.1'}:{port}"}
+    # O codigo de pareamento so vai para a tela deste computador, nunca para a rede.
+    if _is_loopback(request.client.host if request.client else None):
+        result["pareamento"] = pairing_code()
+    return result
 
 
 def _default_route_ipv4() -> str | None:

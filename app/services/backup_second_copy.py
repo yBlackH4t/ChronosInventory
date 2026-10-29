@@ -30,7 +30,9 @@ LOG = logging.getLogger("backend.backup_second_copy")
 
 CONFIG_FILENAME = "backup_segunda_pasta.json"
 # So os backups que o proprio Chronos cria e apaga sozinho podem ser apagados la.
-MANAGED_NAME = re.compile(r"^backup_[a-z_]+_\d{8}_\d{6}\.db$")
+MANAGED_NAME = re.compile(r"^backup_[a-z_]+_\d{8}_\d{6}\.db(\.ia-[a-z]+)?$")
+# Bancos do assistente que acompanham cada backup (ver backup_assistant_files).
+COMPANION_SUFFIXES = (".ia-historico", ".ia-atendimentos")
 
 
 def _machine_folder_name() -> str:
@@ -92,7 +94,7 @@ class BackupSecondCopy:
 
         folder = os.path.abspath(folder)
         if not os.path.isdir(folder):
-            raise ValidationException("Pasta nao encontrada. Confira se o disco ou pendrive esta conectado.")
+            raise ValidationException("Pasta não encontrada. Confira se o disco ou pendrive está conectado.")
         destination = os.path.join(folder, _machine_folder_name())
         backups_real = os.path.normcase(os.path.realpath(self.backups_dir))
         for candidate in (folder, destination):
@@ -106,7 +108,7 @@ class BackupSecondCopy:
                 fh.write("ok")
             os.remove(probe)
         except OSError as exc:
-            raise ValidationException(f"Nao consegui gravar nessa pasta: {exc.strerror or exc}.") from exc
+            raise ValidationException(f"Não consegui gravar nessa pasta: {exc.strerror or exc}.") from exc
 
         data.update({"pasta": folder, "ultimo_erro": None})
         self._save(data)
@@ -128,7 +130,8 @@ class BackupSecondCopy:
             os.makedirs(destination, exist_ok=True)
             primary = {
                 name for name in os.listdir(self.backups_dir)
-                if name.lower().endswith(".db") and os.path.isfile(os.path.join(self.backups_dir, name))
+                if name.lower().endswith((".db",) + COMPANION_SUFFIXES)
+                and os.path.isfile(os.path.join(self.backups_dir, name))
             }
             existing = set(os.listdir(destination))
             for name in sorted(primary - existing):

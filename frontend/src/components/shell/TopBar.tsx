@@ -24,11 +24,11 @@ import {
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import type { HealthOut } from "../../lib/api";
-import { api, baseUrl } from "../../lib/apiClient";
+import { baseUrl } from "../../lib/apiClient";
 import { useProfileScope } from "../../state/profileScope";
 import { notifyError, notifySuccess } from "../../lib/notify";
 import { isTauri } from "../../lib/tauri";
-import { getReleaseNotesFromManifest } from "../../lib/updaterNotes";
+import { openUpdateDialog } from "./openUpdateDialog";
 import { getLatestReleaseEntry, getReleaseEntry } from "../../lib/changelog";
 import {
   ADMIN_NAV,
@@ -147,7 +147,6 @@ export default function TopBar({ health }: { health: HealthOut }) {
     setCheckingUpdate(true);
     try {
       const updater = await import("@tauri-apps/plugin-updater");
-      const process = await import("@tauri-apps/plugin-process");
 
       const update = await updater.check();
       if (!update) {
@@ -155,80 +154,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
         return;
       }
 
-      const version = update.version ?? "nova";
-      const notes = getReleaseNotesFromManifest({ body: update.body });
-
-      modals.openConfirmModal({
-        title: `Nova versão ${version} disponível`,
-        children: (
-          <Text
-            size="sm"
-            c="dimmed"
-            style={{
-              whiteSpace: "pre-wrap",
-              maxHeight: 260,
-              overflowY: "auto",
-            }}
-          >
-            {notes}
-          </Text>
-        ),
-        labels: { confirm: "Atualizar agora", cancel: "Depois" },
-        onConfirm: async () => {
-          let backupCreated = false;
-          try {
-            await api.backupCreatePreUpdate();
-            backupCreated = true;
-            notifySuccess("Cópia de segurança criada antes de atualizar.");
-          } catch (error) {
-            notifyError(
-              error,
-              "Não foi possível criar a cópia de segurança antes de atualizar. A atualização foi cancelada.",
-            );
-            return;
-          }
-
-          try {
-            notifySuccess("Instalando atualização...");
-            // Baixa antes de fechar o backend: se o download falhar, o app continua funcionando.
-            await update.download();
-            try {
-              const { invoke } = await import("@tauri-apps/api/core");
-              await invoke("kill_backend");
-            } catch (e) {
-              console.error("Falha ao matar backend antes do update:", e);
-            }
-            await update.install();
-            await process.relaunch();
-          } catch (error) {
-            notifyError(error, "Falha ao instalar atualização.");
-            if (backupCreated) {
-              modals.openConfirmModal({
-                title: "Voltar aos dados de antes da atualização?",
-                children: (
-                  <Text size="sm">
-                    A instalação falhou. Deseja restaurar automaticamente o
-                    última cópia de segurança feita antes de atualizar?
-                  </Text>
-                ),
-                labels: { confirm: "Restaurar", cancel: "Depois" },
-                confirmProps: { color: "warning" },
-                onConfirm: async () => {
-                  try {
-                    await api.backupRestorePreUpdate();
-                    notifySuccess("Dados de antes da atualização restaurados.");
-                  } catch (restoreError) {
-                    notifyError(
-                      restoreError,
-                      "Não foi possível restaurar a cópia de segurança de antes da atualização.",
-                    );
-                  }
-                },
-              });
-            }
-          }
-        },
-      });
+      openUpdateDialog(update);
     } catch (error) {
       notifyError(error, "Falha ao verificar atualização.");
     } finally {
@@ -238,14 +164,17 @@ export default function TopBar({ health }: { health: HealthOut }) {
 
   const openScannerModal = async () => {
     let scannerIp: string;
+    let pairing = "";
     try {
       const res = await fetch(`${baseUrl}/api/scanner/ip`);
       const data = await res.json();
       scannerIp = data.ip;
+      pairing = data.pareamento ?? "";
     } catch {
       scannerIp = "127.0.0.1";
     }
-    const scannerUrl = `${scannerIp || "http://127.0.0.1:8000"}/api/scanner/app`;
+    // O código de pareamento vai no QR: só o celular que leu consegue mandar códigos para cá.
+    const scannerUrl = `${scannerIp || baseUrl}/api/scanner/app${pairing ? `?p=${encodeURIComponent(pairing)}` : ""}`;
 
     modals.open({
       title: "Scanner via celular",
@@ -255,6 +184,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
           <Text size="sm" ta="center" c="dimmed">
             Abra a câmera do celular e aponte para o código QR abaixo. O
             celular e o computador precisam estar na <b>mesma rede Wi-Fi</b>.
+            Depois de ler um código, o celular mostra o saldo por filial.
           </Text>
           <div
             style={{

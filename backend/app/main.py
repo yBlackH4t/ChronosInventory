@@ -26,6 +26,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.services.assistant_admin_service import AdminRequiredError
 from app.services.backup_scheduler_service import BackupSchedulerService
 from app.services.local_share_service import LocalShareService
+from app.services.official_base_local_changes import LocalChangesWouldBeLostException
 from app.services.official_base_service import OfficialBaseService
 from core.catalog.bundle import run_catalog_startup
 from core.constants import APP_VERSION
@@ -403,6 +404,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     if isinstance(exc.detail, str):
         return fail(exc.status_code, "http_error", exc.detail, None, _request_id(request))
     return fail(exc.status_code, "http_error", "HTTP error", exc.detail, _request_id(request))
+
+
+@app.exception_handler(LocalChangesWouldBeLostException)
+async def local_changes_handler(request: Request, exc: LocalChangesWouldBeLostException) -> JSONResponse:
+    return fail(409, "lancamentos_locais", str(exc), exc.summary, _request_id(request))
 
 
 @app.exception_handler(ValidationException)

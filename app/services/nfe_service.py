@@ -240,13 +240,13 @@ def save_config(
         if folder not in folders:
             folders.append(folder)
     if len(folders) > MAX_FOLDERS:
-        raise ValidationException(f"Informe no maximo {MAX_FOLDERS} pastas.")
+        raise ValidationException(f"Informe no máximo {MAX_FOLDERS} pastas.")
     data = _read_raw()
     data["pastas_xml"] = folders
     if cnpj_loja is not None:
         cnpj = _only_digits(cnpj_loja)
         if cnpj and len(cnpj) != 14:
-            raise ValidationException("CNPJ da loja deve ter 14 numeros.")
+            raise ValidationException("CNPJ da loja deve ter 14 números.")
         data["cnpj_loja"] = cnpj or None
     if cnpjs is not None:
         saved: List[Dict[str, str]] = []
@@ -255,11 +255,11 @@ def save_config(
             if not cnpj:
                 continue
             if len(cnpj) != 14:
-                raise ValidationException(f"CNPJ {entry.get('cnpj')} deve ter 14 numeros.")
+                raise ValidationException(f"CNPJ {entry.get('cnpj')} deve ter 14 números.")
             if cnpj not in {e["cnpj"] for e in saved}:
                 saved.append({"cnpj": cnpj, "nome": str(entry.get("nome") or "").strip()[:60]})
         if len(saved) > MAX_CNPJS:
-            raise ValidationException(f"Informe no maximo {MAX_CNPJS} CNPJs.")
+            raise ValidationException(f"Informe no máximo {MAX_CNPJS} CNPJs.")
         data["cnpjs"] = saved
         # O primeiro da lista e o desta loja (quem recebe as notas de entrada aqui).
         data["cnpj_loja"] = saved[0]["cnpj"] if saved else None
@@ -268,10 +268,10 @@ def save_config(
             numero = _phone(entry.get("numero"))
             if numero and not 12 <= len(numero) <= 13:
                 raise ValidationException(
-                    f"Numero {entry.get('numero')} invalido: use DDD + numero, ex.: 51 99999-9999."
+                    f"Número {entry.get('numero')} inválido: use DDD + número, ex.: 51 99999-9999."
                 )
         if len(contatos_aviso) > MAX_CONTATOS:
-            raise ValidationException(f"Informe no maximo {MAX_CONTATOS} contatos.")
+            raise ValidationException(f"Informe no máximo {MAX_CONTATOS} contatos.")
         data["contatos_aviso"] = _saved_contacts(contatos_aviso)
     _write_raw(data)
     return load_config()
@@ -284,7 +284,7 @@ def save_certificate(arquivo: str, senha: str) -> Dict[str, Any]:
 
     arquivo = (arquivo or "").strip().strip('"')
     if not arquivo.lower().endswith((".pfx", ".p12")) or not os.path.isfile(arquivo):
-        raise ValidationException("Arquivo do certificado nao encontrado (precisa ser .pfx ou .p12).")
+        raise ValidationException("Arquivo do certificado não encontrado (precisa ser .pfx ou .p12).")
     if os.path.getsize(arquivo) > 100 * 1024:
         raise ValidationException("Esse arquivo e grande demais para ser um certificado .pfx.")
     with open(arquivo, "rb") as fh:
@@ -459,7 +459,7 @@ class NfeService:
     def _load(self, code: str) -> NfeDocumento:
         chave = chave_from_code(code)
         if not chave:
-            raise ValidationException("Codigo lido nao e uma chave de NF-e valida (44 digitos).")
+            raise ValidationException("Código lido não é uma chave de NF-e válida (44 dígitos).")
         config = load_config()
         folders = [*config["pastas_xml"], xml_download_dir()]
         documento = find_nfe_by_chave(chave, folders)
@@ -469,10 +469,10 @@ class NfeService:
             return self._download(chave, config)
         if not any(os.path.isdir(f) for f in config["pastas_xml"]):
             raise ProductNotFoundException(
-                "Nenhuma das pastas de XML existe nesta maquina. Confira em 'Configurar'."
+                "Nenhuma das pastas de XML existe nesta máquina. Confira em 'Configurar'."
             )
         raise ProductNotFoundException(
-            "XML da nota nao encontrado nas pastas. Para notas de fornecedor, cadastre o certificado "
+            "XML da nota não encontrado nas pastas. Para notas de fornecedor, cadastre o certificado "
             "digital em 'Configurar' e o Chronos baixa o XML da SEFAZ."
         )
 
@@ -482,12 +482,12 @@ class NfeService:
 
         secret = _certificate_secret()
         if secret is None:
-            raise ValidationException("Certificado digital nao configurado nesta maquina.")
+            raise ValidationException("Certificado digital não configurado nesta máquina.")
         pfx, senha = secret
         cnpjs = _download_cnpjs(chave, config)
         if not cnpjs:
             raise ValidationException(
-                "Salve em 'Configurar' o CNPJ que recebeu esta nota (quem emitiu nao consegue baixar da SEFAZ)."
+                "Salve em 'Configurar' o CNPJ que recebeu esta nota (quem emitiu não consegue baixar da SEFAZ)."
             )
         # A chave so traz o emitente: tenta cada CNPJ salvo ate achar o destinatario da nota.
         for cnpj in cnpjs:
@@ -504,11 +504,11 @@ class NfeService:
             documento = find_nfe_by_chave(chave, [xml_download_dir()])
             if documento is not None:
                 return documento
-            raise ValidationException("A SEFAZ mandou um XML que nao e desta nota.")
+            raise ValidationException("A SEFAZ mandou um XML que não é desta nota.")
         if result.so_resumo:
             raise ValidationException(
-                "A SEFAZ so liberou o resumo desta nota: a empresa ainda precisa registrar a "
-                "'ciencia da operacao' dela (no Questor ou no portal da NF-e). Depois, bipe de novo."
+                "A SEFAZ só liberou o resumo desta nota: a empresa ainda precisa registrar a "
+                "'ciência da operação' dela (no Questor ou no portal da NF-e). Depois, bipe de novo."
             )
         motivo = MOTIVOS.get(result.c_stat) or f"A SEFAZ respondeu: {result.c_stat} - {result.motivo}"
         raise ProductNotFoundException(motivo)
@@ -566,7 +566,7 @@ class NfeService:
             with open(documento.arquivo, "rb") as fh:
                 content = fh.read(MAX_XML_BYTES)
         except OSError as exc:
-            raise ProductNotFoundException("Nao foi possivel abrir o XML desta nota.") from exc
+            raise ProductNotFoundException("Não foi possível abrir o XML desta nota.") from exc
         try:
             texto = content.decode("utf-8")
         except UnicodeDecodeError:
@@ -706,12 +706,12 @@ class NfeService:
             raise ValidationException("Tipo deve ser SAIDA ou ENTRADA.")
         natureza = (natureza or "OPERACAO_NORMAL").upper()
         if natureza not in NATUREZAS_NF:
-            raise ValidationException("Natureza deve ser operacao normal, transferencia externa ou ajuste.")
+            raise ValidationException("Natureza deve ser operação normal, transferência externa ou ajuste.")
         documento = self._load(code)
         if documento.cancelada:
             raise ValidationException("Esta NF-e foi cancelada; nada foi baixado.")
         if not documento.autorizada:
-            raise ValidationException("O XML encontrado nao tem a autorizacao da SEFAZ; nada foi baixado.")
+            raise ValidationException("O XML encontrado não tem a autorização da SEFAZ; nada foi baixado.")
 
         by_item = {i.item: i for i in documento.itens}
         remessa = _internal_shipment(documento)
@@ -719,12 +719,12 @@ class NfeService:
         for entry in itens:
             n = int(entry["item"])
             if n not in by_item:
-                raise ValidationException(f"Item {n} nao existe nesta nota.")
+                raise ValidationException(f"Item {n} não existe nesta nota.")
             if n in chosen:
                 raise ValidationException(f"Item {n} repetido.")
             tipo_aviso = entry.get("tipo_aviso")
             if tipo_aviso is not None and (not remessa or tipo_aviso not in TIPOS_AVISO):
-                raise ValidationException("Tipo da peca (estoque, servico, casco, garantia) so vale em remessa entre matriz e filial.")
+                raise ValidationException("Tipo da peça (estoque, servico, casco, garantia) só vale em remessa entre matriz e filial.")
             # Casco e garantia nao entram no estoque: passam como item ignorado.
             fora = tipo_aviso in TIPOS_FORA_DO_ESTOQUE
             chosen[n] = {**entry, "ignorar": bool(entry.get("ignorar")) or fora, "fora_do_estoque": fora}
@@ -736,7 +736,7 @@ class NfeService:
             )
         so_aviso = remessa and all(entry["fora_do_estoque"] for entry in chosen.values())
         if all(entry.get("ignorar") for entry in chosen.values()) and not so_aviso:
-            raise ValidationException("Todos os itens estao marcados para ignorar: nada para lancar.")
+            raise ValidationException("Todos os itens estão marcados para ignorar: nada para lançar.")
 
         documento_mov = f"NF {documento.numero}"
         observacao = (observacao or "").strip()[:200] or _suggested_movement(documento, tipo, None)["observacao"]
@@ -747,7 +747,7 @@ class NfeService:
             _ensure_schema(conn)
             conn.execute("BEGIN IMMEDIATE")
             if _active_baixa(conn, documento.chave) is not None:
-                raise ValidationException(f"A NF {documento.numero} ja foi baixada no estoque.")
+                raise ValidationException(f"A NF {documento.numero} já foi baixada no estoque.")
 
             records: List[MovementRecord] = []
             for n in sorted(chosen):

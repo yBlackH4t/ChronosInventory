@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, Stack, Text, Tabs } from "@mantine/core";
+import { Stack, Text, Tabs } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
 import { BackupDiagnosticsSection } from "../components/backup/BackupDiagnosticsSection";
-import { BackupOverviewCards } from "../components/backup/BackupOverviewCards";
+import { BackupHome } from "../components/backup/BackupHome";
+import { openRestorePicker } from "../components/backup/openRestorePicker";
+import { AdvancedSection } from "../components/ui/SimpleScreen";
 import { LocalBackupsSection } from "../components/backup/LocalBackupsSection";
-import { IconDatabasePlus } from "@tabler/icons-react";
+import { IconShieldLock } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
 import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
@@ -34,6 +36,7 @@ type BackupTabState = {
   activeSection: "locais" | "oficial" | "catalogo" | "diagnostico";
   selectedBackupName: string | null;
   scrollY: number;
+  advancedOpen?: boolean;
 };
 
 const BACKUP_TAB_ID = "backup";
@@ -67,6 +70,9 @@ export default function BackupPage() {
   const [selectedValidation, setSelectedValidation] =
     useState<BackupValidateOut | null>(null);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
+  const [advancedOpen, setAdvancedOpen] = useState(
+    persistedState.advancedOpen ?? false,
+  );
   const {
     autoConfig,
     autoConfigLoading,
@@ -242,9 +248,10 @@ export default function BackupPage() {
         activeSection,
         selectedBackupName,
         scrollY: nextScrollY,
+        advancedOpen,
       });
     },
-    [activeSection, scrollY, selectedBackupName],
+    [activeSection, advancedOpen, scrollY, selectedBackupName],
   );
 
   useEffect(() => {
@@ -313,164 +320,175 @@ export default function BackupPage() {
   return (
     <Stack gap="lg">
       <PageHeader
+        icon={IconShieldLock}
         title="Backup e segurança"
-        subtitle="Cópias locais, base oficial compartilhada e ferramentas de recuperação."
-        actions={
-          <Button
-            leftSection={<IconDatabasePlus size={16} stroke={1.5} />}
-            onClick={() => backupMutation.mutate()}
-            loading={backupMutation.isPending}
-          >
-            Criar backup agora
-          </Button>
-        }
+        subtitle="Cópias dos dados deste computador."
       />
 
-      <BackupOverviewCards
-        currentValidation={currentValidation}
+      <BackupHome
         backups={backups}
         autoConfig={autoConfig}
-        officialBaseStatus={officialBasePanel.officialBaseStatus}
-        formatBytes={bytesToHuman}
+        currentValidation={currentValidation}
+        officialStatus={officialBasePanel.officialBaseStatus}
+        onBackupNow={() => backupMutation.mutate()}
+        backupNowLoading={backupMutation.isPending}
+        onRestore={() =>
+          openRestorePicker(backups, (name) => restoreMutation.mutate(name))
+        }
+        restoreLoading={restoreMutation.isPending}
+        onApplyOfficial={officialBasePanel.confirmApplyOfficialBase}
+        applyLoading={officialBasePanel.applyLoading}
+        onPublishOfficial={officialBasePanel.confirmPublishOfficialBase}
+        publishLoading={officialBasePanel.publishLoading}
       />
 
-      <Tabs
-        value={activeSection}
-        onChange={(value) =>
-          setActiveSection(
-            (value as BackupTabState["activeSection"]) || "locais",
-          )
-        }
+      <AdvancedSection
+        hint="Horário da cópia automática, lista de arquivos, outro disco, base oficial, catálogo e diagnóstico. Só para quem configura."
+        defaultOpen={persistedState.advancedOpen}
+        onToggle={setAdvancedOpen}
       >
-        <Tabs.List>
-          <Tabs.Tab value="locais">Backups locais</Tabs.Tab>
-          <Tabs.Tab value="oficial">Base oficial</Tabs.Tab>
-          <Tabs.Tab value="catalogo">Catálogo</Tabs.Tab>
-          <Tabs.Tab value="diagnostico">Recuperação</Tabs.Tab>
-        </Tabs.List>
+        <Tabs
+          value={activeSection}
+          onChange={(value) =>
+            setActiveSection(
+              (value as BackupTabState["activeSection"]) || "locais",
+            )
+          }
+        >
+          <Tabs.List>
+            <Tabs.Tab value="locais">Cópias</Tabs.Tab>
+            <Tabs.Tab value="oficial">Base oficial</Tabs.Tab>
+            <Tabs.Tab value="catalogo">Catálogo</Tabs.Tab>
+            <Tabs.Tab value="diagnostico">Problemas</Tabs.Tab>
+          </Tabs.List>
 
-        <Tabs.Panel value="oficial" pt="md">
-          <OfficialBaseSection
-            loading={officialBasePanel.officialBaseStatusLoading}
-            errorMessage={officialBasePanel.officialBaseStatusErrorMessage}
-            onRetry={() => void officialBasePanel.retryStatus()}
-            status={officialBasePanel.officialBaseStatus}
-            roleInput={officialBasePanel.officialRoleInput}
-            onRoleChange={officialBasePanel.setOfficialRoleInput}
-            machineLabelInput={officialBasePanel.officialMachineLabelInput}
-            onMachineLabelChange={
-              officialBasePanel.setOfficialMachineLabelInput
-            }
-            publisherNameInput={officialBasePanel.officialPublisherNameInput}
-            onPublisherNameChange={
-              officialBasePanel.setOfficialPublisherNameInput
-            }
-            serverPortInput={officialBasePanel.officialServerPortInput}
-            onServerPortChange={officialBasePanel.setOfficialServerPortInput}
-            remoteServerUrlInput={
-              officialBasePanel.officialRemoteServerUrlInput
-            }
-            onRemoteServerUrlChange={
-              officialBasePanel.setOfficialRemoteServerUrlInput
-            }
-            serverTokenInput={officialBasePanel.officialServerTokenInput}
-            onServerTokenChange={officialBasePanel.setOfficialServerTokenInput}
-            onSaveServerToken={officialBasePanel.saveServerPassword}
-            onRemoveServerToken={officialBasePanel.removeServerPassword}
-            onSaveConfig={officialBasePanel.saveOfficialBaseConfig}
-            saveConfigLoading={officialBasePanel.saveConfigLoading}
-            serverSwitchLabel={officialBasePanel.serverSwitchLabel}
-            serverIsRunning={officialBasePanel.serverIsRunning}
-            serverToggleBusy={officialBasePanel.serverToggleBusy}
-            onToggleServer={officialBasePanel.toggleLocalServer}
-            onTestRemoteServer={officialBasePanel.testRemoteServer}
-            testRemoteLoading={officialBasePanel.testRemoteLoading}
-            remoteStatus={officialBasePanel.remoteOfficialStatus}
-            notesInput={officialBasePanel.officialNotesInput}
-            onNotesChange={officialBasePanel.setOfficialNotesInput}
-            onPublish={officialBasePanel.confirmPublishOfficialBase}
-            publishLoading={officialBasePanel.publishLoading}
-            publishFailed={officialBasePanel.publishFailed}
-            onApply={officialBasePanel.confirmApplyOfficialBase}
-            applyLoading={officialBasePanel.applyLoading}
-            formatBytes={bytesToHuman}
-            historyItems={officialBasePanel.officialBaseHistory}
-            historyLoading={officialBasePanel.officialBaseHistoryLoading}
-            canDeleteHistory={
-              officialBasePanel.officialRoleInput === "publisher"
-            }
-            deletePending={officialBasePanel.deletePending}
-            onDeleteHistory={
-              officialBasePanel.confirmDeleteOfficialBaseHistoryItem
-            }
-            onDeleteLatest={officialBasePanel.confirmDeleteLatestOfficialBase}
-          />
-        </Tabs.Panel>
-        <Tabs.Panel value="locais" pt="md">
-          <Stack gap="md">
-            <LocalBackupsSection
-              autoConfigLoading={autoConfigLoading}
-              autoEnabled={autoEnabled}
-              onAutoEnabledChange={setAutoEnabledInput}
-              autoScheduleMode={autoScheduleMode}
-              onAutoScheduleModeChange={setAutoScheduleModeInput}
-              autoWeekday={autoWeekday}
-              onAutoWeekdayChange={setAutoWeekdayInput}
-              autoHour={autoHour}
-              onAutoHourChange={setAutoHourInput}
-              autoMinute={autoMinute}
-              onAutoMinuteChange={setAutoMinuteInput}
-              autoRetention={autoRetention}
-              onAutoRetentionChange={setAutoRetentionInput}
-              scheduleOptions={scheduleOptions}
-              weekdayOptions={weekdayOptions}
-              onSaveAutoConfig={saveAutoConfig}
-              saveAutoConfigLoading={saveAutoConfigLoading}
-              autoConfig={autoConfig}
-              backupsLoading={backupsQuery.isLoading}
-              backupOptions={backupOptions}
-              selectedBackupName={effectiveSelectedBackupName}
-              onSelectedBackupChange={(value) => {
-                setSelectedBackupName(value);
-                setSelectedValidation(null);
-              }}
-              onValidateSelected={() => {
-                if (effectiveSelectedBackupName) {
-                  validateSelectedMutation.mutate(effectiveSelectedBackupName);
-                }
-              }}
-              validateSelectedLoading={validateSelectedMutation.isPending}
-              onTestRestore={() =>
-                restoreTestMutation.mutate(effectiveSelectedBackupName)
+          <Tabs.Panel value="oficial" pt="md">
+            <OfficialBaseSection
+              loading={officialBasePanel.officialBaseStatusLoading}
+              errorMessage={officialBasePanel.officialBaseStatusErrorMessage}
+              onRetry={() => void officialBasePanel.retryStatus()}
+              status={officialBasePanel.officialBaseStatus}
+              roleInput={officialBasePanel.officialRoleInput}
+              onRoleChange={officialBasePanel.setOfficialRoleInput}
+              machineLabelInput={officialBasePanel.officialMachineLabelInput}
+              onMachineLabelChange={
+                officialBasePanel.setOfficialMachineLabelInput
               }
-              restoreTestLoading={restoreTestMutation.isPending}
-              onRestore={confirmRestore}
-              restoreLoading={restoreMutation.isPending}
-              onRecoverPhotos={confirmRecoverPhotos}
-              recoverPhotosLoading={recoverPhotosMutation.isPending}
-              selectedBackup={selectedBackup}
+              publisherNameInput={officialBasePanel.officialPublisherNameInput}
+              onPublisherNameChange={
+                officialBasePanel.setOfficialPublisherNameInput
+              }
+              serverPortInput={officialBasePanel.officialServerPortInput}
+              onServerPortChange={officialBasePanel.setOfficialServerPortInput}
+              remoteServerUrlInput={
+                officialBasePanel.officialRemoteServerUrlInput
+              }
+              onRemoteServerUrlChange={
+                officialBasePanel.setOfficialRemoteServerUrlInput
+              }
+              serverTokenInput={officialBasePanel.officialServerTokenInput}
+              onServerTokenChange={
+                officialBasePanel.setOfficialServerTokenInput
+              }
+              onSaveServerToken={officialBasePanel.saveServerPassword}
+              onRemoveServerToken={officialBasePanel.removeServerPassword}
+              onSaveConfig={officialBasePanel.saveOfficialBaseConfig}
+              saveConfigLoading={officialBasePanel.saveConfigLoading}
+              serverSwitchLabel={officialBasePanel.serverSwitchLabel}
+              serverIsRunning={officialBasePanel.serverIsRunning}
+              serverToggleBusy={officialBasePanel.serverToggleBusy}
+              onToggleServer={officialBasePanel.toggleLocalServer}
+              onTestRemoteServer={officialBasePanel.testRemoteServer}
+              testRemoteLoading={officialBasePanel.testRemoteLoading}
+              remoteStatus={officialBasePanel.remoteOfficialStatus}
+              notesInput={officialBasePanel.officialNotesInput}
+              onNotesChange={officialBasePanel.setOfficialNotesInput}
+              onPublish={officialBasePanel.confirmPublishOfficialBase}
+              publishLoading={officialBasePanel.publishLoading}
+              publishFailed={officialBasePanel.publishFailed}
+              onApply={officialBasePanel.confirmApplyOfficialBase}
+              applyLoading={officialBasePanel.applyLoading}
               formatBytes={bytesToHuman}
-              selectedValidation={selectedValidation}
-              backups={backups}
+              historyItems={officialBasePanel.officialBaseHistory}
+              historyLoading={officialBasePanel.officialBaseHistoryLoading}
+              canDeleteHistory={
+                officialBasePanel.officialRoleInput === "publisher"
+              }
+              deletePending={officialBasePanel.deletePending}
+              onDeleteHistory={
+                officialBasePanel.confirmDeleteOfficialBaseHistoryItem
+              }
+              onDeleteLatest={officialBasePanel.confirmDeleteLatestOfficialBase}
             />
-            <SecondFolderSection />
-          </Stack>
-        </Tabs.Panel>
-        <Tabs.Panel value="catalogo" pt="md">
-          <Stack gap="md">
-            <CatalogUpdateSection />
-            <CompanyRegisterSection />
-          </Stack>
-        </Tabs.Panel>
-        <Tabs.Panel value="diagnostico" pt="md">
-          <BackupDiagnosticsSection
-            onExportDiagnostics={() => diagnosticsMutation.mutate()}
-            exportLoading={diagnosticsMutation.isPending}
-            onRestorePreUpdate={() => restorePreUpdateMutation.mutate()}
-            restorePreUpdateLoading={restorePreUpdateMutation.isPending}
-          />
-        </Tabs.Panel>
-      </Tabs>
+          </Tabs.Panel>
+          <Tabs.Panel value="locais" pt="md">
+            <Stack gap="md">
+              <LocalBackupsSection
+                autoConfigLoading={autoConfigLoading}
+                autoEnabled={autoEnabled}
+                onAutoEnabledChange={setAutoEnabledInput}
+                autoScheduleMode={autoScheduleMode}
+                onAutoScheduleModeChange={setAutoScheduleModeInput}
+                autoWeekday={autoWeekday}
+                onAutoWeekdayChange={setAutoWeekdayInput}
+                autoHour={autoHour}
+                onAutoHourChange={setAutoHourInput}
+                autoMinute={autoMinute}
+                onAutoMinuteChange={setAutoMinuteInput}
+                autoRetention={autoRetention}
+                onAutoRetentionChange={setAutoRetentionInput}
+                scheduleOptions={scheduleOptions}
+                weekdayOptions={weekdayOptions}
+                onSaveAutoConfig={saveAutoConfig}
+                saveAutoConfigLoading={saveAutoConfigLoading}
+                autoConfig={autoConfig}
+                backupsLoading={backupsQuery.isLoading}
+                backupOptions={backupOptions}
+                selectedBackupName={effectiveSelectedBackupName}
+                onSelectedBackupChange={(value) => {
+                  setSelectedBackupName(value);
+                  setSelectedValidation(null);
+                }}
+                onValidateSelected={() => {
+                  if (effectiveSelectedBackupName) {
+                    validateSelectedMutation.mutate(
+                      effectiveSelectedBackupName,
+                    );
+                  }
+                }}
+                validateSelectedLoading={validateSelectedMutation.isPending}
+                onTestRestore={() =>
+                  restoreTestMutation.mutate(effectiveSelectedBackupName)
+                }
+                restoreTestLoading={restoreTestMutation.isPending}
+                onRestore={confirmRestore}
+                restoreLoading={restoreMutation.isPending}
+                onRecoverPhotos={confirmRecoverPhotos}
+                recoverPhotosLoading={recoverPhotosMutation.isPending}
+                selectedBackup={selectedBackup}
+                formatBytes={bytesToHuman}
+                selectedValidation={selectedValidation}
+                backups={backups}
+              />
+              <SecondFolderSection />
+            </Stack>
+          </Tabs.Panel>
+          <Tabs.Panel value="catalogo" pt="md">
+            <Stack gap="md">
+              <CatalogUpdateSection />
+              <CompanyRegisterSection />
+            </Stack>
+          </Tabs.Panel>
+          <Tabs.Panel value="diagnostico" pt="md">
+            <BackupDiagnosticsSection
+              onExportDiagnostics={() => diagnosticsMutation.mutate()}
+              exportLoading={diagnosticsMutation.isPending}
+              onRestorePreUpdate={() => restorePreUpdateMutation.mutate()}
+              restorePreUpdateLoading={restorePreUpdateMutation.isPending}
+            />
+          </Tabs.Panel>
+        </Tabs>
+      </AdvancedSection>
     </Stack>
   );
 }

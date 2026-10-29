@@ -11,7 +11,11 @@ import {
   TextInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconPlus, IconTrash } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconTrash,
+  IconBuildingWarehouse,
+} from "@tabler/icons-react";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -184,6 +188,7 @@ export default function StockProfilesPage() {
   return (
     <Stack gap="lg">
       <PageHeader
+        icon={IconBuildingWarehouse}
         title="Perfis de estoque"
         subtitle="Bases de dados independentes (um banco por perfil). Trocar o perfil ativo exige reiniciar."
         actions={

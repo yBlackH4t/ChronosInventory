@@ -420,6 +420,14 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-29 — Claude Code — 2.7.22: proteção de dados, bandeja e telas simples
+- Branch: `claude/project-thread-4hyxjk`. Pedido do dono depois da avaliação do sistema inteiro.
+- Pegar a base avisa o que só existe neste PC (`app/services/official_base_local_changes.py`).
+- Bandeja, abrir com o Windows, religar o backend e porta livre (`frontend/src-tauri/src/main.rs`).
+- Bancos do assistente no backup (`app/services/backup_assistant_files.py`); gatilho contra saldo negativo.
+- Celular pareado e com saldo (`backend/app/api/routers/scanner.py`).
+- Backup e Configurações simplificados (`components/ui/SimpleScreen.tsx`, `styles/telas-simples.css`); aviso de atualização em `components/shell/UpdateDialog.tsx`.
+
 ### 2026-10-28 — Claude Code — Release mais rápido (testes em paralelo)
 - Branch: `claude/project-thread-1tkomm`. Pedido: o release ainda demora (2.7.11: 12 min, testes do
   backend 3 min 39 s com 347 testes).

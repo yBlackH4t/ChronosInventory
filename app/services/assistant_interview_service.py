@@ -685,7 +685,7 @@ class AssistantInterviewService:
 
         service = OwnFichaService(db_connection=self.db)
         if not service.can_edit()["pode_editar"]:
-            raise ValidationException("Só a máquina que publica a base marca aplicação errada.")
+            raise ValidationException("Só a máquina que pública a base marca aplicação errada.")
         conn = self.db.get_connection()
         try:
             hidden_applications.hide(conn, data)

@@ -10,6 +10,25 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.22",
+    "date": "2026-10-29",
+    "title": "Melhorias e correcoes",
+    "highlights": [
+      "Novo: Chronos continua ligado ao fechar a janela: ele fica perto do relógio do Windows (clique no ícone para abrir; botão direito > \"Sair do Chronos\" para sair de vez). Assim o robô do WhatsApp, a cópia automática e o envio da base não param. Em Configurações > Este computador dá para desligar isso e ligar \"Abrir junto com o Windows\".",
+      "Novo: Celular mostra o saldo: depois de ler um código, o celular mostra o produto e o saldo de cada filial.",
+      "Novo: Celular pareado: só o celular que leu o QR code da tela consegue mandar códigos para o computador. Quem já usava precisa ler o QR de novo uma vez.",
+      "Mudanca: Backup e segurança mais simples: a tela mostra só se os dados estão guardados e três botões grandes (\"Fazer uma cópia agora\", \"Voltar uma cópia\" e pegar ou enviar a base). O resto foi para \"Opções avançadas\".",
+      "Mudanca: Configurações mais simples: tema, animações, este computador e as outras telas em botões grandes. Cor principal, tabelas compactas e a chave do assistente ficaram em \"Opções avançadas\".",
+      "Mudanca: Aviso de atualização simples: só a versão nova e o botão \"Atualizar agora\", com a barra de progresso. Sem a lista de mudanças.",
+      "Mudanca: Visual novo (ícone animado no título) em Assistente, Backup, Configurações, Importar, Exportar, Filiais, Perfis de estoque, Comparar estoques, Ativação em massa e Novidades.",
+      "Mudanca: Mensagens de erro em português: cerca de 250 mensagens com acento e sem termos técnicos (\"checksum\", \"snapshot\").",
+      "Correcao: Pegar a base da principal não apaga mais sem avisar: se este computador lançou movimentações ou cadastrou produtos que a principal não tem, o Chronos mostra quais são e só continua se você confirmar.",
+      "Correcao: O cérebro da IA entra no backup: a lista \"Para revisar\", as propostas dos colegas, as Perguntas do dia, as conversas e os atendimentos do WhatsApp agora vão junto em cada backup e voltam junto ao restaurar.",
+      "Correcao: O Chronos se religa sozinho se o serviço dele parar no meio do dia, com o aviso \"Reconectando...\" na tela.",
+      "Correcao: Abre mesmo com a porta 8000 ocupada por outro programa: ele usa outra porta livre."
+    ]
+  },
+  {
     "version": "2.7.21",
     "date": "2026-10-29",
     "title": "Correcao e estabilidade",

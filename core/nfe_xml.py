@@ -105,14 +105,14 @@ def _q(path: str) -> str:
 def parse_nfe_xml(content: bytes, *, arquivo: str = "") -> NfeDocumento:
     """Le o XML da NF-e (nfeProc ou NFe) e devolve cabecalho e itens."""
     if b"<!DOCTYPE" in content[:2048].upper():
-        raise ValueError("XML com DOCTYPE nao e aceito.")
+        raise ValueError("XML com DOCTYPE não é aceito.")
     root = ET.fromstring(content)
     if root.tag == f"{_NS}infNFe":
         inf = root
     else:
         inf = root.find(f".//{_NS}infNFe")
     if inf is None:
-        raise ValueError("O arquivo nao e uma NF-e.")
+        raise ValueError("O arquivo não é uma NF-e.")
 
     chave = _DIGITS.sub("", inf.get("Id") or "")
     ide = inf.find(_q("ide"))

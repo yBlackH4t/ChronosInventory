@@ -30,7 +30,7 @@ def _safe_upload_name(filename: str | None) -> str:
 def _validate_extension(filename: str) -> None:
     ext = os.path.splitext(filename)[1].lower()
     if ext not in SUPPORTED_EXCEL_EXTENSIONS:
-        raise ValidationException("Extensao invalida. Use .xlsx ou .xls.")
+        raise ValidationException("Extensão inválida. Use .xlsx ou .xls.")
 
 
 @router.post("/excel", response_model=SuccessResponse[dict])
@@ -54,7 +54,7 @@ def import_excel(
     else:
         _validate_extension(path)
         if not FileUtils.file_exists(path):
-            raise ValidationException("Arquivo nao encontrado.")
+            raise ValidationException("Arquivo não encontrado.")
         excel_path = path
 
     size = os.path.getsize(excel_path)

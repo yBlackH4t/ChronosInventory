@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -18,6 +18,10 @@ import type {
   SuccessResponse,
 } from "../lib/api";
 import { notifyError, notifySuccess } from "../lib/notify";
+import {
+  localChangesFromError,
+  openLocalChangesModal,
+} from "../components/backup/localChangesModal";
 import { restartApplication } from "../lib/restartApp";
 
 type BackupSection = "locais" | "oficial" | "catalogo" | "diagnostico";
@@ -144,11 +148,12 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
   const officialBaseApplyMutation = useMutation<
     SuccessResponse<OfficialBaseApplyOut>,
     Error,
-    void
+    { descartarLancamentosLocais?: boolean } | void
   >({
-    mutationFn: () =>
+    mutationFn: (vars) =>
       api.officialBaseServerApply({
         server_url: officialRemoteServerUrlInput.trim() || undefined,
+        descartar_lancamentos_locais: vars?.descartarLancamentosLocais || undefined,
       }),
     onSuccess: async (response) => {
       const keptPhotos = response.data.fotos_mantidas ?? 0;
@@ -174,8 +179,21 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
         );
       }
     },
-    onError: (error) => notifyError(error),
+    onError: (error) => {
+      const localChanges = localChangesFromError(error);
+      if (!localChanges) {
+        notifyError(error);
+        return;
+      }
+      openLocalChangesModal(localChanges, () =>
+        applyAgainRef.current({ descartarLancamentosLocais: true }),
+      );
+    },
   });
+  const applyAgainRef = useRef(officialBaseApplyMutation.mutate);
+  useEffect(() => {
+    applyAgainRef.current = officialBaseApplyMutation.mutate;
+  }, [officialBaseApplyMutation.mutate]);
 
   const patchServerStatusCache = useCallback(
     (payload: LocalShareServerOut) => {

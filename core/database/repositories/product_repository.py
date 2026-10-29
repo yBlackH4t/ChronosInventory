@@ -435,7 +435,7 @@ class ProductRepository(BaseRepository):
                 (nome, observacao, produto_vinculado_id, product_id),
             )
             if cursor.rowcount == 0:
-                raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+                raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
 
             # Upsert each location's stock
             for location_id, qty in inventories.items():
@@ -500,7 +500,7 @@ class ProductRepository(BaseRepository):
             cursor.execute("DELETE FROM produto_estoque WHERE produto_id = ?", (product_id,))
             cursor.execute("DELETE FROM produtos WHERE id = ?", (product_id,))
             if cursor.rowcount == 0:
-                raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+                raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
             conn.commit()
             return True
         except (ProductNotFoundException, ValidationException):
@@ -695,7 +695,7 @@ class ProductRepository(BaseRepository):
         is_primary: bool = False,
     ) -> int:
         if not self.exists(product_id):
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+            raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
 
         conn = self.db.get_connection()
         cursor = conn.cursor()
@@ -803,7 +803,7 @@ class ProductRepository(BaseRepository):
         Se nao existir imagem, cria uma nova principal.
         """
         if not self.exists(product_id):
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+            raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
 
         conn = self.db.get_connection()
         cursor = conn.cursor()
@@ -894,7 +894,7 @@ class ProductRepository(BaseRepository):
             return
         if normalized == "TODOS":
             return
-        raise DatabaseException("Filtro de status invalido. Use ATIVO, INATIVO ou TODOS.")
+        raise DatabaseException("Filtro de status inválido. Use ATIVO, INATIVO ou TODOS.")
 
     def _append_stock_filter(self, has_stock: Optional[bool], where_clauses: List[str]) -> None:
         """Deprecated: stock filtering now handled via HAVING clause in paginated queries."""

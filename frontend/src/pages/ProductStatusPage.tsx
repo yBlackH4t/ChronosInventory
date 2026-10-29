@@ -13,7 +13,11 @@ import {
   Text,
   TextInput,
 } from "@mantine/core";
-import { IconAdjustmentsHorizontal, IconSearch } from "@tabler/icons-react";
+import {
+  IconAdjustmentsHorizontal,
+  IconSearch,
+  IconChecklist,
+} from "@tabler/icons-react";
 import {
   keepPreviousData,
   useMutation,
@@ -147,6 +151,7 @@ export default function ProductStatusPage() {
   return (
     <Stack gap="lg">
       <PageHeader
+        icon={IconChecklist}
         title="Ativação em massa"
         subtitle="Ative ou inative vários produtos de uma vez. Itens inativos saem das operações, mas mantêm o histórico."
       />

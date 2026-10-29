@@ -38,7 +38,11 @@ def test_remote_clients_cannot_use_the_api(client):
 def test_remote_clients_can_still_use_the_phone_scanner(client):
     remote = _remote(client)
     assert remote.get("/api/scanner/app").status_code == 200
-    response = remote.post("/api/scanner/barcode", json={"code": "CI-1"})
+    # O celular manda o codigo de pareamento que veio no QR da tela deste computador.
+    pairing = client.get("/api/scanner/ip").json()["pareamento"]
+    response = remote.post(
+        "/api/scanner/barcode", json={"code": "CI-1"}, headers={"X-Chronos-Pareamento": pairing}
+    )
     assert response.status_code == 200
 
 

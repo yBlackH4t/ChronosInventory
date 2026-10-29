@@ -25,7 +25,7 @@ def _parse_sort(sort: str | None) -> tuple[str, str]:
 
     allowed = {"data", "tipo", "quantidade", "id"}
     if field not in allowed:
-        raise ValidationException("Parametro 'sort' invalido.")
+        raise ValidationException("Parâmetro 'sort' inválido.")
 
     return field, direction
 
@@ -39,7 +39,7 @@ def _validate_natureza(natureza: str | None) -> str | None:
     natureza = natureza.upper()
     allowed = {"OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA", "DEVOLUCAO", "AJUSTE", "ESTORNO"}
     if natureza not in allowed:
-        raise ValidationException("Natureza invalida.")
+        raise ValidationException("Natureza inválida.")
     return natureza
 
 
@@ -143,7 +143,7 @@ def list_movements(
 
     tipo = tipo.upper() if tipo else None
     if tipo and tipo not in {"ENTRADA", "SAIDA", "TRANSFERENCIA"}:
-        raise ValidationException("Tipo invalido.")
+        raise ValidationException("Tipo inválido.")
 
     natureza = _validate_natureza(natureza)
 

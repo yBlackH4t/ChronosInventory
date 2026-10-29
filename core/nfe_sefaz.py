@@ -59,9 +59,9 @@ def load_certificate(pfx: bytes, senha: str):
     try:
         key, cert, extras = pkcs12.load_key_and_certificates(pfx, senha.encode("utf-8"))
     except ValueError as exc:
-        raise SefazError("Senha errada ou arquivo de certificado invalido.") from exc
+        raise SefazError("Senha errada ou arquivo de certificado inválido.") from exc
     if key is None or cert is None:
-        raise SefazError("O arquivo nao tem a chave do certificado (precisa ser o .pfx do A1).")
+        raise SefazError("O arquivo não tem a chave do certificado (precisa ser o .pfx do A1).")
     return key, cert, extras or []
 
 
@@ -106,7 +106,7 @@ def _use_system_trust() -> None:
 
 def _reject_doctype(content: bytes) -> None:
     if b"<!DOCTYPE" in content[:2048].upper():
-        raise SefazError("Resposta da SEFAZ com DOCTYPE nao e aceita.")
+        raise SefazError("Resposta da SEFAZ com DOCTYPE não é aceita.")
 
 
 def _gunzip_limited(data: bytes, limit: Optional[int] = None) -> bytes:
@@ -116,7 +116,7 @@ def _gunzip_limited(data: bytes, limit: Optional[int] = None) -> bytes:
         inflater = zlib.decompressobj(16 + zlib.MAX_WBITS)
         out = inflater.decompress(data, limit + 1)
     except zlib.error as exc:
-        raise SefazError("Documento compactado invalido na resposta da SEFAZ.") from exc
+        raise SefazError("Documento compactado inválido na resposta da SEFAZ.") from exc
     if len(out) > limit or inflater.unconsumed_tail:
         raise SefazError("Documento grande demais na resposta da SEFAZ.")
     return out
@@ -202,7 +202,7 @@ def download_nfe(chave: str, *, pfx: bytes, senha: str, cnpj: str, uf: str = "43
         try:
             session = _client_cert_session(cert_file, key_file, password)
         except Exception as exc:
-            raise SefazError("Nao consegui usar o certificado digital para falar com a SEFAZ.") from exc
+            raise SefazError("Não consegui usar o certificado digital para falar com a SEFAZ.") from exc
         try:
             with session:
                 response = session.post(
@@ -212,7 +212,7 @@ def download_nfe(chave: str, *, pfx: bytes, senha: str, cnpj: str, uf: str = "43
                     timeout=timeout,
                 )
         except requests.exceptions.RequestException as exc:
-            raise SefazError(f"Nao consegui falar com a SEFAZ (internet?): {type(exc).__name__}.") from exc
+            raise SefazError(f"Não consegui falar com a SEFAZ (internet?): {type(exc).__name__}.") from exc
     finally:
         for path in (cert_file, key_file):
             try:

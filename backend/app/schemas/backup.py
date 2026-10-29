@@ -222,6 +222,7 @@ class OfficialBaseApplyOut(BaseModel):
     restart_required: bool
     fotos_mantidas: int = 0
     produtos_com_fotos_mantidas: int = 0
+    lancamentos_locais_descartados: int = 0
 
 
 class BackupSecondFolderOut(BaseModel):

@@ -63,7 +63,7 @@ class MovementRulesService:
             loc_id = int(loc)
             return loc_id
         except ValueError:
-            raise ValidationException(f"Local invalido. Deve ser um ID numerico: {loc}")
+            raise ValidationException(f"Local inválido. Deve ser um ID numérico: {loc}")
 
     def compute_deltas(
         self,
@@ -103,7 +103,7 @@ class MovementRulesService:
             return NATUREZA_OPERACAO_NORMAL
         natureza = natureza.upper()
         if natureza not in NATUREZAS_VALIDAS:
-            raise ValidationException("Natureza invalida.")
+            raise ValidationException("Natureza inválida.")
         return natureza
 
     def validate_business_rules(
@@ -116,23 +116,23 @@ class MovementRulesService:
         observacao: Optional[str],
     ) -> None:
         if natureza == NATUREZA_DEVOLUCAO and tipo != "ENTRADA":
-            raise ValidationException("Natureza DEVOLUCAO exige movimentacao do tipo ENTRADA.")
+            raise ValidationException("Natureza DEVOLUCAO exige movimentação do tipo ENTRADA.")
 
         if natureza == NATUREZA_TRANSFERENCIA_EXTERNA:
             if tipo not in {"ENTRADA", "SAIDA"}:
-                raise ValidationException("Natureza TRANSFERENCIA_EXTERNA exige movimentacao do tipo ENTRADA ou SAIDA.")
+                raise ValidationException("Natureza TRANSFERENCIA_EXTERNA exige movimentação do tipo ENTRADA ou SAIDA.")
             if not local_externo:
                 raise ValidationException("Informe o local externo para TRANSFERENCIA_EXTERNA.")
 
         if natureza == NATUREZA_AJUSTE:
             if not motivo_ajuste:
                 raise ValidationException(
-                    "Motivo obrigatorio para AJUSTE. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
+                    "Motivo obrigatório para AJUSTE. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
                 )
             if not observacao:
-                raise ValidationException("Observacao obrigatoria para AJUSTE de estoque.")
+                raise ValidationException("Observação obrigatória para AJUSTE de estoque.")
         elif motivo_ajuste:
-            raise ValidationException("Motivo de ajuste so pode ser informado com natureza AJUSTE.")
+            raise ValidationException("Motivo de ajuste só pode ser informado com natureza AJUSTE.")
 
     def normalize_motivo_ajuste(self, motivo_ajuste: Optional[str]) -> Optional[str]:
         if not motivo_ajuste:
@@ -140,12 +140,12 @@ class MovementRulesService:
         motivo_ajuste = motivo_ajuste.upper().strip()
         if motivo_ajuste not in MOTIVOS_AJUSTE_VALIDOS:
             raise ValidationException(
-                "Motivo de ajuste invalido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
+                "Motivo de ajuste inválido. Use: AVARIA, PERDA, CORRECAO_INVENTARIO, ERRO_OPERACIONAL, TRANSFERENCIA."
             )
         return motivo_ajuste
 
     def validate_transfer(self, origem_id: Optional[int], destino_id: Optional[int]) -> None:
         if not origem_id or not destino_id:
-            raise ValidationException("Origem e destino sao obrigatorios para TRANSFERENCIA.")
+            raise ValidationException("Origem e destino são obrigatórios para TRANSFERENCIA.")
         if origem_id == destino_id:
             raise InvalidTransferException("Origem e destino devem ser diferentes.")

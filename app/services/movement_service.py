@@ -169,14 +169,14 @@ class MovementService:
 
         if tipo == "ENTRADA":
             if not destino:
-                raise ValidationException("Destino obrigatorio para ENTRADA.")
+                raise ValidationException("Destino obrigatório para ENTRADA.")
         elif tipo == "SAIDA":
             if not origem:
-                raise ValidationException("Origem obrigatoria para SAIDA.")
+                raise ValidationException("Origem obrigatória para SAIDA.")
         elif tipo == "TRANSFERENCIA":
             self.rules.validate_transfer(origem, destino)
         else:
-            raise ValidationException("Tipo de movimentacao invalido.")
+            raise ValidationException("Tipo de movimentação inválido.")
 
         self.rules.validate_business_rules(
             tipo=tipo,
@@ -204,7 +204,7 @@ class MovementService:
         # Load product
         product_row = self.repo.get_product_by_id(conn, produto_id)
         if not product_row:
-            raise ProductNotFoundException(f"Produto com ID {produto_id} nao encontrado.")
+            raise ProductNotFoundException(f"Produto com ID {produto_id} não encontrado.")
         
         product = dict(product_row)
         cursor = conn.cursor()
@@ -212,25 +212,25 @@ class MovementService:
         product["inventories"] = {row["local_id"]: row["quantidade"] for row in cursor.fetchall()}
         
         if int(product.get("ativo") or 0) != 1:
-            raise ValidationException("Produto inativo. Reative o item para registrar movimentacoes.")
+            raise ValidationException("Produto inativo. Reative o item para registrar movimentações.")
 
         if natureza == NATUREZA_DEVOLUCAO:
             if not movimento_ref_id:
-                raise ValidationException("Informe o movimento de referencia para DEVOLUCAO.")
+                raise ValidationException("Informe o movimento de referência para DEVOLUCAO.")
             ref_movement = self.repo.get_movement_by_id(conn, int(movimento_ref_id))
             if not ref_movement:
-                raise ValidationException("Movimento de referencia nao encontrado.")
+                raise ValidationException("Movimento de referência não encontrado.")
             if str(ref_movement.get("tipo", "")).upper() != "SAIDA":
-                raise ValidationException("Movimento de referencia deve ser do tipo SAIDA.")
+                raise ValidationException("Movimento de referência deve ser do tipo SAIDA.")
             if int(ref_movement.get("produto_id") or 0) != int(produto_id):
-                raise ValidationException("Movimento de referencia deve ser do mesmo produto.")
+                raise ValidationException("Movimento de referência deve ser do mesmo produto.")
 
             devolvido = self.repo.get_total_devolucao_by_ref(conn, int(movimento_ref_id))
             original_saida = int(ref_movement.get("quantidade") or 0)
             saldo_devolucao = max(original_saida - devolvido, 0)
             if quantidade > saldo_devolucao:
                 raise ValidationException(
-                    "Quantidade de devolucao excede saldo disponivel da saida referenciada."
+                    "Quantidade de devolucao excede saldo disponível da saída referenciada."
                 )
 
         deltas_by_location_id = self.rules.compute_deltas(tipo, quantidade, origem_location_id, destino_location_id)

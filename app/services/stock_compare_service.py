@@ -122,7 +122,7 @@ class StockCompareService:
         base_dir = str(config["official_base_dir"] or "").strip()
         if not base_dir:
             raise ValidationException(
-                "Configure a pasta compartilhada em Backup > Base oficial compartilhada antes de publicar a base para comparacao."
+                "Configure a pasta compartilhada em Backup > Base oficial compartilhada antes de publicar a base para comparação."
             )
 
         machine_label = config["machine_label"]
@@ -136,7 +136,7 @@ class StockCompareService:
             latest_dir.mkdir(parents=True, exist_ok=True)
             history_dir.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
-            raise FileOperationException(f"Nao foi possivel preparar a pasta de comparacao: {exc}") from exc
+            raise FileOperationException(f"Não foi possível preparar a pasta de comparação: {exc}") from exc
 
         with tempfile.TemporaryDirectory(prefix="chronos_compare_publish_") as tmp_dir:
             snapshot_path = os.path.join(tmp_dir, DB_NAME)
@@ -172,19 +172,19 @@ class StockCompareService:
             None,
         )
         if not target:
-            raise ValidationException("Base publicada nao encontrada para a maquina informada.")
+            raise ValidationException("Base publicada não encontrada para a máquina informada.")
 
         if target["machine_label"] == config["machine_label"]:
-            raise ValidationException("Escolha uma base publicada de outra maquina para comparar.")
+            raise ValidationException("Escolha uma base publicada de outra máquina para comparar.")
 
         zip_path = str(target["zip_path"])
         manifest = target["manifest"]
         expected_hash = str(manifest.get("database_sha256") or "").strip()
         if not expected_hash:
-            raise ValidationException("A base publicada selecionada esta sem checksum.")
+            raise ValidationException("A base publicada escolhida está incompleta. Publique de novo.")
         current_hash = self._sha256_file(zip_path)
         if current_hash.lower() != expected_hash.lower():
-            raise ValidationException("Checksum da base publicada nao confere. Publique novamente antes de comparar.")
+            raise ValidationException("A base publicada chegou diferente do que foi publicado. Publique de novo antes de comparar.")
 
         with tempfile.TemporaryDirectory(prefix="chronos_compare_remote_") as tmp_dir:
             extracted_db = self._extract_snapshot_database(zip_path, tmp_dir)
@@ -322,7 +322,7 @@ class StockCompareService:
             expected_hash = str(manifest.get("database_sha256") or "").strip()
             current_hash = self._sha256_file(zip_path)
             if not expected_hash or current_hash.lower() != expected_hash.lower():
-                raise ValidationException("Checksum do snapshot remoto nao confere. Publique novamente antes de comparar.")
+                raise ValidationException("A cópia da outra máquina chegou diferente do que foi publicado. Publique de novo antes de comparar.")
 
             extracted_db = self._extract_snapshot_database(zip_path, tmp_dir)
             current_db_path = self.db_connection.get_database_path()
@@ -421,20 +421,20 @@ class StockCompareService:
         if not path:
             raise ValidationException(f"Informe o caminho da base para {label}.")
         if not os.path.isfile(path):
-            raise ValidationException(f"Arquivo de base nao encontrado para {label}: {path}")
+            raise ValidationException(f"Arquivo de base não encontrado para {label}: {path}")
 
         try:
             conn = sqlite3.connect(path)
             conn.row_factory = sqlite3.Row
         except Exception as exc:
-            raise ValidationException(f"Nao foi possivel abrir a base {label}: {exc}") from exc
+            raise ValidationException(f"Não foi possível abrir a base {label}: {exc}") from exc
 
         try:
             table = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'produtos'"
             ).fetchone()
             if not table:
-                raise ValidationException(f"A base {label} nao possui a tabela 'produtos'.")
+                raise ValidationException(f"A base {label} não possui a tabela 'produtos'.")
 
             columns = {
                 str(row["name"]).lower()
@@ -442,7 +442,7 @@ class StockCompareService:
             }
             if not REQUIRED_PRODUCT_COLUMNS.issubset(columns):
                 raise ValidationException(
-                    f"A base {label} nao possui as colunas minimas esperadas em 'produtos'."
+                    f"A base {label} não possui as colunas minimas esperadas em 'produtos'."
                 )
 
             has_ativo = "ativo" in columns
@@ -543,13 +543,13 @@ class StockCompareService:
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 if DB_NAME not in zf.namelist():
-                    raise ValidationException(f"A base publicada nao contem '{DB_NAME}'.")
+                    raise ValidationException(f"A base publicada não contém '{DB_NAME}'.")
                 with zf.open(DB_NAME) as src, open(extracted_path, "wb") as dst:
                     dst.write(src.read())
         except ValidationException:
             raise
         except Exception as exc:
-            raise FileOperationException(f"Falha ao extrair a base publicada para comparacao: {exc}") from exc
+            raise FileOperationException(f"Falha ao extrair a base publicada para comparação: {exc}") from exc
         return extracted_path
 
     def _sha256_file(self, path: str) -> str:

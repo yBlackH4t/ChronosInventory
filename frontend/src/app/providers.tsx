@@ -10,6 +10,7 @@ import "@fontsource/sora/latin-600.css";
 import "@fontsource/sora/latin-700.css";
 import "../styles/global.css";
 import "../styles/microinteracoes.css";
+import "../styles/telas-simples.css";
 import "dayjs/locale/pt-br";
 
 import { useLayoutEffect, useMemo, type ReactNode } from "react";

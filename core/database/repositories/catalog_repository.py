@@ -160,7 +160,7 @@ class CatalogRepository(BaseRepository):
             (catalog_product_id,),
         )
         if not rows:
-            raise NotFoundException(f"Produto de catalogo {catalog_product_id} nao encontrado.")
+            raise NotFoundException(f"Produto de catálogo {catalog_product_id} não encontrado.")
         item = rows[0]
         self._expand_catalog_product(item)
         self._attach_linked_products([item])
@@ -264,11 +264,11 @@ class CatalogRepository(BaseRepository):
 
     def set_link(self, product_id: int, catalog_product_id: int, status: str) -> None:
         if status not in VALID_LINK_STATUSES:
-            raise ValidationException(f"Status de vinculo invalido: {status}")
+            raise ValidationException(f"Status de vínculo inválido: {status}")
         if not self._exists("produtos", "id = ?", (product_id,)):
-            raise ProductNotFoundException(f"Produto com ID {product_id} nao encontrado.")
+            raise ProductNotFoundException(f"Produto com ID {product_id} não encontrado.")
         if not self._exists("catalogo_produtos", "id = ?", (catalog_product_id,)):
-            raise NotFoundException(f"Produto de catalogo {catalog_product_id} nao encontrado.")
+            raise NotFoundException(f"Produto de catálogo {catalog_product_id} não encontrado.")
         self._execute_command(
             """
             INSERT INTO produto_catalogo_vinculo (produto_id, catalogo_produto_id, status)
@@ -319,7 +319,7 @@ class CatalogRepository(BaseRepository):
                 """,
                 (limit, offset),
             )
-        raise ValidationException("Tipo de revisao invalido. Use MULTIPLOS ou SEM_VINCULO.")
+        raise ValidationException("Tipo de revisão inválido. Use MULTIPLOS ou SEM_VINCULO.")
 
     def get_status(self) -> Dict[str, Any]:
         fontes = self._execute_query(
