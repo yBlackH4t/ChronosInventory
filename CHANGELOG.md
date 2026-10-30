@@ -26,6 +26,20 @@ Formato recomendado:
 
 
 
+## [2.7.26] - 2026-10-30
+
+### Changed
+- **Sistema mais organizado:** em Produtos, "Todos / Com estoque / Zerados" e a ordenação foram para dentro do botão **Filtros**; o filtro ligado aparece como uma etiqueta ao lado da busca, com um × para tirar. Em Movimentações, tipo (entradas, saídas, transferências), ordem, "Por dia / Tabela" e "Mostrar estornados" também ficam dentro de **Filtros**; o número no botão diz quantos estão ligados.
+- **Assistente:** a lixeira de "Nova conversa" fica ao lado do campo de digitar, junto da câmera.
+- **Base oficial em tela própria:** saiu do Backup e fica na engrenagem, em "Base oficial". O Backup ficou só com as cópias e os problemas.
+- **Catálogo e cadastro da empresa em Importar:** a atualização do catálogo Master Power e o cadastro da empresa (produtos_completos.csv) saíram do Backup e ficam em Importar > "Catálogo e cadastro".
+- **Menu da engrenagem em grupos:** Cadastro (Importar, Exportar, Ativação em massa, Filiais e locais), Cópias e outros computadores (Backup, Base oficial, Comparar estoques, Perfis de estoque) e Sistema. "Primeira configuração" saiu do menu.
+- **Mesmo cabeçalho em todas as telas**, sem o ícone grande ao lado do título.
+- **Uma filial, uma coluna:** com só Canoas, Etiquetas e Relatórios mostram apenas "Saldo" (antes "Canoas" e "Total" com o mesmo número), Movimentações não repete "para Canoas" em toda linha e Produtos diz "peças em Canoas".
+- **Código da peça igual em todas as telas**, no mesmo destaque da lista de Produtos.
+- **Barra de cima mais limpa:** o perfil "Principal" só aparece quando há mais de um perfil, e o selo da base oficial só aparece quando ela está configurada.
+- **Textos:** a Movimentação em lote mostra Entrada, Saída, Operação normal (antes ENTRADA, OPERACAO_NORMAL) e já vem com Canoas escolhida; o selo "Cadastro" das movimentações virou "Saldo inicial"; títulos com só a primeira letra maiúscula.
+
 ## [2.7.25] - 2026-10-30
 
 ### Added

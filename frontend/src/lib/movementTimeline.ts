@@ -6,14 +6,14 @@ export const INITIAL_STOCK_DOCUMENT = "CADASTRO_INICIAL";
 
 // Observações que o próprio sistema escreve: viram um selo curto ou somem.
 const DEFAULT_OBSERVATIONS: { pattern: RegExp; tag: string | null }[] = [
-  { pattern: /^estoque inicial gerado no cadastro do produto\.?$/i, tag: "Cadastro" },
+  { pattern: /^estoque inicial gerado no cadastro do produto\.?$/i, tag: "Saldo inicial" },
   { pattern: /^criado via importa[cç][aã]o\.?$/i, tag: "Importação" },
   // O estorno já aparece como selo; "Estorno da movimentação #12" não diz nada a mais.
   { pattern: /^estorno da movimenta[cç][aã]o #\d+\.?$/i, tag: null },
 ];
 
 export type MovementNote = {
-  /** Selo curto no lugar da observação padrão ("Cadastro", "Importação"). */
+  /** Selo curto no lugar da observação padrão ("Saldo inicial", "Importação"). */
   tag: string | null;
   /** Observação escrita por alguém (a padrão some). */
   observation: string | null;
@@ -26,7 +26,7 @@ export function movementNote(
 ): MovementNote {
   const raw = String(movement.observacao ?? "").trim();
   const document = String(movement.documento ?? "").trim();
-  let tag: string | null = document === INITIAL_STOCK_DOCUMENT ? "Cadastro" : null;
+  let tag: string | null = document === INITIAL_STOCK_DOCUMENT ? "Saldo inicial" : null;
   let observation: string | null = raw || null;
   for (const item of DEFAULT_OBSERVATIONS) {
     if (raw && item.pattern.test(raw)) {

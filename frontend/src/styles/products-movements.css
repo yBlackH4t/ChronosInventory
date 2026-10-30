@@ -19,19 +19,18 @@
   flex-shrink: 0;
   max-width: 100%;
   padding: 1px 8px;
-  border: 1px solid var(--border-strong);
+  /* Chip de código igual em todas as telas: o mesmo do nome na lista de Produtos. */
   border-radius: 6px;
-  background: var(--surface-solid);
-  color: var(--text);
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-family: var(--mantine-font-family-monospace);
   font-size: 0.9rem;
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1.45;
   /* Código longo (lista com barra, 157.070000422) quebra em vez de vazar da ficha. */
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 1px 0 rgba(15, 40, 60, 0.04);
 }
 
 .pm-code[data-size="lg"] {
@@ -52,16 +51,20 @@
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--accent-soft);
   color: var(--accent-text);
   font-family: var(--mantine-font-family-monospace);
-  font-size: 0.92rem;
-  font-weight: 650;
+  font-size: 0.88rem;
+  font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .pm-code-cell[data-empty] {
+  background: none;
   color: var(--text-muted);
   font-weight: 500;
 }
@@ -476,6 +479,18 @@
 
 .mv-line[data-reversed] .mv-line-bar {
   background: var(--border-strong) !important;
+}
+
+/* Uma filial só: some a coluna "para Canoas" e o nome ganha o espaço. */
+.mv-day[data-one-branch] .mv-line-place,
+.mv-day[data-one-branch] .mv-line-place-inline {
+  display: none;
+}
+
+@media (min-width: 1101px) {
+  .mv-day[data-one-branch] .mv-line {
+    grid-template-columns: 3px 46px minmax(0, 1.6fr) minmax(0, 1fr) 56px auto;
+  }
 }
 
 /* Janela estreita: duas linhas por movimento. */

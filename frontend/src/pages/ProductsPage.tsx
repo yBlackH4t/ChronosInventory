@@ -660,6 +660,8 @@ export default function ProductsPage() {
   const viewOptionsCount =
     Number(sort !== DEFAULT_PRODUCTS_TAB_STATE.sort) +
     Number(pageSize !== DEFAULT_PRODUCTS_TAB_STATE.pageSize);
+  // Filtros ficam escondidos no botão; o número mostra quantos estão ligados.
+  const filterCount = viewOptionsCount + Number(stockFilter !== "TODOS");
 
   const persistState = useCallback(
     (nextScrollY = scrollY) => {
@@ -804,6 +806,12 @@ export default function ProductsPage() {
     });
   };
 
+  const activeBranches = stockTotals?.locations ?? [];
+  const singleBranch =
+    activeBranches.length === 1
+      ? activeBranches[0].location_label || activeBranches[0].location_name
+      : null;
+
   return (
     <Stack gap="md">
       <PageHeader
@@ -811,9 +819,10 @@ export default function ProductsPage() {
         subtitle={
           stockTotals ? (
             <span className="pm-header-stats num">
-              <strong>{stockTotals.total_geral.toLocaleString("pt-BR")}</strong> peças em estoque
+              <strong>{stockTotals.total_geral.toLocaleString("pt-BR")}</strong>{" "}
+              {singleBranch ? `peças em ${singleBranch}` : "peças em estoque"}
               {stockTotals.locations
-                .filter((loc) => loc.total > 0)
+                .filter((loc) => loc.total > 0 && !singleBranch)
                 .map((loc) => (
                   <span key={loc.location_id}>
                     <span className="pm-header-dot" style={{ background: loc.color || "var(--accent)" }} aria-hidden />
@@ -876,47 +885,77 @@ export default function ProductsPage() {
               ]}
             />
           )}
-          {!showColumns && (
-            <SegmentedControl
-              className="pm-stock-filter"
-              aria-label="Filtrar por estoque"
-              value={stockFilter}
-              onChange={(val) => {
-                if (!isStockFilter(val)) return;
-                setStockFilter(val);
-                setPage(1);
-              }}
-              data={STOCK_FILTERS.map((item) => ({
-                value: item.value,
-                label: (
-                  <span className="pm-filter-label">
-                    {item.label}
-                    {stockCounts ? (
-                      <span className="pm-filter-count num">{stockCounts[item.value].toLocaleString("pt-BR")}</span>
-                    ) : null}
-                  </span>
-                ),
-              }))}
-            />
+          {stockFilter !== "TODOS" && !showColumns && (
+            <Badge
+              size="lg"
+              variant="light"
+              className="pm-active-filter"
+              rightSection={
+                <ActionIcon
+                  size="xs"
+                  variant="transparent"
+                  color="gray"
+                  aria-label="Mostrar todos"
+                  onClick={() => {
+                    setStockFilter("TODOS");
+                    setPage(1);
+                  }}
+                >
+                  <IconX size={12} />
+                </ActionIcon>
+              }
+            >
+              {STOCK_FILTERS.find((item) => item.value === stockFilter)?.label}
+            </Badge>
           )}
-          <Popover position="bottom-end" width={260}>
+          <Popover position="bottom-end" width={300}>
             <Popover.Target>
               <Button
                 variant="default"
                 leftSection={<IconAdjustmentsHorizontal size={16} stroke={1.5} />}
                 rightSection={
-                  viewOptionsCount > 0 ? (
+                  filterCount > 0 ? (
                     <Badge size="xs" circle variant="filled">
-                      {viewOptionsCount}
+                      {filterCount}
                     </Badge>
                   ) : undefined
                 }
               >
-                Visualização
+                Filtros
               </Button>
             </Popover.Target>
             <Popover.Dropdown>
               <Stack gap="sm">
+                {!showColumns && (
+                  <Stack gap={4}>
+                    <Text size="sm" fw={500}>
+                      Estoque
+                    </Text>
+                    <SegmentedControl
+                      className="pm-stock-filter"
+                      fullWidth
+                      orientation="vertical"
+                      aria-label="Filtrar por estoque"
+                      value={stockFilter}
+                      onChange={(val) => {
+                        if (!isStockFilter(val)) return;
+                        setStockFilter(val);
+                        setPage(1);
+                      }}
+                      data={STOCK_FILTERS.map((item) => ({
+                        value: item.value,
+                        label: (
+                          <span className="pm-filter-label">
+                            {item.label}
+                            {stockCounts ? (
+                              <span className="pm-filter-count num">{stockCounts[item.value].toLocaleString("pt-BR")}</span>
+                            ) : null}
+                          </span>
+                        ),
+                      }))}
+                    />
+                  </Stack>
+                )}
                 <Select
                   label="Ordenação"
                   data={SORT_OPTIONS}
@@ -937,7 +976,7 @@ export default function ProductsPage() {
                   onClick={resetView}
                   disabled={activeViewCount === 0}
                 >
-                  Resetar visão
+                  Limpar filtros
                 </Button>
               </Stack>
             </Popover.Dropdown>

@@ -64,6 +64,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
     activeProfileId,
     restartRequired,
     backendSupportsProfiles,
+    hasManyProfiles,
   } = useProfileScope();
   const { setColorScheme } = useMantineColorScheme();
   const computedScheme = useComputedColorScheme("light");
@@ -234,7 +235,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
           </button>
 
           <div className="topbar-actions">
-            {backendSupportsProfiles && (
+            {backendSupportsProfiles && (hasManyProfiles || restartRequired) && (
               <Tooltip
                 label={
                   restartRequired

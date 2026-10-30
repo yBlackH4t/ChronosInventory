@@ -388,7 +388,7 @@ export default function AdminKnowledgeTab({ readOnly = false }: AdminKnowledgeTa
       <Modal
         opened={modalNovaRegra}
         onClose={() => setModalNovaRegra(false)}
-        title="Nova Regra de Conhecimento"
+        title="Nova regra de conhecimento"
         centered
       >
         <Stack gap="sm">

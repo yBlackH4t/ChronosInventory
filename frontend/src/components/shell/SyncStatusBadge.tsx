@@ -89,6 +89,10 @@ export function SyncStatusBadge() {
     return parsed.isValid() ? parsed.format("DD/MM/YYYY [às] HH:mm") : iso;
   };
 
+  // Sem base oficial configurada, o selo não diz nada ao usuário: a configuração mora em
+  // a tela Base oficial (menu da engrenagem).
+  if (!isLoading && (!data || !isConfigured)) return null;
+
   return (
     <Popover
       opened={opened}
@@ -256,7 +260,7 @@ export function SyncStatusBadge() {
               leftSection={<IconDatabase size={14} />}
               onClick={() => {
                 setOpened(false);
-                navigate("/backup");
+                navigate("/base-oficial");
               }}
             >
               Base oficial

@@ -18,6 +18,8 @@ type ProfileScopeContextValue = {
   profileScopeKey: string;
   restartRequired: boolean;
   backendSupportsProfiles: boolean;
+  /** Mais de um perfil cadastrado: só então o perfil ativo aparece na barra de cima. */
+  hasManyProfiles: boolean;
   isLoading: boolean;
   refetch: () => void;
 };
@@ -28,6 +30,7 @@ const DEFAULT_PROFILE_SCOPE: ProfileScopeContextValue = {
   profileScopeKey: "profile:default",
   restartRequired: false,
   backendSupportsProfiles: true,
+  hasManyProfiles: false,
   isLoading: false,
   refetch: () => undefined,
 };
@@ -88,6 +91,7 @@ export function ProfileScopeProvider({ children }: { children: ReactNode }) {
   const activeProfileName =
     (data?.active_profile_name || "Principal").trim() || "Principal";
   const restartRequired = Boolean(data?.restart_required);
+  const hasManyProfiles = (data?.profiles.length ?? 0) > 1;
 
   useEffect(() => {
     if (!activeProfileId) return;
@@ -124,6 +128,7 @@ export function ProfileScopeProvider({ children }: { children: ReactNode }) {
       profileScopeKey: `profile:${activeProfileId}`,
       restartRequired,
       backendSupportsProfiles: !isNotFound,
+      hasManyProfiles,
       isLoading: query.isLoading,
       refetch: () => {
         void refetchProfiles();
@@ -132,6 +137,7 @@ export function ProfileScopeProvider({ children }: { children: ReactNode }) {
     [
       activeProfileId,
       activeProfileName,
+      hasManyProfiles,
       isNotFound,
       query.isLoading,
       refetchProfiles,

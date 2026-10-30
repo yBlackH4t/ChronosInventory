@@ -24,9 +24,8 @@ import {
 } from "../components/backup/localChangesModal";
 import { restartApplication } from "../lib/restartApp";
 
-type BackupSection = "locais" | "oficial" | "catalogo" | "diagnostico";
-
-export function useBackupOfficialBasePanel(activeSection: BackupSection) {
+/** `onScreen`: a tela Base oficial está aberta, então o status do servidor é acompanhado. */
+export function useBackupOfficialBasePanel(onScreen: boolean) {
   const queryClient = useQueryClient();
   const [officialRoleInput, setOfficialRoleInput] =
     useState<OfficialBaseRole>("consumer");
@@ -51,7 +50,7 @@ export function useBackupOfficialBasePanel(activeSection: BackupSection) {
     queryKey: ["official-base-status"],
     queryFn: ({ signal }) => api.officialBaseStatus({ signal }),
     refetchInterval: (query) => {
-      if (activeSection !== "oficial") return false;
+      if (!onScreen) return false;
       const response = query.state.data as
         | SuccessResponse<OfficialBaseStatusOut>
         | undefined;

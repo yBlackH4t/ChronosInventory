@@ -3,7 +3,6 @@ import {
   IconDownload,
   IconReportAnalytics,
   IconTable,
-  IconFileExport,
 } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
 
@@ -48,7 +47,6 @@ export default function ExportPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        icon={IconFileExport}
         title="Exportar"
         subtitle="Planilhas para auditoria, análise e envio externo."
       />

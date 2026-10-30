@@ -58,7 +58,8 @@ def test_pegar_a_base_avisa_o_que_foi_lancado_so_aqui(client, tmp_path):
     assert error["code"] == "lancamentos_locais"
     assert error["details"]["movimentacoes"] >= 1
     assert error["details"]["produtos"] == 1
-    assert error["details"]["exemplos"][0]["produto_nome"] == "TURBINA 796155-5005"
+    # O produto novo também gera o saldo inicial; a ordem depende do segundo em que cada um caiu.
+    assert "TURBINA 796155-5005" in {ex["produto_nome"] for ex in error["details"]["exemplos"]}
     assert "1 produto" in error["message"]
 
     # Nada mudou: a saída continua aqui.

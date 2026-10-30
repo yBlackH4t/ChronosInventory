@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { IconArrowsDiff } from "@tabler/icons-react";
 import { Stack, Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -448,7 +447,6 @@ export default function StockComparePage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        icon={IconArrowsDiff}
         title="Comparar estoques"
         subtitle="Compare o estoque desta máquina com o de outro computador da rede."
       />

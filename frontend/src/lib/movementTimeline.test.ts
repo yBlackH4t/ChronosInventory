@@ -4,13 +4,13 @@ import { planFlip } from "./flip";
 import { movementNote, movementPlace, reversedMovementIds } from "./movementTimeline";
 
 describe("movementNote", () => {
-  it("estoque inicial vira o selo Cadastro, sem a observação padrão", () => {
+  it("estoque inicial vira o selo Saldo inicial, sem a observação padrão", () => {
     expect(
       movementNote({
         observacao: "Estoque inicial gerado no cadastro do produto.",
         documento: "CADASTRO_INICIAL",
       }),
-    ).toEqual({ tag: "Cadastro", observation: null, document: null });
+    ).toEqual({ tag: "Saldo inicial", observation: null, document: null });
   });
 
   it("observações padrão somem; as escritas por alguém ficam", () => {

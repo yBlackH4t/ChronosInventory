@@ -12,6 +12,7 @@ import {
   Alert,
   Box,
   Title,
+  Tooltip,
   Tabs,
   FileButton,
   Image,
@@ -198,27 +199,10 @@ export default function AssistantPage() {
       style={{ flexDirection: "column" }}
     >
       <Group justify="space-between" mb="xs">
-        <Group gap="sm" wrap="nowrap">
-          <span className="ts-header-icon" aria-hidden="true">
-            <IconMessageChatbot size={24} stroke={1.6} />
-          </span>
-          <Title order={3}>Assistente de IA</Title>
-        </Group>
-        {activeTab === "chat" && (
-          <Group gap="xs">
-            <SuggestProposalButton />
-            <Button
-              variant="light"
-              color="danger"
-              size="xs"
-              leftSection={<IconTrash size={14} />}
-              onClick={clearChat}
-              disabled={messages.length === 0 && !mutation.isPending}
-            >
-              Nova conversa
-            </Button>
-          </Group>
-        )}
+        <Title order={2} className="page-header-title">
+          Assistente de IA
+        </Title>
+        {activeTab === "chat" && <SuggestProposalButton />}
       </Group>
 
       <Tabs
@@ -394,6 +378,19 @@ export default function AssistantPage() {
                   </ActionIcon>
                 )}
               </FileButton>
+              <Tooltip label="Nova conversa (apaga esta)">
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  radius="md"
+                  className="action-danger"
+                  aria-label="Nova conversa"
+                  onClick={clearChat}
+                  disabled={messages.length === 0 && !mutation.isPending}
+                >
+                  <IconTrash size={18} />
+                </ActionIcon>
+              </Tooltip>
               <Textarea
                 placeholder="Digite sua mensagem (Shift+Enter para pular linha)"
                 value={input}

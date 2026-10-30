@@ -23,6 +23,7 @@ const ImportPage = lazyPage("/importar");
 const ExportPage = lazyPage("/exportar");
 const ReportsPage = lazyPage("/relatorios");
 const BackupPage = lazyPage("/backup");
+const OfficialBasePage = lazyPage("/base-oficial");
 const InventoryPage = lazyPage("/inventario");
 const ReleaseNotesPage = lazyPage("/novidades");
 const ProductStatusPage = lazyPage("/itens-status");
@@ -66,6 +67,7 @@ export function AppRouter() {
           <Route path="/exportar" element={<PageTransition><ExportPage /></PageTransition>} />
           <Route path="/relatorios" element={<PageTransition><ReportsPage /></PageTransition>} />
           <Route path="/backup" element={<PageTransition><BackupPage /></PageTransition>} />
+          <Route path="/base-oficial" element={<PageTransition><OfficialBasePage /></PageTransition>} />
           <Route path="/etiquetas" element={<PageTransition><LabelsPage /></PageTransition>} />
           <Route path="/inventario" element={<PageTransition><InventoryPage /></PageTransition>} />
           <Route path="/itens-status" element={<PageTransition><ProductStatusPage /></PageTransition>} />

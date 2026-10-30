@@ -15,7 +15,8 @@ type Props = {
 
 export default function ReportsStockSection({ loading, onGenerate, failed = false }: Props) {
   const totals = useStockTotals().data?.data;
-  const locations = totals?.locations ?? [];
+  // Com uma filial só, o quadro dela repetiria o total.
+  const locations = (totals?.locations ?? []).length > 1 ? (totals?.locations ?? []) : [];
   const facts = totals
     ? [
         { label: "Unidades em estoque", value: <AnimatedNumber value={totals.total_geral} />, tone: "accent" as const },
@@ -35,7 +36,7 @@ export default function ReportsStockSection({ loading, onGenerate, failed = fals
       preview={
         <ReportPaperPreview
           title="Estoque atual"
-          columns={["Produto", ...locations.map((loc) => loc.location_label || loc.location_name), "Total"]}
+          columns={["Produto", ...locations.map((loc) => loc.location_label || loc.location_name), locations.length > 0 ? "Total" : "Saldo"]}
           facts={facts}
         />
       }

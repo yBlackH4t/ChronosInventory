@@ -184,7 +184,7 @@ export default function ProductLinkModal({
         {product.linked_count > 0 && (
           <Box mt="md">
             <Group justify="space-between" mb="xs">
-              <Text fw={500}>Produtos Vinculados a este componente ({product.linked_count}):</Text>
+              <Text fw={500}>Produtos vinculados a este componente ({product.linked_count}):</Text>
             </Group>
 
             {loading ? (

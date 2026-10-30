@@ -138,7 +138,7 @@ export function BackupHome({
             text={
               officialStatus?.remote_server_url
                 ? "Atualiza este computador com o estoque da máquina principal."
-                : "Ainda não ligado à máquina principal. Peça para quem configura (Opções avançadas)."
+                : "Ainda não ligado à máquina principal. Peça para quem configura (engrenagem > Base oficial)."
             }
             onClick={onApplyOfficial}
             loading={applyLoading}

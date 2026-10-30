@@ -189,7 +189,7 @@ function ColumnsBoard({ codigo, locations, onShowList, ...handlers }: Props) {
         </Group>
         <Group gap="xs" wrap="nowrap">
           {data.produtos_omitidos ? (
-            <Text size="sm" c="orange" fw={600}>
+            <Text size="sm" c="warning" fw={600}>
               +{data.produtos_omitidos} produtos não couberam aqui
             </Text>
           ) : null}

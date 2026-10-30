@@ -25,7 +25,7 @@ export default function AdminExamplesTab() {
       O saldo é sempre consultado novamente no banco. Não escreva respostas como “temos duas”.
       Correções do histórico não são aprendidas automaticamente. Mudanças aqui não exigem reinstalação.
     </Alert>
-    {examples.isError && <Text c="red">Não foi possível carregar os exemplos.</Text>}
+    {examples.isError && <Text c="danger">Não foi possível carregar os exemplos.</Text>}
     <Textarea label="Como a equipe pergunta" value={question} maxLength={1000} onChange={event => setQuestion(event.currentTarget.value)} />
     <Textarea label="Consulta correta (não a resposta)" value={query} maxLength={1000} onChange={event => setQuery(event.currentTarget.value)} />
     <Button loading={save.isPending} disabled={!question.trim() || !query.trim() || !examples.isSuccess}
@@ -35,7 +35,7 @@ export default function AdminExamplesTab() {
     {items.map((item, index) => <Paper withBorder p="sm" key={item.pergunta}>
       <Group justify="space-between" wrap="nowrap">
         <div><Text size="sm">{item.pergunta}</Text><Text size="xs" c="dimmed">Consulta: {item.consulta}</Text></div>
-        <Button size="xs" color="red" variant="subtle" disabled={save.isPending}
+        <Button size="xs" color="danger" variant="subtle" disabled={save.isPending}
           onClick={() => save.mutate(items.filter((_, itemIndex) => itemIndex !== index))}>Remover</Button>
       </Group>
     </Paper>)}

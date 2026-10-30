@@ -493,7 +493,7 @@ export function ProductDetailsDrawer({
 
                   {action !== "ENTRADA" && (
                     <Select
-                      label="Filial de Origem"
+                      label="Filial de origem"
                       data={locations}
                       required
                       {...movementForm.getInputProps("origem_location_id")}
@@ -502,7 +502,7 @@ export function ProductDetailsDrawer({
 
                   {action !== "SAIDA" && (
                     <Select
-                      label="Filial de Destino"
+                      label="Filial de destino"
                       data={locations}
                       required
                       {...movementForm.getInputProps("destino_location_id")}
@@ -510,7 +510,7 @@ export function ProductDetailsDrawer({
                   )}
 
                   <Select
-                    label="Natureza da Operação"
+                    label="Natureza da operação"
                     data={movementNatureOptionsByType(
                       movementForm.values.tipo as MovementType,
                     )}
@@ -545,7 +545,7 @@ export function ProductDetailsDrawer({
                   {(movementForm.values.natureza === "DEVOLUCAO" ||
                     movementForm.values.natureza === "ESTORNO") && (
                     <NumberInput
-                      label="Movimento de Referência"
+                      label="Movimento de referência"
                       min={1}
                       required
                       {...movementForm.getInputProps("movimento_ref_id")}

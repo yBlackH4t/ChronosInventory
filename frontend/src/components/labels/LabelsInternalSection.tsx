@@ -37,17 +37,15 @@ import "../../styles/products-movements.css";
 function ProductNameCell({ nome, id }: { nome: string; id: number }) {
   const { code, rest } = splitProductCode(nome, detectBrand(nome));
   return (
-    <Stack gap={2} miw={0}>
-      <Group gap={10} wrap="nowrap" miw={0}>
-        {code && <span className="pm-code-cell">{code}</span>}
-        <Text size="sm" fw={600} truncate="end" title={nome}>
-          {(code ? rest : "") || nome}
-        </Text>
-      </Group>
-      <Text size="xs" c="dimmed" className="mono">
+    <Group gap={10} wrap="nowrap" miw={0}>
+      {code && <span className="pm-code-cell">{code}</span>}
+      <Text size="sm" fw={600} truncate="end" title={nome}>
+        {(code ? rest : "") || nome}
+      </Text>
+      <Text size="xs" c="dimmed" className="mono" style={{ flexShrink: 0 }}>
         #{id}
       </Text>
-    </Stack>
+    </Group>
   );
 }
 
@@ -139,7 +137,7 @@ export default function LabelsInternalSection({
       ? listQuery.error.message
       : "Falha ao carregar itens para etiquetas.";
 
-  const { locations } = useLocations();
+  const { branchColumns: locations } = useLocations();
   const columnCount = 5 + locations.length;
   const optionsCount =
     Number(status !== "ATIVO") + Number(pageSize !== "20");
@@ -256,7 +254,7 @@ export default function LabelsInternalSection({
                   </Table.Th>
                 ))}
                 <Table.Th w={80} ta="right">
-                  Total
+                  {locations.length > 0 ? "Total" : "Saldo"}
                 </Table.Th>
                 <Table.Th w={120} ta="right">
                   Cópias
