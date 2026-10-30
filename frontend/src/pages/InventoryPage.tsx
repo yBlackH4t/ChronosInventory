@@ -709,6 +709,13 @@ export default function InventoryPage() {
 
   const sessions = sessionsQuery.data?.data ?? [];
   const sessionsPages = Math.max(sessionsQuery.data?.meta?.total_pages ?? 1, 1);
+  const sessionsTotal = sessionsQuery.data?.meta?.total_items ?? 0;
+  const noSessionsAtAll = sessionsQuery.isSuccess && sessionsTotal === 0;
+
+  // Excluir a última sessão de uma página deixa a página guardada além do fim: volta para a última.
+  useEffect(() => {
+    if (sessionsTotal > 0 && sessionPage > sessionsPages) setSessionPage(sessionsPages);
+  }, [sessionPage, sessionsPages, sessionsTotal]);
   const items = itemsQuery.data?.data ?? [];
   const itemPages = Math.max(itemsQuery.data?.meta?.total_pages ?? 1, 1);
   const sessionSummary = summaryQuery.data?.data;
@@ -770,7 +777,7 @@ export default function InventoryPage() {
       />
 
       {/* Sem nenhuma sessão, só o aviso com o botão: a tabela vazia não diz nada. */}
-      {!sessionsQuery.isLoading && sessions.length === 0 ? (
+      {noSessionsAtAll ? (
         <Panel>
           <EmptyState
             message="Nenhuma sessão de inventário"
@@ -784,7 +791,7 @@ export default function InventoryPage() {
           <InventorySessionsTable
             sessions={sessions}
             selectedSessionId={selectedSessionId}
-            totalItems={sessionsQuery.data?.meta?.total_items ?? 0}
+            totalItems={sessionsTotal}
             page={sessionPage}
             totalPages={sessionsPages}
             closePending={closeSessionMutation.isPending}
