@@ -101,6 +101,7 @@ def startup_runtime_services() -> None:
     # Off in the test suite (slow); CHRONOS_CATALOG_ON_STARTUP=1 turns it on.
     if os.getenv("APP_ENV", "").lower() != "test" or os.getenv("CHRONOS_CATALOG_ON_STARTUP") == "1":
         run_catalog_startup(db)
+    db.refresh_query_planner_stats()
     official_base_cfg = OfficialBaseService().config_store.load()
     LOG.info(
         "startup app_dir=%s db_path=%s db_version=%s migrated=%s",

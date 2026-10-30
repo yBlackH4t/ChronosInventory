@@ -158,8 +158,8 @@ class KnowledgeRepository(BaseRepository):
             SELECT DISTINCT pc.produto_id, pc.numero_norm
             FROM produto_codigos pc
             JOIN produtos p ON p.id = pc.produto_id
-            WHERE p.ativo = 1 AND pc.numero_norm LIKE ? AND LENGTH(pc.numero_norm) = ?
+            WHERE p.ativo = 1 AND pc.numero_norm GLOB ? AND LENGTH(pc.numero_norm) = ?
             ORDER BY pc.numero_norm
             """,
-            (f"{prefix}%", length),
+            (f"{prefix}*", length),
         )

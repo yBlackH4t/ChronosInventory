@@ -862,6 +862,12 @@ export type StockItemOverview = {
   saidas_periodo: number;
 };
 
+export type StockHealth = {
+  counts: { GIRANDO: number; LENTO: number; PARADO: number };
+  /** Só os parados com mais peças, já ordenados. */
+  parados: StockItemOverview[];
+};
+
 export type MovementNatureTotal = {
   natureza: string;
   quantidade: number;

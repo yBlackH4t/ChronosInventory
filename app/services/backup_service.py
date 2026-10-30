@@ -14,8 +14,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-import pandas as pd
-
 from app.services import backup_assistant_files as assistant_files
 from app.services.backup_diagnostics_service import BackupDiagnosticsService
 from app.services.backup_second_copy import BackupSecondCopy
@@ -68,6 +66,7 @@ class BackupService:
         """
         Exporta backup completo (Excel + DB).
         """
+        import pandas as pd  # so aqui: carregar o pandas atrasa a abertura do Chronos
         try:
             products = self.product_repo.get_all(status="TODOS")
             if not products:

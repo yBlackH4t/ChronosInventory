@@ -954,23 +954,16 @@ class MovementRepository(BaseRepository):
         stock_filter = "AND pi.local_id = ?" if location_id is not None else ""
         mov_filter = "AND m.origem_local_id = ?" if location_id is not None else ""
         loc: List[Any] = [location_id] if location_id is not None else []
-        # Ordem dos "?": ultima saida, saidas no periodo, saldo.
-        params: List[Any] = [*loc, since, *loc, *loc]
+        # As saidas saem de uma passada so, agrupada por produto. Subconsulta por produto deixava
+        # o SQLite usar o indice por tipo e reler todas as saidas para cada produto (segundos).
+        # Ordem dos "?": saldo, saidas no periodo, local das saidas.
+        params: List[Any] = [*loc, since, *loc]
         query = f"""
             SELECT p.id as produto_id,
                    p.nome as nome,
                    s.estoque as estoque,
-                   (
-                       SELECT MAX(m.data_hora)
-                       FROM movimentacoes m
-                       WHERE m.produto_id = p.id AND {self._SAIDA_GIRO_FILTER} {mov_filter}
-                   ) as last_saida,
-                   (
-                       SELECT COALESCE(SUM(m.quantidade), 0)
-                       FROM movimentacoes m
-                       WHERE m.produto_id = p.id AND {self._SAIDA_GIRO_FILTER}
-                         AND m.data_hora >= ? {mov_filter}
-                   ) as saidas_periodo
+                   sa.last_saida as last_saida,
+                   COALESCE(sa.saidas_periodo, 0) as saidas_periodo
             FROM produtos p
             JOIN (
                 SELECT pi.produto_id as produto_id, SUM(pi.quantidade) as estoque
@@ -979,6 +972,14 @@ class MovementRepository(BaseRepository):
                 WHERE l.ativo = 1 {stock_filter}
                 GROUP BY pi.produto_id
             ) s ON s.produto_id = p.id AND s.estoque > 0
+            LEFT JOIN (
+                SELECT m.produto_id as produto_id,
+                       MAX(m.data_hora) as last_saida,
+                       SUM(CASE WHEN m.data_hora >= ? THEN m.quantidade ELSE 0 END) as saidas_periodo
+                FROM movimentacoes m
+                WHERE {self._SAIDA_GIRO_FILTER} {mov_filter}
+                GROUP BY m.produto_id
+            ) sa ON sa.produto_id = p.id
             WHERE p.ativo = 1
             ORDER BY s.estoque DESC, p.nome ASC
         """

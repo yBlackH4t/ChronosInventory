@@ -422,6 +422,9 @@ class MovementService:
     def get_stock_items_overview(self, date_to: date, days: int = 90, scope: str = "AMBOS") -> List[dict]:
         return self.analytics.get_stock_items_overview(date_to, days, scope)
 
+    def get_stock_health(self, date_to: date, days: int = 90, scope: str = "AMBOS", parados_limit: int = 20) -> dict:
+        return self.analytics.get_stock_health(date_to, days, scope, parados_limit)
+
     def get_movement_nature_totals(self, date_from: date, date_to: date, tipo: str, scope: str = "AMBOS") -> List[dict]:
         return self.analytics.get_movement_nature_totals(date_from, date_to, tipo, scope)
 

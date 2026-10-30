@@ -4,7 +4,6 @@ Responsabilidade: Migrar dados de Excel para SQLite.
 """
 
 import os
-import pandas as pd
 from typing import Tuple
 from datetime import datetime
 from core.database.repositories.product_repository import ProductRepository
@@ -62,6 +61,7 @@ class MigrationService:
         Returns:
             Tupla (sucesso: bool, mensagem: str)
         """
+        import pandas as pd  # so aqui: carregar o pandas atrasa a abertura do Chronos
         print("Iniciando migracao de dados...")
         
         # Le Excel
