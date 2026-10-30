@@ -12,6 +12,7 @@ import type {
   SaidasPoint,
   StockDistribution,
   StockEvolutionPoint,
+  StockHealth,
   StockItemOverview,
   StockSummary,
   SuccessResponse,
@@ -282,6 +283,22 @@ export function createAnalyticsApi({
       const query = buildQuery({ days: params.days, location_id: params.scope ?? null });
       return request<StockItemOverview[]>(
         `/analytics/stock/items${query}`,
+        { method: "GET", ...options },
+        baseUrl,
+      );
+    },
+
+    async getAnalyticsStockHealth(
+      params: { days?: number; scope?: AnalyticsScope; parados_limit?: number } = {},
+      options: RequestInit = {},
+    ) {
+      const query = buildQuery({
+        days: params.days,
+        location_id: params.scope ?? null,
+        parados_limit: params.parados_limit,
+      });
+      return request<StockHealth>(
+        `/analytics/stock/health${query}`,
         { method: "GET", ...options },
         baseUrl,
       );

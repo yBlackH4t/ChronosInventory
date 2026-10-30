@@ -1,4 +1,3 @@
-import pandas as pd
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -15,6 +14,7 @@ class DynamicImportService:
         self.location_service = location_service
 
     def _clean_value(self, val: Any) -> str:
+        import pandas as pd  # so aqui: carregar o pandas atrasa a abertura do Chronos
         if pd.isna(val):
             return ""
         if isinstance(val, float):
@@ -23,6 +23,7 @@ class DynamicImportService:
         return str(val).strip()
 
     def analyze_file(self, filepath: str) -> Dict[str, Any]:
+        import pandas as pd
         try:
             if filepath.endswith(".csv"):
                 df = pd.read_csv(filepath, nrows=5)
@@ -44,6 +45,7 @@ class DynamicImportService:
             raise ValidationException(f"Erro ao analisar o arquivo: {str(e)}")
 
     def execute_import(self, filepath: str, match_by: str, name_col: str, id_col: str, location_mappings: Dict[str, str], update_stock: bool = True, motivo: Optional[str] = "Ajuste via Importação de Planilha") -> Dict[str, Any]:
+        import pandas as pd
         if filepath.endswith(".csv"):
             df = pd.read_csv(filepath)
         else:

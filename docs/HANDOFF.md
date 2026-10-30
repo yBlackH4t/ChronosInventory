@@ -421,10 +421,17 @@ npm run lint
 ## 6. Registro de entregas
 
 ### 2026-10-30 — Claude Code — publicação automática, canal de teste e voltar versão
-- Branch: `claude/project-thread-t67dr4` (sobre a main 2.7.29). Plano aprovado pelo dono: https://claude.ai/artifact/7bbKQ59wSfupiPQEsmjF7W
+- Branch: `claude/project-thread-t67dr4` (sobre a main 2.7.30; sai na 2.7.30). Plano aprovado pelo dono: https://claude.ai/artifact/7bbKQ59wSfupiPQEsmjF7W
 - Versão pelo robô: `scripts/proxima_versao.py` (testes em `backend/tests/test_proxima_versao.py`) lê `novidades/*.md`; versão da main sem tag = publica ela mesma; com tag e novidades = +1 (ou `versao: media`/`grande`); sem novidades = nada. `publicar.yml` (push na main) grava "Versão X (automática)", cria a tag e chama o `release.yml` (`workflow_call`), que publica como pré-lançamento (`make_latest: false`) e sobe o `latest.json` no lançamento fixo `canal-teste`.
 - `liberar.yml`: `gh release edit vX --prerelease=false --latest`. `voltar.yml`: o mesmo numa versão antiga + o `latest.json` dela no `canal-teste`.
 - App: `auto_update::build_updater` (canal do `desktop.json` `canal_atualizacao`; comparador "versão diferente", que permite voltar); comando `procurar_atualizacao` usado pelo "Verificar atualização" (`TopBar.tsx`, monta o `Update` do plugin pelo `rid`); canal em `DesktopSettingsPanel.tsx`.
+
+### 2026-10-30 — Claude Code — 2.7.30: desempenho (Painel, Produtos, buscas)
+- Branch: `claude/project-thread-7x8daq` (sobre a main 2.7.27; 2.7.28 está no PR #60, 2.7.29 no #61). Auditoria medida num banco de teste com os 4.279 produtos do CSV, o catálogo real e 150 mil movimentações.
+- `MovementRepository.get_stock_items_overview`: saídas numa passada agrupada por produto (antes subconsulta por produto que o SQLite resolvia pelo índice de tipo). Mesmo resultado; 14 s → 0,5 s.
+- `DatabaseConnection.refresh_query_planner_stats()` (ANALYZE com `analysis_limit`) na abertura e no `ensure_schema`. Índice `idx_produtos_vinculado`.
+- `GET /analytics/stock/health`: o Painel recebe contagem + parados do topo, não a lista inteira.
+- Prefixo de código com GLOB (usa índice) em `catalog_repository`/`knowledge_repository`; `search_catalog` filtra referências por subconsulta indexada. Cache das palavras das aplicações em `assistant_tools_service`. pandas importado só dentro das funções.
 
 ### 2026-10-30 — Claude Code — 2.7.29: atualização automática
 - Branch: `claude/project-thread-pfk96d` (sobre a main 2.7.28). Opção escolhida pelo dono: baixar escondido e instalar ao fechar.

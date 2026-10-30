@@ -94,6 +94,7 @@ class DatabaseConnection:
     def ensure_schema(self) -> None:
         """Completa o schema do banco ativo; usado depois de restaurar uma copia mais antiga."""
         self._initialize_database()
+        self.refresh_query_planner_stats()
 
     def _initialize_database(self) -> None:
         """
@@ -300,6 +301,7 @@ class DatabaseConnection:
             # ── Indexes ──────────────────────────────────────────────
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_nome ON produtos(nome);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_ativo_nome ON produtos(ativo, nome);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_produtos_vinculado ON produtos(produto_vinculado_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_data ON movimentacoes(data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_produto_data ON movimentacoes(produto_id, data_hora);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_tipo_data ON movimentacoes(tipo, data_hora);")
@@ -416,6 +418,24 @@ class DatabaseConnection:
             raise DatabaseException(f"Erro ao executar comando: {exc}")
         finally:
             conn.close()
+
+    def refresh_query_planner_stats(self) -> None:
+        """
+        Atualiza as estatisticas (ANALYZE) que o SQLite usa para escolher o indice de cada
+        consulta. Sem elas ele chuta e pode ler a tabela de movimentacoes inteira. Com
+        analysis_limit leva milissegundos; falha aqui nunca impede o app de abrir.
+        """
+        conn = None
+        try:
+            conn = self.get_connection()
+            conn.execute("PRAGMA analysis_limit = 1000;")
+            conn.execute("ANALYZE;")
+            conn.commit()
+        except sqlite3.Error as exc:
+            logger.warning("Falha ao atualizar estatisticas do banco: %s", exc)
+        finally:
+            if conn is not None:
+                conn.close()
 
     def get_database_path(self) -> str:
         return self.db_path

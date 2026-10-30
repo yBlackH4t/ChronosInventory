@@ -69,6 +69,8 @@ class CatalogRepository(BaseRepository):
 
         expanded_codes = expand_family_codes([code])
         use_prefix = len(code) >= MIN_PREFIX_SEARCH_LENGTH
+        # Prefixo com GLOB, nao LIKE: o LIKE ignora maiusculas e por isso nao usa o indice.
+        # Os codigos normalizados so tem A-Z/0-9 maiusculos, entao o resultado e o mesmo.
 
         where_parts_codes = []
         codes_params = []
@@ -79,12 +81,12 @@ class CatalogRepository(BaseRepository):
 
         for c in expanded_codes:
             if use_prefix:
-                where_parts_codes.append("(pc.numero_norm = ? OR pc.numero_norm LIKE ?)")
-                codes_params.extend([c, f"{c}%"])
-                where_parts_cat.append("(cp.codigo_norm = ? OR cp.codigo_norm LIKE ?)")
-                cat_params.extend([c, f"{c}%"])
-                where_parts_ref.append("(cr.numero_norm = ? OR cr.numero_norm LIKE ?)")
-                ref_params.extend([c, f"{c}%"])
+                where_parts_codes.append("(pc.numero_norm = ? OR pc.numero_norm GLOB ?)")
+                codes_params.extend([c, f"{c}*"])
+                where_parts_cat.append("(cp.codigo_norm = ? OR cp.codigo_norm GLOB ?)")
+                cat_params.extend([c, f"{c}*"])
+                where_parts_ref.append("(cr.numero_norm = ? OR cr.numero_norm GLOB ?)")
+                ref_params.extend([c, f"{c}*"])
             else:
                 where_parts_codes.append("pc.numero_norm = ?")
                 codes_params.append(c)
@@ -122,7 +124,7 @@ class CatalogRepository(BaseRepository):
         code = canonical_code(term)
         if len(code) < MIN_CODE_SEARCH_LENGTH:
             return []
-        prefix = f"{code}%" if len(code) >= MIN_PREFIX_SEARCH_LENGTH else code
+        prefix = f"{code}*" if len(code) >= MIN_PREFIX_SEARCH_LENGTH else code
 
         rows = self._execute_query(
             """
@@ -133,14 +135,20 @@ class CatalogRepository(BaseRepository):
             JOIN catalogo_fontes f ON f.id = cp.fonte_id
             LEFT JOIN catalogo_referencias cr
                    ON cr.catalogo_produto_id = cp.id
-                  AND (cr.numero_norm = ? OR cr.numero_norm LIKE ?)
+                  AND (cr.numero_norm = ? OR cr.numero_norm GLOB ?)
             WHERE cp.ativo = 1
-              AND (cp.codigo_norm = ? OR cp.codigo_norm LIKE ? OR cr.id IS NOT NULL)
+              AND (
+                  cp.codigo_norm = ? OR cp.codigo_norm GLOB ?
+                  OR cp.id IN (
+                      SELECT r.catalogo_produto_id FROM catalogo_referencias r
+                      WHERE r.numero_norm = ? OR r.numero_norm GLOB ?
+                  )
+              )
             GROUP BY cp.id
             ORDER BY match_codigo DESC, cp.grupo, cp.codigo
             LIMIT ?
             """,
-            (code, code, prefix, code, prefix, limit),
+            (code, code, prefix, code, prefix, code, prefix, limit),
         )
         self._attach_linked_products(rows)
         return rows
