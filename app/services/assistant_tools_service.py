@@ -248,6 +248,23 @@ def _application_label(app: Dict[str, Any]) -> Dict[str, Any]:
     return item
 
 
+# Palavras de cada texto de aplicacao, guardadas entre perguntas: quebrar as ~7.500 aplicacoes
+# do catalogo a cada pergunta era a maior parte do tempo da busca por veiculo. A chave e o
+# proprio texto, entao aplicacao nova ou alterada so gera uma entrada nova.
+_APPLICATION_WORDS: Dict[str, frozenset] = {}
+_APPLICATION_WORDS_MAX = 50_000
+
+
+def _application_words(text: str) -> frozenset:
+    words = _APPLICATION_WORDS.get(text)
+    if words is None:
+        if len(_APPLICATION_WORDS) >= _APPLICATION_WORDS_MAX:
+            _APPLICATION_WORDS.clear()
+        words = frozenset(search_words(text))
+        _APPLICATION_WORDS[text] = words
+    return words
+
+
 class AssistantToolsService:
     """Buscas que o assistente pode pedir. Cada metodo devolve um dict pronto para virar JSON."""
 
@@ -736,13 +753,11 @@ class AssistantToolsService:
             raise ValidationException(
                 "Informe a montadora, o modelo do veiculo ou o motor (ex.: 'scania 440', 'volvo fh 460', 'om 366')."
             )
-        indexed: List[Tuple[Dict[str, Any], set]] = []
+        indexed: List[Tuple[Dict[str, Any], frozenset]] = []
         vocabulary: set = set()
         for app in self.repository.list_applications():
-            words = set(
-                search_words(
-                    " ".join(str(app.get(k) or "") for k in ("montadora", "veiculo", "motor", "complemento"))
-                )
+            words = _application_words(
+                " ".join(str(app.get(k) or "") for k in ("montadora", "veiculo", "motor", "complemento"))
             )
             indexed.append((app, words))
             vocabulary |= words

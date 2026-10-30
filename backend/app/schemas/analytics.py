@@ -103,6 +103,17 @@ class StockItemOverview(BaseModel):
     saidas_periodo: int
 
 
+class StockHealthCounts(BaseModel):
+    GIRANDO: int
+    LENTO: int
+    PARADO: int
+
+
+class StockHealthOut(BaseModel):
+    counts: StockHealthCounts
+    parados: list[StockItemOverview]
+
+
 class MovementNatureTotal(BaseModel):
     natureza: str
     quantidade: int

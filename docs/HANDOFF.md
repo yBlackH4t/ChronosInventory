@@ -420,6 +420,13 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — 2.7.29: desempenho (Painel, Produtos, buscas)
+- Branch: `claude/project-thread-7x8daq` (sobre a main 2.7.27; 2.7.28 está no PR #60). Auditoria medida num banco de teste com os 4.279 produtos do CSV, o catálogo real e 150 mil movimentações.
+- `MovementRepository.get_stock_items_overview`: saídas numa passada agrupada por produto (antes subconsulta por produto que o SQLite resolvia pelo índice de tipo). Mesmo resultado; 14 s → 0,5 s.
+- `DatabaseConnection.refresh_query_planner_stats()` (ANALYZE com `analysis_limit`) na abertura e no `ensure_schema`. Índice `idx_produtos_vinculado`.
+- `GET /analytics/stock/health`: o Painel recebe contagem + parados do topo, não a lista inteira.
+- Prefixo de código com GLOB (usa índice) em `catalog_repository`/`knowledge_repository`; `search_catalog` filtra referências por subconsulta indexada. Cache das palavras das aplicações em `assistant_tools_service`. pandas importado só dentro das funções.
+
 ### 2026-10-30 — Claude Code — 2.7.27: layout limpo fase 2 (telas do dia a dia)
 - Branch: `claude/project-thread-1yjko1` (sobre a main 2.7.26). Fase 2 do plano aprovado.
 - Painel: relógio nas ações do `PageHeader`; `AlertsBlock` numa linha com ponto colorido e motivo curto (`lib/dashboardActions.ts`); KPI sem "+" quando há seta e sem fonte mono; Sistemas ocupa a altura toda.

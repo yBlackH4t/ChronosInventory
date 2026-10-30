@@ -8,7 +8,7 @@ import { loadTabState, saveTabState } from "../state/tabStateCache";
 import { useProfileScope } from "../state/profileScope";
 import { useLocations } from "../hooks/useLocations";
 import PageHeader from "../components/ui/PageHeader";
-import { fillDays, percentChange, sum, summarizeHealth } from "../lib/dashboardMath";
+import { fillDays, percentChange, sum } from "../lib/dashboardMath";
 import { actionSummary, buildActionList } from "../lib/dashboardActions";
 import { robotStatus } from "../lib/dashboardBento";
 import {
@@ -25,7 +25,7 @@ import type {
   FlowPoint,
   MovementOut,
   RecentStockoutItem,
-  StockItemOverview,
+  StockHealth,
   StockSummary,
   StockoutRiskItem,
   SuccessResponse,
@@ -114,9 +114,10 @@ export default function DashboardPage() {
       api.getAnalyticsFlow({ date_from: yearFrom, date_to: today, scope, bucket: "day" }, { signal }),
     enabled: flowRange === "365",
   });
-  const stockItemsQuery = useQuery<SuccessResponse<StockItemOverview[]>>({
-    queryKey: [...base, "stock-items", scope],
-    queryFn: ({ signal }) => api.getAnalyticsStockItems({ days: 90, scope }, { signal }),
+  // O backend já manda a saúde contada e só os parados do topo (não a lista inteira).
+  const stockHealthQuery = useQuery<SuccessResponse<StockHealth>>({
+    queryKey: [...base, "stock-health", scope],
+    queryFn: ({ signal }) => api.getAnalyticsStockHealth({ days: 90, scope }, { signal }),
   });
   const recentStockoutsQuery = useQuery<SuccessResponse<RecentStockoutItem[]>>({
     queryKey: [...base, "recent-stockouts", today, scope, 8],
@@ -171,7 +172,7 @@ export default function DashboardPage() {
   const dashboardErrors = [
     summaryQuery.error,
     trendQuery.error,
-    stockItemsQuery.error,
+    stockHealthQuery.error,
     recentStockoutsQuery.error,
     stockoutRiskQuery.error,
     liveQuery.error,
@@ -196,8 +197,10 @@ export default function DashboardPage() {
   }, [errorKey]);
 
   const summary = summaryQuery.data?.data;
-  const stockItems = useMemo(() => stockItemsQuery.data?.data ?? [], [stockItemsQuery.data]);
-  const health = useMemo(() => summarizeHealth(stockItems), [stockItems]);
+  const health = useMemo(
+    () => stockHealthQuery.data?.data ?? { counts: { GIRANDO: 0, LENTO: 0, PARADO: 0 }, parados: [] },
+    [stockHealthQuery.data],
+  );
 
   const trendDays = useMemo(
     () => fillDays(trendQuery.data?.data ?? [], trendFrom, today),
@@ -227,7 +230,7 @@ export default function DashboardPage() {
     [recentStockoutsQuery.data, stockoutRiskQuery.data, health.parados],
   );
   const actionsLoading =
-    recentStockoutsQuery.isLoading || stockoutRiskQuery.isLoading || stockItemsQuery.isLoading;
+    recentStockoutsQuery.isLoading || stockoutRiskQuery.isLoading || stockHealthQuery.isLoading;
 
   const bars = useMemo(
     () => flowBars(flowRange === "365" ? yearDays : trendDays, flowRange),
@@ -397,7 +400,7 @@ export default function DashboardPage() {
           total={currentTotal}
           totalLabel={scope !== null ? `unidades em ${scopeLabel}` : "unidades em estoque"}
           saidas={trendDays.slice(-60).map((d) => d.saidas)}
-          loading={summaryQuery.isLoading || stockItemsQuery.isLoading}
+          loading={summaryQuery.isLoading || stockHealthQuery.isLoading}
           kpis={[
             { label: "saídas em 30 dias", value: saidas30 },
             ...(saidasDelta === null

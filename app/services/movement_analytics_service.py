@@ -204,6 +204,33 @@ class MovementAnalyticsService:
             )
         return items
 
+    def get_stock_health(
+        self,
+        date_to: date,
+        days: int = 90,
+        scope: Optional[int | str] = None,
+        parados_limit: int = 20,
+    ) -> dict:
+        """Saude do estoque ja contada (girando/lento/parado) e so os parados com mais pecas.
+
+        Mesma regra do Painel: girando saiu em ate 30 dias, lento de 31 a 90, parado mais de
+        90 ou nunca saiu. Evita mandar a lista inteira de produtos com saldo para a tela.
+        """
+        items = self.get_stock_items_overview(date_to, days=days, scope=scope)
+        counts = {"GIRANDO": 0, "LENTO": 0, "PARADO": 0}
+        parados: List[dict] = []
+        for item in items:
+            dias = item["dias_sem_saida"]
+            if dias is None or dias > 90:
+                counts["PARADO"] += 1
+                parados.append(item)
+            elif dias > 30:
+                counts["LENTO"] += 1
+            else:
+                counts["GIRANDO"] += 1
+        parados.sort(key=lambda i: (-i["estoque"], -(9999 if i["dias_sem_saida"] is None else i["dias_sem_saida"])))
+        return {"counts": counts, "parados": parados[:parados_limit]}
+
     def get_movement_nature_totals(
         self,
         date_from: date,

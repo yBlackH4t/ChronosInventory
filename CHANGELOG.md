@@ -26,6 +26,15 @@ Formato recomendado:
 
 
 
+## [2.7.29] - 2026-10-30
+
+### Changed
+- **Painel mais rápido:** a "Saúde do estoque" e o "Pede ação hoje" calculavam a última saída de cada produto relendo todas as saídas, um produto por vez. Agora é uma passada só: no teste com 150 mil movimentações caiu de 14 segundos para meio segundo, e o Painel recebe só a contagem e os parados do topo, não a lista inteira de produtos com saldo. Em Relatórios, a divisão por marca também ficou mais rápida.
+- **Banco escolhe o caminho certo:** ao abrir o Chronos (e depois de restaurar uma cópia), o banco atualiza as estatísticas que usa para escolher o índice de cada busca. Leva milissegundos.
+- **Lista de Produtos 2 a 4 vezes mais rápida:** índice novo para o vínculo da montada com o conjunto.
+- **Buscas por código e por veículo mais rápidas:** a busca por código no catálogo usa o índice (cerca de 3 vezes mais rápida) e a busca do assistente por veículo ou motor guarda as palavras das aplicações entre uma pergunta e outra (cerca de 3 vezes mais rápida).
+- **Abertura um pouco mais rápida:** o pandas só é carregado quando você importa planilha ou exporta o backup em Excel.
+
 ## [2.7.27] - 2026-10-30
 
 ### Changed

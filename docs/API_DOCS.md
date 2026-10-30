@@ -107,6 +107,7 @@ Regras:
   - itens com saldo que zeram em ate `max_dias` no ritmo de venda real (`SAIDA` normal) dos ultimos `days` dias
   - retorna `estoque_atual`, `total_saida` e `dias_cobertura`, do mais urgente para o menos
 - `GET /analytics/stock/items?days=90&date_to=YYYY-MM-DD&location_id=` (2.5.0)
+- `GET /analytics/stock/health?days=90&date_to=YYYY-MM-DD&location_id=&parados_limit=20` (2.7.29): `counts` (GIRANDO/LENTO/PARADO) e os parados com mais pecas; usado pelo Painel no lugar da lista inteira.
   - um item por produto com saldo: `estoque`, `ultima_saida`, `dias_sem_saida` e `saidas_periodo` (saida normal, sem ajuste/estorno); base da "Saude do estoque"
 - `GET /analytics/stock/count-history?days=30&date_to=YYYY-MM-DD&location_id=` (2.6.1) - produtos com saldo e zerados no fim de cada dia: `[{ date, com_saldo, zerados }]` (linhas do topo do Painel). Volta a partir do saldo de hoje; produto cadastrado no periodo nao conta antes do estoque inicial. `days` de 2 a 365.
 - `GET /analytics/movements/by-nature?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD&tipo=SAIDA|ENTRADA&location_id=` (2.5.0)

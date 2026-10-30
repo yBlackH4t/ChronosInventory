@@ -19,6 +19,7 @@ from backend.app.schemas.analytics import (
     StockDistributionOut,
     StockCountPoint,
     StockEvolutionPoint,
+    StockHealthOut,
     StockItemOverview,
     StockSummaryOut,
     StockoutRiskItem,
@@ -197,6 +198,20 @@ def stock_items_overview(
     date_to = date_to or date.today()
     items = movement_service.get_stock_items_overview(date_to, days=days, scope=location_id)
     return ok([StockItemOverview(**item) for item in items])
+
+
+@router.get("/stock/health", response_model=SuccessResponse[StockHealthOut])
+def stock_health(
+    days: int = Query(90, ge=1, le=365),
+    date_to: date | None = Query(None),
+    location_id: int | None = Query(None),
+    parados_limit: int = Query(20, ge=0, le=200),
+    movement_service: MovementService = Depends(get_movement_service),
+) -> SuccessResponse[StockHealthOut]:
+    """Saude do estoque ja contada e os parados com mais pecas (o Painel nao precisa da lista toda)."""
+    date_to = date_to or date.today()
+    health = movement_service.get_stock_health(date_to, days=days, scope=location_id, parados_limit=parados_limit)
+    return ok(StockHealthOut(**health))
 
 
 @router.get("/stock/count-history", response_model=SuccessResponse[list[StockCountPoint]])

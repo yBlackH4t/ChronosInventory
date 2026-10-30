@@ -66,6 +66,38 @@ def test_stock_items_overview_reports_last_sale_and_recent_volume(client):
     assert resp_pf.json()["data"] == []
 
 
+def test_stock_health_counts_buckets_and_returns_top_parados(client):
+    girando = _create_product(client, "TURBINA HOLSET 4031195", qtd_canoas=5)
+    lento = _create_product(client, "TURBINA HOLSET 3785479", qtd_canoas=2)
+    parado_grande = _create_product(client, "TURBINA GARRETT 750849-5001", qtd_canoas=9)
+    nunca_saiu = _create_product(client, "TURBINA BORG 53299887201", qtd_canoas=4)
+    _move(client, tipo="SAIDA", produto_id=girando, quantidade=1, origem_location_id=11, data=_days_ago(5))
+    _move(client, tipo="SAIDA", produto_id=lento, quantidade=1, origem_location_id=11, data=_days_ago(60))
+    _move(client, tipo="SAIDA", produto_id=parado_grande, quantidade=1, origem_location_id=11, data=_days_ago(120))
+
+    resp = client.get("/analytics/stock/health?days=90&parados_limit=1")
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["counts"] == {"GIRANDO": 1, "LENTO": 1, "PARADO": 2}
+    # Mais pecas primeiro (8 do parado contra 4 do que nunca saiu), cortado no limite.
+    assert [item["produto_id"] for item in data["parados"]] == [parado_grande]
+    assert nunca_saiu not in {item["produto_id"] for item in data["parados"]}
+
+
+def test_startup_refreshes_planner_stats_and_indexes_linked_products(client):
+    from core.database.connection import DatabaseConnection
+
+    db = DatabaseConnection()
+    db.refresh_query_planner_stats()
+    conn = db.get_connection()
+    try:
+        names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+    finally:
+        conn.close()
+    assert "sqlite_stat1" in names
+    assert "idx_produtos_vinculado" in names
+
+
 def test_movements_by_nature_groups_quantities(client):
     produto = _create_product(client, "TURBINA BORGWARNER 53039880055", qtd_canoas=20)
     _move(client, tipo="SAIDA", produto_id=produto, quantidade=4, origem_location_id=11, data="2026-02-10T10:00:00")
