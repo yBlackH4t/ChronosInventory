@@ -109,7 +109,7 @@ export default function MovementsFiltersSection({
   onClearFilters,
   onResetView,
 }: Props) {
-  const { locations, branchColumns } = useLocations();
+  const { locations } = useLocations();
   const locationOptions = locations.map((loc) => ({
     value: String(loc.id),
     label: loc.label || loc.name,
@@ -298,7 +298,8 @@ export default function MovementsFiltersSection({
                 popoverProps={IN_POPOVER}
               />
             </SimpleGrid>
-            {branchColumns.length > 0 && (
+            {/* Conta também as filiais desativadas: o histórico delas continua na lista. */}
+            {locations.length > 1 && (
               <SimpleGrid cols={2} spacing="sm">
                 <Select
                   label="Origem"
