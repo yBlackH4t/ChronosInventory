@@ -1,0 +1,43 @@
+name: Liberar para todos
+
+# A versao em teste vira a oficial: os PCs do canal Estavel a encontram em ate 1 hora e instalam
+# ao fechar o Chronos. Sem numero, libera a versao mais nova publicada.
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão a liberar (ex: 2.7.30). Vazio = a mais nova."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canal-estavel
+  cancel-in-progress: false
+
+jobs:
+  liberar:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSAO: ${{ inputs.versao }}
+    steps:
+      - name: Liberar
+        run: |
+          if [ -z "$VERSAO" ]; then
+            TAG=$(gh release list --limit 50 --json tagName,createdAt \
+              --jq '[.[] | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.createdAt) | last | .tagName')
+          else
+            TAG="v${VERSAO#v}"
+          fi
+          if [ -z "$TAG" ] || ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -qx latest.json; then
+            echo "::error::Não achei a versão $TAG com o arquivo latest.json."
+            exit 1
+          fi
+          gh release edit "$TAG" --prerelease=false --latest
+          echo "### $TAG liberada para todos" >> "$GITHUB_STEP_SUMMARY"
+          echo "Os computadores do canal Estável instalam em até 1 hora, ao fechar o Chronos." >> "$GITHUB_STEP_SUMMARY"

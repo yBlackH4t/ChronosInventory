@@ -28,7 +28,7 @@ use tauri_plugin_shell::{
 use tokio::time::sleep;
 
 mod auto_update;
-use auto_update::{AfterUpdate, AfterUpdateMarker, PendingUpdate};
+use auto_update::{AfterUpdate, AfterUpdateMarker, Canal, PendingUpdate};
 
 struct BackendState(Mutex<Option<CommandChild>>);
 
@@ -120,6 +120,9 @@ struct DesktopPrefs {
     // Como reabrir depois que o instalador termina (bandeja ou fechado).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     depois_de_atualizar: Option<AfterUpdateMarker>,
+    // Teste: este PC recebe as versoes novas antes dos outros.
+    #[serde(default)]
+    canal_atualizacao: Canal,
 }
 
 fn default_true() -> bool {
@@ -132,6 +135,7 @@ impl Default for DesktopPrefs {
             fechar_para_bandeja: true,
             versao_baixada: None,
             depois_de_atualizar: None,
+            canal_atualizacao: Canal::Estavel,
         }
     }
 }
@@ -228,21 +232,26 @@ struct DesktopSettings {
     fechar_para_bandeja: bool,
     abrir_com_windows: bool,
     porta_backend: u16,
+    canal_atualizacao: Canal,
 }
 
 #[tauri::command]
 fn desktop_settings() -> DesktopSettings {
+    let prefs = load_prefs();
     DesktopSettings {
-        fechar_para_bandeja: load_prefs().fechar_para_bandeja,
+        fechar_para_bandeja: prefs.fechar_para_bandeja,
         abrir_com_windows: autostart_enabled(),
         porta_backend: backend_port(),
+        canal_atualizacao: prefs.canal_atualizacao,
     }
 }
 
 #[tauri::command]
 fn set_desktop_settings(
+    app: tauri::AppHandle,
     fechar_para_bandeja: Option<bool>,
     abrir_com_windows: Option<bool>,
+    canal_atualizacao: Option<Canal>,
 ) -> Result<DesktopSettings, String> {
     if let Some(value) = fechar_para_bandeja {
         let mut prefs = load_prefs();
@@ -251,6 +260,15 @@ fn set_desktop_settings(
     }
     if let Some(value) = abrir_com_windows {
         set_autostart_enabled(value)?;
+    }
+    if let Some(value) = canal_atualizacao {
+        let mut prefs = load_prefs();
+        if prefs.canal_atualizacao != value {
+            prefs.canal_atualizacao = value;
+            save_prefs(&prefs)?;
+            log_line(&format!("canal de atualizacao: {value:?}"));
+            auto_update::canal_mudou(&app);
+        }
     }
     Ok(desktop_settings())
 }
@@ -671,7 +689,8 @@ fn main() {
             desktop_settings,
             set_desktop_settings,
             auto_update::atualizacao_estado,
-            auto_update::instalar_atualizacao_agora
+            auto_update::instalar_atualizacao_agora,
+            auto_update::procurar_atualizacao
         ])
         .manage(BackendState(Mutex::new(None)))
         .manage(PendingUpdate::default())

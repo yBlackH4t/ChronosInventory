@@ -1,0 +1,44 @@
+name: Voltar versão
+
+# A versao escolhida volta a ser a oficial, sem build novo. Os PCs dos dois canais (Estavel e
+# Teste) a instalam em ate 1 hora, ao fechar o Chronos, com a copia de seguranca de sempre antes.
+# O Chronos aceita versao mais antiga desde que o atualizador dele aceita voltar versao.
+
+on:
+  workflow_dispatch:
+    inputs:
+      versao:
+        description: "Versão para onde voltar (ex: 2.7.29)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canal-estavel
+  cancel-in-progress: false
+
+jobs:
+  voltar:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSAO: ${{ inputs.versao }}
+    steps:
+      - name: Voltar
+        run: |
+          TAG="v${VERSAO#v}"
+          mkdir -p volta
+          if ! gh release download "$TAG" --pattern latest.json --dir volta; then
+            echo "::error::Não achei a versão $TAG com o arquivo latest.json."
+            exit 1
+          fi
+          gh release edit "$TAG" --prerelease=false --latest
+          # O canal Teste tambem volta, senao o PC de teste continuaria na versao com problema.
+          gh release upload canal-teste volta/latest.json --clobber
+          {
+            echo "### Todos os computadores voltam para $TAG"
+            echo "Eles instalam em até 1 hora, ao fechar o Chronos. A próxima versão publicada sai com número maior e segue o caminho normal."
+          } >> "$GITHUB_STEP_SUMMARY"

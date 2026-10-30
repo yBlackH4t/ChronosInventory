@@ -1,6 +1,11 @@
 // Atualizacao automatica: procura ao abrir e a cada hora, baixa escondido e instala quando
 // ninguem esta usando a janela (fechou para a bandeja, "Sair do Chronos", Chronos fechado ou
 // aberto escondido com o Windows). Quem esta usando so ve o aviso "reinicie quando puder".
+//
+// Canais: o Estavel le a "ultima versao" do GitHub (tauri.conf); o Teste le o lancamento fixo
+// canal-teste, que recebe cada versao nova antes de ela ser liberada para todos. Nos dois, vale
+// versao diferente da instalada, nao so maior: e assim que o "Voltar versao" do GitHub devolve
+// os PCs para a anterior.
 
 use std::{
     sync::{
@@ -11,14 +16,16 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_updater::{Update, UpdaterExt};
+use tauri::{AppHandle, Emitter, Manager, ResourceId, Url, Webview};
+use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 
 use crate::{
     backend_url, force_kill_backend_processes, load_prefs, log_line, save_prefs, stop_backend,
     wait_backend_port_release, QUITTING,
 };
 
+const TEST_CHANNEL_URL: &str =
+    "https://github.com/yBlackH4t/ChronosInventory/releases/download/canal-teste/latest.json";
 const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
 // O instalador reabre o Chronos sozinho; o aviso de como reabrir so vale logo depois.
 const MARKER_MAX_AGE_SECS: u64 = 15 * 60;
@@ -48,6 +55,14 @@ pub struct AfterUpdateMarker {
     versao: String,
     modo: AfterUpdate,
     em: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Canal {
+    #[default]
+    Estavel,
+    Teste,
 }
 
 #[derive(Serialize)]
@@ -107,11 +122,35 @@ pub fn spawn_checker(app: AppHandle) {
     });
 }
 
+fn build_updater(app: &AppHandle) -> Result<Updater, String> {
+    let mut builder = app
+        .updater_builder()
+        .version_comparator(|current, update| update.version != current);
+    if load_prefs().canal_atualizacao == Canal::Teste {
+        let url = Url::parse(TEST_CHANNEL_URL).map_err(|e| e.to_string())?;
+        builder = builder.endpoints(vec![url]).map_err(|e| e.to_string())?;
+    }
+    builder.build().map_err(|e| e.to_string())
+}
+
+/// Trocou de canal: a versao baixada era do outro canal, entao procura de novo.
+pub fn canal_mudou(app: &AppHandle) {
+    app.state::<PendingUpdate>().0.lock().unwrap().take();
+    let mut prefs = load_prefs();
+    prefs.versao_baixada = None;
+    let _ = save_prefs(&prefs);
+    if cfg!(debug_assertions) {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move { check_and_download(&app, false).await });
+}
+
 async fn check_and_download(app: &AppHandle, first_check: bool) {
     if INSTALLING.load(Ordering::SeqCst) || QUITTING.load(Ordering::SeqCst) {
         return;
     }
-    let found = match app.updater() {
+    let found = match build_updater(app) {
         Ok(updater) => updater.check().await,
         Err(err) => {
             log_line(&format!("atualizacao: updater indisponivel: {err}"));
@@ -255,4 +294,31 @@ pub async fn instalar_atualizacao_agora(app: AppHandle) -> Result<(), String> {
     } else {
         Err("Não consegui instalar agora. O Chronos tenta de novo quando for fechado.".into())
     }
+}
+
+/// O "Verificar atualizacao" da tela: o mesmo canal e a mesma regra da procura automatica. Devolve
+/// o que a tela precisa para montar o `Update` do plugin (baixar, instalar) pelo `rid`.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoundUpdate {
+    rid: ResourceId,
+    current_version: String,
+    version: String,
+    body: Option<String>,
+    raw_json: serde_json::Value,
+}
+
+#[tauri::command]
+pub async fn procurar_atualizacao(webview: Webview) -> Result<Option<FoundUpdate>, String> {
+    let updater = build_updater(webview.app_handle())?;
+    let Some(update) = updater.check().await.map_err(|e| e.to_string())? else {
+        return Ok(None);
+    };
+    Ok(Some(FoundUpdate {
+        current_version: update.current_version.clone(),
+        version: update.version.clone(),
+        body: update.body.clone(),
+        raw_json: update.raw_json.clone(),
+        rid: webview.resources_table().add(update),
+    }))
 }
