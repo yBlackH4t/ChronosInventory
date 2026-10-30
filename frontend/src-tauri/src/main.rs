@@ -27,6 +27,9 @@ use tauri_plugin_shell::{
 };
 use tokio::time::sleep;
 
+mod auto_update;
+use auto_update::{AfterUpdate, AfterUpdateMarker, PendingUpdate};
+
 struct BackendState(Mutex<Option<CommandChild>>);
 
 const SIDECAR_NAME: &str = "estoque_backend";
@@ -111,6 +114,12 @@ fn remove_legacy_logs() {
 struct DesktopPrefs {
     #[serde(default = "default_true")]
     fechar_para_bandeja: bool,
+    // Ultima atualizacao baixada: se ficou sem instalar (PC desligado), instala ao abrir.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    versao_baixada: Option<String>,
+    // Como reabrir depois que o instalador termina (bandeja ou fechado).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    depois_de_atualizar: Option<AfterUpdateMarker>,
 }
 
 fn default_true() -> bool {
@@ -121,6 +130,8 @@ impl Default for DesktopPrefs {
     fn default() -> Self {
         Self {
             fechar_para_bandeja: true,
+            versao_baixada: None,
+            depois_de_atualizar: None,
         }
     }
 }
@@ -253,6 +264,24 @@ fn show_main_window(app: &tauri::AppHandle) {
 }
 
 fn quit_app(app: &tauri::AppHandle) {
+    if auto_update::is_installing() {
+        // O instalador ja vai fechar o Chronos; sair agora cortaria a copia de seguranca.
+        return;
+    }
+    // Com atualizacao baixada, sair e a hora de instalar; o Chronos continua fechado depois.
+    if auto_update::has_pending(app) {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            if !auto_update::install_pending(&app, AfterUpdate::Fechar).await {
+                exit_app(&app);
+            }
+        });
+        return;
+    }
+    exit_app(app);
+}
+
+fn exit_app(app: &tauri::AppHandle) {
     QUITTING.store(true, Ordering::SeqCst);
     stop_backend(app, "tray_quit");
     app.exit(0);
@@ -622,7 +651,14 @@ fn main() {
         log_line(&format!("panic: {info}"));
     }));
 
-    let start_in_tray = std::env::args().any(|arg| arg == TRAY_START_ARG);
+    let after_update = auto_update::take_after_update();
+    if after_update == AfterUpdate::Fechar {
+        // Atualizado ao sair: o instalador reabre o Chronos, mas a pessoa tinha fechado.
+        log_line("atualizado ao sair: continua fechado");
+        return;
+    }
+    let start_in_tray =
+        std::env::args().any(|arg| arg == TRAY_START_ARG) || after_update == AfterUpdate::Bandeja;
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -633,9 +669,12 @@ fn main() {
             restart_app,
             kill_backend,
             desktop_settings,
-            set_desktop_settings
+            set_desktop_settings,
+            auto_update::atualizacao_estado,
+            auto_update::instalar_atualizacao_agora
         ])
         .manage(BackendState(Mutex::new(None)))
+        .manage(PendingUpdate::default())
         .setup(move |app| {
             remove_legacy_logs();
             log_line("App setup iniciado");
@@ -674,6 +713,7 @@ fn main() {
             start_backend(app.handle());
 
             let window_clone = window.clone();
+            let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let ok = wait_for_health(&backend_url("/health"), Duration::from_secs(20)).await;
                 if !ok {
@@ -684,6 +724,7 @@ fn main() {
                 } else {
                     let _ = window_clone.show();
                 }
+                auto_update::spawn_checker(app_handle);
             });
 
             Ok(())
@@ -691,7 +732,21 @@ fn main() {
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 let app = window.app_handle();
-                if !QUITTING.load(Ordering::SeqCst) && load_prefs().fechar_para_bandeja {
+                let to_tray = load_prefs().fechar_para_bandeja;
+                if !QUITTING.load(Ordering::SeqCst) && auto_update::has_pending(app) {
+                    // Fechou a janela: ninguem esta usando, hora de instalar a atualizacao baixada.
+                    api.prevent_close();
+                    let _ = window.hide();
+                    let after = if to_tray { AfterUpdate::Bandeja } else { AfterUpdate::Fechar };
+                    let app = app.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if !auto_update::install_pending(&app, after).await && after == AfterUpdate::Fechar {
+                            exit_app(&app);
+                        }
+                    });
+                    return;
+                }
+                if !QUITTING.load(Ordering::SeqCst) && to_tray {
                     // Continua ligado na bandeja: robo do WhatsApp, backup e servidor da base.
                     api.prevent_close();
                     let _ = window.hide();

@@ -420,6 +420,10 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — 2.7.29: atualização automática
+- Branch: `claude/project-thread-pfk96d` (sobre a main 2.7.28). Opção escolhida pelo dono: baixar escondido e instalar ao fechar.
+- `frontend/src-tauri/src/auto_update.rs`: procura ao abrir e a cada hora, baixa em segundo plano e instala (cópia `POST /backup/pre-update` antes) ao fechar a janela, em "Sair do Chronos", quando a janela está escondida na bandeja, ou ao abrir quando a versão já tinha sido baixada antes (`desktop.json` `versao_baixada`). O instalador MSI reabre o app; `depois_de_atualizar` em `desktop.json` faz ele voltar na bandeja ou continuar fechado. Tela: `hooks/useTauriUpdater.tsx` (aviso "Atualização pronta" + "Reiniciar agora"; comandos `atualizacao_estado`, `instalar_atualizacao_agora`). Só vale a partir da 2.7.29 instalada.
+
 ### 2026-10-30 — Claude Code — 2.7.28: layout limpo fase 3 (telas da engrenagem)
 - Branch: `claude/project-thread-1yjko1` (sobre a main 2.7.27). Fase 3 e última do plano aprovado.
 - Inventário (`EmptyState` com "Nova sessão" quando não há sessão; botão "Folha de contagem"), Relatórios (sem `resetView`), Configurações (`.vv-pals` 3 por 3; `DesktopSettingsPanel` retorna null fora do app), Exportar (`ExportCard`), Perfis (caminhos em Accordion "Detalhes"), Comparar (cards só com `compareResult`), Importar (`Stepper` steps até 720 px), Base oficial (`OfficialBaseSection`: URLs só com servidor ligado, tabela só com base publicada) e Backup (`BackupHome`: "Pegar a base" só com servidor remoto).

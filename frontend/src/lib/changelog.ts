@@ -10,6 +10,15 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.29",
+    "date": "2026-10-30",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: Atualização automática: o Chronos procura atualização ao abrir e a cada hora, e baixa escondido. Quem está usando só vê o aviso \"Atualização pronta\" (com \"Reiniciar agora\" se quiser); ela é instalada, com cópia de segurança antes, quando a janela é fechada, em \"Sair do Chronos\" ou quando o Chronos abre escondido com o Windows. Depois de instalar, ele volta do mesmo jeito: na bandeja ou fechado.",
+      "Mudanca: Atualização baixada e não instalada (PC desligado antes de fechar o Chronos): é instalada logo ao abrir."
+    ]
+  },
+  {
     "version": "2.7.28",
     "date": "2026-10-30",
     "title": "Ajustes operacionais",
