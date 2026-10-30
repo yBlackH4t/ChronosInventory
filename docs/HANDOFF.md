@@ -420,6 +420,11 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — 2.7.31: bibliotecas com falha conhecida
+- Branch: `claude/project-thread-sxyros`. Dependabot e CodeQL ligados pelo dono; 77 + 42 alertas.
+- `backend/requirements.txt`: pillow 12.1.1 → 13.0.0, starlette 0.52.1 → 1.10.0, fastapi 0.146.0 → 0.162.0 (pip-audit sem pendências). `frontend`: vitest 3 → 5 (`npm audit` 0).
+- Pendente: `zip` 4.6.1 no Cargo.lock vem do tauri-plugin-updater 2.10; corrigir exige Tauri 2.12 (Rust e `@tauri-apps/*`). Risco baixo (atualização assinada é conferida antes de abrir o zip).
+
 ### 2026-10-30 — Claude Code — 2.7.30: desempenho (Painel, Produtos, buscas)
 - Branch: `claude/project-thread-7x8daq` (sobre a main 2.7.27; 2.7.28 está no PR #60, 2.7.29 no #61). Auditoria medida num banco de teste com os 4.279 produtos do CSV, o catálogo real e 150 mil movimentações.
 - `MovementRepository.get_stock_items_overview`: saídas numa passada agrupada por produto (antes subconsulta por produto que o SQLite resolvia pelo índice de tipo). Mesmo resultado; 14 s → 0,5 s.

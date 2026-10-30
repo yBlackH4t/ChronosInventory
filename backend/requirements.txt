@@ -1,7 +1,7 @@
 # Versoes fixas: o release (GitHub Actions) instala exatamente estas versoes,
 # as mesmas com que a suite de testes passou. Atualize de proposito, rodando os testes.
-fastapi==0.146.0
-starlette==0.52.1
+fastapi==0.162.0
+starlette==1.10.0
 uvicorn[standard]==0.54.0
 pydantic==2.14.1
 python-multipart==0.0.32
@@ -9,7 +9,7 @@ pandas==3.0.6
 numpy==2.5.4
 openpyxl==3.1.5
 reportlab==4.4.10
-pillow==12.1.1
+pillow==13.0.0
 requests==2.34.2
 cryptography==50.0.2
 truststore==0.10.5

@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.31",
+    "date": "2026-10-30",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Segurança das bibliotecas: a leitura de imagens (Pillow 13.0.0) e o servidor interno (Starlette 1.10.0, FastAPI 0.162.0) foram atualizados para versões sem as falhas conhecidas apontadas pelo GitHub. As fotos que chegam pelo WhatsApp e pelo celular passam por essa leitura, e a falha do servidor podia deixar alguém da rede passar pela trava que libera só o leitor de código para os celulares."
+    ]
+  },
+  {
     "version": "2.7.30",
     "date": "2026-10-30",
     "title": "Ajustes operacionais",

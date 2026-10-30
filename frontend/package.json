@@ -1,7 +1,7 @@
 {
   "name": "chronos_inventory_frontend",
   "private": true,
-  "version": "2.7.30",
+  "version": "2.7.31",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -70,6 +70,6 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.71.2",
     "vite": "^7.3.7",
-    "vitest": "^3.2.7"
+    "vitest": "^5.0.5"
   }
 }
