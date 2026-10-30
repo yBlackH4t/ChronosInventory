@@ -420,6 +420,11 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — bibliotecas com falha conhecida
+- Branch: `claude/project-thread-sxyros` (PR #64; versão pelo robô, arquivo `novidades/seguranca-bibliotecas.md`). Dependabot e CodeQL ligados pelo dono; 77 + 42 alertas.
+- `backend/requirements.txt`: pillow 12.1.1 → 13.0.0, starlette 0.52.1 → 1.10.0, fastapi 0.146.0 → 0.162.0 (pip-audit sem pendências). `frontend`: vitest 3 → 5 (`npm audit` 0).
+- Pendente: `zip` 4.6.1 no Cargo.lock vem do tauri-plugin-updater 2.10; corrigir exige Tauri 2.12 (Rust e `@tauri-apps/*`). Risco baixo (atualização assinada é conferida antes de abrir o zip).
+
 ### 2026-10-30 — Claude Code — publicação automática, canal de teste e voltar versão
 - Branch: `claude/project-thread-t67dr4` (sobre a main 2.7.30; sai na 2.7.30). Plano aprovado pelo dono: https://claude.ai/artifact/7bbKQ59wSfupiPQEsmjF7W
 - Versão pelo robô: `scripts/proxima_versao.py` (testes em `backend/tests/test_proxima_versao.py`) lê `novidades/*.md`; versão da main sem tag = publica ela mesma; com tag e novidades = +1 (ou `versao: media`/`grande`); sem novidades = nada. `publicar.yml` (push na main) grava "Versão X (automática)", cria a tag e chama o `release.yml` (`workflow_call`), que publica como pré-lançamento (`make_latest: false`) e sobe o `latest.json` no lançamento fixo `canal-teste`.
