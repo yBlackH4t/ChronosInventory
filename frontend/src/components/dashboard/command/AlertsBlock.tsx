@@ -57,6 +57,9 @@ export default function AlertsBlock({ items, loading, onOpenProduct }: AlertsBlo
                     <span className="cc-alert-detail">{item.detail}</span>
                   </span>
                   <span className="cc-alert-tag cc-mono">{ACTION_LABELS[item.kind]}</span>
+                  <span className="cc-alert-go" aria-hidden>
+                    Abrir ficha →
+                  </span>
                 </button>
               </m.li>
             );

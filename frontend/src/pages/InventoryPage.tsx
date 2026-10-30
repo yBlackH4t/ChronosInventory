@@ -53,6 +53,8 @@ import {
   type InventoryTabState,
   type SessionItemEdit,
 } from "../components/inventory/inventoryCollector";
+import { fireConfetti } from "../lib/confetti";
+import { useMotionLevel } from "../lib/motionContext";
 
 export default function InventoryPage() {
   const persistedState = useMemo(
@@ -91,6 +93,7 @@ export default function InventoryPage() {
     null,
   );
   const [collectorLog, setCollectorLog] = useState<CollectorLogItem[]>([]);
+  const motionLevel = useMotionLevel();
   const collectorInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [scrollY, setScrollY] = useState(persistedState.scrollY);
@@ -325,6 +328,7 @@ export default function InventoryPage() {
     mutationFn: (sessionId) => api.inventoryCloseSession(sessionId),
     onSuccess: (response) => {
       notifySuccess(`Sessão #${response.data.id} fechada`);
+      fireConfetti(motionLevel);
       if (selectedSessionId === response.data.id) {
         setCollectorModeActive(false);
         setCollectorSessionId(null);

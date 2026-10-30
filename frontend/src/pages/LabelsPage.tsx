@@ -26,6 +26,7 @@ import {
 import { notifyError, notifySuccess } from "../lib/notify";
 import { printHtml } from "../lib/printHtml";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
+import { usePrintOut } from "../components/labels/PrintOut";
 
 type StockFilter = "COM_ESTOQUE" | "TODOS" | "SEM_ESTOQUE";
 type CopiesMode = "ONE" | "TOTAL_STOCK" | "MANUAL";
@@ -106,6 +107,7 @@ export default function LabelsPage() {
     fromUrl ? preselectedFromUrl : (persisted?.selectedIds ?? []),
   );
   const [printing, setPrinting] = useState(false);
+  const printOut = usePrintOut();
   const [copiesMode, setCopiesMode] = useState<CopiesMode>(
     persisted?.copiesMode ?? "ONE",
   );
@@ -314,7 +316,12 @@ export default function LabelsPage() {
           `Impressão preparada: ${batch.expanded.length} etiqueta(s). Ignorados: ${batch.skipped}. Ajustados no limite: ${batch.capped}.`,
         );
       }
-      printLabels(batch.expanded);
+      const first = batch.expanded[0];
+      printOut.print(
+        batch.expanded.length === 1 ? first.nome : `${batch.expanded.length} etiquetas`,
+        batch.expanded.length === 1 ? `#${first.id}` : first.nome,
+        () => printLabels(batch.expanded),
+      );
     } finally {
       setPrinting(false);
     }
@@ -328,11 +335,16 @@ export default function LabelsPage() {
       );
       return;
     }
-    printLabels(batch.expanded);
+    printOut.print(
+      product.nome,
+      batch.expanded.length === 1 ? `#${product.id}` : `${batch.expanded.length} cópias`,
+      () => printLabels(batch.expanded),
+    );
   };
 
   return (
     <Stack gap="lg">
+      {printOut.node}
       <PageHeader
         title="Etiquetas"
         subtitle={

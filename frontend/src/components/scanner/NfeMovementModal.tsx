@@ -52,6 +52,7 @@ import ProgressButton from "../ui/ProgressButton";
 import NfeStepper from "./NfeStepper";
 import RemessaAvisoPanel from "./RemessaAvisoPanel";
 import "./scanner.css";
+import { fireConfetti } from "../../lib/confetti";
 
 type RowState = {
   produtoId: string | null;
@@ -402,6 +403,7 @@ export default function NfeMovementModal({ opened, chave, onClose }: NfeMovement
         observacao: observacao.trim() || undefined,
       });
       const lancados = res.data.movimentacoes.length;
+      if (lancados > 0) fireConfetti(motionLevel);
       notifySuccess(
         lancados === 0
           ? `${res.data.documento}: só casco ou garantia, o estoque não mudou.`

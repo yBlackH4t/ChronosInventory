@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { activityTimeLabel } from "../../../lib/dashboardBento";
 import { movementTone } from "../../../lib/semantic";
 import { useMotionLevel } from "../../../lib/motionContext";
@@ -26,6 +27,13 @@ function placeLabel(row: MovementOut, locationName: LiveTickerProps["locationNam
 // (para quando o mouse passa por cima); nos outros fica parada e rola com o mouse.
 export default function LiveTicker({ rows, locationName, onOpenProduct }: LiveTickerProps) {
   const running = useMotionLevel() === "completo" && rows.length > 2;
+  // Movimentação que chegou depois que a tela abriu entra piscando na cor de entrada.
+  const rowsKey = rows.map((row) => row.id).join(",");
+  const [seen, setSeen] = useState<{ key: string; ids: Set<number>; fresh: Set<number> } | null>(null);
+  if (seen?.key !== rowsKey) {
+    const fresh = new Set(seen ? rows.filter((row) => !seen.ids.has(row.id)).map((row) => row.id) : []);
+    setSeen({ key: rowsKey, ids: new Set([...(seen?.ids ?? []), ...rows.map((row) => row.id)]), fresh });
+  }
   const items = (copy: number) =>
     rows.map((row) => {
       const nome = row.produto_nome || `Produto #${row.produto_id}`;
@@ -35,6 +43,7 @@ export default function LiveTicker({ rows, locationName, onOpenProduct }: LiveTi
           key={`${copy}-${row.id}`}
           type="button"
           className="cc-tick"
+          data-fresh={seen?.fresh.has(row.id) || undefined}
           onClick={() => onOpenProduct(row.produto_id, nome)}
           tabIndex={copy === 0 ? 0 : -1}
           aria-hidden={copy === 0 ? undefined : true}
@@ -53,7 +62,10 @@ export default function LiveTicker({ rows, locationName, onOpenProduct }: LiveTi
 
   return (
     <section className="cc-ticker surface-panel" aria-label="Últimas movimentações">
-      <span className="cc-ticker-label">Ao vivo</span>
+      <span className="cc-ticker-label">
+        <span className="cc-rec" aria-hidden />
+        Ao vivo
+      </span>
       <div className="cc-ticker-window" data-running={running || undefined}>
         {rows.length === 0 ? (
           <span className="cc-tick" style={{ cursor: "default" }}>

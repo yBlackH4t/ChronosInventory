@@ -1,0 +1,1204 @@
+/* ==========================================================================
+   Chronos vivo (2.7.25): paletas, menu, fundo, cantos, brilho e as animações do
+   Painel e das outras telas. Classes vv-* (e cc-* novas no Painel).
+   Tudo que fica se mexendo só vale em data-motion="completo"; no "Suave" sobra o
+   destaque sem movimento; no "Nenhum" a regra global do global.css desliga tudo.
+   --glow (0 a 1) vem de Configurações > Aparência > Brilho dos destaques.
+   ========================================================================== */
+
+:root {
+  --glow: 0.6;
+  --accent-2: #38bdf8;
+}
+
+/* ---------- Configurações: cartões das paletas ---------- */
+
+.vv-pals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.vv-pal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  transition:
+    transform 250ms var(--ease-out),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow 250ms var(--ease-out);
+}
+
+.vv-pal:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lift);
+}
+
+:root[data-motion="completo"] .vv-pal:hover {
+  transform: translateY(-3px);
+}
+
+.vv-pal[data-active] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.vv-pal:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vv-pal-mini {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 74px;
+}
+
+.vv-pal-half {
+  display: grid;
+  grid-template-rows: 9px 1fr;
+  gap: 5px;
+  padding: 6px;
+}
+
+.vv-pal-bar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+
+.vv-pal-bar i {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.vv-pal-body {
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+}
+
+.vv-pal-ring {
+  width: 26px;
+  height: 26px;
+  border: 3px solid;
+  border-radius: 50%;
+}
+
+.vv-pal-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.vv-pal-meta small {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.vv-pal-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--surface-solid);
+  transform: scale(0);
+  transition: transform 300ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.vv-pal[data-active] .vv-pal-check {
+  transform: scale(1);
+}
+
+/* ---------- Barra de cima: WhatsApp (C1) ---------- */
+
+.vv-wa-pill {
+  position: relative;
+}
+
+.vv-wa-dot {
+  --tone: var(--text-subtle);
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.vv-wa-dot[data-tone="ok"] { --tone: var(--success); }
+.vv-wa-dot[data-tone="warn"] { --tone: var(--warning); }
+.vv-wa-dot[data-tone="danger"] { --tone: var(--danger); }
+
+.vv-wa-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--tone);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+:root[data-motion="completo"] .vv-wa-dot[data-beat] {
+  animation: vv-beat 1.6s ease-in-out infinite;
+}
+
+:root[data-motion="completo"] .vv-wa-dot[data-beat]::after {
+  animation: vv-ping 1.6s ease-out infinite;
+}
+
+:root[data-motion="completo"] .vv-wa-dot[data-tone="danger"] {
+  animation: vv-blink 1.2s steps(2) infinite;
+}
+
+.vv-wa-bubble {
+  position: absolute;
+  right: -6px;
+  top: -18px;
+  padding: 2px 7px;
+  border-radius: 9px 9px 9px 2px;
+  background: var(--success);
+  color: #04150a;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: vv-bubble 2.8s cubic-bezier(0.2, 0.9, 0.3, 1.3) forwards;
+}
+
+:root[data-motion="nenhum"] .vv-wa-bubble {
+  animation: none;
+  display: none;
+}
+
+@keyframes vv-beat {
+  0%, 48%, 100% { transform: scale(1); }
+  12% { transform: scale(1.35); }
+  36% { transform: scale(1.2); }
+}
+
+@keyframes vv-ping {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes vv-blink {
+  50% { opacity: 0.25; }
+}
+
+@keyframes vv-bubble {
+  0% { opacity: 0; transform: translateY(6px) scale(0.7); }
+  15%, 80% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
+/* ---------- Menu de cima (Aparência > Menu) ---------- */
+
+:root[data-menu="colorido"] .topbar-card {
+  border-color: transparent;
+  background: linear-gradient(120deg, var(--accent-2), var(--accent));
+  color: #fff;
+}
+
+:root[data-menu="colorido"] .topbar-card :is(.topbar-brand, .topbar-brand-name, .topnav-tab, .mantine-ActionIcon-root) {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+:root[data-menu="colorido"] .topbar-card .topnav-tab[data-active] {
+  color: var(--accent);
+}
+
+:root[data-menu="colorido"] .topbar-card .topnav-tab:not([data-active]):hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+:root[data-menu="colorido"] .topbar-card :is(.cmd-trigger, .profile-pill) {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+:root[data-menu="colorido"] .topbar-card .topbar-tabs {
+  background: rgba(0, 0, 0, 0.16);
+}
+
+:root[data-menu="colorido"] .topbar-card .topnav-indicator {
+  background: #fff;
+}
+
+:root[data-menu="colorido"] .topbar-brand-mark {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+:root[data-menu="neon"] .topbar-card {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow:
+    0 0 calc(var(--glow) * 28px) color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+:root[data-menu="neon"] .topbar-tabs {
+  background: transparent;
+}
+
+:root[data-menu="neon"] .topnav-indicator {
+  top: auto;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+}
+
+:root[data-menu="neon"] .topnav-tab[data-active] {
+  text-shadow: 0 0 calc(var(--glow) * 14px) var(--accent);
+}
+
+/* ---------- Fundo (Aparência > Fundo) ---------- */
+
+.app-backdrop[data-kind="malha"] {
+  --vv-grid: color-mix(in srgb, var(--text) 5%, transparent);
+  background-image:
+    linear-gradient(var(--vv-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--vv-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.vv-backdrop-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Com a malha no app inteiro, o Painel não precisa da dele. */
+:root[data-backdrop="malha"] .cc::before {
+  display: none;
+}
+
+/* ---------- Cantos dos painéis (Aparência > Cantos) ---------- */
+
+:root[data-corners="redondo"] {
+  --radius-glass: 22px;
+}
+
+:root[data-corners="redondo"] :is(.mantine-Card-root, .cc-panel, .cc-ticker) {
+  border-radius: 22px;
+}
+
+:root[data-corners="reto"] {
+  --radius-glass: 3px;
+}
+
+:root[data-corners="reto"] :is(.mantine-Card-root, .cc-panel, .cc-ticker, .topbar-card) {
+  border-radius: 3px;
+}
+
+:root[data-corners="chanfrado"] {
+  --radius-glass: 0px;
+}
+
+:root[data-corners="chanfrado"] :is(.app-content .mantine-Card-root, .cc-panel, .topbar-card) {
+  border-radius: 0;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+
+:root[data-corners="chanfrado"] .cc-panel::before,
+:root[data-corners="chanfrado"] .cc-panel::after,
+:root[data-corners="redondo"] .cc-panel::before,
+:root[data-corners="redondo"] .cc-panel::after,
+:root[data-corners="reto"] .cc-panel::before,
+:root[data-corners="reto"] .cc-panel::after {
+  display: none;
+}
+
+/* ---------- Brilho dos botões ---------- */
+
+.mantine-Button-root[data-variant="filled"]:not([data-disabled]):hover {
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) calc(var(--glow) * 45%), transparent);
+}
+
+/* ==========================================================================
+   Painel (A1 a A9)
+   ========================================================================== */
+
+/* A1 Sistemas: ícone em quadradinho, onda de tempos em tempos, aviso piscando. */
+.cc-systems li {
+  border-radius: 8px;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    transform 250ms var(--ease-out);
+}
+
+.cc-systems li:hover {
+  background: var(--surface-hover);
+}
+
+:root[data-motion="completo"] .cc-systems li:hover {
+  transform: translateX(3px);
+}
+
+.cc-sys-icon {
+  --tone: var(--text-subtle);
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  color: var(--tone);
+}
+
+.cc-sys-icon[data-tone="ok"] { --tone: var(--success); }
+.cc-sys-icon[data-tone="warn"] { --tone: var(--warning); }
+.cc-sys-icon[data-tone="danger"] { --tone: var(--danger); }
+
+.cc-sys-icon::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 1.5px solid var(--tone);
+  border-radius: 10px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root[data-motion="completo"] .cc-sys-icon[data-tone="ok"]::after {
+  animation: cc-ring-wave 3s ease-out infinite;
+  animation-delay: var(--d, 0s);
+}
+
+:root[data-motion="completo"] .cc-sys-icon:is([data-tone="warn"], [data-tone="danger"]) {
+  animation: cc-warn-blink 1.8s ease-in-out infinite;
+}
+
+:root[data-motion="completo"] .cc-systems li:hover .cc-sys-icon[data-hover="bob"] svg {
+  animation: cc-bob 0.7s var(--ease-out);
+}
+
+:root[data-motion="completo"] .cc-systems li:hover .cc-sys-icon[data-hover="spin"] svg {
+  animation: cc-spin 0.8s var(--ease-out);
+}
+
+:root[data-motion="completo"] .cc-systems li:hover .cc-sys-icon[data-hover="shine"] svg {
+  animation: cc-shine 0.8s var(--ease-out);
+}
+
+.cc-sys-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-ecg {
+  width: 54px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.cc-ecg path {
+  fill: none;
+  stroke: var(--success);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-dasharray: 80;
+}
+
+:root[data-motion="completo"] .cc-ecg path {
+  animation: cc-ecg 2s linear infinite;
+}
+
+.cc-uptime {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.cc-uptime-bar {
+  display: flex;
+  gap: 2px;
+  height: 16px;
+}
+
+.cc-uptime-bar i {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--border);
+  transition: transform var(--dur-fast) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.cc-uptime-bar i[data-state="on"] { background: var(--success); opacity: 0.6; }
+.cc-uptime-bar i[data-state="off"] { background: var(--danger); opacity: 0.85; }
+.cc-uptime-bar i[data-state="future"] { opacity: 0.35; }
+
+.cc-uptime-bar i:hover {
+  opacity: 1;
+  transform: scaleY(1.3);
+}
+
+@keyframes cc-ring-wave {
+  0% { opacity: 0.6; transform: scale(1); }
+  60%, 100% { opacity: 0; transform: scale(1.55); }
+}
+
+@keyframes cc-warn-blink {
+  50% {
+    background: color-mix(in srgb, var(--tone) 32%, transparent);
+    box-shadow: 0 0 calc(var(--glow) * 16px) color-mix(in srgb, var(--tone) 45%, transparent);
+  }
+}
+
+@keyframes cc-bob {
+  40% { transform: translateY(-3px) scale(1.12); }
+}
+
+@keyframes cc-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes cc-shine {
+  35% { transform: scale(1.22) rotate(-8deg); filter: drop-shadow(0 0 6px currentColor); }
+}
+
+@keyframes cc-ecg {
+  from { stroke-dashoffset: 160; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* A2 Miolo: radar girando, tracinhos que acendem, anel em destaque e cometas. */
+.cc-radar {
+  display: none;
+  transform-origin: 160px 160px;
+}
+
+:root[data-motion="completo"] .cc-radar {
+  display: inline;
+  animation: cc-spin 6s linear infinite;
+}
+
+:root[data-motion="completo"] .cc-tick-mark {
+  animation: cc-tick-light 6s linear infinite;
+}
+
+@keyframes cc-tick-light {
+  0% { opacity: 1; stroke: var(--accent); }
+  14% { opacity: 0.45; stroke: var(--text-subtle); }
+  100% { opacity: 0.45; stroke: var(--text-subtle); }
+}
+
+.cc-ring {
+  cursor: pointer;
+}
+
+.cc-ring-arc {
+  transition: stroke-width 300ms var(--ease-out), opacity 300ms var(--ease), filter 300ms var(--ease);
+}
+
+.cc-ring[data-hot] .cc-ring-arc {
+  stroke-width: 17px;
+  filter: drop-shadow(0 0 calc(var(--glow) * 10px) currentColor);
+}
+
+.cc-ring[data-dim] .cc-ring-arc,
+.cc-ring[data-dim] .cc-ring-comet {
+  opacity: 0.25;
+}
+
+.cc-ring-comet {
+  display: none;
+  transform-origin: 160px 160px;
+  filter: drop-shadow(0 0 5px currentColor);
+}
+
+:root[data-motion="completo"] .cc-ring-comet {
+  display: inline;
+  animation: cc-comet linear infinite;
+}
+
+@keyframes cc-comet {
+  0% { transform: rotate(0deg); opacity: 0; }
+  8% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: rotate(var(--arc)); opacity: 0; }
+}
+
+:root[data-motion="completo"] .cc-core-beat {
+  animation: cc-heart 4s ease-in-out infinite;
+}
+
+@keyframes cc-heart {
+  0%, 86%, 100% { text-shadow: none; }
+  92% { text-shadow: 0 0 calc(var(--glow) * 22px) var(--accent); }
+}
+
+.cc-legend button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+}
+
+.cc-legend button:hover,
+.cc-legend button[data-on] {
+  border-color: var(--border);
+  background: var(--surface-2);
+}
+
+/* A3 Números do meio: luz que segue o mouse (mi-glow) e inclinação leve. */
+.cc-kpi {
+  position: relative;
+  overflow: hidden;
+  transition: transform 200ms var(--ease-out), border-color var(--dur-fast) var(--ease);
+  transform-style: preserve-3d;
+}
+
+.cc-kpi:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.cc-kpi-up {
+  display: inline-block;
+}
+
+:root[data-motion="completo"] .cc-kpi-up {
+  animation: cc-up 1.8s ease-in-out infinite;
+}
+
+@keyframes cc-up {
+  50% { transform: translateY(-3px); }
+}
+
+/* A4 Saídas por dia: lupa nas barras, luz que varre e o dia de hoje pulsando. */
+.cc-daybars-row {
+  position: relative;
+  padding-top: 18px;
+  height: 114px;
+}
+
+.cc-dayslot {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 2px;
+  transform-origin: bottom;
+  transition: transform 160ms ease-out;
+}
+
+.cc-dayslot .cc-daybar {
+  width: 100%;
+  transition: background-color var(--dur-fast) var(--ease), box-shadow 200ms var(--ease);
+}
+
+.cc-dayslot[data-hover] .cc-daybar {
+  background: var(--accent-2);
+  opacity: 1;
+}
+
+.cc-daybar[data-today] {
+  background: var(--accent-2);
+  opacity: 1;
+}
+
+:root[data-motion="completo"] .cc-daybar[data-today] {
+  animation: cc-today 1.4s ease-in-out infinite;
+}
+
+:root[data-motion="completo"] .cc-daybar:not([data-empty], [data-today]) {
+  animation: cc-bar-flash 6s linear infinite;
+  animation-delay: calc(var(--i) * 0.08s + 0.8s);
+}
+
+@keyframes cc-today {
+  50% { box-shadow: 0 -4px calc(var(--glow) * 16px) var(--accent-2); }
+}
+
+@keyframes cc-bar-flash {
+  0%, 6%, 100% { filter: none; }
+  2% { filter: brightness(1.55) drop-shadow(0 0 6px var(--accent)); }
+}
+
+.cc-daybars-scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root[data-motion="completo"] .cc-daybars-scan {
+  animation: cc-scan 6s linear infinite;
+  animation-delay: 0.8s;
+}
+
+@keyframes cc-scan {
+  0% { left: 0; opacity: 0.8; }
+  80% { left: 100%; opacity: 0.8; }
+  81%, 100% { left: 100%; opacity: 0; }
+}
+
+.cc-daybars-tip {
+  position: absolute;
+  top: -8px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-pop);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
+
+/* A5 Entradas e saídas: barra do mouse acesa, seleção do zoom e lupa. */
+.cc-flow-in {
+  transition: filter 200ms var(--ease);
+}
+
+.cc-flow-in[data-hover] {
+  filter: drop-shadow(0 0 calc(var(--glow) * 9px) var(--success));
+}
+
+.cc-flow-brush {
+  fill: color-mix(in srgb, var(--accent) 15%, transparent);
+  stroke: var(--accent);
+  stroke-dasharray: 4 3;
+}
+
+.cc-lens {
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.25));
+}
+
+.cc-comet {
+  filter: drop-shadow(0 0 6px var(--warning));
+}
+
+.cc-flow-hint {
+  align-self: flex-end;
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+/* A6 Ao vivo: ponto de gravação piscando e movimentação nova acendendo. */
+.cc-ticker-label {
+  gap: 8px;
+}
+
+.cc-rec {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+:root[data-motion="completo"] .cc-rec {
+  animation: vv-blink 1.2s steps(2) infinite;
+}
+
+.cc-tick[data-fresh] {
+  animation: cc-fresh 1.8s ease;
+}
+
+@keyframes cc-fresh {
+  0%, 30% { background: color-mix(in srgb, var(--success) 30%, transparent); }
+  100% { background: transparent; }
+}
+
+/* A7 Pede ação: zerado pulsa, a linha anda no mouse e mostra "Abrir ficha". */
+.cc-alert {
+  position: relative;
+  transition:
+    background-color var(--dur-fast, 0.15s) ease,
+    transform 250ms var(--ease-out);
+}
+
+:root[data-motion="completo"] .cc-alert:hover {
+  transform: translateX(4px);
+}
+
+:root[data-motion="completo"] .cc-alert[data-kind="ZERADO"] > i {
+  animation: cc-stripe 2s ease-in-out infinite;
+}
+
+@keyframes cc-stripe {
+  50% { box-shadow: 0 0 calc(var(--glow) * 12px) var(--tone); }
+}
+
+.cc-alert-tag {
+  transition: opacity var(--dur-fast) var(--ease);
+}
+
+.cc-alert-go {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--accent-text);
+  opacity: 0;
+  transform: translate(8px, -50%);
+  transition: opacity 200ms var(--ease), transform 250ms var(--ease-out);
+  pointer-events: none;
+}
+
+.cc-alert:is(:hover, :focus-visible) .cc-alert-go {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+.cc-alert:is(:hover, :focus-visible) .cc-alert-tag {
+  opacity: 0;
+}
+
+/* A9 Atualização: anel do relógio enche em 20 s e uma luz passa nos painéis. */
+.cc-refresh {
+  vertical-align: -3px;
+  transform: rotate(-90deg);
+}
+
+.cc-refresh circle {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 3;
+}
+
+.cc-refresh .cc-refresh-fill {
+  stroke: var(--accent);
+  stroke-dasharray: 50.3;
+  stroke-dashoffset: 0;
+}
+
+:root:not([data-motion="nenhum"]) .cc-refresh .cc-refresh-fill {
+  animation: cc-refresh linear forwards;
+}
+
+@keyframes cc-refresh {
+  from { stroke-dashoffset: 50.3; }
+  to { stroke-dashoffset: 0; }
+}
+
+:root[data-motion="completo"] .cc-grid[data-refresh] .cc-panel {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--accent) 11%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation: cc-sweep 1.1s ease-in-out;
+}
+
+@keyframes cc-sweep {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+
+/* ==========================================================================
+   Outras telas (B1 a B9)
+   ========================================================================== */
+
+/* B3 Inventário: o leitor acende verde a cada bip (vt-* do 2.7.4 continua). */
+.vv-bip-ok {
+  animation: vv-bip-ok 900ms var(--ease-out);
+}
+
+@keyframes vv-bip-ok {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 70%, transparent); }
+  30% { box-shadow: 0 0 0 4px var(--success), 0 0 calc(var(--glow) * 34px) var(--success); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.vv-bump {
+  display: inline-block;
+  animation: vv-bump 420ms cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+
+@keyframes vv-bump {
+  40% { transform: scale(1.3); color: var(--success); }
+}
+
+.vv-laser-host {
+  position: relative;
+}
+
+.vv-laser-line {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 0;
+  z-index: 2;
+  height: 2px;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444;
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root[data-motion="completo"] .vv-laser-line {
+  animation: vv-laser 600ms ease-in-out;
+}
+
+@keyframes vv-laser {
+  0% { top: 0; opacity: 1; }
+  100% { top: 100%; opacity: 1; }
+}
+
+/* B5 Assistente: bolinha que respira enquanto procura e a resposta escrevendo. */
+.vv-orb {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--accent-2), var(--accent));
+  flex-shrink: 0;
+}
+
+:root[data-motion="completo"] .vv-orb {
+  animation: vv-orb 1s ease-in-out infinite;
+}
+
+@keyframes vv-orb {
+  50% { transform: scale(1.18); box-shadow: 0 0 calc(var(--glow) * 18px) var(--accent); }
+}
+
+.vv-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -2px;
+  background: var(--accent);
+}
+
+:root[data-motion="completo"] .vv-caret {
+  animation: vv-blink 1s steps(2) infinite;
+}
+
+/* B6 Ctrl+K: abre com mola e os resultados entram em cascata. */
+:root[data-motion="completo"] .mantine-Spotlight-content {
+  animation: vv-spring-in 420ms cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+
+:root[data-motion="completo"] .mantine-Spotlight-action {
+  animation: vv-slide-in 320ms var(--ease-out) both;
+}
+
+:root[data-motion="completo"] .mantine-Spotlight-action:nth-child(2) { animation-delay: 40ms; }
+:root[data-motion="completo"] .mantine-Spotlight-action:nth-child(3) { animation-delay: 80ms; }
+:root[data-motion="completo"] .mantine-Spotlight-action:nth-child(4) { animation-delay: 120ms; }
+:root[data-motion="completo"] .mantine-Spotlight-action:nth-child(5) { animation-delay: 160ms; }
+:root[data-motion="completo"] .mantine-Spotlight-action:nth-child(n + 6) { animation-delay: 200ms; }
+
+@keyframes vv-spring-in {
+  from { opacity: 0; transform: scale(0.94) translateY(-10px); filter: blur(4px); }
+}
+
+@keyframes vv-slide-in {
+  from { opacity: 0; transform: translateX(12px); }
+}
+
+/* B8 Confete: a tela inteira, sem pegar clique. */
+.vv-confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* B9 Tabelas com holofote: faixa que desliza com mola até a linha do mouse. */
+.vv-spot-host {
+  position: relative;
+}
+
+.vv-spot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    top 260ms cubic-bezier(0.3, 1.3, 0.5, 1),
+    height 200ms var(--ease-out),
+    opacity 200ms var(--ease);
+}
+
+.vv-spot[data-on] {
+  opacity: 1;
+}
+
+:root[data-motion="suave"] .vv-spot {
+  transition: opacity 200ms var(--ease);
+}
+
+/* B1 Produtos: o cartão inclina com o mouse, a luz passa por cima e a foto aproxima. */
+.vv-tilt {
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.vv-tilt .product-thumb img {
+  transition: transform 500ms var(--ease-out);
+}
+
+:root[data-motion="completo"] .vv-tilt:hover .product-thumb img {
+  transform: scale(1.14);
+}
+
+.pc-card.mi-glow::after {
+  z-index: 0;
+}
+
+/* B2 Movimentações: a linha estornada é riscada, fica vermelha e (com os estornados
+   ocultos) encolhe até sumir, em vez de desaparecer de uma vez. */
+.mv-line[data-striking] {
+  position: relative;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+
+.mv-line[data-striking]::after {
+  content: "";
+  position: absolute;
+  left: 60px;
+  right: 120px;
+  top: 50%;
+  height: 1.5px;
+  background: var(--danger);
+  transform-origin: left;
+  pointer-events: none;
+}
+
+:root:not([data-motion="nenhum"]) .mv-line[data-striking]::after {
+  animation: vv-strike 450ms var(--ease-out) both;
+}
+
+:root:not([data-motion="nenhum"]) .mv-line[data-leaving] {
+  overflow: hidden;
+  animation: vv-collapse 600ms 450ms var(--ease-out) forwards;
+}
+
+:root[data-motion="nenhum"] .mv-line[data-leaving] {
+  display: none;
+}
+
+@keyframes vv-strike {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes vv-collapse {
+  from { max-height: 64px; opacity: 1; }
+  to { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; border-width: 0; }
+}
+
+/* B3 Inventário: o quadro do coletor acende verde a cada bip certo e treme no errado. */
+.vv-collector {
+  position: relative;
+}
+
+.vv-collector-flash {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+
+/* B4 Etiquetas: a etiqueta sai da impressora no canto antes de imprimir. */
+.vv-printout {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 210px;
+  pointer-events: none;
+  animation: vv-printout-life 2600ms var(--ease-out) forwards;
+}
+
+.vv-printout-body {
+  position: relative;
+  z-index: 2;
+  width: 210px;
+  height: 38px;
+  border-radius: 12px 12px 5px 5px;
+  background: color-mix(in srgb, var(--text) 80%, var(--bg));
+  box-shadow: var(--shadow-pop);
+}
+
+.vv-printout-body::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 7px;
+  height: 4px;
+  border-radius: 2px;
+  background: #000;
+}
+
+.vv-printout-led {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+  animation: vv-blink 0.5s steps(2) infinite;
+}
+
+.vv-printout-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 168px;
+  height: 0;
+  margin-top: -8px;
+  padding: 0 10px;
+  overflow: hidden;
+  border-radius: 0 0 5px 5px;
+  background: #fff;
+  color: #111;
+  font-size: 0.68rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  animation: vv-printout-feed 1300ms steps(13) 150ms forwards;
+}
+
+.vv-printout-label b {
+  margin-top: 12px;
+  overflow: hidden;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vv-printout-bars {
+  height: 30px;
+  margin-top: 6px;
+  background: repeating-linear-gradient(90deg, #111 0 2px, transparent 2px 4px, #111 4px 5px, transparent 5px 8px, #111 8px 11px, transparent 11px 13px);
+}
+
+@keyframes vv-printout-feed {
+  to { height: 104px; }
+}
+
+@keyframes vv-printout-life {
+  0% { opacity: 0; transform: translateY(16px); }
+  10%, 82% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(10px); }
+}
+
+/* B5 Assistente: avatar vira uma bolinha que respira enquanto procura, e cada linha da
+   resposta aparece "digitando" da esquerda para a direita. */
+.vv-orb-avatar {
+  position: relative;
+}
+
+.vv-orb-avatar .vv-orb {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+}
+
+.vv-orb-avatar .vv-orb-icon {
+  position: relative;
+  color: #fff;
+}
+
+:root[data-motion="completo"] .vv-type {
+  animation: vv-type 700ms steps(24, end) both;
+}
+
+@keyframes vv-type {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* B7 Salvar que confirma: ✓ desenhado no botão e avisos com barrinha de tempo. */
+.vv-drawn-check path {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 0;
+}
+
+:root:not([data-motion="nenhum"]) .vv-drawn-check path {
+  animation: vv-draw 450ms 50ms var(--ease-out) both;
+}
+
+@keyframes vv-draw {
+  from { stroke-dashoffset: 30; }
+  to { stroke-dashoffset: 0; }
+}
+
+:root[data-motion="completo"] .vv-save-btn[data-saved] {
+  animation: mi-pop 420ms var(--ease-out);
+}
+
+.vv-timed {
+  overflow: hidden;
+}
+
+:root[data-motion="completo"] .vv-timed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--notification-color, var(--accent));
+  transform-origin: left;
+  animation: vv-shrink var(--vv-life, 4500ms) linear forwards;
+  pointer-events: none;
+}
+
+@keyframes vv-shrink {
+  to { transform: scaleX(0); }
+}
+
+.vv-timed:hover::after {
+  animation-play-state: paused;
+}

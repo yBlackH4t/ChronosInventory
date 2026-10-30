@@ -38,6 +38,8 @@ import { detectBrand } from "../../lib/brands";
 import { splitProductCode } from "../../lib/productView";
 import { useProfileScope } from "../../state/profileScope";
 import "../../styles/products-movements.css";
+import { useMotionLevel } from "../../lib/motionContext";
+import DrawnCheck from "../ui/DrawnCheck";
 
 type QuickMovementModalProps = {
   opened: boolean;
@@ -123,6 +125,8 @@ function QuickMovementForm({
     ["alt+t", () => setTipo("TRANSFERENCIA")],
   ]);
 
+  const motionLevel = useMotionLevel();
+  const [saved, setSaved] = useState(false);
   const mutation = useMutation({
     mutationFn: (payload: MovementCreate) => api.createMovement(payload),
     onSuccess: (_data, payload) => {
@@ -148,7 +152,13 @@ function QuickMovementForm({
         queryKey: ["movimentacoes", profileScopeKey],
       });
       onSuccess?.(payload);
-      onClose();
+      // No "Completo" o botão mostra o ✓ desenhado por um instante antes de fechar.
+      if (motionLevel === "completo") {
+        setSaved(true);
+        window.setTimeout(onClose, 650);
+      } else {
+        onClose();
+      }
     },
     onError: (err) => {
       notifyError(err, "Falha ao registrar movimentação.");
@@ -461,11 +471,13 @@ function QuickMovementForm({
           </Button>
           <Button
             type="submit"
-            color={movementColor(tipo)}
-            leftSection={<IconCheck size={16} />}
+            color={saved ? "success" : movementColor(tipo)}
+            leftSection={saved ? <DrawnCheck /> : <IconCheck size={16} />}
             loading={mutation.isPending}
+            data-saved={saved || undefined}
+            className="vv-save-btn"
           >
-            Confirmar {tipo === "SAIDA" ? "Baixa" : tipo === "ENTRADA" ? "Entrada" : "Transferência"}
+            {saved ? "Registrado" : `Confirmar ${tipo === "SAIDA" ? "Baixa" : tipo === "ENTRADA" ? "Entrada" : "Transferência"}`}
           </Button>
         </Group>
       </Stack>

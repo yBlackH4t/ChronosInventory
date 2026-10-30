@@ -26,6 +26,19 @@ Formato recomendado:
 
 
 
+## [2.7.25] - 2026-10-30
+
+### Added
+- **Paletas completas:** em Configurações > Aparência, escolha entre Azul-petróleo, Grafite, Esmeralda, Oficina, Violeta, Turbo, Oceano e Cyber. Cada uma troca fundo, painéis, menu, botões e destaques, no claro e no escuro. Em "Minha cor" você escolhe duas cores e o Chronos monta o resto. Entrada, saída, zerado e versão continuam com as mesmas cores em todas.
+- **Mais aparência:** menu de cima de vidro, colorido ou com linha neon; fundo com manchas, malha viva (riscos de luz correndo), partículas ou liso; cantos dos painéis com cantoneiras, chanfrados, bem redondos ou retos; brilho dos destaques de sóbrio a neon; tema claro/escuro pelo Windows ou pelo horário (escurece às 18h e clareia às 7h).
+- **Painel mais vivo:** ícones dos Sistemas soltam uma onda e o que pede atenção pisca; o WhatsApp mostra um batimento e a faixa "WhatsApp hoje" de meia em meia hora; o radar gira no centro e pontinhos correm nos anéis (passe o mouse num anel para ver o número dele); os números acendem e inclinam com o mouse; as barras de 60 dias têm lupa e uma luz que varre; o gráfico de entradas e saídas tem lupa redonda, cometa na linha e zoom ao arrastar um período; movimentação nova acende no "Ao vivo"; o anel ao lado do relógio mostra a próxima atualização.
+- **WhatsApp na barra de cima:** ponto que bate enquanto o robô está ligado e um balãozinho "+1 pergunta" quando chega pergunta nova.
+- **Outras telas:** cartão de produto inclina e a foto aproxima; estorno risca a linha e ela encolhe até sumir; coletor do inventário acende verde a cada bip (treme no erro); etiqueta "sai da impressora" antes de imprimir; assistente com bolinha que respira e resposta digitando; Ctrl+K abre com mola; salvar mostra o ✓ desenhado; confete curto ao fechar inventário ou lançar NF; faixa que segue o mouse nas listas de Produtos e Movimentações; avisos com barrinha de tempo.
+
+### Changed
+- **"Cor principal" virou "Paleta"** e saiu de "Opções avançadas": quem usava Índigo passa para Violeta e quem usava Grafite continua no Grafite.
+- Tudo respeita o nível de animação: no "Suave" nada fica piscando e no "Nenhum" nada se mexe.
+
 ## [2.7.24] - 2026-10-29
 
 ### Added

@@ -7,6 +7,7 @@ import {
   Menu,
   Text,
   Tooltip,
+  useComputedColorScheme,
   useMantineColorScheme,
 } from "@mantine/core";
 import { modals } from "@mantine/modals";
@@ -41,6 +42,8 @@ import chronosIcon from "../../assets/chronos-icon.svg";
 import ShortcutsModal from "../common/ShortcutsModal";
 import NavIndicator from "./NavIndicator";
 import ApiStatusDot from "./ApiStatusDot";
+import WhatsAppPill from "./WhatsAppPill";
+import { useSchemeSchedule } from "../../lib/appearance";
 import { revealThemeChange } from "../../lib/themeReveal";
 import { useMotionLevel } from "../../lib/motionContext";
 
@@ -62,7 +65,9 @@ export default function TopBar({ health }: { health: HealthOut }) {
     restartRequired,
     backendSupportsProfiles,
   } = useProfileScope();
-  const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { setColorScheme } = useMantineColorScheme();
+  const computedScheme = useComputedColorScheme("light");
+  const [, setSchemeSchedule] = useSchemeSchedule();
   const motionLevel = useMotionLevel();
   const location = useLocation();
   const prefetch = usePrefetchRoute();
@@ -204,7 +209,7 @@ export default function TopBar({ health }: { health: HealthOut }) {
     });
   };
 
-  const isDark = colorScheme === "dark";
+  const isDark = computedScheme === "dark";
 
   return (
     <div className="topbar-inner">
@@ -248,6 +253,8 @@ export default function TopBar({ health }: { health: HealthOut }) {
               </Tooltip>
             )}
 
+            <WhatsAppPill />
+
             <SyncStatusBadge />
 
             <ApiStatusDot version={appVersion} />
@@ -280,7 +287,15 @@ export default function TopBar({ health }: { health: HealthOut }) {
                 color="gray"
                 aria-label="Alternar tema"
                 onClick={(event) =>
-                  revealThemeChange(event, () => setColorScheme(isDark ? "light" : "dark"), motionLevel)
+                  revealThemeChange(
+                    event,
+                    () => {
+                      // Trocar na mão desliga o "pelo horário".
+                      setSchemeSchedule(false);
+                      setColorScheme(isDark ? "light" : "dark");
+                    },
+                    motionLevel,
+                  )
                 }
               >
                 {isDark ? (

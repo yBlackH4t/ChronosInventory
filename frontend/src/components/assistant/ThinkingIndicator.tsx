@@ -5,8 +5,10 @@ import { IconMessageChatbot } from "@tabler/icons-react";
 export default function ThinkingIndicator({ label }: { label: string }) {
   return (
     <div className="chat-row" data-from="assistente">
-      <span className="chat-avatar" aria-hidden>
-        <IconMessageChatbot size={16} />
+      {/* Bolinha que "respira" enquanto a IA procura (2.7.25). */}
+      <span className="chat-avatar vv-orb-avatar" aria-hidden>
+        <span className="vv-orb" />
+        <IconMessageChatbot size={16} className="vv-orb-icon" />
       </span>
       <div className="chat-thinking" role="status" aria-live="polite">
         <span className="chat-dots" aria-hidden>

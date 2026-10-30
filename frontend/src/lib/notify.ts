@@ -72,6 +72,8 @@ export function notifySuccess(message: string) {
     title: "Sucesso",
     message,
     color: "success",
+    // Barrinha que mostra quanto falta para o aviso sumir (vivo.css).
+    className: "vv-timed",
   });
 }
 

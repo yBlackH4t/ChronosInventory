@@ -420,6 +420,13 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — 2.7.25: paletas completas e Chronos mais animado
+- Branch: `claude/project-thread-pimrnb` (sobre a main 2.7.24). Pedido do dono: Painel mais vivo, mais cores além do azul e ideias para as outras telas; ele aprovou tudo do protótipo (A1-A9, T1-T7, B1-B9, C1).
+- Paletas: `frontend/src/lib/palettes.ts` (8 paletas + "Minha cor"; escreve variáveis no :root pelo `PaletteVars` de `app/providers.tsx`; petróleo não escreve nada e fica o global.css). Preferências novas em `lib/appearance.ts` (paleta, cores próprias, menu, fundo, cantos, brilho, tema pelo horário); a antiga "Cor principal" vira a paleta inicial.
+- Visual e animações em `frontend/src/styles/vivo.css` (vv-* e cc-* novas). Fundo em `components/shell/LiveBackdrop.tsx`; WhatsApp na barra em `components/shell/WhatsAppPill.tsx` (anota a faixa "WhatsApp hoje", `lib/whatsappUptime.ts`).
+- Painel: `components/dashboard/command/*` (SystemsBlock, HealthCore, FlowChart com lupa e zoom, LiveTicker, AlertsBlock). Outras telas: estorno que encolhe (`hooks/useEstornoLeaving.ts`), holofote das listas (`hooks/useRowSpotlight.ts`), coletor, etiqueta saindo (`components/labels/PrintOut.tsx`), confete (`lib/confetti.ts`), ✓ desenhado (`components/ui/DrawnCheck.tsx`).
+- Testes: `lib/palettes.test.ts` (inclui contraste >= 4,5:1 de todas as paletas) e `lib/whatsappUptime.test.ts`.
+
 ### 2026-10-29 — Claude Code — 2.7.24: celular lê a etiqueta certa e tem modos
 - Branch: `claude/project-thread-uaek4n` (sobre a 2.7.23). Pedido do dono: a foto da caixa lia o código errado (EM7559, "1", "BR") e o celular era confuso.
 - A página do celular (`backend/app/api/routers/scanner_page.py`) acha cada faixa de código de barras da foto e lê todas; `POST /api/scanner/ler` escolhe a peça pelo cadastro e pelos padrões Garrett/BorgWarner/Holset (`app/services/label_reader_service.py`).

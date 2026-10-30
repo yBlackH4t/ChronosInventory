@@ -47,7 +47,7 @@ export default function SettingsPage() {
         </ActionGrid>
       </Stack>
 
-      <AdvancedSection hint="Cor principal, tabelas compactas e a chave do assistente de IA. Só para quem configura.">
+      <AdvancedSection hint="Tabelas compactas e a chave do assistente de IA. Só para quem configura.">
         <AppearanceSettingsPanel part="extra" />
         <AssistantSettingsPanel />
       </AdvancedSection>

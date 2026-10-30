@@ -96,45 +96,19 @@
   --blob-opacity: 0.32;
 }
 
-/* Cor principal escolhida em Configurações > Aparência (padrão: azul-petróleo). */
-:root[data-accent="indigo"] {
-  --accent: #4f46e5;
-  --accent-text: #4338ca;
-  --accent-soft: rgba(79, 70, 229, 0.09);
-  --accent-gradient: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
-  --shadow-button: 0 6px 20px rgba(79, 70, 229, 0.28);
-}
-
-:root[data-accent="grafite"] {
-  --accent: #334155;
-  --accent-text: #334155;
-  --accent-soft: rgba(51, 65, 85, 0.08);
-  --accent-gradient: linear-gradient(135deg, #334155 0%, #64748b 100%);
-  --shadow-button: 0 6px 20px rgba(51, 65, 85, 0.24);
-}
-
-:root[data-mantine-color-scheme="dark"][data-accent="indigo"] {
-  --accent: #818cf8;
-  --accent-text: #a5b4fc;
-  --accent-soft: rgba(129, 140, 248, 0.12);
-}
-
-:root[data-mantine-color-scheme="dark"][data-accent="grafite"] {
-  --accent: #cbd5e1;
-  --accent-text: #cbd5e1;
-  --accent-soft: rgba(203, 213, 225, 0.1);
-}
+/* Paletas de Configurações > Aparência (2.7.25): as cores de cada uma são escritas no :root
+   por lib/palettes.ts. Aqui ficam só os ajustes que não são cor. */
 
 /* Grafite no escuro: o botão "light" do Mantine (cinza a 15% sobre o fundo escuro) ficava
    preto, como se as cores estivessem invertidas. Aqui ele fica claro e suave como nas
    outras cores. */
-:root[data-mantine-color-scheme="dark"][data-accent="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]) {
+:root[data-mantine-color-scheme="dark"][data-palette="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]) {
   background: var(--accent-soft);
   color: var(--accent-text);
   box-shadow: inset 0 0 0 1px rgba(203, 213, 225, 0.16);
 }
 
-:root[data-mantine-color-scheme="dark"][data-accent="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]):hover {
+:root[data-mantine-color-scheme="dark"][data-palette="grafite"] :is(.mantine-Button-root, .mantine-ActionIcon-root)[data-variant="light"]:not([data-disabled]):hover {
   background: rgba(203, 213, 225, 0.18);
 }
 
@@ -170,7 +144,7 @@ body {
 }
 
 ::selection {
-  background: rgba(14, 116, 144, 0.24);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
   color: var(--text);
 }
 

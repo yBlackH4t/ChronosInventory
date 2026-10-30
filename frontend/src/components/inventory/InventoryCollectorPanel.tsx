@@ -64,9 +64,20 @@ export function InventoryCollectorPanel({
 }: InventoryCollectorPanelProps) {
   const [logOpened, setLogOpened] = useState(false);
   const sessionOpen = sessionStatus === "ABERTO";
+  // Cada leitura nova reinicia o efeito (key): bip certo acende verde e o número pula;
+  // errado treme e fica vermelho.
+  const latest = log[0];
+  const okReads = log.filter((entry) => entry.status === "OK").length;
 
   return (
-    <div className="surface-panel" style={{ padding: "14px 16px" }}>
+    <div className="surface-panel vv-collector" style={{ padding: "14px 16px" }}>
+      {latest ? (
+        <span
+          key={latest.id}
+          className={latest.status === "OK" ? "vv-collector-flash vv-bip-ok" : "vv-collector-flash mi-shake"}
+          aria-hidden
+        />
+      ) : null}
       <Stack gap="sm">
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Group gap="sm" wrap="nowrap">
@@ -90,6 +101,14 @@ export function InventoryCollectorPanel({
                 <Text size="xs" c="dimmed">
                   {active ? "Ativo" : "Inativo"}
                 </Text>
+                {active && okReads > 0 ? (
+                  <Text size="xs" fw={700} c="var(--success)" className="num">
+                    <span key={latest?.id} className="vv-bump">
+                      {okReads}
+                    </span>{" "}
+                    {okReads === 1 ? "lida" : "lidas"}
+                  </Text>
+                ) : null}
               </Group>
               <Text size="xs" c="dimmed">
                 Ao iniciar, o físico é zerado; depois é só bipar item por item.
@@ -120,6 +139,8 @@ export function InventoryCollectorPanel({
 
         {active && (
           <Group align="flex-end" wrap="wrap" gap="sm">
+            <div className="vv-laser-host" style={{ flex: 1, minWidth: 240 }}>
+              {latest ? <span key={latest.id} className="vv-laser-line" aria-hidden /> : null}
             <TextInput
               size="md"
               placeholder="Bipe ou digite CI-123 / 4031196"
@@ -131,9 +152,9 @@ export function InventoryCollectorPanel({
               }
               onKeyDown={onCollectorInputKeyDown}
               ref={collectorInputRef}
-              style={{ flex: 1, minWidth: 240 }}
               disabled={!sessionOpen || loading}
             />
+            </div>
             <NumberInput
               size="md"
               aria-label="Incremento"

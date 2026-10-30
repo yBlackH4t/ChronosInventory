@@ -20,6 +20,7 @@ import {
   type SystemLine,
 } from "../lib/commandCenter";
 import { getAssistantPanel } from "../lib/dashboardApi";
+import { dayStrip, readUptime } from "../lib/whatsappUptime";
 import type {
   FlowPoint,
   MovementOut,
@@ -263,6 +264,25 @@ export default function DashboardPage() {
     return lines;
   }, [healthQuery.data, healthQuery.isError, assistant, baseQuery.data, nfeConfigQuery.data, backupQuery.data]);
   const systemsLoading = healthQuery.isLoading && backupQuery.isLoading;
+  // A barra de cima anota o robô a cada minuto; aqui só se lê (relê a cada conferência).
+  const uptimeTick = assistantQuery.dataUpdatedAt;
+  const uptime = useMemo(
+    () => (assistant?.whatsapp_ativo && uptimeTick ? dayStrip(readUptime(), new Date()) : []),
+    [assistant, uptimeTick],
+  );
+
+  // A cada atualização "ao vivo" uma luz passa pelos painéis e o anel do relógio recomeça.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const liveUpdatedAt = liveQuery.dataUpdatedAt;
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid || !liveUpdatedAt) return;
+    grid.removeAttribute("data-refresh");
+    void grid.offsetWidth;
+    grid.setAttribute("data-refresh", "");
+    const timer = window.setTimeout(() => grid.removeAttribute("data-refresh"), 1300);
+    return () => window.clearTimeout(timer);
+  }, [liveUpdatedAt]);
 
   const liveRows = useMemo(() => {
     const rows = liveQuery.data?.data ?? [];
@@ -353,12 +373,23 @@ export default function DashboardPage() {
         ) : null}
         <span className="cc-clock">
           <LiveClock />
-          {"  ·  ao vivo a cada 20 s"}
+          {"  ·  ao vivo a cada 20 s "}
+          <svg className="cc-refresh" viewBox="0 0 20 20" width={15} height={15} aria-hidden>
+            <circle cx={10} cy={10} r={8} />
+            <circle
+              key={liveUpdatedAt}
+              cx={10}
+              cy={10}
+              r={8}
+              className="cc-refresh-fill"
+              style={{ animationDuration: `${LIVE_REFRESH_MS}ms` }}
+            />
+          </svg>
         </span>
       </div>
 
-      <div className="cc-grid">
-        <SystemsBlock lines={systems} loading={systemsLoading} />
+      <div className="cc-grid" ref={gridRef}>
+        <SystemsBlock lines={systems} loading={systemsLoading} uptime={uptime} />
         <HealthCore
           counts={health.counts}
           total={currentTotal}
