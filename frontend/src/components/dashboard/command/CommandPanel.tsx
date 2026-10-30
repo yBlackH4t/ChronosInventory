@@ -20,6 +20,9 @@ export default function CommandPanel({ area, title, aside, children }: CommandPa
         {aside}
       </div>
       {children}
+      {/* A luz da atualização "ao vivo" passa nesta camada, não no painel: mexer na animação
+          do painel fazia ele repetir a entrada (some e volta) a cada 20 s. */}
+      <span className="cc-panel-sweep" aria-hidden />
     </section>
   );
 }
