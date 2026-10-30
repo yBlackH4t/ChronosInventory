@@ -173,6 +173,8 @@ export default function ImportPage() {
         active={activeStep}
         onStepClick={setActiveStep}
         allowNextStepsSelect={false}
+        // Os três passos ficam juntos, na largura da área de arrastar, e não espalhados na tela.
+        styles={{ steps: { maxWidth: 720 } }}
       >
         <Stepper.Step label="Arquivo" description="Envie a planilha">
           <Stack gap="md" mt="lg" maw={720}>

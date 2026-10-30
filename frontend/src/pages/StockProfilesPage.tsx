@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Accordion,
   ActionIcon,
   Button,
   Group,
@@ -217,12 +218,21 @@ export default function StockProfilesPage() {
           />
         ) : (
           <Stack gap={0}>
-            <KeyValue
-              label="Perfil"
-              value={`${state?.active_profile_name || "Principal"} (${state?.active_profile_id || "default"})`}
-            />
-            <KeyValue label="Banco atual" value={state?.current_database_path || "—"} mono />
-            <KeyValue label="Pasta raiz" value={state?.root_directory || "—"} mono />
+            <KeyValue label="Perfil" value={state?.active_profile_name || "Principal"} />
+            {/* Caminhos de pasta só para quem precisa: ficam fechados em "Detalhes". */}
+            <Accordion variant="default" chevronPosition="left">
+              <Accordion.Item value="detalhes" style={{ borderBottom: 0 }}>
+                <Accordion.Control px={0}>
+                  <Text size="sm" c="dimmed">
+                    Detalhes
+                  </Text>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <KeyValue label="Banco atual" value={state?.current_database_path || "—"} mono />
+                  <KeyValue label="Pasta raiz" value={state?.root_directory || "—"} mono />
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
           </Stack>
         )}
       </Panel>
@@ -250,11 +260,8 @@ export default function StockProfilesPage() {
                     className={profile.is_active ? "row-selected" : undefined}
                   >
                     <Table.Td>
-                      <Text size="sm" fw={500}>
+                      <Text size="sm" fw={500} title={profile.path}>
                         {profile.name}
-                      </Text>
-                      <Text size="xs" c="dimmed" className="mono" truncate="end" title={profile.path}>
-                        {profile.id} · {profile.path}
                       </Text>
                     </Table.Td>
                     <Table.Td>

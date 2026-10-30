@@ -10,6 +10,22 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.28",
+    "date": "2026-10-30",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: Inventário: sem nenhuma sessão, a tela mostra só o aviso com o botão \"Nova sessão\" (antes, uma tabela vazia). O botão \"...\" virou \"Folha de contagem\", com nome.",
+      "Mudanca: Relatórios: saiu o \"Restaurar padrão\" solto no topo.",
+      "Mudanca: Configurações: as paletas ficam em 3 por 3, com \"Minha cor\" na mesma grade. O quadro \"Este computador\" só aparece no Chronos instalado.",
+      "Mudanca: Exportar: as duas planilhas lado a lado, cada uma com o seu botão grande \"Baixar planilha\".",
+      "Mudanca: Perfis de estoque: mostra só o nome do perfil; o banco e a pasta ficam em \"Detalhes\".",
+      "Mudanca: Comparar estoques: os quatro quadros de número só aparecem depois de comparar; \"snapshots\" virou \"Cópias publicadas\" e a porta saiu da tela.",
+      "Mudanca: Importar: os três passos (Arquivo, Mapeamento, Resultado) ficam juntos, na largura da área de arrastar.",
+      "Mudanca: Base oficial: os endereços do servidor só aparecem com ele ligado; saiu o caminho do banco; sem base publicada, a tabela de traços some; quem ainda não preencheu o servidor da principal vê onde fazer isso.",
+      "Mudanca: Backup: \"Pegar a base da principal\" só aparece quando este computador já está ligado a uma principal."
+    ]
+  },
+  {
     "version": "2.7.27",
     "date": "2026-10-30",
     "title": "Ajustes operacionais",

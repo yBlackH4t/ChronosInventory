@@ -420,6 +420,10 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — 2.7.28: layout limpo fase 3 (telas da engrenagem)
+- Branch: `claude/project-thread-1yjko1` (sobre a main 2.7.27). Fase 3 e última do plano aprovado.
+- Inventário (`EmptyState` com "Nova sessão" quando não há sessão; botão "Folha de contagem"), Relatórios (sem `resetView`), Configurações (`.vv-pals` 3 por 3; `DesktopSettingsPanel` retorna null fora do app), Exportar (`ExportCard`), Perfis (caminhos em Accordion "Detalhes"), Comparar (cards só com `compareResult`), Importar (`Stepper` steps até 720 px), Base oficial (`OfficialBaseSection`: URLs só com servidor ligado, tabela só com base publicada) e Backup (`BackupHome`: "Pegar a base" só com servidor remoto).
+
 ### 2026-10-30 — Claude Code — 2.7.27: layout limpo fase 2 (telas do dia a dia)
 - Branch: `claude/project-thread-1yjko1` (sobre a main 2.7.26). Fase 2 do plano aprovado.
 - Painel: relógio nas ações do `PageHeader`; `AlertsBlock` numa linha com ponto colorido e motivo curto (`lib/dashboardActions.ts`); KPI sem "+" quando há seta e sem fonte mono; Sistemas ocupa a altura toda.
