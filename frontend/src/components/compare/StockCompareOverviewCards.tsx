@@ -72,7 +72,7 @@ export default function StockCompareOverviewCards({
       <StatusTile
         label="Histórico local"
         value={`${compareServerStatus?.history_items_count ?? 0} snapshots`}
-        hint={`Mantém até ${compareServerStatus?.history_retention_limit ?? 10} · porta ${compareServerStatus?.server_port ?? "—"}`}
+        hint={`Guarda as últimas ${compareServerStatus?.history_retention_limit ?? 10}`}
       />
     </div>
   );

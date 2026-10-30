@@ -1,4 +1,5 @@
 import {
+  Accordion,
   ActionIcon,
   Button,
   Group,
@@ -106,7 +107,6 @@ export default function StockCompareServerSection({
             <Stack gap={0}>
               <KeyValue label="Máquina" value={compareServerStatus?.machine_label || "—"} />
               <KeyValue label="Perfil" value={activeProfileName} />
-              <KeyValue label="Porta" value={compareServerStatus?.server_port || "—"} />
               <KeyValue
                 label="Última cópia do estoque"
                 value={
@@ -117,14 +117,26 @@ export default function StockCompareServerSection({
               />
               <KeyValue label="Confirmado em" value={localStatusConfirmedAt || "—"} />
             </Stack>
-            {compareServerStatus?.server_urls?.length ? (
-              <Text size="xs" c="dimmed" className="mono">
-                {compareServerStatus.server_urls.join("  ·  ")}
-              </Text>
-            ) : null}
-            <Text size="xs" c="dimmed" className="mono" truncate="end" title={currentDbPath}>
-              {currentDbPath}
-            </Text>
+            {/* Endereços e caminho do banco só para quem precisa: fechados em "Detalhes". */}
+            <Accordion variant="default" chevronPosition="left">
+              <Accordion.Item value="detalhes" style={{ borderBottom: 0 }}>
+                <Accordion.Control px={0}>
+                  <Text size="sm" c="dimmed">
+                    Detalhes
+                  </Text>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  {compareServerStatus?.server_urls?.length ? (
+                    <Text size="xs" c="dimmed" className="mono">
+                      {compareServerStatus.server_urls.join("  ·  ")}
+                    </Text>
+                  ) : null}
+                  <Text size="xs" c="dimmed" className="mono" truncate="end" title={currentDbPath}>
+                    {currentDbPath}
+                  </Text>
+                </Accordion.Panel>
+              </Accordion.Item>
+            </Accordion>
             <Group justify="space-between" mt={4}>
               <Button
                 size="xs"
@@ -231,7 +243,7 @@ export default function StockCompareServerSection({
 
       <Panel
         flush
-        title="Histórico de snapshots"
+        title="Cópias publicadas"
         subtitle={`Mantém automaticamente os últimos ${compareServerStatus?.history_retention_limit ?? 10}.`}
         actions={
           <ActionIcon
@@ -248,7 +260,7 @@ export default function StockCompareServerSection({
           <Text size="sm" c="dimmed" px="lg" py="md">
             {historyLoading
               ? "Carregando…"
-              : "Ainda não existe histórico de snapshots nesta máquina."}
+              : "Esta máquina ainda não publicou nenhuma cópia."}
           </Text>
         ) : (
           <Table.ScrollContainer minWidth={640}>

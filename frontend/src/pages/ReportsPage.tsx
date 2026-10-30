@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Button, Grid, Group, Loader, Stack, Tabs, Text } from "@mantine/core";
+import { Grid, Group, Loader, Stack, Tabs, Text } from "@mantine/core";
 import {
   IconBuildingWarehouse,
   IconCash,
@@ -315,19 +315,6 @@ export default function ReportsPage() {
     });
   };
 
-  const resetView = () => {
-    setActiveSection(DEFAULT_REPORTS_TAB_STATE.activeSection);
-    setSalesDateFrom(dayjs().startOf("month").toDate());
-    setSalesDateTo(dayjs().toDate());
-    setSalesScope(null);
-    setInactiveDays(30);
-    setInactiveDateTo(dayjs().toDate());
-    setInactiveScope(null);
-    setSelectedSearch("");
-    setSelectedItems([]);
-    saveTabState(REPORTS_TAB_ID, DEFAULT_REPORTS_TAB_STATE);
-  };
-
   const searchResults = lookupQuery.data?.data ?? [];
   const lookupErrorMessage =
     lookupQuery.error instanceof Error ? lookupQuery.error.message : null;
@@ -337,11 +324,6 @@ export default function ReportsPage() {
       <PageHeader
         title="Relatórios"
         subtitle="Documentos em PDF para conferência, vendas reais, itens parados e listas personalizadas."
-        actions={
-          <Button variant="subtle" color="gray" onClick={resetView}>
-            Restaurar padrão
-          </Button>
-        }
       />
 
       <Grid gap="lg">

@@ -34,6 +34,24 @@ Formato recomendado:
 - **Lista de Produtos 2 a 4 vezes mais rápida:** índice novo para o vínculo da montada com o conjunto.
 - **Buscas por código e por veículo mais rápidas:** a busca por código no catálogo usa o índice (cerca de 3 vezes mais rápida) e a busca do assistente por veículo ou motor guarda as palavras das aplicações entre uma pergunta e outra (cerca de 3 vezes mais rápida).
 - **Abertura um pouco mais rápida:** o pandas só é carregado quando você importa planilha ou exporta o backup em Excel.
+## [2.7.29] - 2026-10-30
+
+### Changed
+- **Atualização automática:** o Chronos procura atualização ao abrir e a cada hora, e baixa escondido. Quem está usando só vê o aviso "Atualização pronta" (com "Reiniciar agora" se quiser); ela é instalada, com cópia de segurança antes, quando a janela é fechada, em "Sair do Chronos" ou quando o Chronos abre escondido com o Windows. Depois de instalar, ele volta do mesmo jeito: na bandeja ou fechado.
+- **Atualização baixada e não instalada** (PC desligado antes de fechar o Chronos): é instalada logo ao abrir.
+
+## [2.7.28] - 2026-10-30
+
+### Changed
+- **Inventário:** sem nenhuma sessão, a tela mostra só o aviso com o botão "Nova sessão" (antes, uma tabela vazia). O botão "..." virou "Folha de contagem", com nome.
+- **Relatórios:** saiu o "Restaurar padrão" solto no topo.
+- **Configurações:** as paletas ficam em 3 por 3, com "Minha cor" na mesma grade. O quadro "Este computador" só aparece no Chronos instalado.
+- **Exportar:** as duas planilhas lado a lado, cada uma com o seu botão grande "Baixar planilha".
+- **Perfis de estoque:** mostra só o nome do perfil; o banco e a pasta ficam em "Detalhes".
+- **Comparar estoques:** os quatro quadros de número só aparecem depois de comparar; "snapshots" virou "Cópias publicadas" e a porta saiu da tela.
+- **Importar:** os três passos (Arquivo, Mapeamento, Resultado) ficam juntos, na largura da área de arrastar.
+- **Base oficial:** os endereços do servidor só aparecem com ele ligado; saiu o caminho do banco; sem base publicada, a tabela de traços some; quem ainda não preencheu o servidor da principal vê onde fazer isso.
+- **Backup:** "Pegar a base da principal" só aparece quando este computador já está ligado a uma principal.
 
 ## [2.7.27] - 2026-10-30
 
