@@ -420,6 +420,12 @@ npm run lint
 
 ## 6. Registro de entregas
 
+### 2026-10-30 — Claude Code — 2.7.27: layout limpo fase 2 (telas do dia a dia)
+- Branch: `claude/project-thread-1yjko1` (sobre a main 2.7.26). Fase 2 do plano aprovado.
+- Painel: relógio nas ações do `PageHeader`; `AlertsBlock` numa linha com ponto colorido e motivo curto (`lib/dashboardActions.ts`); KPI sem "+" quando há seta e sem fonte mono; Sistemas ocupa a altura toda.
+- Produtos: `versionTag` (Nova não aparece), `productMonogram(brand)` só com marca, `ProductThumb hideEmpty` na lista; colunas sem a contagem repetida na faixa e com código antes do #ID.
+- Etiquetas: `CopiesInput` com – e + (em "1 por item" passa para manual só naquele item). Assistente: `PageHeader`, largura total com a conversa em até 960 px e "Admin" como botão no cabeçalho.
+
 ### 2026-10-30 — Claude Code — 2.7.26: layout limpo e sistema organizado
 - Branch: `claude/project-thread-1yjko1` (sobre a main 2.7.25). Pedido do dono: "zerar o design", deixar cada tela limpa e o sistema organizado. Plano aprovado em 3 fases; esta é a fase 1 mais a organização que ele pediu com prints.
 - Base comum: `PageHeader` sem ícone; `useLocations().branchColumns` (vazio com uma filial ativa) decide colunas por filial em Etiquetas, Ativação em massa, Relatórios e "para Canoas" em Movimentações; chip de código `.pm-code`/`.pm-code-cell` no estilo do nome em Produtos; Movimentação em lote com `MOVEMENT_TYPES`/`MOVEMENT_NATURES`; selo "Saldo inicial" (`lib/movementTimeline.ts`); perfil e selo da base oficial na barra só quando fazem sentido.

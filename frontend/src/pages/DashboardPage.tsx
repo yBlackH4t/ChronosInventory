@@ -358,10 +358,27 @@ export default function DashboardPage() {
             ? "Centro de comando do estoque."
             : `${actionSummary(actionItems.length)} · ${scopeLabel}`
         }
+        actions={
+          <span className="cc-clock">
+            <LiveClock />
+            {"  ·  ao vivo "}
+            <svg className="cc-refresh" viewBox="0 0 20 20" width={15} height={15} aria-hidden>
+              <circle cx={10} cy={10} r={8} />
+              <circle
+                key={liveUpdatedAt}
+                cx={10}
+                cy={10}
+                r={8}
+                className="cc-refresh-fill"
+                style={{ animationDuration: `${LIVE_REFRESH_MS}ms` }}
+              />
+            </svg>
+          </span>
+        }
       />
 
-      <div className="cc-toolbar">
-        {multiLocation ? (
+      {multiLocation ? (
+        <div className="cc-toolbar">
           <SegmentedControl
             value={scope === null ? "AMBOS" : String(scope)}
             onChange={(value) => setScope(value === "AMBOS" ? null : Number(value))}
@@ -370,23 +387,8 @@ export default function DashboardPage() {
               ...locations.map((loc) => ({ value: String(loc.id), label: loc.label || loc.name })),
             ]}
           />
-        ) : null}
-        <span className="cc-clock">
-          <LiveClock />
-          {"  ·  ao vivo a cada 20 s "}
-          <svg className="cc-refresh" viewBox="0 0 20 20" width={15} height={15} aria-hidden>
-            <circle cx={10} cy={10} r={8} />
-            <circle
-              key={liveUpdatedAt}
-              cx={10}
-              cy={10}
-              r={8}
-              className="cc-refresh-fill"
-              style={{ animationDuration: `${LIVE_REFRESH_MS}ms` }}
-            />
-          </svg>
-        </span>
-      </div>
+        </div>
+      ) : null}
 
       <div className="cc-grid" ref={gridRef}>
         <SystemsBlock lines={systems} loading={systemsLoading} uptime={uptime} />

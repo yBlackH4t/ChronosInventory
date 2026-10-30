@@ -9,7 +9,7 @@ export type ActionItem = {
   kind: ActionKind;
   produtoId: number;
   nome: string;
-  /** Linha de baixo, já em português: o motivo do item estar na lista. */
+  /** O motivo do item estar na lista, curto para caber na mesma linha do nome. */
   detail: string;
 };
 
@@ -25,8 +25,12 @@ export function coverageLabel(days: number): string {
   return `dura ~${days} dias`;
 }
 
-function units(value: number): string {
-  return `${value.toLocaleString("pt-BR")} ${value === 1 ? "unidade" : "unidades"}`;
+function num(value: number): string {
+  return value.toLocaleString("pt-BR");
+}
+
+function wentOut(value: number): string {
+  return value === 1 ? "saiu 1" : `saíram ${num(value)}`;
 }
 
 type BuildActionListInput = {
@@ -68,7 +72,7 @@ export function buildActionList({
         kind: "ZERADO" as const,
         produtoId: item.produto_id,
         nome: item.nome,
-        detail: `Sem estoque, mas saíram ${units(item.total_saida_recente)} em 30 dias`,
+        detail: `zerou · ${wentOut(item.total_saida_recente)} em 30 dias`,
       }),
     ),
     ...take(
@@ -77,7 +81,7 @@ export function buildActionList({
         kind: "REPOR" as const,
         produtoId: item.produto_id,
         nome: item.nome,
-        detail: `${units(item.estoque_atual)} em estoque, ${coverageLabel(item.dias_cobertura)} no ritmo de saída`,
+        detail: `${num(item.estoque_atual)} em estoque · ${coverageLabel(item.dias_cobertura)}`,
       }),
     ),
   ];
@@ -87,8 +91,8 @@ export function buildActionList({
     nome: item.nome,
     detail:
       item.dias_sem_saida === null
-        ? `${units(item.estoque)} paradas, nunca saiu`
-        : `${units(item.estoque)} paradas, sem saída há ${item.dias_sem_saida} dias`,
+        ? `${num(item.estoque)} parada${item.estoque === 1 ? "" : "s"} · nunca saiu`
+        : `${num(item.estoque)} parada${item.estoque === 1 ? "" : "s"} · ${item.dias_sem_saida} dias sem saída`,
   }));
 
   const idleSlots = Math.min(idle.length, reservedParados, limit);

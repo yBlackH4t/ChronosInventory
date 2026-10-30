@@ -10,6 +10,18 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.27",
+    "date": "2026-10-30",
+    "title": "Ajustes operacionais",
+    "highlights": [
+      "Mudanca: Painel: o relógio \"ao vivo\" subiu para o canto do cabeçalho; cada item de \"Pede ação hoje\" cabe numa linha (\"zerou · saíram 6 em 30 dias\") com um ponto colorido no lugar do selo; a seta de \"vs 30 dias antes\" aparece uma vez só e os quatro números usam a mesma fonte; a coluna Sistemas vai até o fim, como as outras.",
+      "Mudanca: Produtos: \"Nova\" não aparece mais em toda linha (só Reman, Montada e a marca); o quadrado cinza \"TB\"/\"CC\" sem foto sumiu (fica a foto ou a sigla da marca); os botões das linhas ficaram mais visíveis. Nas colunas, a faixa de cima mostra só o código buscado e o total, e o cartão mostra o código da peça antes do #ID.",
+      "Mudanca: Etiquetas: as cópias de cada item têm um campo com – e +; mexer num item com \"1 por item\" passa para o modo manual sem mudar os outros.",
+      "Mudanca: Assistente: mesmo cabeçalho das outras telas, conversa centralizada na largura toda e \"Admin\" como botão pequeno no canto (a senha continua sendo pedida).",
+      "Mudanca: Movimentações: a dica do botão de histórico diz \"Ver histórico\"."
+    ]
+  },
+  {
     "version": "2.7.26",
     "date": "2026-10-30",
     "title": "Ajustes operacionais",

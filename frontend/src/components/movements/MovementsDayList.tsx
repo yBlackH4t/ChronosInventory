@@ -162,7 +162,7 @@ export default function MovementsDayList({ rows, locationName, openHistory, onEs
                     {signedQuantity(mov.tipo, mov.quantidade)}
                   </span>
                   <div className="pm-actions" style={{ display: "flex", gap: 2 }}>
-                    <Tooltip label="Histórico do produto">
+                    <Tooltip label="Ver histórico">
                       <ActionIcon size={30} aria-label={`Histórico de ${nome}`} onClick={() => openHistory(mov.produto_id)}>
                         <IconHistory size={17} stroke={1.6} />
                       </ActionIcon>

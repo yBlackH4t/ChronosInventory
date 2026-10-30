@@ -42,10 +42,10 @@ describe("buildActionList", () => {
       ["PARADO", 5],
       ["PARADO", 6],
     ]);
-    expect(items[0].detail).toBe("Sem estoque, mas saíram 6 unidades em 30 dias");
-    expect(items[2].detail).toBe("1 unidade em estoque, dura ~2 dias no ritmo de saída");
-    expect(items[4].detail).toBe("12 unidades paradas, nunca saiu");
-    expect(items[5].detail).toBe("8 unidades paradas, sem saída há 200 dias");
+    expect(items[0].detail).toBe("zerou · saíram 6 em 30 dias");
+    expect(items[2].detail).toBe("1 em estoque · dura ~2 dias");
+    expect(items[4].detail).toBe("12 paradas · nunca saiu");
+    expect(items[5].detail).toBe("8 paradas · 200 dias sem saída");
   });
 
   it("keeps room for parados when the urgent ones fill the list", () => {

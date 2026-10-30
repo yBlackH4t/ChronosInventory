@@ -97,18 +97,9 @@ const BRAND_MONOGRAMS: Record<string, string> = {
   IHI: "IHI",
 };
 
-const KIND_MONOGRAMS: [RegExp, string][] = [
-  [/\bCONJ(UNTO)?\b/, "CC"],
-  [/\bTURB(O|INA)\b/, "TB"],
-  [/\bIMP\b/, "IMP"],
-  [/\bWASTEGATE\b/, "WG"],
-];
-
-/** Sigla no lugar da foto: a marca (HOL, BW, GT...) ou o tipo da peça (TB, CC...); null se não souber. */
-export function productMonogram(nome: string, brand: BrandInfo | null): string | null {
+/** Sigla da marca no lugar da foto (HOL, BW, GT...); null sem marca: um "TB" cinza não diz nada. */
+export function productMonogram(brand: BrandInfo | null): string | null {
   if (brand && BRAND_MONOGRAMS[brand.label]) return BRAND_MONOGRAMS[brand.label];
-  const upper = (nome ?? "").toUpperCase();
-  for (const [pattern, label] of KIND_MONOGRAMS) if (pattern.test(upper)) return label;
   return null;
 }
 
@@ -147,6 +138,11 @@ const VERSION_TITLES: Record<ProductCondition["label"], string> = {
 
 export function versionTitle(condition: ProductCondition): string {
   return VERSION_TITLES[condition.label] ?? condition.label;
+}
+
+/** Versão que vale mostrar na linha: "Nova" é o normal e não aparece, só Reman e Montada. */
+export function versionTag(condition: ProductCondition): string | null {
+  return condition.label === "NOVA" ? null : versionTitle(condition);
 }
 
 export type LocationColumns = {

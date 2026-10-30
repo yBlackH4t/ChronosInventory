@@ -26,6 +26,15 @@ Formato recomendado:
 
 
 
+## [2.7.27] - 2026-10-30
+
+### Changed
+- **Painel:** o relógio "ao vivo" subiu para o canto do cabeçalho; cada item de "Pede ação hoje" cabe numa linha ("zerou · saíram 6 em 30 dias") com um ponto colorido no lugar do selo; a seta de "vs 30 dias antes" aparece uma vez só e os quatro números usam a mesma fonte; a coluna Sistemas vai até o fim, como as outras.
+- **Produtos:** "Nova" não aparece mais em toda linha (só Reman, Montada e a marca); o quadrado cinza "TB"/"CC" sem foto sumiu (fica a foto ou a sigla da marca); os botões das linhas ficaram mais visíveis. Nas colunas, a faixa de cima mostra só o código buscado e o total, e o cartão mostra o código da peça antes do #ID.
+- **Etiquetas:** as cópias de cada item têm um campo com – e +; mexer num item com "1 por item" passa para o modo manual sem mudar os outros.
+- **Assistente:** mesmo cabeçalho das outras telas, conversa centralizada na largura toda e "Admin" como botão pequeno no canto (a senha continua sendo pedida).
+- **Movimentações:** a dica do botão de histórico diz "Ver histórico".
+
 ## [2.7.26] - 2026-10-30
 
 ### Changed

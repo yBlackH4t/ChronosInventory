@@ -1,13 +1,14 @@
 import { IconPhoto } from "@tabler/icons-react";
 
 // Foto pequena do produto. Sem foto: a sigla da marca/tipo (monogram) na cor da marca, ou um
-// ícone discreto no mesmo espaço.
+// ícone discreto no mesmo espaço (ou nada, com hideEmpty).
 export default function ProductThumb({
   base64,
   size = 38,
   alt,
   monogram,
   color,
+  hideEmpty = false,
 }: {
   base64?: string | null;
   size?: number;
@@ -15,6 +16,8 @@ export default function ProductThumb({
   monogram?: string;
   /** Cor do Mantine (blue, pink...) para o fundo da sigla. */
   color?: string;
+  /** Sem foto e sem sigla, deixa o espaço vazio em vez do ícone de foto. */
+  hideEmpty?: boolean;
 }) {
   if (!base64 && monogram) {
     return (
@@ -32,6 +35,7 @@ export default function ProductThumb({
       </span>
     );
   }
+  if (!base64 && hideEmpty) return <span style={{ display: "inline-block", width: size, height: size }} aria-hidden />;
   return (
     <span className="product-thumb" style={{ width: size, height: size }}>
       {base64 ? (
