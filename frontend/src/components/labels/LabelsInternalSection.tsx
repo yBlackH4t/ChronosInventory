@@ -18,6 +18,8 @@ import {
 import {
   IconAdjustmentsHorizontal,
   IconBarcode,
+  IconMinus,
+  IconPlus,
   IconSearch,
 } from "@tabler/icons-react";
 
@@ -117,6 +119,8 @@ export default function LabelsInternalSection({
   pageSize,
   setPageSize,
   copiesMode,
+  setCopiesMode,
+  setDefaultManualCopies,
   setSelectedIds,
   setManualCopiesById,
   rows,
@@ -132,6 +136,19 @@ export default function LabelsInternalSection({
   setManualCopies,
   runPrintSingle,
 }: Props) {
+  // Mexer nas cópias de um item com "1 por item" passa para o modo manual: os outros
+  // continuam com 1 e só este muda.
+  const changeCopies = (productId: number, value: number) => {
+    const next = Math.max(1, Math.min(MAX_COPIES_PER_ITEM, Math.round(value || 1)));
+    if (copiesMode === "ONE") {
+      setDefaultManualCopies(1);
+      setManualCopiesById({ [productId]: next });
+      setCopiesMode("MANUAL");
+      return;
+    }
+    setManualCopies(productId, next);
+  };
+
   const loadError =
     listQuery.error instanceof Error
       ? listQuery.error.message
@@ -299,23 +316,15 @@ export default function LabelsInternalSection({
                       <StockNumber value={product.total_stock} />
                     </Table.Td>
                     <Table.Td ta="right" onClick={(event) => event.stopPropagation()}>
-                      {copiesMode === "MANUAL" ? (
-                        <NumberInput
-                          size="xs"
-                          aria-label="Cópias"
-                          min={1}
-                          max={MAX_COPIES_PER_ITEM}
-                          value={resolveManualCopies(product.id)}
-                          onChange={(value) =>
-                            setManualCopies(product.id, Number(value || 1))
-                          }
-                          w={90}
-                          ml="auto"
-                        />
-                      ) : (
-                        <Text size="sm" className="num" c="dimmed">
-                          ×{resolveCopies(product)}
+                      {copiesMode === "TOTAL_STOCK" ? (
+                        <Text size="sm" className="num" title="Uma etiqueta por peça em estoque">
+                          {resolveCopies(product)}
                         </Text>
+                      ) : (
+                        <CopiesInput
+                          value={copiesMode === "MANUAL" ? resolveManualCopies(product.id) : 1}
+                          onChange={(value) => changeCopies(product.id, value)}
+                        />
                       )}
                     </Table.Td>
                     <Table.Td onClick={(event) => event.stopPropagation()}>
@@ -367,5 +376,48 @@ export default function LabelsInternalSection({
         )}
       </Group>
     </Stack>
+  );
+}
+
+function CopiesInput({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+  return (
+    <NumberInput
+      size="xs"
+      aria-label="Cópias"
+      className="lb-copies"
+      min={1}
+      max={MAX_COPIES_PER_ITEM}
+      value={value}
+      onChange={(next) => onChange(Number(next || 1))}
+      hideControls
+      w={96}
+      ml="auto"
+      leftSectionPointerEvents="all"
+      rightSectionPointerEvents="all"
+      leftSection={
+        <ActionIcon
+          size={22}
+          variant="subtle"
+          color="gray"
+          aria-label="Uma cópia a menos"
+          disabled={value <= 1}
+          onClick={() => onChange(value - 1)}
+        >
+          <IconMinus size={13} />
+        </ActionIcon>
+      }
+      rightSection={
+        <ActionIcon
+          size={22}
+          variant="subtle"
+          color="gray"
+          aria-label="Uma cópia a mais"
+          disabled={value >= MAX_COPIES_PER_ITEM}
+          onClick={() => onChange(value + 1)}
+        >
+          <IconPlus size={13} />
+        </ActionIcon>
+      }
+    />
   );
 }

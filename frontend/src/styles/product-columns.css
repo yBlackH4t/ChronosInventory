@@ -27,12 +27,6 @@
   color: var(--text);
 }
 
-.pc-summary-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .pc-dot {
   width: 8px;
   height: 8px;
@@ -176,6 +170,13 @@
 
 .pc-code-part {
   color: var(--text);
+}
+
+/* O código da peça vem primeiro; o #ID fica pequeno no fim. */
+.pc-code-id {
+  margin-left: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
 }
 
 .pc-name {

@@ -11,7 +11,6 @@ import {
   ScrollArea,
   Alert,
   Box,
-  Title,
   Tooltip,
   Tabs,
   FileButton,
@@ -39,6 +38,7 @@ import SuggestProposalButton from "../components/assistant/SuggestProposalButton
 import AssistantAnswer from "../components/assistant/AssistantAnswer";
 import ThinkingIndicator from "../components/assistant/ThinkingIndicator";
 import Reveal from "../components/ui/Reveal";
+import PageHeader from "../components/ui/PageHeader";
 import "../components/assistant/assistantChat.css";
 import type { AssistantMessage, AssistantProduct, AssistantResponseMode } from "../types/assistant";
 
@@ -192,37 +192,67 @@ export default function AssistantPage() {
     // Ocupa a altura que sobra abaixo da barra do topo (e do padding de .app-content,
     // 24px + 32px), para a caixa de digitar ficar sempre visivel.
     <Container
-      size="lg"
+      fluid
+      px={0}
       py="md"
       h="calc(100dvh - var(--app-shell-header-height, 97px) - 56px)"
       display="flex"
       style={{ flexDirection: "column" }}
     >
-      <Group justify="space-between" mb="xs">
-        <Title order={2} className="page-header-title">
-          Assistente de IA
-        </Title>
-        {activeTab === "chat" && <SuggestProposalButton />}
-      </Group>
+      <div style={{ marginBottom: "var(--mantine-spacing-sm)" }}>
+        <PageHeader
+          title="Assistente de IA"
+          subtitle={
+            activeTab === "chat"
+              ? "Pergunte por código, motor ou veículo."
+              : "Ensinar e revisar as respostas do assistente."
+          }
+          actions={
+            activeTab === "chat" ? (
+              <>
+                <SuggestProposalButton />
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="compact-sm"
+                  leftSection={<IconShieldLock size={15} />}
+                  onClick={() => setActiveTab("admin")}
+                >
+                  Admin
+                </Button>
+              </>
+            ) : (
+              <Button
+                variant="subtle"
+                size="compact-sm"
+                leftSection={<IconMessageChatbot size={15} />}
+                onClick={() => setActiveTab("chat")}
+              >
+                Voltar à conversa
+              </Button>
+            )
+          }
+        />
+      </div>
 
       <Tabs
         value={activeTab}
         onChange={(val) => setActiveTab(val || "chat")}
         style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}
       >
-        <Tabs.List mb="sm">
-          <Tabs.Tab value="chat" leftSection={<IconMessageChatbot size={16} />}>
-            Conversa
-          </Tabs.Tab>
-          <Tabs.Tab value="admin" leftSection={<IconShieldLock size={16} />}>
-            Admin (Especialista)
-          </Tabs.Tab>
-        </Tabs.List>
-
         {/* Painel do Chat */}
         <Tabs.Panel
           value="chat"
-          style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            minHeight: 0,
+            overflow: "hidden",
+            width: "100%",
+            maxWidth: 960,
+            marginInline: "auto",
+          }}
         >
           {errorMsg && (
             <Alert

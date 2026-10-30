@@ -27,7 +27,7 @@ import {
   stockPlace,
   totalSaidas,
 } from "../../lib/productColumns";
-import { brandTitle, productMonogram, splitProductCode, versionTitle } from "../../lib/productView";
+import { brandTitle, productMonogram, splitProductCode, versionTag } from "../../lib/productView";
 import { useProductsVisual } from "../../hooks/useProductsVisual";
 import { useProfileScope } from "../../state/profileScope";
 import EmptyState from "../ui/EmptyState";
@@ -180,12 +180,6 @@ function ColumnsBoard({ codigo, locations, onShowList, ...handlers }: Props) {
           <span className="pc-summary-total">
             <strong className="num">{total.toLocaleString("pt-BR")}</strong> em estoque
           </span>
-          {columns.map((col) => (
-            <span key={col.chave} className="pc-summary-item">
-              <span className="pc-dot" style={{ background: colorVar(col.chave) }} aria-hidden />
-              {col.titulo} <strong className="num">{columnStock(col).toLocaleString("pt-BR")}</strong>
-            </span>
-          ))}
         </Group>
         <Group gap="xs" wrap="nowrap">
           {data.produtos_omitidos ? (
@@ -300,7 +294,7 @@ function LinkButton({ label, color, onClick }: { label: string; color: string; o
 function ItemMeta({ item }: { item: ProductColumnItem }) {
   const nome = itemTitle(item);
   const brand = detectBrand(nome);
-  const meta = [brandTitle(brand), versionTitle(detectCondition(nome))].filter(Boolean).join(" · ");
+  const meta = [brandTitle(brand), versionTag(detectCondition(nome))].filter(Boolean).join(" · ");
   return (
     <div className="pc-meta">
       <span>{meta}</span>
@@ -398,13 +392,13 @@ function ColumnCard({
         base64={thumb}
         alt={nome}
         size={big ? 168 : 52}
-        monogram={productMonogram(nome, brand) ?? undefined}
+        monogram={productMonogram(brand) ?? undefined}
         color={brand?.color}
       />
       <div className="pc-info">
         <div className="pc-code num">
-          #{product.id}
-          {code ? <span className="pc-code-part"> · {code}</span> : null}
+          {code ? <span className="pc-code-part">{code}</span> : null}
+          <span className="pc-code-id">#{product.id}</span>
         </div>
         <div className="pc-name" title={nome}>
           {rest || nome}
@@ -472,7 +466,7 @@ function ProductColumnFicha({
             base64={photo}
             alt={nome}
             size={220}
-            monogram={productMonogram(nome, brand) ?? undefined}
+            monogram={productMonogram(brand) ?? undefined}
             color={brand?.color}
           />
         </div>

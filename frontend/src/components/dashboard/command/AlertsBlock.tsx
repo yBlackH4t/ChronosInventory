@@ -51,12 +51,9 @@ export default function AlertsBlock({ items, loading, onOpenProduct }: AlertsBlo
                   onClick={() => onOpenProduct(item.produtoId, item.nome)}
                   title={item.nome}
                 >
-                  <i aria-hidden />
-                  <span className="cc-alert-text">
-                    <span className="cc-alert-name">{item.nome}</span>
-                    <span className="cc-alert-detail">{item.detail}</span>
-                  </span>
-                  <span className="cc-alert-tag cc-mono">{ACTION_LABELS[item.kind]}</span>
+                  <i aria-hidden title={ACTION_LABELS[item.kind]} />
+                  <span className="cc-alert-name">{item.nome}</span>
+                  <span className="cc-alert-tag">{item.detail}</span>
                   <span className="cc-alert-go" aria-hidden>
                     Abrir ficha →
                   </span>

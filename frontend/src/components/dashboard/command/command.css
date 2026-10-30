@@ -141,10 +141,15 @@
 
 /* --- Sistemas ----------------------------------------------------------- */
 
+/* As linhas se espalham pela altura do painel: a coluna termina junto com as outras. */
 .cc-systems {
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
 }
 
 .cc-systems li {
@@ -269,7 +274,8 @@
   display: block;
   margin-bottom: 2px;
   font-size: 1.25rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--text);
 }
 
@@ -316,7 +322,7 @@
 .cc-alert {
   --tone: var(--text-subtle);
   display: grid;
-  grid-template-columns: 4px minmax(0, 1fr) auto;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -348,16 +354,12 @@
 .cc-alert[data-kind="ZERADO"] { --tone: var(--danger); }
 .cc-alert[data-kind="REPOR"] { --tone: var(--warning); }
 
+/* Um ponto na cor do motivo (zerou, repor, parado) no lugar do selo escrito. */
 .cc-alert > i {
-  align-self: stretch;
-  border-radius: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: var(--tone);
-}
-
-.cc-alert-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
 }
 
 .cc-alert-name {
@@ -369,15 +371,10 @@
   text-overflow: ellipsis;
 }
 
-.cc-alert-detail {
-  margin-top: 2px;
-  font-size: 0.72rem;
-  color: var(--text-subtle);
-}
-
 .cc-alert-tag {
-  font-size: 0.72rem;
-  color: var(--tone);
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+  white-space: nowrap;
 }
 
 /* --- Faixa ao vivo ------------------------------------------------------ */

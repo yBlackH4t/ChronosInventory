@@ -327,3 +327,9 @@
 :root[data-motion="completo"] .ts-suggestions > * {
   animation: vs-fade-in 0.4s var(--ease-out) backwards;
 }
+
+/* Etiquetas: cópias de cada item num campo pequeno com – e +. */
+.lb-copies input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

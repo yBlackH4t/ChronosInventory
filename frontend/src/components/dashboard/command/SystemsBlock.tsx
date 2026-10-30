@@ -64,7 +64,7 @@ export default function SystemsBlock({ lines, loading, uptime }: SystemsBlockPro
                   </span>
                   <span className="cc-sys-text">
                     {line.label}
-                    <small className="cc-mono">{line.detail}</small>
+                    <small>{line.detail}</small>
                   </span>
                   {line.label === "WhatsApp" && line.tone === "ok" ? (
                     <svg className="cc-ecg" viewBox="0 0 54 20" aria-hidden>

@@ -37,7 +37,7 @@ import {
   nameAroundCode,
   productMonogram,
   productRef,
-  versionTitle,
+  versionTag,
 } from "../../lib/productView";
 import { useProductsVisual } from "../../hooks/useProductsVisual";
 import { useFlipList } from "../../hooks/useFlipList";
@@ -347,7 +347,8 @@ export function ProductsListTable({
               const hasLinks =
                 product.linked_count > 0 || !!product.produto_vinculado_id;
               const rowFlash = flash && flash.productId === product.id ? flash : null;
-              const meta = [brandTitle(brand), versionTitle(condition)].filter(Boolean).join(" · ");
+              const version = versionTag(condition);
+              const meta = [brandTitle(brand), version].filter(Boolean).join(" · ");
 
               return (
                 <Table.Tr
@@ -369,8 +370,9 @@ export function ProductsListTable({
                           base64={visual.get(product.id)?.thumb_base64}
                           alt={product.nome}
                           size={36}
-                          monogram={productMonogram(product.nome, brand) ?? undefined}
+                          monogram={productMonogram(brand) ?? undefined}
                           color={brand?.color}
+                          hideEmpty
                         />
                       </span>
                     </Table.Td>
@@ -396,20 +398,20 @@ export function ProductsListTable({
                       </div>
                       {!compact && (meta || links) && (
                         <div className="pm-meta">
-                          <span
-                            className="pm-version-dot"
-                            style={{ background: `var(--mantine-color-${condition.color}-filled)` }}
-                            aria-hidden
-                          />
-                          <span>{meta}</span>
-                          {links && (
-                            <>
-                              <span className="pm-sep" aria-hidden>
-                                ·
-                              </span>
-                              <span className="pm-meta-fill">{links}</span>
-                            </>
+                          {version && (
+                            <span
+                              className="pm-version-dot"
+                              style={{ background: `var(--mantine-color-${condition.color}-filled)` }}
+                              aria-hidden
+                            />
                           )}
+                          {meta && <span>{meta}</span>}
+                          {meta && links && (
+                            <span className="pm-sep" aria-hidden>
+                              ·
+                            </span>
+                          )}
+                          {links && <span className="pm-meta-fill">{links}</span>}
                         </div>
                       )}
                     </Stack>

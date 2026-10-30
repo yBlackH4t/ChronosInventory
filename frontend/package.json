@@ -1,7 +1,7 @@
 {
   "name": "chronos_inventory_frontend",
   "private": true,
-  "version": "2.7.26",
+  "version": "2.7.27",
   "type": "module",
   "scripts": {
     "dev": "vite",

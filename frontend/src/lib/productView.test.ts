@@ -156,14 +156,12 @@ describe("nameAroundCode", () => {
 
 describe("productMonogram", () => {
   it("usa a marca quando há", () => {
-    expect(productMonogram("TURBO HOLSET HX40", detectBrand("TURBO HOLSET HX40"))).toBe("HOL");
+    expect(productMonogram(detectBrand("TURBO HOLSET HX40"))).toBe("HOL");
   });
 
-  it("sem marca, usa o tipo da peça; sem tipo conhecido, nada", () => {
-    expect(productMonogram("CONJUNTO CENTRAL GTA3576", null)).toBe("CC");
-    expect(productMonogram("TURBO HE500WG - 3782537", null)).toBe("TB");
-    expect(productMonogram("1000-020-108 CONJ CENTRAL HX55", null)).toBe("CC");
-    expect(productMonogram("06335008077 ABRACADEIRA", null)).toBeNull();
+  it("sem marca, nada (nem TB ou CC cinza)", () => {
+    expect(productMonogram(detectBrand("06335008077 ABRACADEIRA"))).toBeNull();
+    expect(productMonogram(null)).toBeNull();
   });
 });
 

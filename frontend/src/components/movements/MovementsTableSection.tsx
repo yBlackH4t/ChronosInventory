@@ -246,7 +246,7 @@ export default function MovementsTableSection({
                     )}
                     <Table.Td>
                       <Group gap={2} justify="flex-end" wrap="nowrap" className="pm-actions">
-                        <Tooltip label="Histórico do produto">
+                        <Tooltip label="Ver histórico">
                           <ActionIcon
                             color="gray"
                             aria-label="Histórico do produto"

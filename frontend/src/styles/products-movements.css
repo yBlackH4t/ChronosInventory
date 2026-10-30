@@ -761,7 +761,7 @@
 /* Ações da linha numa coluna própria, depois das saídas (2.7.7): nunca cobrem o saldo.
    Fora do hover ficam apagadas; ao passar o mouse, acendem. */
 .pm-table .pm-actions.pm-actions-col {
-  opacity: 0.35;
+  opacity: 0.65;
   transform: none;
 }
 

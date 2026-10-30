@@ -215,11 +215,11 @@ export default function HealthCore({ counts, total, totalLabel, kpis, saidas, lo
               onPointerLeave={resetTilt}
             >
               <b
-                className="cc-mono"
                 style={kpi.tone ? { color: kpi.tone === "ok" ? chart.semantic.ok : chart.semantic.warn } : undefined}
               >
                 {kpi.signed && kpi.value > 0 && !loading ? <span className="cc-kpi-up" aria-hidden>↑ </span> : null}
-                {loading ? "–" : `${kpi.signed && kpi.value > 0 ? "+" : ""}${kpi.value.toLocaleString("pt-BR")}${kpi.suffix ?? ""}`}
+                {/* A seta já diz que subiu: o número vai sem "+". */}
+                {loading ? "–" : `${kpi.value.toLocaleString("pt-BR")}${kpi.suffix ?? ""}`}
               </b>
               {kpi.label}
             </div>
