@@ -1,5 +1,18 @@
 # Release Runbook (Chronos Inventory)
 
+## 0) Caminho de sempre (automático, desde 2026-10-30)
+
+1. O PR deixa um arquivo em `novidades/` e **não troca a versão** (`novidades/README.md`).
+2. Merge na `main`: o fluxo **Publicar** escolhe o número, escreve o `CHANGELOG.md`, cria a tag
+   e roda o **Release**. A versão sai como pré-lançamento, só no **canal Teste**
+   (Configurações > Este computador > Canal de atualização).
+3. Tudo certo no PC de teste: GitHub > Actions > **Liberar para todos** > Run workflow (vazio =
+   a versão mais nova). Os PCs do canal Estável instalam em até 1 hora, ao fechar o Chronos.
+4. Deu problema: Actions > **Voltar versão** > número da versão boa > Run workflow. Os dois
+   canais voltam em até 1 hora. A próxima correção sai com número maior.
+
+O restante deste guia é o caminho manual, para build local ou emergência.
+
 Guia pratico para testar, empacotar e publicar uma nova versao sem quebrar update, sidecar ou artefatos da release.
 
 ## 1) Pre-requisitos
