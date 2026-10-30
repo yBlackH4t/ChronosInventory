@@ -12,13 +12,17 @@ export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
     "version": "2.7.30",
     "date": "2026-10-30",
-    "title": "Ajustes operacionais",
+    "title": "Novidades e ajustes",
     "highlights": [
+      "Novo: Canal de atualização (Configurações > Este computador): no Teste, este computador recebe cada versão nova antes dos outros. Os outros só a recebem depois de \"Liberar para todos\" no GitHub. Voltar para o Estável instala a versão oficial.",
+      "Novo: Voltar versão: o Chronos aceita instalar uma versão mais antiga quando ela volta a ser a oficial. Assim, o \"Voltar versão\" do GitHub devolve todos os computadores para a anterior em até uma hora, com a cópia de segurança de sempre antes.",
       "Mudanca: Painel mais rápido: a \"Saúde do estoque\" e o \"Pede ação hoje\" calculavam a última saída de cada produto relendo todas as saídas, um produto por vez. Agora é uma passada só: no teste com 150 mil movimentações caiu de 14 segundos para meio segundo, e o Painel recebe só a contagem e os parados do topo, não a lista inteira de produtos com saldo. Em Relatórios, a divisão por marca também ficou mais rápida.",
       "Mudanca: Banco escolhe o caminho certo: ao abrir o Chronos (e depois de restaurar uma cópia), o banco atualiza as estatísticas que usa para escolher o índice de cada busca. Leva milissegundos.",
       "Mudanca: Lista de Produtos 2 a 4 vezes mais rápida: índice novo para o vínculo da montada com o conjunto.",
       "Mudanca: Buscas por código e por veículo mais rápidas: a busca por código no catálogo usa o índice (cerca de 3 vezes mais rápida) e a busca do assistente por veículo ou motor guarda as palavras das aplicações entre uma pergunta e outra (cerca de 3 vezes mais rápida).",
-      "Mudanca: Abertura um pouco mais rápida: o pandas só é carregado quando você importa planilha ou exporta o backup em Excel."
+      "Mudanca: Abertura um pouco mais rápida: o pandas só é carregado quando você importa planilha ou exporta o backup em Excel.",
+      "Mudanca: Publicação automática: o merge na main já gera a versão sozinho (número, notas, tag e instalador), sem comando. Cada versão nova vai primeiro para o canal de teste.",
+      "Mudanca: \"Verificar atualização\" procura no canal deste computador."
     ]
   },
   {
