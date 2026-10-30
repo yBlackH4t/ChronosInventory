@@ -1,2 +1,0 @@
-### Fixed
-- **Segurança das bibliotecas:** a leitura de imagens (Pillow) e o servidor interno (Starlette e FastAPI) foram atualizados para versões sem as falhas conhecidas apontadas pelo GitHub. As fotos que chegam pelo WhatsApp e pelo celular passam por essa leitura, e a falha do servidor podia deixar alguém da rede passar pela trava que libera só o leitor de código para os celulares. As bibliotecas de conexão segura do app também foram atualizadas.
