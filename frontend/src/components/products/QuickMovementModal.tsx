@@ -477,7 +477,7 @@ function QuickMovementForm({
             leftSection={saved ? <DrawnCheck /> : <IconCheck size={16} />}
             loading={mutation.isPending}
             data-saved={saved || undefined}
-            disabled={saved}
+            style={saved ? { pointerEvents: "none" } : undefined}
             className="vv-save-btn"
           >
             {saved ? "Registrado" : `Confirmar ${tipo === "SAIDA" ? "Baixa" : tipo === "ENTRADA" ? "Entrada" : "Transferência"}`}
