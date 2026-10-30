@@ -172,6 +172,8 @@ function QuickMovementForm({
 
   const handleSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    // Já registrado (o ✓ fica um instante na tela): não manda de novo.
+    if (saved || mutation.isPending) return;
 
     const qtd = Number(quantidade);
     if (!qtd || qtd <= 0) {
@@ -475,6 +477,7 @@ function QuickMovementForm({
             leftSection={saved ? <DrawnCheck /> : <IconCheck size={16} />}
             loading={mutation.isPending}
             data-saved={saved || undefined}
+            disabled={saved}
             className="vv-save-btn"
           >
             {saved ? "Registrado" : `Confirmar ${tipo === "SAIDA" ? "Baixa" : tipo === "ENTRADA" ? "Entrada" : "Transferência"}`}
