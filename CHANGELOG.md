@@ -26,6 +26,11 @@ Formato recomendado:
 
 
 
+## [2.7.32] - 2026-10-30
+
+### Fixed
+- **Painel:** a tela não pisca mais quando o anel "ao vivo" ao lado do relógio enche. A luz da atualização passava trocando a animação de entrada dos painéis, e eles entravam de novo (sumiam e voltavam) a cada 20 segundos.
+
 ## [2.7.31] - 2026-10-30
 
 ### Fixed

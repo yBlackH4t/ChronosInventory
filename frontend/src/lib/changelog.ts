@@ -10,6 +10,14 @@ export type ReleaseEntry = {
 
 export const RELEASE_ENTRIES: ReleaseEntry[] = [
   {
+    "version": "2.7.32",
+    "date": "2026-10-30",
+    "title": "Correcao e estabilidade",
+    "highlights": [
+      "Correcao: Painel: a tela não pisca mais quando o anel \"ao vivo\" ao lado do relógio enche. A luz da atualização passava trocando a animação de entrada dos painéis, e eles entravam de novo (sumiam e voltavam) a cada 20 segundos."
+    ]
+  },
+  {
     "version": "2.7.31",
     "date": "2026-10-30",
     "title": "Correcao e estabilidade",
