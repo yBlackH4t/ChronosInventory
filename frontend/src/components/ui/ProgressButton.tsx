@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, type ButtonProps } from "@mantine/core";
-import { IconCheck } from "@tabler/icons-react";
+import DrawnCheck from "./DrawnCheck";
 
 type ProgressButtonProps = Omit<ButtonProps, "loading"> & {
   /** Trabalhando: uma faixa enche o botão por dentro e o texto vira `busyLabel`. */
@@ -51,7 +51,7 @@ export default function ProgressButton({
       disabled={disabled}
       aria-busy={busy || undefined}
       onClick={busy ? undefined : rest.onClick}
-      leftSection={done ? <IconCheck size={16} stroke={2.6} className="mi-progress-check" /> : rest.leftSection}
+      leftSection={done ? <DrawnCheck /> : rest.leftSection}
     >
       <span aria-live="polite">{busy ? (busyLabel ?? children) : done ? doneLabel : children}</span>
     </Button>

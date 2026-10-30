@@ -19,6 +19,8 @@ import { useFlipList } from "../../hooks/useFlipList";
 import { dayAnchorId } from "../../lib/movementMinimap";
 import MovementsMinimap from "./MovementsMinimap";
 import "../../styles/products-movements.css";
+import { useEstornoLeaving } from "../../hooks/useEstornoLeaving";
+import { useRowSpotlight } from "../../hooks/useRowSpotlight";
 
 const TYPE_LABELS: Record<MovementOut["tipo"], string> = {
   ENTRADA: "Entrada",
@@ -46,14 +48,16 @@ type Props = {
 // aparece riscado.
 export default function MovementsDayList({ rows, locationName, openHistory, onEstorno }: Props) {
   const listRef = useRef<HTMLDivElement>(null);
+  const { displayRows, leaving, present } = useEstornoLeaving(rows);
   const reversed = useMemo(() => reversedMovementIds(rows), [rows]);
   const signature = useMemo(() => rows.map((row) => row.id).join(","), [rows]);
   useFlipList(listRef, signature, { enterOffset: 14 });
+  useRowSpotlight(listRef, ".mv-line");
 
   return (
     <div ref={listRef}>
       <MovementsMinimap rows={rows} />
-      {groupByDay(rows).map((group) => (
+      {groupByDay(displayRows).map((group) => (
         <section
           key={group.day}
           id={dayAnchorId(group.day)}
@@ -94,6 +98,8 @@ export default function MovementsDayList({ rows, locationName, openHistory, onEs
                   role="listitem"
                   data-flip-key={mov.id}
                   data-reversed={isReversed || undefined}
+                  data-striking={leaving.has(mov.id) || undefined}
+                  data-leaving={(leaving.has(mov.id) && !present.has(mov.id)) || undefined}
                   aria-label={isReversed ? `${nome}, estornada` : undefined}
                 >
                   <span className="mv-line-bar" style={{ background: `var(--mantine-color-${tone}-filled)` }} />

@@ -15,6 +15,8 @@ import { api } from "../../lib/apiClient";
 import type { InventoryLocation, Product, ProductColumn, ProductColumnItem, ProductColumnKey } from "../../lib/api";
 import { detectBrand, detectCondition } from "../../lib/brands";
 import { clickableRowProps } from "../../lib/clickableRow";
+import { resetTilt, tiltWithCursor } from "../../lib/cursorGlow";
+import { useMotionLevel } from "../../lib/motionContext";
 import {
   COLUMN_COLORS,
   LINK_LABEL,
@@ -375,6 +377,7 @@ function ColumnCard({
   locations: InventoryLocation[];
   onOpen?: () => void;
 }) {
+  const motionLevel = useMotionLevel();
   const product = item.produto;
   const nome = itemTitle(item);
   const brand = detectBrand(nome);
@@ -383,11 +386,13 @@ function ColumnCard({
   return (
     <div
       {...(onOpen ? clickableRowProps(() => onOpen()) : {})}
-      className={onOpen ? "pc-card clickable-row" : "pc-card"}
+      className={onOpen ? "pc-card vv-tilt mi-glow clickable-row" : "pc-card vv-tilt mi-glow"}
       data-big={big || undefined}
       style={{ "--pc-card-i": index } as CSSProperties}
       onMouseEnter={() => handlers.onHoverProduct?.(product)}
       onMouseLeave={() => handlers.onHoverProduct?.(null)}
+      onPointerMove={(event) => tiltWithCursor(event, motionLevel === "completo", big ? 3 : 6)}
+      onPointerLeave={resetTilt}
     >
       <ProductThumb
         base64={thumb}

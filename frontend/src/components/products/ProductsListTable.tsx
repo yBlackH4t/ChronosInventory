@@ -49,6 +49,7 @@ import ProductThumb from "./ProductThumb";
 import SalesMiniBars from "./SalesMiniBars";
 import StockNumber, { type StockFlash } from "./StockNumber";
 import "../../styles/products-movements.css";
+import { useRowSpotlight } from "../../hooks/useRowSpotlight";
 
 type ProductsListTableProps = {
   rows: Product[];
@@ -209,6 +210,7 @@ export function ProductsListTable({
   // Busca ao vivo: as linhas que ficam deslizam para o lugar novo e as novas esmaecem.
   const signature = useMemo(() => rows.map((row) => row.id).join(","), [rows]);
   useFlipList(parentRef, signature);
+  useRowSpotlight(parentRef, ".pm-row");
 
   if (loading) {
     return (

@@ -12,20 +12,10 @@ import { PRIMARY_NAV } from "../app/navigation";
 import { preloadRoute } from "../app/routePreload";
 import TopBar from "./shell/TopBar";
 import NfeScanHost from "./scanner/NfeScanHost";
+import AppBackdrop from "./shell/LiveBackdrop";
 
 // 10px de respiro + cartão de vidro (52px da linha de cima + 44px das abas + 6px).
 const TOPBAR_HEIGHT = 114;
-
-// Manchas de cor atrás de tudo (estilo Vidro suave). Só se mexem no nível "Completo".
-function AppBackdrop() {
-  return (
-    <div className="app-backdrop" aria-hidden="true">
-      <span className="app-blob" data-blob="1" />
-      <span className="app-blob" data-blob="2" />
-      <span className="app-blob" data-blob="3" />
-    </div>
-  );
-}
 
 export default function AppLayout({
   children,

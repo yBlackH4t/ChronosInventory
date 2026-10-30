@@ -103,7 +103,12 @@ export default function AssistantAnswer({ message, isLast, busy, onTeach, onOpen
         {blocks.map((block, i) =>
           reveal(
             `l${i}`,
-            <Text size="sm" component="p" className="chat-answer-line">
+            <Text
+              size="sm"
+              component="p"
+              className="chat-answer-line vv-type"
+              style={{ animationDelay: `${Math.min(i, ANSWER_MAX_STEPS) * 0.15}s` }}
+            >
               {block.segments.map((segment, j) => (
                 <Fragment key={j}>
                   <Segment segment={segment} />

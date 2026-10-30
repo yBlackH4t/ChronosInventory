@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { notifications } from "@mantine/notifications";
 import { createApiClient } from "../../lib/api";
 import type { MovementOut, MovementCreate } from "../../lib/api";
+import { announceEstorno } from "../../hooks/useEstornoLeaving";
 
 // Como cada tipo aparece na frase ("desfazer esta entrada").
 const TIPO_TEXTO: Record<MovementOut["tipo"], string> = {
@@ -54,6 +55,7 @@ export default function EstornoModal({
       return api.createMovement(payload);
     },
     onSuccess: () => {
+      if (movement) announceEstorno(movement.id);
       notifications.show({
         title: "Sucesso",
         message:

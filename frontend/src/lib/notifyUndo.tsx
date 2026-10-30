@@ -11,6 +11,8 @@ export function notifyUndo(message: string, onUndo: () => void, autoClose = 6000
     id,
     color: "gray",
     autoClose,
+    className: "vv-timed",
+    style: { ["--vv-life" as string]: `${autoClose}ms` },
     message: (
       <Group justify="space-between" wrap="nowrap" gap="sm">
         <Text size="sm">{message}</Text>

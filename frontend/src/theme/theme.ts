@@ -112,6 +112,15 @@ export const appTheme = createTheme({
       "#312e81",
     ],
 
+
+    // Paletas de Configurações > Aparência (2.7.25): cor principal de cada uma (tom 6).
+    esmeralda: ["#ecfdf5", "#d1fae5", "#a7f3d0", "#6ee7b7", "#34d399", "#10b981", "#047857", "#065f46", "#064e3b", "#022c22"],
+    oficina: ["#fffbeb", "#fef3c7", "#fde68a", "#fcd34d", "#fbbf24", "#d97706", "#b45309", "#92400e", "#78350f", "#451a03"],
+    violeta: ["#f5f3ff", "#ede9fe", "#ddd6fe", "#c4b5fd", "#a78bfa", "#8b5cf6", "#6d28d9", "#5b21b6", "#4c1d95", "#2e1065"],
+    turbo: ["#fff1f2", "#ffe4e6", "#fecdd3", "#fda4af", "#fb7185", "#f43f5e", "#be123c", "#9f1239", "#881337", "#4c0519"],
+    oceano: ["#eff6ff", "#dbeafe", "#bfdbfe", "#93c5fd", "#60a5fa", "#3b82f6", "#1d4ed8", "#1e40af", "#1e3a8a", "#172554"],
+    cyber: ["#ecfeff", "#cffafe", "#a5f3fc", "#67e8f9", "#22d3ee", "#06b6d4", "#0891b2", "#0e7490", "#155e75", "#083344"],
+
     success: [
       "#ecfdf3",
       "#d1fae5",
