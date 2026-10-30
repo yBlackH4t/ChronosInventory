@@ -420,8 +420,8 @@ npm run lint
 
 ## 6. Registro de entregas
 
-### 2026-10-30 — Claude Code — 2.7.29: desempenho (Painel, Produtos, buscas)
-- Branch: `claude/project-thread-7x8daq` (sobre a main 2.7.27; 2.7.28 está no PR #60). Auditoria medida num banco de teste com os 4.279 produtos do CSV, o catálogo real e 150 mil movimentações.
+### 2026-10-30 — Claude Code — 2.7.30: desempenho (Painel, Produtos, buscas)
+- Branch: `claude/project-thread-7x8daq` (sobre a main 2.7.27; 2.7.28 está no PR #60, 2.7.29 no #61). Auditoria medida num banco de teste com os 4.279 produtos do CSV, o catálogo real e 150 mil movimentações.
 - `MovementRepository.get_stock_items_overview`: saídas numa passada agrupada por produto (antes subconsulta por produto que o SQLite resolvia pelo índice de tipo). Mesmo resultado; 14 s → 0,5 s.
 - `DatabaseConnection.refresh_query_planner_stats()` (ANALYZE com `analysis_limit`) na abertura e no `ensure_schema`. Índice `idx_produtos_vinculado`.
 - `GET /analytics/stock/health`: o Painel recebe contagem + parados do topo, não a lista inteira.

@@ -26,7 +26,7 @@ Formato recomendado:
 
 
 
-## [2.7.29] - 2026-10-30
+## [2.7.30] - 2026-10-30
 
 ### Changed
 - **Painel mais rápido:** a "Saúde do estoque" e o "Pede ação hoje" calculavam a última saída de cada produto relendo todas as saídas, um produto por vez. Agora é uma passada só: no teste com 150 mil movimentações caiu de 14 segundos para meio segundo, e o Painel recebe só a contagem e os parados do topo, não a lista inteira de produtos com saldo. Em Relatórios, a divisão por marca também ficou mais rápida.
