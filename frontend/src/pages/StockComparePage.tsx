@@ -451,14 +451,17 @@ export default function StockComparePage() {
         subtitle="Compare o estoque desta máquina com o de outro computador da rede."
       />
 
-      <StockCompareOverviewCards
-        compareResult={compareResult}
-        compareServerStatus={compareServerStatus}
-        remoteServerInfo={remoteServerInfo}
-        localStatusConfirmedAt={localStatusConfirmedAt}
-        remoteStatusCheckedAt={remoteStatusCheckedAt}
-        remoteSnapshotIsOlder={remoteSnapshotIsOlder}
-      />
+      {/* Os quatro números só ajudam depois de comparar; antes, a tela começa pelo que fazer. */}
+      {compareResult ? (
+        <StockCompareOverviewCards
+          compareResult={compareResult}
+          compareServerStatus={compareServerStatus}
+          remoteServerInfo={remoteServerInfo}
+          localStatusConfirmedAt={localStatusConfirmedAt}
+          remoteStatusCheckedAt={remoteStatusCheckedAt}
+          remoteSnapshotIsOlder={remoteSnapshotIsOlder}
+        />
+      ) : null}
 
       <StockCompareServerSection
         currentDbPath={currentDbPath}

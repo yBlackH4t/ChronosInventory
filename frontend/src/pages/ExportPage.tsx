@@ -1,4 +1,5 @@
-import { Button, Divider, Group, Stack, Text } from "@mantine/core";
+import type { ReactNode } from "react";
+import { Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import {
   IconDownload,
   IconReportAnalytics,
@@ -51,55 +52,56 @@ export default function ExportPage() {
         subtitle="Planilhas para auditoria, análise e envio externo."
       />
 
-      <div className="surface-panel" style={{ overflow: "hidden", maxWidth: 860 }}>
-        <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
-          <Group gap="sm" wrap="nowrap" flex={1} miw={260}>
-            <span className="settings-item-icon">
-              <IconTable size={18} stroke={1.5} />
-            </span>
-            <div>
-              <Text size="sm" fw={600}>
-                Produtos e estoques
-              </Text>
-              <Text size="xs" c="dimmed">
-                Todos os produtos com o estoque atual de cada filial. Formato bruto, bom para reimportar ou cruzar dados.
-              </Text>
-            </div>
-          </Group>
-          <Button
-            variant="default"
-            leftSection={<IconDownload size={16} stroke={1.5} />}
-            onClick={() => exportMutation.mutate()}
-            loading={exportMutation.isPending}
-          >
-            Baixar XLSX
-          </Button>
-        </Group>
-        <Divider color="var(--border)" />
-        <Group justify="space-between" wrap="wrap" gap="sm" px="lg" py="md">
-          <Group gap="sm" wrap="nowrap" flex={1} miw={260}>
-            <span className="settings-item-icon">
-              <IconReportAnalytics size={18} stroke={1.5} />
-            </span>
-            <div>
-              <Text size="sm" fw={600}>
-                Resumo de estoque formatado
-              </Text>
-              <Text size="xs" c="dimmed">
-                Planilha apresentável com aba de resumo, totais por filial, total global de peças e a lista completa.
-              </Text>
-            </div>
-          </Group>
-          <Button
-            variant="default"
-            leftSection={<IconDownload size={16} stroke={1.5} />}
-            onClick={() => stockOverviewMutation.mutate()}
-            loading={stockOverviewMutation.isPending}
-          >
-            Baixar XLSX
-          </Button>
-        </Group>
-      </div>
+      {/* Duas planilhas lado a lado, cada uma com o seu botão grande. */}
+      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+        <ExportCard
+          icon={<IconTable size={18} stroke={1.5} />}
+          title="Produtos e estoques"
+          description="Todos os produtos com o estoque atual de cada filial. Formato bruto, bom para reimportar ou cruzar dados."
+          loading={exportMutation.isPending}
+          onDownload={() => exportMutation.mutate()}
+        />
+        <ExportCard
+          icon={<IconReportAnalytics size={18} stroke={1.5} />}
+          title="Resumo de estoque formatado"
+          description="Planilha apresentável com aba de resumo, totais por filial, total global de peças e a lista completa."
+          loading={stockOverviewMutation.isPending}
+          onDownload={() => stockOverviewMutation.mutate()}
+        />
+      </SimpleGrid>
+    </Stack>
+  );
+}
+
+function ExportCard({
+  icon,
+  title,
+  description,
+  loading,
+  onDownload,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  loading: boolean;
+  onDownload: () => void;
+}) {
+  return (
+    <Stack className="surface-panel" gap="md" p="lg" justify="space-between">
+      <Group gap="sm" wrap="nowrap" align="flex-start">
+        <span className="settings-item-icon">{icon}</span>
+        <div>
+          <Text size="sm" fw={600}>
+            {title}
+          </Text>
+          <Text size="xs" c="dimmed">
+            {description}
+          </Text>
+        </div>
+      </Group>
+      <Button size="md" fullWidth leftSection={<IconDownload size={18} stroke={1.5} />} onClick={onDownload} loading={loading}>
+        Baixar planilha
+      </Button>
     </Stack>
   );
 }

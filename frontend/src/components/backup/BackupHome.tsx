@@ -85,6 +85,8 @@ export function BackupHome({
   else if (!latestIsRecent) title = "Faz tempo que não é feita uma cópia";
 
   const isPrincipal = officialStatus?.role === "publisher";
+  // "Pegar a base" só aparece quando este PC já está ligado a uma principal; sem isso o quadro
+  // apagado só confundia.
 
   return (
     <>
@@ -131,20 +133,15 @@ export function BackupHome({
             onClick={onPublishOfficial}
             loading={publishLoading}
           />
-        ) : (
+        ) : officialStatus?.remote_server_url ? (
           <ActionTile
             icon={IconCloudDownload}
             title="Pegar a base da principal"
-            text={
-              officialStatus?.remote_server_url
-                ? "Atualiza este computador com o estoque da máquina principal."
-                : "Ainda não ligado à máquina principal. Peça para quem configura (engrenagem > Base oficial)."
-            }
+            text="Atualiza este computador com o estoque da máquina principal."
             onClick={onApplyOfficial}
             loading={applyLoading}
-            disabled={!officialStatus?.remote_server_url}
           />
-        )}
+        ) : null}
       </ActionGrid>
     </>
   );

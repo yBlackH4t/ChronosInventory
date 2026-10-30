@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActionIcon, Button, Menu, Stack } from "@mantine/core";
+import { Button, Stack } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   keepPreviousData,
@@ -7,7 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { IconDots, IconPlus, IconPrinter, IconRestore } from "@tabler/icons-react";
+import { IconPlus, IconPrinter } from "@tabler/icons-react";
 import dayjs from "dayjs";
 
 import { api } from "../lib/apiClient";
@@ -17,9 +17,9 @@ import { InventorySessionsTable } from "../components/inventory/InventorySession
 import { InventorySessionDetailSection } from "../components/inventory/InventorySessionDetailSection";
 import { InventoryCreateSessionModal } from "../components/inventory/InventoryCreateSessionCard";
 import Panel from "../components/ui/Panel";
+import EmptyState from "../components/ui/EmptyState";
 import { useInventoryModals } from "../components/inventory/useInventoryModals";
 import {
-  clearTabState,
   loadTabState,
   saveTabState,
 } from "../state/tabStateCache";
@@ -709,6 +709,13 @@ export default function InventoryPage() {
 
   const sessions = sessionsQuery.data?.data ?? [];
   const sessionsPages = Math.max(sessionsQuery.data?.meta?.total_pages ?? 1, 1);
+  const sessionsTotal = sessionsQuery.data?.meta?.total_items ?? 0;
+  const noSessionsAtAll = sessionsQuery.isSuccess && sessionsTotal === 0;
+
+  // Excluir a última sessão de uma página deixa a página guardada além do fim: volta para a última.
+  useEffect(() => {
+    if (sessionsTotal > 0 && sessionPage > sessionsPages) setSessionPage(sessionsPages);
+  }, [sessionPage, sessionsPages, sessionsTotal]);
   const items = itemsQuery.data?.data ?? [];
   const itemPages = Math.max(itemsQuery.data?.meta?.total_pages ?? 1, 1);
   const sessionSummary = summaryQuery.data?.data;
@@ -719,25 +726,6 @@ export default function InventoryPage() {
     setStatusFilter(DEFAULT_INVENTORY_TAB_STATE.statusFilter);
     setSearch("");
     setItemsPage(1);
-  };
-
-  const resetInventoryPage = () => {
-    setSessionName(DEFAULT_INVENTORY_TAB_STATE.sessionName);
-    setSessionLocationId(DEFAULT_INVENTORY_TAB_STATE.sessionLocationId);
-    setSessionObservacao(DEFAULT_INVENTORY_TAB_STATE.sessionObservacao);
-    setSessionPage(DEFAULT_INVENTORY_TAB_STATE.sessionPage);
-    setSelectedSessionId(DEFAULT_INVENTORY_TAB_STATE.selectedSessionId);
-    setItemsPage(DEFAULT_INVENTORY_TAB_STATE.itemsPage);
-    setStatusFilter(DEFAULT_INVENTORY_TAB_STATE.statusFilter);
-    setSearch(DEFAULT_INVENTORY_TAB_STATE.search);
-    setCollectorStep(DEFAULT_INVENTORY_TAB_STATE.collectorStep);
-    setCollectorInput("");
-    setCollectorLog([]);
-    setCollectorModeActive(false);
-    setCollectorSessionId(null);
-    setEdits({});
-    clearTabState(INVENTORY_TAB_ID);
-    window.scrollTo({ top: 0, behavior: "auto" });
   };
 
   const printTemplate = () => {
@@ -764,27 +752,9 @@ export default function InventoryPage() {
         subtitle="Sessões de contagem, divergências e ajustes em lote."
         actions={
           <>
-            <Menu position="bottom-end" width={220}>
-              <Menu.Target>
-                <ActionIcon size="lg" variant="default" aria-label="Mais opções">
-                  <IconDots size={18} stroke={1.5} />
-                </ActionIcon>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<IconPrinter size={16} stroke={1.5} />}
-                  onClick={printTemplate}
-                >
-                  Imprimir folha modelo
-                </Menu.Item>
-                <Menu.Item
-                  leftSection={<IconRestore size={16} stroke={1.5} />}
-                  onClick={resetInventoryPage}
-                >
-                  Restaurar visão padrão
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+            <Button variant="default" leftSection={<IconPrinter size={16} stroke={1.5} />} onClick={printTemplate}>
+              Folha de contagem
+            </Button>
             <Button leftSection={<IconPlus size={16} />} onClick={createModal.open}>
               Nova sessão
             </Button>
@@ -806,27 +776,39 @@ export default function InventoryPage() {
         isLoading={createSessionMutation.isPending}
       />
 
-      <Panel flush title="Sessões" subtitle="Clique em uma sessão para abrir a contagem.">
-        <InventorySessionsTable
-          sessions={sessions}
-          selectedSessionId={selectedSessionId}
-          totalItems={sessionsQuery.data?.meta?.total_items ?? 0}
-          page={sessionPage}
-          totalPages={sessionsPages}
-          closePending={closeSessionMutation.isPending}
-          deletePending={deleteSessionMutation.isPending}
-          onSelectSession={(session) => {
-            setSelectedSessionId(session.id);
-            setItemsPage(1);
-            setEdits({});
-            setCollectorInput("");
-            setCollectorLog([]);
-          }}
-          onConfirmClose={confirmCloseSession}
-          onConfirmDelete={confirmDeleteSession}
-          onPageChange={setSessionPage}
-        />
-      </Panel>
+      {/* Sem nenhuma sessão, só o aviso com o botão: a tabela vazia não diz nada. */}
+      {noSessionsAtAll ? (
+        <Panel>
+          <EmptyState
+            message="Nenhuma sessão de inventário"
+            description="Crie uma sessão para começar a contagem."
+            primaryLabel="Nova sessão"
+            onPrimary={createModal.open}
+          />
+        </Panel>
+      ) : (
+        <Panel flush title="Sessões" subtitle="Clique em uma sessão para abrir a contagem.">
+          <InventorySessionsTable
+            sessions={sessions}
+            selectedSessionId={selectedSessionId}
+            totalItems={sessionsTotal}
+            page={sessionPage}
+            totalPages={sessionsPages}
+            closePending={closeSessionMutation.isPending}
+            deletePending={deleteSessionMutation.isPending}
+            onSelectSession={(session) => {
+              setSelectedSessionId(session.id);
+              setItemsPage(1);
+              setEdits({});
+              setCollectorInput("");
+              setCollectorLog([]);
+            }}
+            onConfirmClose={confirmCloseSession}
+            onConfirmDelete={confirmDeleteSession}
+            onPageChange={setSessionPage}
+          />
+        </Panel>
+      )}
 
       {selectedSession && (
         <InventorySessionDetailSection

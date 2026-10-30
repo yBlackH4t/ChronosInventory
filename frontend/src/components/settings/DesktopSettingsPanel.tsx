@@ -57,6 +57,9 @@ export default function DesktopSettingsPanel() {
     }
   };
 
+  // No navegador estas opções não existem: o quadro só aparece no Chronos instalado.
+  if (!desktop) return null;
+
   return (
     <Panel
       title={
@@ -67,56 +70,50 @@ export default function DesktopSettingsPanel() {
       }
       subtitle="O robô do WhatsApp, a cópia automática e o envio da base só funcionam com o Chronos ligado."
     >
-      {!desktop ? (
-        <Text size="sm" c="dimmed">
-          Estas opções aparecem no Chronos instalado no Windows.
-        </Text>
-      ) : (
-        <div>
-          <div className="ts-option">
-            <div>
-              <Text size="sm" fw={600}>
-                Continuar ligado ao fechar a janela
-              </Text>
-              <Text size="xs" c="dimmed">
-                O Chronos fica no canto da barra de tarefas, perto do relógio.
-                Para sair de vez, clique com o botão direito no ícone e escolha
-                “Sair do Chronos”.
-              </Text>
-            </div>
-            <Switch
-              size="md"
-              aria-label="Continuar ligado ao fechar a janela"
-              checked={settings?.fechar_para_bandeja ?? true}
-              disabled={!settings || saving}
-              onChange={(event) =>
-                save({ fechar_para_bandeja: event.currentTarget.checked })
-              }
-            />
+      <div>
+        <div className="ts-option">
+          <div>
+            <Text size="sm" fw={600}>
+              Continuar ligado ao fechar a janela
+            </Text>
+            <Text size="xs" c="dimmed">
+              O Chronos fica no canto da barra de tarefas, perto do relógio.
+              Para sair de vez, clique com o botão direito no ícone e escolha
+              “Sair do Chronos”.
+            </Text>
           </div>
-          <div className="ts-option">
-            <div>
-              <Text size="sm" fw={600}>
-                Abrir junto com o Windows
-              </Text>
-              <Text size="xs" c="dimmed">
-                Liga o Chronos sozinho quando o computador é ligado, já
-                escondido perto do relógio. Use no computador do robô do
-                WhatsApp.
-              </Text>
-            </div>
-            <Switch
-              size="md"
-              aria-label="Abrir junto com o Windows"
-              checked={settings?.abrir_com_windows ?? false}
-              disabled={!settings || saving}
-              onChange={(event) =>
-                save({ abrir_com_windows: event.currentTarget.checked })
-              }
-            />
-          </div>
+          <Switch
+            size="md"
+            aria-label="Continuar ligado ao fechar a janela"
+            checked={settings?.fechar_para_bandeja ?? true}
+            disabled={!settings || saving}
+            onChange={(event) =>
+              save({ fechar_para_bandeja: event.currentTarget.checked })
+            }
+          />
         </div>
-      )}
+        <div className="ts-option">
+          <div>
+            <Text size="sm" fw={600}>
+              Abrir junto com o Windows
+            </Text>
+            <Text size="xs" c="dimmed">
+              Liga o Chronos sozinho quando o computador é ligado, já
+              escondido perto do relógio. Use no computador do robô do
+              WhatsApp.
+            </Text>
+          </div>
+          <Switch
+            size="md"
+            aria-label="Abrir junto com o Windows"
+            checked={settings?.abrir_com_windows ?? false}
+            disabled={!settings || saving}
+            onChange={(event) =>
+              save({ abrir_com_windows: event.currentTarget.checked })
+            }
+          />
+        </div>
+      </div>
     </Panel>
   );
 }

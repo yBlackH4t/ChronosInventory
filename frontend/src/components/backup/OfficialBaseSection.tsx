@@ -219,7 +219,8 @@ export function OfficialBaseSection({
               Sem senha: qualquer aparelho do Wi-Fi pode baixar o estoque.
             </Alert>
           )}
-          {status?.server_urls?.length ? (
+          {/* Os endereços só servem com o servidor ligado. */}
+          {serverIsRunning && status?.server_urls?.length ? (
             <Group gap="xs" wrap="wrap">
               {status.server_urls.map((url) => (
                 <CopyButton key={url} value={url} timeout={1500}>
@@ -250,7 +251,7 @@ export function OfficialBaseSection({
         title="Esta máquina × base publicada"
         subtitle={
           latest
-            ? `Publicada em ${dayjs(latest.published_at).format("DD/MM/YYYY HH:mm")} por ${latest.publisher_name || latest.publisher_machine} · app mínimo ${latest.min_app_version} · banco ${latest.db_version}`
+            ? `Publicada em ${dayjs(latest.published_at).format("DD/MM/YYYY HH:mm")} por ${latest.publisher_name || latest.publisher_machine}`
             : "Nenhuma base oficial publicada neste servidor ainda."
         }
         actions={
@@ -267,41 +268,43 @@ export function OfficialBaseSection({
           ) : undefined
         }
       >
-        <Table verticalSpacing="xs">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th />
-              <Table.Th ta="right">Esta máquina</Table.Th>
-              <Table.Th ta="right">Publicada</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {comparisonRows.map((row) => (
-              <Table.Tr key={row.label}>
-                <Table.Td c="dimmed">{row.label}</Table.Td>
-                <Table.Td ta="right" fw={600} className="num">
-                  {row.local}
-                </Table.Td>
-                <Table.Td ta="right" className="num">
-                  {row.published}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-        <Stack gap={4} px="lg" py="sm">
-          <Text size="xs" c="dimmed" className="mono" truncate="end">
-            {status?.current_database_path || "—"}
-          </Text>
-          {latest?.notes ? (
-            <Text size="xs" c="dimmed">
-              Notas da publicação: {latest.notes}
-            </Text>
-          ) : null}
-          <Text size="xs" c="dimmed">
-            Se os números divergirem muito, confira antes de publicar ou aplicar a base.
-          </Text>
-        </Stack>
+        {/* Sem base publicada, a coluna da direita seria só traços: fica só a frase acima. */}
+        {latest ? (
+          <>
+            <Table verticalSpacing="xs">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th />
+                  <Table.Th ta="right">Esta máquina</Table.Th>
+                  <Table.Th ta="right">Publicada</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {comparisonRows.map((row) => (
+                  <Table.Tr key={row.label}>
+                    <Table.Td c="dimmed">{row.label}</Table.Td>
+                    <Table.Td ta="right" fw={600} className="num">
+                      {row.local}
+                    </Table.Td>
+                    <Table.Td ta="right" className="num">
+                      {row.published}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+            <Stack gap={4} px="lg" py="sm">
+              {latest.notes ? (
+                <Text size="xs" c="dimmed">
+                  Notas da publicação: {latest.notes}
+                </Text>
+              ) : null}
+              <Text size="xs" c="dimmed">
+                Se os números divergirem muito, confira antes de publicar ou aplicar a base.
+              </Text>
+            </Stack>
+          </>
+        ) : null}
       </Panel>
 
       {emptyDatabase && (
@@ -353,6 +356,11 @@ export function OfficialBaseSection({
               Baixar do servidor remoto
             </Button>
           </Group>
+          {!isPublisher && !remoteServerUrlInput.trim() && (
+            <Text size="xs" c="dimmed">
+              Para baixar, preencha o servidor da máquina principal em "Configuração da conexão", logo abaixo.
+            </Text>
+          )}
           {remoteStatus && (
             <Stack gap={2}>
               <StatusDot tone={remoteStatus.official_available ? "success" : "warning"}>
