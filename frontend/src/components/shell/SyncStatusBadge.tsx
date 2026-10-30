@@ -89,6 +89,10 @@ export function SyncStatusBadge() {
     return parsed.isValid() ? parsed.format("DD/MM/YYYY [às] HH:mm") : iso;
   };
 
+  // Sem base oficial configurada, o selo não diz nada ao usuário: a configuração mora em
+  // Backup > Opções avançadas.
+  if (!isLoading && (!data || !isConfigured)) return null;
+
   return (
     <Popover
       opened={opened}

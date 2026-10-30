@@ -129,7 +129,7 @@ function RelatedPieceCard({
           color={rel.tipo === "COMPONENTE" ? "cyan" : "indigo"}
           style={{ flexShrink: 0 }}
         >
-          {rel.tipo === "COMPONENTE" ? "Conjunto Central" : "Turbo Completo"}
+          {rel.tipo === "COMPONENTE" ? "Conjunto central" : "Turbo completo"}
         </Badge>
         <CodeChip code={rel.codigo} />
         {rel.descricao && (

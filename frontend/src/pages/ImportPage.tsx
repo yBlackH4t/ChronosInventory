@@ -21,7 +21,6 @@ import {
   IconFileSpreadsheet,
   IconUpload,
   IconX,
-  IconFileImport,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -138,7 +137,6 @@ export default function ImportPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        icon={IconFileImport}
         title={mode === "fotos" ? "Importar fotos" : "Importar planilha"}
         subtitle={
           mode === "fotos"

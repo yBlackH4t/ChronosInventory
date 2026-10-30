@@ -804,6 +804,12 @@ export default function ProductsPage() {
     });
   };
 
+  const activeBranches = stockTotals?.locations ?? [];
+  const singleBranch =
+    activeBranches.length === 1
+      ? activeBranches[0].location_label || activeBranches[0].location_name
+      : null;
+
   return (
     <Stack gap="md">
       <PageHeader
@@ -811,9 +817,10 @@ export default function ProductsPage() {
         subtitle={
           stockTotals ? (
             <span className="pm-header-stats num">
-              <strong>{stockTotals.total_geral.toLocaleString("pt-BR")}</strong> peças em estoque
+              <strong>{stockTotals.total_geral.toLocaleString("pt-BR")}</strong>{" "}
+              {singleBranch ? `peças em ${singleBranch}` : "peças em estoque"}
               {stockTotals.locations
-                .filter((loc) => loc.total > 0)
+                .filter((loc) => loc.total > 0 && !singleBranch)
                 .map((loc) => (
                   <span key={loc.location_id}>
                     <span className="pm-header-dot" style={{ background: loc.color || "var(--accent)" }} aria-hidden />

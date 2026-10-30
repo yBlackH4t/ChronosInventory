@@ -275,7 +275,7 @@ export default function AssistantAdminPanel() {
           <Group gap="xs">
             <IconShieldLock size={28} color="var(--mantine-color-info-6)" />
             <div>
-              <Title order={4}>Criar Senha de Administrador</Title>
+              <Title order={4}>Criar senha de administrador</Title>
               <Text size="xs" c="dimmed">
                 Defina uma senha para proteger a área de ensino e revisão da IA.
               </Text>
@@ -342,7 +342,7 @@ export default function AssistantAdminPanel() {
           <form onSubmit={handleLogin}>
             <Stack gap="sm">
               <PasswordInput
-                label="Senha de Administrador"
+                label="Senha de administrador"
                 placeholder="Digite sua senha de admin"
                 value={senhaInput}
                 onChange={(e) => setSenhaInput(e.currentTarget.value)}

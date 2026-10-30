@@ -16,7 +16,6 @@ import {
 import {
   IconAdjustmentsHorizontal,
   IconSearch,
-  IconChecklist,
 } from "@tabler/icons-react";
 import {
   keepPreviousData,
@@ -59,7 +58,7 @@ export default function ProductStatusPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState("20");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const { locations } = useLocations();
+  const { branchColumns: locations } = useLocations();
 
   const listQuery = useQuery<SuccessResponse<Product[]>>({
     queryKey: ["produtos-status", query, status, stockFilter, page, pageSize],
@@ -151,7 +150,6 @@ export default function ProductStatusPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        icon={IconChecklist}
         title="Ativação em massa"
         subtitle="Ative ou inative vários produtos de uma vez. Itens inativos saem das operações, mas mantêm o histórico."
       />
@@ -265,7 +263,7 @@ export default function ProductStatusPage() {
                   </Table.Th>
                 ))}
                 <Table.Th w={80} ta="right">
-                  Total
+                  {locations.length > 0 ? "Total" : "Saldo"}
                 </Table.Th>
                 <Table.Th w={120}>Status</Table.Th>
               </Table.Tr>

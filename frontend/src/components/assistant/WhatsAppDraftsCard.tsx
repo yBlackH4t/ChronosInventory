@@ -62,7 +62,7 @@ function DraftItem({ draft }: { draft: WhatsAppDraft }) {
         <Text size="xs" c="dimmed">
           Pergunta: {draft.pergunta}
         </Text>
-        {!!draft.pendencias?.length && <Text size="xs" c="orange">Só aguardará o cliente após o envio:
+        {!!draft.pendencias?.length && <Text size="xs" c="warning">Só aguardará o cliente após o envio:
           {draft.pendencias.map(item => ` pedido ${item.pedido_id}: ${item.campos.join(", ")}`).join("; ")}</Text>}
         <Textarea autosize minRows={3} maxRows={14} value={text} onChange={(e) => setText(e.currentTarget.value)} />
         <Group justify="flex-end" gap="xs">

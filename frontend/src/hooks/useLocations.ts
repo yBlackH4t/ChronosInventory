@@ -20,6 +20,9 @@ export function useLocations() {
   });
   const locations = data || [];
   const activeLocations = locations.filter((loc) => loc.ativo);
+  // Uma coluna por filial só faz sentido com duas ou mais ativas; com uma só, a coluna
+  // da filial repete o total e as telas mostram apenas "Saldo".
+  const branchColumns = activeLocations.length > 1 ? activeLocations : [];
 
-  return { locations, activeLocations, isLoading, isPending, isFetching, refetch };
+  return { locations, activeLocations, branchColumns, isLoading, isPending, isFetching, refetch };
 }

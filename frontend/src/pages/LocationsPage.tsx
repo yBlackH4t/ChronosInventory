@@ -19,7 +19,6 @@ import {
   IconPlus,
   IconTrash,
   IconAlertTriangle,
-  IconBuildingStore,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
 import type { InventoryLocation } from "../lib/api";
@@ -122,7 +121,6 @@ export default function LocationsPage() {
   return (
     <Stack gap="md">
       <PageHeader
-        icon={IconBuildingStore}
         title="Filiais e locais"
         subtitle={`Onde o estoque fica armazenado · ${activeLocations.length} de 5 ativos`}
         actions={

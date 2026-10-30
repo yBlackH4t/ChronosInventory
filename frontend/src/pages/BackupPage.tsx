@@ -10,7 +10,6 @@ import { BackupHome } from "../components/backup/BackupHome";
 import { openRestorePicker } from "../components/backup/openRestorePicker";
 import { AdvancedSection } from "../components/ui/SimpleScreen";
 import { LocalBackupsSection } from "../components/backup/LocalBackupsSection";
-import { IconShieldLock } from "@tabler/icons-react";
 import PageHeader from "../components/ui/PageHeader";
 import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
 import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
@@ -320,7 +319,6 @@ export default function BackupPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        icon={IconShieldLock}
         title="Backup e segurança"
         subtitle="Cópias dos dados deste computador."
       />

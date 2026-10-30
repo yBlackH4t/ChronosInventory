@@ -3,6 +3,7 @@ import { IconArrowBackUp, IconHistory } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { useMemo, useRef } from "react";
 
+import { useLocations } from "../../hooks/useLocations";
 import type { MovementOut } from "../../lib/api";
 import { detectBrand, detectCondition } from "../../lib/brands";
 import {
@@ -50,6 +51,8 @@ export default function MovementsDayList({ rows, locationName, openHistory, onEs
   const listRef = useRef<HTMLDivElement>(null);
   const { displayRows, leaving, present } = useEstornoLeaving(rows);
   const reversed = useMemo(() => reversedMovementIds(rows), [rows]);
+  // Com uma filial só, "para Canoas" em toda linha não informa nada.
+  const oneBranch = useLocations().branchColumns.length === 0;
   const signature = useMemo(() => rows.map((row) => row.id).join(","), [rows]);
   useFlipList(listRef, signature, { enterOffset: 14 });
   useRowSpotlight(listRef, ".mv-line");
@@ -65,7 +68,7 @@ export default function MovementsDayList({ rows, locationName, openHistory, onEs
           data-flip-key={`dia-${group.day}`}
         >
           <div className="day-heading">{dayHeading(group.day)}</div>
-          <div className="mv-day" role="list">
+          <div className="mv-day" role="list" data-one-branch={oneBranch || undefined}>
             {group.rows.map((mov) => {
               const tone = movementTone(mov.tipo, mov.natureza);
               const nome = mov.produto_nome || `Produto #${mov.produto_id}`;

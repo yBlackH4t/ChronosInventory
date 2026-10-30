@@ -173,7 +173,7 @@ export function CompanyRegisterSection() {
         </Text>
 
         {!canEdit && (
-          <Alert variant="light" color="yellow" p="xs">
+          <Alert variant="light" color="warning" p="xs">
             <Text size="xs">{status?.motivo}</Text>
           </Alert>
         )}
@@ -206,7 +206,7 @@ export function CompanyRegisterSection() {
             {!!status?.fichas && (
               <Button
                 variant="subtle"
-                color="red"
+                color="danger"
                 leftSection={<IconTrash size={16} />}
                 loading={removeMutation.isPending}
                 disabled={!canEdit}

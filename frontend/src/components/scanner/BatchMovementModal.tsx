@@ -19,6 +19,7 @@ import { IconTrash, IconSearch, IconVolume, IconVolumeOff } from "@tabler/icons-
 import { useScanner } from "../../lib/useScanner";
 import { api } from "../../lib/apiClient";
 import type { Product, MovementBatchCreate } from "../../lib/api";
+import { MOVEMENT_NATURES, MOVEMENT_TYPES } from "../../lib/movements";
 import { notifyError, notifySuccess } from "../../lib/notify";
 import { useLocations } from "../../hooks/useLocations";
 import { useMotionLevel } from "../../lib/motionContext";
@@ -56,7 +57,10 @@ export default function BatchMovementModal({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{value: string, label: string, product: Product}[]>([]);
 
-  const { locations } = useLocations();
+  const { activeLocations } = useLocations();
+  // Com uma filial só, ela já vem escolhida.
+  const onlyLocationId = activeLocations.length === 1 ? String(activeLocations[0].id) : null;
+  const chosenLocationId = locationId ?? onlyLocationId;
   const { listen } = useScanner();
   const motionLevel = useMotionLevel();
   // Bipe ao ler: desligado por padrão, lembrado só nesta máquina.
@@ -203,12 +207,12 @@ export default function BatchMovementModal({
       resolvedOrigem = Number(origemLocationId);
       resolvedDestino = Number(destinoLocationId);
     } else {
-      if (!locationId) {
+      if (!chosenLocationId) {
         notifyError(new Error("Selecione uma localização."));
         return;
       }
-      resolvedOrigem = tipo === "SAIDA" ? Number(locationId) : null;
-      resolvedDestino = tipo === "ENTRADA" ? Number(locationId) : null;
+      resolvedOrigem = tipo === "SAIDA" ? Number(chosenLocationId) : null;
+      resolvedDestino = tipo === "ENTRADA" ? Number(chosenLocationId) : null;
     }
 
     setLoading(true);
@@ -251,18 +255,18 @@ export default function BatchMovementModal({
     );
   };
 
-  const locationOptions = locations.map((loc) => ({
+  const locationOptions = activeLocations.map((loc) => ({
     value: loc.id.toString(),
-    label: loc.name,
+    label: loc.label || loc.name,
   }));
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Movimentação em Lote / Transferência" size="xl" classNames={{ header: "modal-solid-header" }}>
+    <Modal opened={opened} onClose={onClose} title="Movimentação em lote" size="xl" classNames={{ header: "modal-solid-header" }}>
       <Stack gap="md">
         <Group grow>
           <Select
             label="Tipo"
-            data={["ENTRADA", "SAIDA", "TRANSFERENCIA"]}
+            data={MOVEMENT_TYPES}
             value={tipo}
             onChange={(val) => {
               setTipo(val as MovementBatchCreate["tipo"]);
@@ -274,9 +278,11 @@ export default function BatchMovementModal({
           />
           <Select
             label="Natureza"
-            data={tipo === "TRANSFERENCIA" 
-              ? ["OPERACAO_NORMAL", "TRANSFERENCIA_EXTERNA"] 
-              : ["OPERACAO_NORMAL", "DEVOLUCAO", "AJUSTE"]}
+            data={MOVEMENT_NATURES.filter((option) =>
+              tipo === "TRANSFERENCIA"
+                ? option.value === "OPERACAO_NORMAL" || option.value === "TRANSFERENCIA_EXTERNA"
+                : option.value !== "TRANSFERENCIA_EXTERNA",
+            )}
             value={natureza}
             onChange={(val) => setNatureza(val as NonNullable<MovementBatchCreate["natureza"]>)}
             allowDeselect={false}
@@ -290,7 +296,7 @@ export default function BatchMovementModal({
               data={locationOptions}
               value={origemLocationId}
               onChange={setOrigemLocationId}
-              placeholder="Estoque de Origem"
+              placeholder="Estoque de origem"
               allowDeselect={false}
             />
             <Select
@@ -298,31 +304,31 @@ export default function BatchMovementModal({
               data={locationOptions}
               value={destinoLocationId}
               onChange={setDestinoLocationId}
-              placeholder="Estoque de Destino"
+              placeholder="Estoque de destino"
               allowDeselect={false}
             />
           </Group>
         ) : (
           <Select
-            label="Localização"
+            label="Local"
             data={locationOptions}
-            value={locationId}
+            value={chosenLocationId}
             onChange={setLocationId}
-            placeholder="Selecione o Local..."
+            placeholder="Escolha o local"
             allowDeselect={false}
           />
         )}
 
         <Group grow>
           <TextInput
-            label="Documento / Nota Fiscal"
+            label="Nota fiscal"
             placeholder="Ex: NF 12345"
             value={documento}
             onChange={(e) => setDocumento(e.currentTarget.value)}
           />
           <TextInput
-            label="Observação Geral"
-            placeholder="Ex: Lote recebido ou Transferência em Massa"
+            label="Observação"
+            placeholder="Ex.: lote recebido do fornecedor"
             value={observacao}
             onChange={(e) => setObservacao(e.currentTarget.value)}
           />
@@ -331,7 +337,7 @@ export default function BatchMovementModal({
         <Box className="scan-panel" ref={scanPanelRef}>
           <Stack gap="xs">
             <Group justify="space-between" align="center" gap="xs">
-              <Text size="sm" fw={500}>Adicionar Itens ao Lote</Text>
+              <Text size="sm" fw={500}>Itens</Text>
               <Switch
                 size="sm"
                 checked={beepOn}
@@ -342,10 +348,10 @@ export default function BatchMovementModal({
               />
             </Group>
             <Text size="xs" c="dimmed">
-              Você pode usar seu leitor de código de barras a qualquer momento, ou pesquisar o produto manualmente abaixo:
+              Bipe a etiqueta ou digite o código.
             </Text>
             <Autocomplete
-              placeholder="Pesquisar por nome ou código..."
+              placeholder="Buscar por nome ou código"
               data={searchResults}
               value={searchQuery}
               onChange={handleProductSearch}
@@ -406,7 +412,7 @@ export default function BatchMovementModal({
             Cancelar
           </Button>
           <Button onClick={handleConfirm} loading={loading} disabled={items.length === 0}>
-            Confirmar movimentação em lote
+            Confirmar
           </Button>
         </Group>
       </Stack>

@@ -1,5 +1,4 @@
 import { Stack, Text } from "@mantine/core";
-import { IconSettings } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "../components/ui/PageHeader";
 import {
@@ -22,7 +21,6 @@ export default function SettingsPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        icon={IconSettings}
         title="Configurações"
         subtitle="Aparência, este computador e as outras telas do Chronos."
       />
