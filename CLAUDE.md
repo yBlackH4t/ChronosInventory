@@ -17,8 +17,13 @@ React/Mantine, Tauri. Mapa do projeto em `docs/PROJECT_MAP.md`; rotas em `docs/A
 - O dono do projeto fala português do Brasil e não quer custos: o assistente usa o plano
   gratuito do Groq. Nunca peça nem mostre chaves de API; elas ficam em `assistente_config.json`,
   fora do git.
-- Trabalhe na `feature/assistente-ia` (ou numa branch nova a partir dela); o merge na `main` e
-  a tag de versão são feitos só pelo dono. A tag publica a atualização para todas as máquinas.
+- Trabalhe na `feature/assistente-ia` (ou numa branch nova a partir dela); o merge na `main` é
+  feito só pelo dono.
+- **Não mexa no número da versão nem no `CHANGELOG.md`.** Cada PR deixa um arquivo em
+  `novidades/` (veja `novidades/README.md`). No merge, o robô (`.github/workflows/publicar.yml`)
+  escolhe o número, escreve o CHANGELOG, cria a tag e publica no **canal de teste** (só o PC do
+  dono). Para todos, o dono roda "Liberar para todos" no GitHub; "Voltar versão" devolve todos à
+  anterior. Ninguém cria tag à mão.
 - Nunca teste no `estoque.db` original da empresa: use uma cópia (`CHRONOS_APP_DIR`).
 - `docs/API_DOCS.md` está em cp1252: leia e grave nessa codificação.
 

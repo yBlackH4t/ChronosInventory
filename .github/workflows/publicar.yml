@@ -1,0 +1,82 @@
+name: Publicar
+
+# A cada merge na main: o robo de versao (scripts/proxima_versao.py) junta os arquivos de
+# novidades/ no CHANGELOG, escolhe o numero, grava na main, cria a tag e chama o Release. A versao
+# sai no canal de teste; para todos, so com "Liberar para todos" (liberar.yml).
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Um merge de cada vez: o segundo espera o primeiro gravar o numero dele.
+concurrency:
+  group: publicar
+  cancel-in-progress: false
+
+jobs:
+  versao:
+    # O commit do proprio robo nao dispara workflows, mas garante caso um dia dispare.
+    if: ${{ !startsWith(github.event.head_commit.message, 'Versão ') }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.robo.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Escolher a versao e escrever o CHANGELOG
+        id: robo
+        run: python scripts/proxima_versao.py --aplicar --github-output "$GITHUB_OUTPUT"
+
+      - name: Conferir os arquivos de versao
+        if: steps.robo.outputs.tag != ''
+        run: |
+          node frontend/scripts/sync_changelog.mjs
+          python scripts/check_versions.py
+
+      - name: Gravar na main e criar a tag
+        if: steps.robo.outputs.tag != ''
+        env:
+          TAG: ${{ steps.robo.outputs.tag }}
+          VERSAO: ${{ steps.robo.outputs.versao }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet || [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "Versão $VERSAO (automática)"
+          fi
+          # Outro merge pode ter entrado enquanto o robo trabalhava: junta e tenta de novo.
+          for tentativa in 1 2 3; do
+            if git push origin HEAD:main; then break; fi
+            if [ "$tentativa" = 3 ]; then exit 1; fi
+            git pull --rebase origin main
+          done
+          git tag "$TAG"
+          git push origin "$TAG"
+
+  release:
+    needs: versao
+    if: needs.versao.outputs.tag != ''
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.versao.outputs.tag }}
+    secrets: inherit

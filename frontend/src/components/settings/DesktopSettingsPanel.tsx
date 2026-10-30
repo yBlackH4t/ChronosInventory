@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
-import { Group, Switch, Text } from "@mantine/core";
+import { Group, SegmentedControl, Switch, Text } from "@mantine/core";
 import { IconDeviceDesktop } from "@tabler/icons-react";
 
 import Panel from "../ui/Panel";
 import { notifyError } from "../../lib/notify";
 import { isTauri } from "../../lib/tauri";
 
+type UpdateChannel = "estavel" | "teste";
+
 type DesktopSettings = {
   fechar_para_bandeja: boolean;
   abrir_com_windows: boolean;
   porta_backend: number;
+  canal_atualizacao: UpdateChannel;
 };
 
 async function invokeDesktop<T>(
@@ -37,7 +40,10 @@ export default function DesktopSettingsPanel() {
 
   const save = async (
     patch: Partial<
-      Pick<DesktopSettings, "fechar_para_bandeja" | "abrir_com_windows">
+      Pick<
+        DesktopSettings,
+        "fechar_para_bandeja" | "abrir_com_windows" | "canal_atualizacao"
+      >
     >,
   ) => {
     setSaving(true);
@@ -47,6 +53,7 @@ export default function DesktopSettingsPanel() {
         {
           fecharParaBandeja: patch.fechar_para_bandeja,
           abrirComWindows: patch.abrir_com_windows,
+          canalAtualizacao: patch.canal_atualizacao,
         },
       );
       setSettings(next);
@@ -110,6 +117,32 @@ export default function DesktopSettingsPanel() {
             disabled={!settings || saving}
             onChange={(event) =>
               save({ abrir_com_windows: event.currentTarget.checked })
+            }
+          />
+        </div>
+        <div className="ts-option">
+          <div>
+            <Text size="sm" fw={600}>
+              Canal de atualização
+            </Text>
+            <Text size="xs" c="dimmed">
+              No Teste, este computador recebe cada versão nova antes dos
+              outros, que só a recebem depois de “Liberar para todos” no
+              GitHub. Voltar para o Estável instala a versão oficial, mesmo
+              que seja mais antiga que a deste computador.
+            </Text>
+          </div>
+          <SegmentedControl
+            size="xs"
+            aria-label="Canal de atualização"
+            data={[
+              { label: "Estável", value: "estavel" },
+              { label: "Teste", value: "teste" },
+            ]}
+            value={settings?.canal_atualizacao ?? "estavel"}
+            disabled={!settings || saving}
+            onChange={(value) =>
+              save({ canal_atualizacao: value as UpdateChannel })
             }
           />
         </div>

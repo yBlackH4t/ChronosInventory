@@ -152,9 +152,13 @@ export default function TopBar({ health }: { health: HealthOut }) {
 
     setCheckingUpdate(true);
     try {
-      const updater = await import("@tauri-apps/plugin-updater");
-
-      const update = await updater.check();
+      // O Rust procura no canal deste PC (Estável ou Teste) e aceita voltar versão.
+      const { invoke } = await import("@tauri-apps/api/core");
+      const { Update } = await import("@tauri-apps/plugin-updater");
+      const found = await invoke<ConstructorParameters<typeof Update>[0] | null>(
+        "procurar_atualizacao",
+      );
+      const update = found ? new Update(found) : null;
       if (!update) {
         notifySuccess("Nenhuma atualização disponível.");
         return;

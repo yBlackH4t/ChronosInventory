@@ -10,6 +10,13 @@ on:
         description: "Tag de release (ex: v1.0.0)"
         required: true
         type: string
+  # O robo de versao (publicar.yml) chama este fluxo depois de criar a tag: uma tag criada pelo
+  # GITHUB_TOKEN nao dispara o "push: tags" sozinha.
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -22,6 +29,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -46,6 +55,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
@@ -69,7 +80,7 @@ jobs:
   build:
     runs-on: windows-latest
     env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
       GITHUB_REPO: ${{ github.repository }}
       TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
       TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -79,6 +90,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Python 3.12
         id: setup-python
@@ -156,7 +169,7 @@ jobs:
     needs: [backend-tests, frontend-tests, build]
     runs-on: ubuntu-latest
     env:
-      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Baixar arquivos do release
         uses: actions/download-artifact@v4
@@ -164,12 +177,29 @@ jobs:
           name: release-files
           path: frontend/release
 
+      # Sai como pre-lancamento: o link "ultima versao", que os PCs do canal Estavel leem, continua
+      # na versao anterior ate o "Liberar para todos" (liberar.yml).
       - name: Publish GitHub Release assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
+          prerelease: true
+          make_latest: false
           files: |
             frontend/release/latest.json
             frontend/release/*.msi
             frontend/release/*.msi.zip
             frontend/release/*.sig
+
+      # O canal Teste le o latest.json deste lancamento fixo, que aponta sempre para a versao nova.
+      - name: Atualizar o canal de teste
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if ! gh release view canal-teste >/dev/null 2>&1; then
+            gh release create canal-teste --prerelease --target main \
+              --title "Canal de teste" \
+              --notes "Usado pelo Chronos no canal Teste. Não instale daqui: o arquivo latest.json aponta para a versão em teste."
+          fi
+          gh release upload canal-teste frontend/release/latest.json --clobber
