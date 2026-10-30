@@ -87,7 +87,7 @@ Abra **http://localhost:5173** e vá em **Assistente**.
    pergunte algo fora do padrão, ex.: "qual a capital da frança?".
 2. **Configurações > Assistente de IA:** deve mostrar Groq, configurado (a chave já está salva).
    Teste trocar para "Sem IA (só busca direta)" e voltar.
-3. **Tornar esta máquina admin:** tela **Backup > Base oficial**, na configuração,
+3. **Tornar esta máquina admin:** tela **engrenagem > Base oficial**, na configuração,
    "Papel desta máquina" = **Publica a base**, e salve. Não precisa publicar nada.
 4. **Assistente > Admin:** criar a senha de admin e entrar.
 5. **Fluxo de ensinar** (o seu exemplo da 7210):
@@ -128,7 +128,7 @@ C:\dev\chronos-venv\Scripts\python.exe scripts\assistente_avaliacao.py
 
 Precisa do Chronos com o assistente nas duas máquinas, na mesma rede.
 
-1. **Máquina do admin:** Backup > Base oficial > "Papel desta máquina" = **Publica a base** e
+1. **Máquina do admin:** engrenagem > Base oficial > "Papel desta máquina" = **Publica a base** e
    **ligue o servidor local** (anote um dos endereços que aparecem, ex.: `http://192.168.0.10:8765`).
    Quem já usa a pasta compartilhada da base oficial pode usar a pasta no lugar do servidor.
 2. **Máquina do colega:** "Papel desta máquina" = **Consome a base** e, em "Servidor remoto", o
@@ -139,7 +139,7 @@ Precisa do Chronos com o assistente nas duas máquinas, na mesma rede.
 
 Na aba Conhecimento das duas máquinas, a linha de status mostra de onde e quando o conhecimento
 foi publicado/recebido, com o botão **Sincronizar agora**. Se algo faltar, o aviso diz o que
-configurar em Backup > Base oficial.
+configurar em engrenagem > Base oficial.
 
 ---
 

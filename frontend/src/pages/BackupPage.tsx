@@ -11,12 +11,10 @@ import { openRestorePicker } from "../components/backup/openRestorePicker";
 import { AdvancedSection } from "../components/ui/SimpleScreen";
 import { LocalBackupsSection } from "../components/backup/LocalBackupsSection";
 import PageHeader from "../components/ui/PageHeader";
-import { OfficialBaseSection } from "../components/backup/OfficialBaseSection";
-import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
-import { CompanyRegisterSection } from "../components/backup/CompanyRegisterSection";
 import { SecondFolderSection } from "../components/backup/SecondFolderSection";
 import { useBackupAutoConfig } from "../hooks/useBackupAutoConfig";
 import { useBackupOfficialBasePanel } from "../hooks/useBackupOfficialBasePanel";
+import { bytesToHuman } from "../lib/bytes";
 import { downloadBlob } from "../lib/download";
 import { loadTabState, saveTabState } from "../state/tabStateCache";
 import type {
@@ -32,7 +30,7 @@ import type {
 import { notifyError, notifySuccess } from "../lib/notify";
 
 type BackupTabState = {
-  activeSection: "locais" | "oficial" | "catalogo" | "diagnostico";
+  activeSection: "locais" | "diagnostico";
   selectedBackupName: string | null;
   scrollY: number;
   advancedOpen?: boolean;
@@ -45,14 +43,6 @@ const DEFAULT_BACKUP_TAB_STATE: BackupTabState = {
   scrollY: 0,
 };
 
-function bytesToHuman(size: number): string {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  if (size < 1024 * 1024 * 1024)
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
 export default function BackupPage() {
   const persistedState = useMemo(
     () =>
@@ -62,7 +52,10 @@ export default function BackupPage() {
   const queryClient = useQueryClient();
   const [activeSection, setActiveSection] = useState<
     BackupTabState["activeSection"]
-  >(persistedState.activeSection);
+  >(
+    // A Base oficial e o Catálogo saíram daqui (2.7.26): aba antiga guardada volta para Cópias.
+    persistedState.activeSection === "diagnostico" ? "diagnostico" : "locais",
+  );
   const [selectedBackupName, setSelectedBackupName] = useState<string | null>(
     persistedState.selectedBackupName,
   );
@@ -92,7 +85,7 @@ export default function BackupPage() {
     saveAutoConfig,
     saveAutoConfigLoading,
   } = useBackupAutoConfig();
-  const officialBasePanel = useBackupOfficialBasePanel(activeSection);
+  const officialBasePanel = useBackupOfficialBasePanel(false);
 
   const backupsQuery = useQuery<SuccessResponse<BackupListItemOut[]>>({
     queryKey: ["backup-list"],
@@ -341,7 +334,7 @@ export default function BackupPage() {
       />
 
       <AdvancedSection
-        hint="Horário da cópia automática, lista de arquivos, outro disco, base oficial, catálogo e diagnóstico. Só para quem configura."
+        hint="Horário da cópia automática, lista de arquivos, outro disco e diagnóstico. Só para quem configura."
         defaultOpen={persistedState.advancedOpen}
         onToggle={setAdvancedOpen}
       >
@@ -355,70 +348,9 @@ export default function BackupPage() {
         >
           <Tabs.List>
             <Tabs.Tab value="locais">Cópias</Tabs.Tab>
-            <Tabs.Tab value="oficial">Base oficial</Tabs.Tab>
-            <Tabs.Tab value="catalogo">Catálogo</Tabs.Tab>
             <Tabs.Tab value="diagnostico">Problemas</Tabs.Tab>
           </Tabs.List>
 
-          <Tabs.Panel value="oficial" pt="md">
-            <OfficialBaseSection
-              loading={officialBasePanel.officialBaseStatusLoading}
-              errorMessage={officialBasePanel.officialBaseStatusErrorMessage}
-              onRetry={() => void officialBasePanel.retryStatus()}
-              status={officialBasePanel.officialBaseStatus}
-              roleInput={officialBasePanel.officialRoleInput}
-              onRoleChange={officialBasePanel.setOfficialRoleInput}
-              machineLabelInput={officialBasePanel.officialMachineLabelInput}
-              onMachineLabelChange={
-                officialBasePanel.setOfficialMachineLabelInput
-              }
-              publisherNameInput={officialBasePanel.officialPublisherNameInput}
-              onPublisherNameChange={
-                officialBasePanel.setOfficialPublisherNameInput
-              }
-              serverPortInput={officialBasePanel.officialServerPortInput}
-              onServerPortChange={officialBasePanel.setOfficialServerPortInput}
-              remoteServerUrlInput={
-                officialBasePanel.officialRemoteServerUrlInput
-              }
-              onRemoteServerUrlChange={
-                officialBasePanel.setOfficialRemoteServerUrlInput
-              }
-              serverTokenInput={officialBasePanel.officialServerTokenInput}
-              onServerTokenChange={
-                officialBasePanel.setOfficialServerTokenInput
-              }
-              onSaveServerToken={officialBasePanel.saveServerPassword}
-              onRemoveServerToken={officialBasePanel.removeServerPassword}
-              onSaveConfig={officialBasePanel.saveOfficialBaseConfig}
-              saveConfigLoading={officialBasePanel.saveConfigLoading}
-              serverSwitchLabel={officialBasePanel.serverSwitchLabel}
-              serverIsRunning={officialBasePanel.serverIsRunning}
-              serverToggleBusy={officialBasePanel.serverToggleBusy}
-              onToggleServer={officialBasePanel.toggleLocalServer}
-              onTestRemoteServer={officialBasePanel.testRemoteServer}
-              testRemoteLoading={officialBasePanel.testRemoteLoading}
-              remoteStatus={officialBasePanel.remoteOfficialStatus}
-              notesInput={officialBasePanel.officialNotesInput}
-              onNotesChange={officialBasePanel.setOfficialNotesInput}
-              onPublish={officialBasePanel.confirmPublishOfficialBase}
-              publishLoading={officialBasePanel.publishLoading}
-              publishFailed={officialBasePanel.publishFailed}
-              onApply={officialBasePanel.confirmApplyOfficialBase}
-              applyLoading={officialBasePanel.applyLoading}
-              formatBytes={bytesToHuman}
-              historyItems={officialBasePanel.officialBaseHistory}
-              historyLoading={officialBasePanel.officialBaseHistoryLoading}
-              canDeleteHistory={
-                officialBasePanel.officialRoleInput === "publisher"
-              }
-              deletePending={officialBasePanel.deletePending}
-              onDeleteHistory={
-                officialBasePanel.confirmDeleteOfficialBaseHistoryItem
-              }
-              onDeleteLatest={officialBasePanel.confirmDeleteLatestOfficialBase}
-            />
-          </Tabs.Panel>
           <Tabs.Panel value="locais" pt="md">
             <Stack gap="md">
               <LocalBackupsSection
@@ -469,12 +401,6 @@ export default function BackupPage() {
                 backups={backups}
               />
               <SecondFolderSection />
-            </Stack>
-          </Tabs.Panel>
-          <Tabs.Panel value="catalogo" pt="md">
-            <Stack gap="md">
-              <CatalogUpdateSection />
-              <CompanyRegisterSection />
             </Stack>
           </Tabs.Panel>
           <Tabs.Panel value="diagnostico" pt="md">

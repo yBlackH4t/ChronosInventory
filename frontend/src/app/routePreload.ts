@@ -11,6 +11,7 @@ export const PAGE_IMPORTS = {
   "/exportar": () => import("../pages/ExportPage"),
   "/relatorios": () => import("../pages/ReportsPage"),
   "/backup": () => import("../pages/BackupPage"),
+  "/base-oficial": () => import("../pages/OfficialBasePage"),
   "/inventario": () => import("../pages/InventoryPage"),
   "/novidades": () => import("../pages/ReleaseNotesPage"),
   "/itens-status": () => import("../pages/ProductStatusPage"),

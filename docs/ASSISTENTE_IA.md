@@ -137,7 +137,7 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
   responder melhor que o de teste.
 - **Formato dos códigos na resposta:** só dígitos (53279887101); só a Garrett usa hífen
   (796155-5002).
-- **Admin:** só a máquina **publicadora** da base oficial (Backup > Base oficial > "Papel desta
+- **Admin:** só a máquina **publicadora** da base oficial (engrenagem > Base oficial > "Papel desta
   máquina" = Publica a base) + senha. O login dura 8 h e fica só na memória do backend.
 - **"A é igual a B?"** (igual, a mesma, equivalente, serve no lugar...): a busca direta usa
   `comparar_codigos` e responde a relação, sem falar de estoque: mesma peça (nova/reman), o que
@@ -155,7 +155,7 @@ WhatsApp (equipe reage com 🤖)      Tela "Assistente"
   `catalogo_*` com a fonte "PROPRIA" (`core/catalog/own_fichas.py`), então todas as buscas a usam
   sem código novo. Edita a publicadora (ou uma máquina sem fonte configurada); viaja no mesmo JSON
   do conhecimento (chaves `fichas` e `fichas_sha256`, ignoradas pela 2.4.0).
-- **Atualizar catálogo** (2.4.1): Backup > Catálogo importa o `CatalogoMasterPower_Aberto.db`
+- **Atualizar catálogo** (2.4.1): Importar > Catálogo e cadastro importa o `CatalogoMasterPower_Aberto.db`
   (`POST /catalogo/importar`). A máquina fica marcada como "local:<versão>" e só um pacote de
   versão mais nova substitui o catálogo dela.
 - **Movimentações e código Master Power** (2026-10-13): "quando saiu / vendemos / chegou a X?",
@@ -281,7 +281,7 @@ migrações novas no banco. Sempre numa **cópia**.
 6. **Configurar de novo nesta máquina** (não vem pelo git):
    - chave gratuita do Groq em Configurações > Assistente de IA (console.groq.com → API Keys);
      **nunca cole a chave no chat com a IA**;
-   - Backup > Base oficial > "Papel desta máquina" = Publica a base, e a senha de admin;
+   - engrenagem > Base oficial > "Papel desta máquina" = Publica a base, e a senha de admin;
    - WhatsApp: conectar de novo pelo QR (de preferência, primeiro num WhatsApp comum).
 7. **Anotar as perguntas reais do chefe** (do histórico do WhatsApp) e acrescentar em
    `scripts/assistente_casos.json` para a avaliação.

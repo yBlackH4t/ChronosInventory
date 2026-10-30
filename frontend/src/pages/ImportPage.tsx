@@ -25,6 +25,8 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "../lib/apiClient";
+import { CatalogUpdateSection } from "../components/backup/CatalogUpdateSection";
+import { CompanyRegisterSection } from "../components/backup/CompanyRegisterSection";
 import PhotoBatchImport from "../components/products/PhotoBatchImport";
 import PageHeader from "../components/ui/PageHeader";
 import Panel from "../components/ui/Panel";
@@ -36,7 +38,7 @@ import { useLocations } from "../hooks/useLocations";
 const MAX_SIZE_BYTES = 50 * 1024 * 1024;
 
 export default function ImportPage() {
-  const [mode, setMode] = useState<"planilha" | "fotos">("planilha");
+  const [mode, setMode] = useState<"planilha" | "fotos" | "catalogo">("planilha");
   const [activeStep, setActiveStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [analysisData, setAnalysisData] = useState<{
@@ -137,11 +139,13 @@ export default function ImportPage() {
   return (
     <Stack gap="lg">
       <PageHeader
-        title={mode === "fotos" ? "Importar fotos" : "Importar planilha"}
+        title="Importar"
         subtitle={
           mode === "fotos"
             ? "Coloque as fotos de muitos produtos de uma vez, pelo código no nome do arquivo."
-            : "Envie um Excel ou CSV, indique o que é cada coluna e importe produtos e saldos."
+            : mode === "catalogo"
+              ? "Catálogo de referências e cadastro da empresa, que ensinam a busca e o assistente."
+              : "Envie um Excel ou CSV, indique o que é cada coluna e importe produtos e saldos."
         }
       />
 
@@ -152,11 +156,17 @@ export default function ImportPage() {
         data={[
           { value: "planilha", label: "Planilha" },
           { value: "fotos", label: "Fotos em lote" },
+          { value: "catalogo", label: "Catálogo e cadastro" },
         ]}
       />
 
       {mode === "fotos" ? (
         <PhotoBatchImport />
+      ) : mode === "catalogo" ? (
+        <Stack gap="md">
+          <CatalogUpdateSection />
+          <CompanyRegisterSection />
+        </Stack>
       ) : (
       <Stepper
         size="sm"

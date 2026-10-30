@@ -328,7 +328,7 @@ direta, dá para desfazer, e o bot nunca "inventa" um similar.
 - **Distribuição (Fase 2c, pronta no backend):** cada máquina tem o próprio banco e as filiais
   lançam movimentos separadamente (a comparação de estoque acha divergências); ninguém aplica a
   base oficial inteira. Então o conhecimento viaja à parte, num JSON pequeno
-  (`conhecimento_assistente.json`), pelos caminhos da base oficial (Backup > Base oficial):
+  (`conhecimento_assistente.json`), pelos caminhos da base oficial (engrenagem > Base oficial):
   - a **publicadora** grava o arquivo na pasta compartilhada (`latest/`) e no servidor local (rota
     `/knowledge`, porta 8765) depois de cada regra criada, excluída ou aprovada, ao abrir o
     backend e a cada 10 min;
@@ -431,7 +431,7 @@ grátis, mas exige conta Meta e um parceiro credenciado (muitos cobram), um ende
 
 - [x] Chave gratuita do Groq (console.groq.com → API Keys), sem cartão.
 - [ ] Testar seguindo o roteiro `docs/TESTE_ASSISTENTE.md` (banco de teste).
-- [ ] Marcar a máquina do admin como **publicadora** (Backup > Base oficial > "Papel desta
+- [ ] Marcar a máquina do admin como **publicadora** (engrenagem > Base oficial > "Papel desta
       máquina": "Publica a base") e definir a senha de admin (Assistente > Admin).
 - [ ] Ensinar as primeiras regras (ex.: 53279887101 similar 53279887210).
 - [ ] Lista de perguntas reais do chefe (do histórico do WhatsApp) para a avaliação.

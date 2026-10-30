@@ -3,7 +3,6 @@ import {
   Group,
   Loader,
   Pagination,
-  SegmentedControl,
   Stack,
   Table,
   Text,
@@ -19,7 +18,9 @@ import type { MovementOut } from "../../lib/api";
 import {
   adjustmentReasonLabel,
   movementNatureLabel,
+  MOVEMENTS_VIEW_KEY,
   signedQuantity,
+  type MovementsView,
   type ResolvedMovementTableLayout,
 } from "../../lib/movements";
 import { reversedMovementIds } from "../../lib/movementTimeline";
@@ -46,7 +47,6 @@ type Props = {
   openHistory: (productId: number) => void;
 };
 
-type MovementsView = "DIA" | "TABELA";
 
 export default function MovementsTableSection({
   loading,
@@ -66,8 +66,9 @@ export default function MovementsTableSection({
   const parentRef = useRef<HTMLDivElement>(null);
   const [estornoMovement, setEstornoMovement] = useState<MovementOut | null>(null);
   const ROW_HEIGHT = useRowHeight(56);
-  const [view, setView] = useLocalStorage<MovementsView>({
-    key: "chronos.movements.view",
+  // "Por dia" ou "Tabela": escolhido no botão Filtros (mesma chave, os dois ficam juntos).
+  const [view] = useLocalStorage<MovementsView>({
+    key: MOVEMENTS_VIEW_KEY,
     defaultValue: "DIA",
   });
 
@@ -94,18 +95,6 @@ export default function MovementsTableSection({
 
   return (
     <Stack gap="sm">
-      <Group justify="flex-end">
-        <SegmentedControl
-          size="xs"
-          value={view}
-          onChange={(value) => setView(value as MovementsView)}
-          data={[
-            { value: "DIA", label: "Por dia" },
-            { value: "TABELA", label: "Tabela" },
-          ]}
-          aria-label="Como mostrar as movimentações"
-        />
-      </Group>
       {loading ? (
         <Group justify="center" mt="xl">
           <Loader size="sm" />

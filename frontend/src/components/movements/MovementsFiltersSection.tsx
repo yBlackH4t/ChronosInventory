@@ -16,12 +16,11 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { DatePickerInput } from "@mantine/dates";
+import { useLocalStorage } from "@mantine/hooks";
 import {
   IconAdjustmentsHorizontal,
   IconFileText,
   IconSearch,
-  IconSortAscending,
-  IconSortDescending,
   IconX,
 } from "@tabler/icons-react";
 
@@ -29,7 +28,9 @@ import { useLocations } from "../../hooks/useLocations";
 import {
   MOVEMENT_NATURES,
   MOVEMENT_PAGE_SIZES,
+  MOVEMENTS_VIEW_KEY,
   TABLE_VIEW_MODE_OPTIONS,
+  type MovementsView,
   type MovementFilters,
   type MovementTableViewMode,
   type MovementsTablePreferences,
@@ -108,19 +109,29 @@ export default function MovementsFiltersSection({
   onClearFilters,
   onResetView,
 }: Props) {
-  const { locations } = useLocations();
+  const { locations, branchColumns } = useLocations();
   const locationOptions = locations.map((loc) => ({
     value: String(loc.id),
-    label: loc.name,
+    label: loc.label || loc.name,
   }));
+  const [view, setView] = useLocalStorage<MovementsView>({
+    key: MOVEMENTS_VIEW_KEY,
+    defaultValue: "DIA",
+  });
 
-  const advancedCount = [
-    filters.natureza,
-    filters.origem_location_id,
-    filters.destino_location_id,
-    filters.date_from,
-    filters.date_to,
-  ].filter(Boolean).length;
+  // Tudo que não é busca fica no botão Filtros; o número diz quantos estão ligados.
+  const filterCount =
+    [
+      filters.tipo,
+      filters.natureza,
+      filters.origem_location_id,
+      filters.destino_location_id,
+      filters.date_from,
+      filters.date_to,
+    ].filter(Boolean).length +
+    Number(showReversed) +
+    Number(sort !== "-data");
+  const typeLabel = TYPE_PILLS.find((pill) => pill.value === (filters.tipo || ""))?.label;
 
   return (
     <div className="toolbar-row">
@@ -147,10 +158,10 @@ export default function MovementsFiltersSection({
 
       <TextInput
         aria-label="Buscar por documento"
-        placeholder="Nº do documento (ex.: NF 13923)"
+        placeholder="Nº da nota"
         size="md"
         leftSection={<IconFileText size={18} stroke={1.5} />}
-        style={{ minWidth: 220 }}
+        style={{ width: 180 }}
         value={documentoSearch}
         onChange={(event) => onDocumentoSearchChange(event.currentTarget.value)}
         rightSection={
@@ -168,14 +179,6 @@ export default function MovementsFiltersSection({
         }
       />
 
-      <SegmentedControl
-        value={filters.tipo || ""}
-        onChange={(value) =>
-          setFilterValue("tipo", value as MovementFilters["tipo"])
-        }
-        data={TYPE_PILLS}
-      />
-
       <Popover
         position="bottom-end"
         width={360}
@@ -189,9 +192,9 @@ export default function MovementsFiltersSection({
             onClick={() => setShowAdvancedFilters((value) => !value)}
             leftSection={<IconAdjustmentsHorizontal size={16} stroke={1.5} />}
             rightSection={
-              advancedCount > 0 ? (
+              filterCount > 0 ? (
                 <Badge size="xs" circle variant="filled">
-                  {advancedCount}
+                  {filterCount}
                 </Badge>
               ) : undefined
             }
@@ -201,6 +204,62 @@ export default function MovementsFiltersSection({
         </Popover.Target>
         <Popover.Dropdown>
           <Stack gap="sm">
+            <Stack gap={4}>
+              <Text size="sm" fw={500}>
+                Tipo
+              </Text>
+              <SegmentedControl
+                fullWidth
+                value={filters.tipo || ""}
+                onChange={(value) =>
+                  setFilterValue("tipo", value as MovementFilters["tipo"])
+                }
+                data={TYPE_PILLS}
+              />
+            </Stack>
+            <SimpleGrid cols={2} spacing="sm">
+              <Stack gap={4}>
+                <Text size="sm" fw={500}>
+                  Ordem
+                </Text>
+                <SegmentedControl
+                  fullWidth
+                  value={sort === "-data" ? "-data" : "data"}
+                  onChange={setSort}
+                  data={[
+                    { value: "-data", label: "Recentes" },
+                    { value: "data", label: "Antigas" },
+                  ]}
+                />
+              </Stack>
+              <Stack gap={4}>
+                <Text size="sm" fw={500}>
+                  Mostrar
+                </Text>
+                <SegmentedControl
+                  fullWidth
+                  value={view}
+                  onChange={(value) => setView(value as MovementsView)}
+                  data={[
+                    { value: "DIA", label: "Por dia" },
+                    { value: "TABELA", label: "Tabela" },
+                  ]}
+                />
+              </Stack>
+            </SimpleGrid>
+            <Tooltip
+              multiline
+              w={260}
+              label="Um lançamento errado e o estorno que o desfez ficam fora da lista. Eles continuam guardados e o saldo não muda."
+            >
+              <Switch
+                size="sm"
+                label="Mostrar estornados"
+                checked={showReversed}
+                onChange={(event) => setShowReversed(event.currentTarget.checked)}
+              />
+            </Tooltip>
+            <Divider />
             <Select
               label="Natureza"
               placeholder="Todas"
@@ -238,43 +297,47 @@ export default function MovementsFiltersSection({
                 }
                 popoverProps={IN_POPOVER}
               />
-              <Select
-                label="Origem"
-                placeholder="Qualquer"
-                data={locationOptions}
-                clearable
-                value={
-                  filters.origem_location_id
-                    ? String(filters.origem_location_id)
-                    : null
-                }
-                onChange={(value) =>
-                  setFilterValue(
-                    "origem_location_id",
-                    value ? Number(value) : null,
-                  )
-                }
-                comboboxProps={IN_POPOVER}
-              />
-              <Select
-                label="Destino"
-                placeholder="Qualquer"
-                data={locationOptions}
-                clearable
-                value={
-                  filters.destino_location_id
-                    ? String(filters.destino_location_id)
-                    : null
-                }
-                onChange={(value) =>
-                  setFilterValue(
-                    "destino_location_id",
-                    value ? Number(value) : null,
-                  )
-                }
-                comboboxProps={IN_POPOVER}
-              />
             </SimpleGrid>
+            {branchColumns.length > 0 && (
+              <SimpleGrid cols={2} spacing="sm">
+                <Select
+                  label="Origem"
+                  placeholder="Qualquer"
+                  data={locationOptions}
+                  clearable
+                  value={
+                    filters.origem_location_id
+                      ? String(filters.origem_location_id)
+                      : null
+                  }
+                  onChange={(value) =>
+                    setFilterValue(
+                      "origem_location_id",
+                      value ? Number(value) : null,
+                    )
+                  }
+                  comboboxProps={IN_POPOVER}
+                />
+                <Select
+                  label="Destino"
+                  placeholder="Qualquer"
+                  data={locationOptions}
+                  clearable
+                  value={
+                    filters.destino_location_id
+                      ? String(filters.destino_location_id)
+                      : null
+                  }
+                  onChange={(value) =>
+                    setFilterValue(
+                      "destino_location_id",
+                      value ? Number(value) : null,
+                    )
+                  }
+                  comboboxProps={IN_POPOVER}
+                />
+              </SimpleGrid>
+            )}
             <Group justify="space-between" align="center" wrap="nowrap">
               <Switch
                 size="sm"
@@ -306,7 +369,7 @@ export default function MovementsFiltersSection({
             </Text>
             <SimpleGrid cols={2} spacing="sm">
               <Select
-                label="Exibição"
+                label="Linhas"
                 data={TABLE_VIEW_MODE_OPTIONS}
                 value={tablePreferences.viewMode}
                 allowDeselect={false}
@@ -342,33 +405,25 @@ export default function MovementsFiltersSection({
         </Popover.Dropdown>
       </Popover>
 
-      <Tooltip label={sort === "-data" ? "Mais recentes primeiro" : "Mais antigos primeiro"}>
-        <ActionIcon
+      {typeLabel && filters.tipo ? (
+        <Badge
           size="lg"
-          variant="default"
-          aria-label="Inverter ordenação"
-          onClick={() => setSort(sort === "-data" ? "data" : "-data")}
+          variant="light"
+          rightSection={
+            <ActionIcon
+              size="xs"
+              variant="transparent"
+              color="gray"
+              aria-label="Mostrar todos os tipos"
+              onClick={() => setFilterValue("tipo", "" as MovementFilters["tipo"])}
+            >
+              <IconX size={12} />
+            </ActionIcon>
+          }
         >
-          {sort === "-data" ? (
-            <IconSortDescending size={18} stroke={1.5} />
-          ) : (
-            <IconSortAscending size={18} stroke={1.5} />
-          )}
-        </ActionIcon>
-      </Tooltip>
-
-      <Tooltip
-        multiline
-        w={260}
-        label="Um lançamento errado e o estorno que o desfez ficam fora da lista. Eles continuam guardados e o saldo não muda."
-      >
-        <Switch
-          size="sm"
-          label="Mostrar estornados"
-          checked={showReversed}
-          onChange={(event) => setShowReversed(event.currentTarget.checked)}
-        />
-      </Tooltip>
+          {typeLabel}
+        </Badge>
+      ) : null}
 
       {activeViewCount > 0 && (
         <Button

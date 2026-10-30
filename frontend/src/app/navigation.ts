@@ -9,13 +9,13 @@ import {
   IconBuildingWarehouse,
   IconChecklist,
   IconClipboardList,
+  IconCloudUpload,
   IconDatabase,
   IconFileExport,
   IconFileImport,
   IconGauge,
   IconReport,
   IconSettings,
-  IconTool,
   IconMessageChatbot,
 } from "@tabler/icons-react";
 import { api } from "../lib/apiClient";
@@ -89,27 +89,23 @@ export const PRIMARY_NAV: NavItem[] = [
 ];
 
 // Administrative screens, reachable from the gear menu, Settings and Ctrl+K.
+// Grouped by what the person wants to do (2.7.26). "Primeira configuração" left the
+// menu: with a branch registered it only bounced back to the Painel.
 export const ADMIN_NAV: NavGroup[] = [
   {
-    title: "Estoque",
+    title: "Cadastro",
     items: [
       {
-        label: "Filiais e locais",
-        to: "/locais",
-        icon: IconBuildingStore,
-        description: "Filiais, lojas e depósitos de armazenagem",
+        label: "Importar",
+        to: "/importar",
+        icon: IconFileImport,
+        description: "Planilhas, fotos em lote, catálogo e cadastro da empresa",
       },
       {
-        label: "Perfis de estoque",
-        to: "/estoques",
-        icon: IconBuildingWarehouse,
-        description: "Bases de dados e ambientes de estoque",
-      },
-      {
-        label: "Comparar estoques",
-        to: "/comparar-estoques",
-        icon: IconArrowsDiff,
-        description: "Divergências entre duas bases",
+        label: "Exportar",
+        to: "/exportar",
+        icon: IconFileExport,
+        description: "Planilhas de produtos e movimentações",
       },
       {
         label: "Ativação em massa",
@@ -117,28 +113,40 @@ export const ADMIN_NAV: NavGroup[] = [
         icon: IconChecklist,
         description: "Ativar ou inativar vários produtos",
       },
+      {
+        label: "Filiais e locais",
+        to: "/locais",
+        icon: IconBuildingStore,
+        description: "Onde o estoque fica guardado",
+      },
     ],
   },
   {
-    title: "Dados",
+    title: "Cópias e outros computadores",
     items: [
-      {
-        label: "Importar",
-        to: "/importar",
-        icon: IconFileImport,
-        description: "Importar planilhas de produtos e saldos, e fotos em lote",
-      },
-      {
-        label: "Exportar",
-        to: "/exportar",
-        icon: IconFileExport,
-        description: "Exportar produtos e movimentações",
-      },
       {
         label: "Backup e segurança",
         to: "/backup",
         icon: IconDatabase,
-        description: "Cópias de segurança e restauração",
+        description: "Cópias dos dados deste computador",
+      },
+      {
+        label: "Base oficial",
+        to: "/base-oficial",
+        icon: IconCloudUpload,
+        description: "Publicar a base ou pegar do computador principal",
+      },
+      {
+        label: "Comparar estoques",
+        to: "/comparar-estoques",
+        icon: IconArrowsDiff,
+        description: "Diferenças entre este computador e outro",
+      },
+      {
+        label: "Perfis de estoque",
+        to: "/estoques",
+        icon: IconBuildingWarehouse,
+        description: "Bancos separados neste computador",
       },
     ],
   },
@@ -149,13 +157,7 @@ export const ADMIN_NAV: NavGroup[] = [
         label: "Configurações",
         to: "/configuracoes",
         icon: IconSettings,
-        description: "Índice de configurações do sistema",
-      },
-      {
-        label: "Primeira configuração",
-        to: "/setup",
-        icon: IconTool,
-        description: "Configuração inicial do sistema",
+        description: "Aparência e este computador",
       },
     ],
   },

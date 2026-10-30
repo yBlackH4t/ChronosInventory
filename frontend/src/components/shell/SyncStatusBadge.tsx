@@ -90,7 +90,7 @@ export function SyncStatusBadge() {
   };
 
   // Sem base oficial configurada, o selo não diz nada ao usuário: a configuração mora em
-  // Backup > Opções avançadas.
+  // a tela Base oficial (menu da engrenagem).
   if (!isLoading && (!data || !isConfigured)) return null;
 
   return (
@@ -260,7 +260,7 @@ export function SyncStatusBadge() {
               leftSection={<IconDatabase size={14} />}
               onClick={() => {
                 setOpened(false);
-                navigate("/backup");
+                navigate("/base-oficial");
               }}
             >
               Base oficial

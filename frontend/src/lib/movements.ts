@@ -82,6 +82,9 @@ export type MovementsTabState = {
 };
 
 export const MOVEMENTS_TAB_ID = "movements";
+/** Lista "Por dia" ou "Tabela" (guardado neste computador). */
+export type MovementsView = "DIA" | "TABELA";
+export const MOVEMENTS_VIEW_KEY = "chronos.movements.view";
 export const MOVEMENTS_TABLE_PREFS_KEY = "chronos.movements.table_prefs.v1";
 
 export const TABLE_VIEW_MODE_OPTIONS: {
